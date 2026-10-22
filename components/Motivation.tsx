@@ -84,6 +84,8 @@ export function RemainRing({ remain, total }: { remain: number; total: number })
 export function CountUp({ to, className }: { to: number; className?: string }) {
   const [v, setV] = useState(0);
   useEffect(() => {
+    // 動きを減らす設定の人には、数え上げずに最後の数字を出す
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setV(to); return; }
     let raf = 0; const t0 = performance.now();
     const step = (now: number) => {
       const k = Math.min(1, (now - t0) / 600);

@@ -5,6 +5,7 @@ import { MessageSquare, Search, Send, X } from 'lucide-react';
 import type { ModuleKey } from '@/lib/theme';
 import { useMotivation } from './Motivation';
 import { needText, usePerms } from './Perms';
+import { DrawerPortal } from './DrawerPortal';
 
 // 連絡パネル（チャット・配信・手動配信をひとつに・2026-10-23 shoya）。
 //   ・各画面の右上から開く。人事の画面は LINE公式「インフォメーション」、それ以外は「あおい」
@@ -69,7 +70,9 @@ function HoldButton({ label, onDone, disabled, title }: { label: string; onDone:
 }
 
 export function RenrakuButton({ module }: { module: ModuleKey | 'home' }) {
+  // ?renraku=1 で開いた状態から始める（画面の見本を撮るとき用）
   const [open, setOpen] = useState(false);
+  useEffect(() => { if (new URLSearchParams(window.location.search).has('renraku')) setOpen(true); }, []);
   const account = accountFor(module);
   const unread = THREADS[account].filter((x) => x.ball).length;
   return (
@@ -78,7 +81,7 @@ export function RenrakuButton({ module }: { module: ModuleKey | 'home' }) {
         <MessageSquare size={17} strokeWidth={1.8} />連絡<span className="rounded-full bg-[#F0F1F5] px-2 py-0.5 text-[11px] font-medium text-muted">{account}</span>
         {unread > 0 && <span className="num absolute -right-1.5 -top-1.5 rounded-full bg-[#E11D48] px-1.5 text-[11px] font-bold text-white">{unread}</span>}
       </button>
-      {open && <RenrakuPanel account={account} module={module} onClose={() => setOpen(false)} />}
+      {open && <DrawerPortal><RenrakuPanel account={account} module={module} onClose={() => setOpen(false)} /></DrawerPortal>}
     </>
   );
 }

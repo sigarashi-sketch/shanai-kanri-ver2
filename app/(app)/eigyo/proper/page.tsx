@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AlertTriangle, FileSpreadsheet, Search, X } from 'lucide-react';
 import { LIVERS, PEOPLE, PROPERS, type Proper } from '@/lib/sample';
 import { StaffList } from '@/components/lists/StaffList';
@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { PageTitle, Pill, PrimaryButton } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
+import { DrawerPortal } from '@/components/DrawerPortal';
 
 // 要員（プロパー）＋スキシ作成（2026-10-23 shoya「プロパーリストの中にスキシ作成をマージ」）。
 //   スキシは客先に出す紙：本名は載せずイニシャル、経歴は古い順、稼働開始に健康情報らしい値は載せない（今のいけどんと同じ決まり）。
@@ -19,7 +20,9 @@ function ProperTab() {
   const canEdit = usePerms().can('eigyo', 'edit');
   const { hit, toast } = useMotivation();
   const [rows, setRows] = useState<Proper[]>(PROPERS);
+  // ?sukishi=<id> でそのスキシを開いた状態から始める（画面の見本を撮るとき用）
   const [open, setOpen] = useState<Proper | null>(null);
+  useEffect(() => { const id = new URLSearchParams(window.location.search).get('sukishi'); const p = PROPERS.find((x) => x.id === id); if (p) setOpen(p); }, []);
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
 
@@ -80,6 +83,7 @@ function ProperTab() {
       </div>
 
       {open && (
+        <DrawerPortal>
         <aside key={open.id} aria-label="スキシ" className="mo-drawer fixed bottom-0 right-0 top-[var(--hdr,58px)] z-20 flex w-[min(420px,100vw)] flex-col border-l border-line bg-white shadow-[-12px_0_28px_rgba(25,27,46,.10)]">
           <div className="flex items-start justify-between px-5 py-4">
             <div><div className="text-[12px] text-faint">スキルシート（客先に出す紙）</div><div className="text-[18px] font-bold">{open.name}</div></div>
@@ -111,6 +115,7 @@ function ProperTab() {
             </PrimaryButton>
           </div>
         </aside>
+        </DrawerPortal>
       )}
     </div>
   );

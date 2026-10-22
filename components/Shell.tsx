@@ -102,6 +102,7 @@ export function Shell({ members, children }: { members: { id: string; name: stri
           </header>
           {blocked ? <NoAccess label={group!.label} /> : children}
         </div>
+        <div id="drawer-root" />
       </div>
     </MotivationProvider>
   );
