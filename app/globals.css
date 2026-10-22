@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+/* ver2 の土台。字体はミンミカと同じ（Inter＋ヒラギノ角ゴ）。分類の色は ColorProvider が --c-<分類> などで入れる。 */
+@theme {
+  --font-sans: var(--font-inter), "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+  --color-ink: #171717;
+  --color-sumi: #191B2E;
+  --color-base: #F5F6FA;
+  --color-line: #E8E9F0;
+  --color-line-soft: #F0F1F5;
+  --color-muted: #6B6F85;
+  --color-faint: #8B8FA3;
+}
+
+html, body { background: var(--color-base); color: var(--color-ink); }
+body { font-family: var(--font-sans); font-feature-settings: "palt" 0; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* いまの画面の分類色（--a 系）。ページの外枠で data-module を見て切り替える。ホームは墨色。 */
+[data-module] { --a: var(--color-sumi); --ad: var(--color-sumi); --as: #F1F2F7; --al: #D9DBE8; --ao: #FFFFFF; }
+[data-module="jinji"] { --a: var(--c-jinji); --ad: var(--d-jinji); --as: var(--s-jinji); --al: var(--l-jinji); --ao: var(--o-jinji); }
+[data-module="roumu"] { --a: var(--c-roumu); --ad: var(--d-roumu); --as: var(--s-roumu); --al: var(--l-roumu); --ao: var(--o-roumu); }
+[data-module="eigyo"] { --a: var(--c-eigyo); --ad: var(--d-eigyo); --as: var(--s-eigyo); --al: var(--l-eigyo); --ao: var(--o-eigyo); }
+[data-module="keiri"] { --a: var(--c-keiri); --ad: var(--d-keiri); --as: var(--s-keiri); --al: var(--l-keiri); --ao: var(--o-keiri); }
+
+/* ===== モーション図鑑の語彙だけ（legacy/api/_assets/docs/motion-catalog.html） =====
+   入場 (.22,1,.36,1)・退場 (.4,0,1,1)・弾み (.34,1.56,.64,1)
+   ホバー140ms・小さな反応220ms・ドロワー260ms・タブ240ms・Stagger 45ms×最大12 */
+@keyframes mo-fade-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes mo-fade-up { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
+@keyframes mo-scale-in { from { opacity: 0; transform: scale(.96) } to { opacity: 1; transform: none } }
+@keyframes mo-spring-in { 0% { opacity: 0; transform: scale(.85) } 60% { opacity: 1; transform: scale(1.04) } 100% { transform: none } }
+@keyframes mo-drawer { from { opacity: 0; transform: translateX(28px) } to { opacity: 1; transform: none } }
+@keyframes mo-axis { from { opacity: 0; transform: translateX(12px) } to { opacity: 1; transform: none } }
+@keyframes mo-flash { from { background: #D5F2E0 } to { background: transparent } }
+@keyframes mo-shake { 0%, 100% { transform: none } 20%, 60% { transform: translateX(-4px) } 40%, 80% { transform: translateX(4px) } }
+@keyframes mo-bar { from { transform: scaleX(0) } to { transform: scaleX(1) } }
+@keyframes mo-check { from { stroke-dashoffset: 24 } to { stroke-dashoffset: 0 } }
+@keyframes mo-pulse { 0%, 100% { opacity: 1 } 50% { opacity: .35 } }
+@keyframes mo-ring { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--a) 45%, transparent) } to { box-shadow: 0 0 0 14px transparent } }
+
+.mo-fade-in { animation: mo-fade-in 240ms ease-out both; animation-delay: calc(min(var(--i, 0), 12) * 45ms) }
+.mo-fade-up { animation: mo-fade-up 320ms cubic-bezier(.22,1,.36,1) both; animation-delay: calc(min(var(--i, 0), 12) * 45ms) }
+.mo-scale-in { animation: mo-scale-in 240ms cubic-bezier(.22,1,.36,1) both }
+.mo-spring-in { animation: mo-spring-in 520ms cubic-bezier(.34,1.56,.64,1) both }
+.mo-drawer { animation: mo-drawer 260ms cubic-bezier(.22,1,.36,1) both }
+.mo-axis { animation: mo-axis 240ms cubic-bezier(.22,1,.36,1) both }
+.mo-flash > td, .mo-flash { animation: mo-flash 1.2s ease-out both }
+.mo-shake { animation: mo-shake 320ms ease-in-out both }
+.mo-bar { transform-origin: left; animation: mo-bar 600ms cubic-bezier(.22,1,.36,1) both; animation-delay: calc(200ms + min(var(--i, 0), 12) * 45ms) }
+.mo-check { stroke-dasharray: 24; animation: mo-check 360ms ease-out both }
+.mo-pulse { animation: mo-pulse 1.4s ease-in-out infinite }
+.mo-celebrate { animation: mo-spring-in 520ms cubic-bezier(.34,1.56,.64,1) both, mo-ring 900ms ease-out 200ms both }
+
+/* 押した感：全ボタンに一括（DOM を増やさない） */
+button, a.btn { transition: transform 120ms, background-color 140ms, color 140ms, border-color 140ms }
+button:active:not(:disabled), a.btn:active { transform: scale(.96) }
+tr.row:hover, a.row:hover { background: #F7F8FC }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; animation-delay: 0ms !important; transition-duration: 1ms !important }
+}
