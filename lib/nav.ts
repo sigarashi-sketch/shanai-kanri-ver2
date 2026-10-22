@@ -23,24 +23,24 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
-    module: 'roumu', label: '労務管理', items: [
+    module: 'roumu', label: '労務/営業管理', items: [
       { href: '/roumu/today', label: '当日の出勤状況', badge: 12 },
       { href: '/roumu/approval', label: '申請の承認', badge: 8 },
       { href: '/roumu/overtime', label: '残業・36協定・有給' },
       { href: '/roumu/shime', label: '勤怠の締め' },
       { href: '/roumu/shift', label: 'シフト表' },
       { href: '/roumu/kekkin', label: '欠勤管理' },
+      { href: '/roumu/contracts', label: '現場・契約', badge: 4 },
       { href: '/roumu/timesheet', label: '勤務表の届き具合' },
       { href: '/roumu/alerts', label: 'アラート設定' },
       { href: '/roumu/kb', label: '労務法務ナレッジ' },
     ],
   },
   {
-    module: 'eigyo', label: '営業管理', items: [
+    module: 'eigyo', label: '営業', items: [
       { href: '/eigyo/cases', label: '案件' },
       { href: '/eigyo/progress', label: '案件進捗' }, // 単独のまま。作り込み（カスタム）はあとで詰める（10-23 shoya）
       { href: '/eigyo/proper', label: '要員リスト（プロパー・スキシ）', built: true },
-      { href: '/eigyo/contracts', label: '現場・契約', badge: 4 },
       { href: '/eigyo/taiki', label: '待機・再アサイン' },
       { href: '/eigyo/nippo', label: '成約日報' },
       { href: '/eigyo/map', label: '案件・要員マップ' },

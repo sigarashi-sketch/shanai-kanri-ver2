@@ -1,4 +1,4 @@
-// 分類ごとの色。人事・労務・営業・経理が1色ずつ持ち、同じ色は2つに付けられない。
+// 分類ごとの色。人事管理・労務/営業管理・営業・経理管理が1色ずつ持ち、同じ色は2つに付けられない。
 //   選んだ色が重なったら、あとの分類を空いている色へ自動でずらし、そう知らせる（notes）。
 //   黄（jinjer 寄りの黄×黒）だけは上に乗る文字を黒にする（on）。
 
@@ -27,8 +27,8 @@ export const PALETTE: Record<ColorKey, Swatch> = {
 
 export const MODULES: { key: ModuleKey; label: string; short: string; def: ColorKey }[] = [
   { key: 'jinji', label: '人事管理', short: '人事', def: 'indigo' },
-  { key: 'roumu', label: '労務管理', short: '労務', def: 'teal' },
-  { key: 'eigyo', label: '営業管理', short: '営業', def: 'yellow' },
+  { key: 'roumu', label: '労務/営業管理', short: '労務/営業', def: 'teal' },
+  { key: 'eigyo', label: '営業', short: '営業', def: 'yellow' },
   { key: 'keiri', label: '経理管理', short: '経理', def: 'violet' },
 ];
 

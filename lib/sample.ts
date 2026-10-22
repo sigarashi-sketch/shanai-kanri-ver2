@@ -67,7 +67,7 @@ export type Todo = { module: ModuleKey; text: string; n: string; tone: 'bad' | '
 export const TODOS: Todo[] = [
   { module: 'roumu', text: '打刻漏れ（未修正）', n: '12件', tone: 'bad', href: '/roumu/today' },
   { module: 'roumu', text: '残業が締め日に45hを超える見込み', n: '1人', tone: 'bad', href: '/roumu/overtime' },
-  { module: 'eigyo', text: '派遣契約が30日以内に終わる（意向未確認）', n: '2人', tone: 'warn', href: '/eigyo/contracts' },
+  { module: 'roumu', text: '派遣契約が30日以内に終わる（意向未確認）', n: '2人', tone: 'warn', href: '/roumu/contracts' },
   { module: 'jinji', text: '離職リスクが上がった人', n: '3人', tone: 'warn', href: '/jinji/rishoku' },
   { module: 'keiri', text: '勤務表が届いていない現場', n: '6件', tone: 'warn', href: '/roumu/timesheet' },
 ];
