@@ -37,8 +37,9 @@ export const NAV: NavGroup[] = [
   },
   {
     module: 'eigyo', label: '営業管理', items: [
-      { href: '/eigyo/cases', label: '案件・案件進捗' },
-      { href: '/eigyo/proper', label: '要員（プロパー）' },
+      { href: '/eigyo/cases', label: '案件' },
+      { href: '/eigyo/progress', label: '案件進捗' }, // 単独のまま。作り込み（カスタム）はあとで詰める（10-23 shoya）
+      { href: '/eigyo/proper', label: '要員リスト（プロパー・スキシ）', built: true },
       { href: '/eigyo/contracts', label: '現場・契約', badge: 4 },
       { href: '/eigyo/taiki', label: '待機・再アサイン' },
       { href: '/eigyo/nippo', label: '成約日報' },
@@ -56,8 +57,8 @@ export const NAV: NavGroup[] = [
   },
 ];
 
+// 連絡（チャット・配信・手動配信）は各画面の右上「連絡」から開く（人事＝インフォメーション、それ以外＝あおい）。
 export const NAV_EXTRA: NavItem[] = [
-  { href: '/renraku', label: '連絡（チャット・配信）' },
   { href: '/settings', label: '設定', built: true },
 ];
 

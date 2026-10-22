@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Bell, Briefcase, ChevronsLeft, ChevronsRight, Clock, Home, MessageSquare, ReceiptText, Search, ShieldCheck, SlidersHorizontal, Users } from 'lucide-react';
 import { NAV, NAV_EXTRA, findNav } from '@/lib/nav';
 import { APP_NAME } from '@/lib/app';
@@ -10,6 +10,7 @@ import type { ModuleKey } from '@/lib/theme';
 import { useColors } from './ColorProvider';
 import { MotivationProvider, TodayPill } from './Motivation';
 import { NoAccess, levelLabel, usePerms } from './Perms';
+import { RenrakuButton } from './Renraku';
 
 const MODULE_ICON: Record<ModuleKey, typeof Users> = { jinji: Users, roumu: Clock, eigyo: Briefcase, keiri: ReceiptText };
 
@@ -22,6 +23,16 @@ export function Shell({ members, children }: { members: { id: string; name: stri
   const module = group?.module ?? 'home';
   const visible = NAV.filter((g) => perms[g.module] !== 'none');
   const blocked = group && perms[group.module] === 'none';
+  // 右から出るパネル（連絡・スキシ）が上のバーに重ならないよう、バーの実際の高さを --hdr に入れる（狭い画面では折り返して高くなる）
+  const hdr = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = hdr.current; if (!el) return;
+    const set = () => document.documentElement.style.setProperty('--hdr', `${el.getBoundingClientRect().height}px`);
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(el); window.addEventListener('resize', set);
+    return () => { ro.disconnect(); window.removeEventListener('resize', set); };
+  }, []);
 
   return (
     <MotivationProvider>
@@ -74,7 +85,7 @@ export function Shell({ members, children }: { members: { id: string; name: stri
         </nav>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-30 flex min-h-[58px] flex-wrap items-center gap-3.5 border-b border-line bg-white/90 px-6 backdrop-blur">
+          <header ref={hdr} className="sticky top-0 z-30 flex min-h-[58px] flex-wrap items-center gap-3.5 border-b border-line bg-white/90 px-6 backdrop-blur">
             {group && <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold" style={{ color: 'var(--ad)' }}><i className="size-2 rounded-full" style={{ background: 'var(--a)' }} />{group.label}</span>}
             <label className="flex min-h-[38px] max-w-[420px] flex-1 items-center gap-2 rounded-[10px] border border-[#DCDDE6] px-3 text-faint">
               <Search size={16} />
@@ -84,6 +95,7 @@ export function Shell({ members, children }: { members: { id: string; name: stri
             {notes.length > 0 && <span role="status" className="mo-fade-in rounded-lg border border-[#F5D49A] bg-[#FFF4E0] px-2.5 py-1.5 text-[12.5px] text-[#8A4B00]">{notes.join('／')}</span>}
             <div className="ml-auto flex items-center gap-3">
               <TodayPill />
+              <RenrakuButton key={module} module={module as ModuleKey | 'home'} />
               <button aria-label="通知" className="relative flex size-10 items-center justify-center rounded-[10px] border border-line text-[#3F4257]"><Bell size={18} strokeWidth={1.8} /><span className="absolute right-2 top-[7px] size-[7px] rounded-full bg-[#E11D48]" /></button>
               <ViewerSwitch members={members} current={me.id} />
             </div>

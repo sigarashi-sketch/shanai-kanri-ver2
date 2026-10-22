@@ -31,6 +31,34 @@ export const PEOPLE: Person[] = [
   { id: 's0410', name: '渡辺 涼', kana: 'ワタナベ リョウ', no: 'S-0410', joined: '2025/03/01', status: '稼働中', site: 'F社（横浜）', contract: '派遣', station: '横浜', price: '41万', sales: '小林', recruiter: '田中', kintai: { text: '問題なし', tone: 'ok' }, contractEnd: '11/30 終了' },
 ];
 
+// 要員（プロパー）の営業向けの中身＋スキシ（スキルシート）の状態。スキシは客先に出す紙なので本名は載せない（イニシャル）。
+export type Sukishi = {
+  state: '作成済み' | '未作成' | '要確認';
+  initial: string;
+  age: string;
+  skills: string;
+  start: string;
+  history: { period: string; text: string }[];
+  warn?: string;
+  updated?: string;
+};
+export type Proper = { id: string; name: string; station: string; status: '営業中' | '参画決定' | '待機' | '稼働中'; sales: string; want: string; price: string; sukishi: Sukishi };
+export const PROPERS: Proper[] = [
+  { id: 's0441', name: '中村 優', station: '蕨', status: '営業中', sales: '田中', want: 'インフラ・監視運用', price: '32万〜', sukishi: { state: '作成済み', initial: 'Y.N', age: '26歳', skills: 'CCNA, LPIC-1', start: '即日', updated: '10/20', history: [{ period: '2023/04〜2025/06', text: '飲食店 店長（シフト・発注・売上管理）' }, { period: '2025/07〜', text: '研修（Linux・ネットワーク基礎）' }] } },
+  { id: 's0455', name: '加藤 葵', station: '武蔵小杉', status: '参画決定', sales: '田中', want: 'ヘルプデスク', price: '30万〜', sukishi: { state: '作成済み', initial: 'A.K', age: '24歳', skills: 'ITパスポート', start: '11/1', updated: '10/15', history: [{ period: '2022/04〜2025/09', text: 'アパレル販売（接客・在庫管理）' }] } },
+  { id: 's0470', name: '佐々木 蓮', station: '大宮', status: '営業中', sales: '小林', want: '開発（Java）', price: '33万〜', sukishi: { state: '未作成', initial: 'R.S', age: '23歳', skills: '基本情報技術者', start: '即日', history: [{ period: '2024/04〜2025/08', text: '物流倉庫（検品・出荷管理）' }] } },
+  { id: 's0472', name: '松本 結衣', station: '赤羽', status: '営業中', sales: '小林', want: 'テスト・検証', price: '30万〜', sukishi: { state: '要確認', initial: '', age: '25歳', skills: 'MOS', start: '即日', warn: 'ふりがなが姓名に分けられないため、イニシャルが空です（本名は載せません）', history: [{ period: '2021/04〜2025/03', text: 'コールセンター（問い合わせ対応・一次切り分け）' }] } },
+  { id: 's0388', name: '伊藤 誠', station: '赤羽', status: '稼働中', sales: '小林', want: '—', price: '42万', sukishi: { state: '作成済み', initial: 'M.I', age: '28歳', skills: 'CCNA, AWS SAA', start: '12/1', updated: '09/02', history: [{ period: '2019/04〜2024/09', text: '家電量販店（販売・修理受付）' }, { period: '2024/10〜', text: 'C社 サーバー監視・一次対応' }] } },
+];
+
+// ライバーリスト（全体管理者だけ・プロパーには混ぜない＝別のリスト）。見本。
+export type Liver = { id: string; name: string; platform: string; followers: string; status: '連絡中' | '面談予定' | '見送り'; memo: string };
+export const LIVERS: Liver[] = [
+  { id: 'l1', name: '配信者A', platform: 'TikTok LIVE', followers: '1.2万', status: '連絡中', memo: 'IT職に興味・平日夜なら面談可' },
+  { id: 'l2', name: '配信者B', platform: 'YouTube', followers: '8,400', status: '面談予定', memo: '10/28 19:00 オンライン' },
+  { id: 'l3', name: '配信者C', platform: 'TikTok LIVE', followers: '3.1万', status: '見送り', memo: '本業が忙しい' },
+];
+
 export const STATUS_COUNTS: { label: Status | 'すべて'; n: number }[] = [
   { label: 'すべて', n: 339 }, { label: '稼働中', n: 251 }, { label: '入場予定', n: 14 }, { label: '待機', n: 26 }, { label: '休職・産休', n: 5 }, { label: '退社', n: 87 },
 ];
