@@ -6,6 +6,7 @@ import { Check, ChevronRight } from 'lucide-react';
 import { APPROVALS, RESERVATIONS, TODOS, type Todo } from '@/lib/sample';
 import { MODULES } from '@/lib/theme';
 import { CountUp, RemainRing, useMotivation } from '@/components/Motivation';
+import { usePerms } from '@/components/Perms';
 
 const SHORT = Object.fromEntries(MODULES.map((m) => [m.key, m.short]));
 const FLOW: Record<string, string> = {
@@ -17,9 +18,20 @@ const FLOW: Record<string, string> = {
 
 export default function HomePage() {
   const { hit, toast } = useMotivation();
-  const [todos, setTodos] = useState<Todo[]>(TODOS);
+  const { can, perms } = usePerms();
+  // 見えない分類のものは出さない。承認は「承認」を持つ分類だけ。
+  const mine = TODOS.filter((t) => can(t.module, 'view'));
+  const myApprovals = APPROVALS.filter((a) => can(a.module, 'approve'));
+  const myReservations = RESERVATIONS.filter((r) => can(r.module, 'view'));
+  const kpis = [
+    { m: 'jinji', label: '稼働中', n: 251, unit: '人', sub: '先月より +6', subC: '#16A34A' },
+    { m: 'eigyo', label: '待機', n: 26, unit: '人', sub: '平均 18日', subC: '#B45309' },
+    { m: 'roumu', label: '今月の打刻漏れ', n: 41, unit: '件', sub: '未修正 12', subC: '#6B6F85' },
+    { m: 'keiri', label: '請求の下書き', n: 18, unit: '社', sub: '締め 11/5', subC: '#6B6F85' },
+  ].filter((k) => perms[k.m as keyof typeof perms] !== 'none');
+  const [todos, setTodos] = useState<Todo[]>(mine);
   const [flashing, setFlashing] = useState<string | null>(null);
-  const total = TODOS.length;
+  const total = mine.length;
 
   const done = (t: Todo) => {
     setFlashing(t.text);
@@ -37,7 +49,7 @@ export default function HomePage() {
         <div>
           <div className="text-[12.5px] text-muted">10月22日（木）・見本データ</div>
           <h1 className="mt-0.5 text-[22px] font-bold tracking-tight">
-            おはようございます。今日の対応は <span className="text-[#E11D48]">{todos.length + 23 - total}件</span>
+            おはようございます。今日の対応は <span className="text-[#E11D48]">{todos.length + myApprovals.length}件</span>
           </h1>
         </div>
         <div className="flex gap-2">
@@ -47,12 +59,7 @@ export default function HomePage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
-        {[
-          { m: 'jinji', label: '稼働中', n: 251, unit: '人', sub: '先月より +6', subC: '#16A34A' },
-          { m: 'eigyo', label: '待機', n: 26, unit: '人', sub: '平均 18日', subC: '#B45309' },
-          { m: 'roumu', label: '今月の打刻漏れ', n: 41, unit: '件', sub: '未修正 12', subC: '#6B6F85' },
-          { m: 'keiri', label: '請求の下書き', n: 18, unit: '社', sub: '締め 11/5', subC: '#6B6F85' },
-        ].map((k, i) => (
+        {kpis.map((k, i) => (
           <div key={k.label} className="mo-fade-up rounded-xl border border-line bg-white px-[18px] py-4" style={{ ['--i' as string]: i + 1, borderTop: `3px solid var(--c-${k.m})` }}>
             <div className="text-[12.5px] text-muted">{k.label}</div>
             <div className="text-[30px] font-bold tracking-tight"><CountUp to={k.n} /><small className="ml-1 text-[13px] font-medium">{k.unit}</small></div>
@@ -92,7 +99,8 @@ export default function HomePage() {
             <h2 className="text-[15px] font-bold">あなたが承認する分</h2>
             <span className="rounded-full bg-[#F3EEFE] px-2.5 py-0.5 text-[12px] text-[#6D28D9]">✦ AIが先に確認済み・要注意 2</span>
           </div>
-          {APPROVALS.map((a) => (
+          {myApprovals.length === 0 && <div className="border-t border-line-soft px-[18px] py-6 text-center text-[13px] text-muted">承認の権限がある分類はありません</div>}
+          {myApprovals.map((a) => (
             <Link key={a.text} href={a.href} className="row flex items-center gap-3 border-t border-line-soft px-[18px] py-2.5">
               <i className="size-2 rounded-full" style={{ background: `var(--c-${a.module})` }} />
               <span className="flex-1 text-[13.5px]">{a.text}</span>
@@ -113,7 +121,7 @@ export default function HomePage() {
               <th className="px-[18px] py-2.5 font-semibold">適用日</th><th className="px-2 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">分類</th><th className="px-2 py-2.5 font-semibold">変更前 → 変更後</th><th className="px-[18px] py-2.5 font-semibold">一緒に変わるもの</th>
             </tr></thead>
             <tbody>
-              {RESERVATIONS.map((r, i) => (
+              {myReservations.map((r, i) => (
                 <tr key={r.person + r.field} className="row mo-fade-in border-t border-line-soft" style={{ ['--i' as string]: 8 + i }}>
                   <td className="px-[18px] py-2.5 font-semibold">{r.date}</td>
                   <td className="px-2 py-2.5">{r.person}</td>

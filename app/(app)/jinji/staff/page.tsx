@@ -6,9 +6,11 @@ import { ChevronRight, Search } from 'lucide-react';
 import { PEOPLE, STATUS_COUNTS } from '@/lib/sample';
 import { GhostButton, PageTitle, Pill, PrimaryButton, TONE } from '@/components/ui';
 import { useMotivation } from '@/components/Motivation';
+import { needText, usePerms } from '@/components/Perms';
 
 export default function StaffPage() {
   const { hit, toast } = useMotivation();
+  const canEdit = usePerms().can('jinji', 'edit');
   const [tab, setTab] = useState<string>('すべて');
   const [q, setQ] = useState('');
   const [sel, setSel] = useState<Set<string>>(new Set());
@@ -18,7 +20,7 @@ export default function StaffPage() {
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-[120px] pt-[22px]">
       <PageTitle title="社員一覧" sub="状態は日付つきの履歴から自動で決まります。名前を押すと社員ページ">
-        <GhostButton>CSV</GhostButton><PrimaryButton>＋ 社員を追加</PrimaryButton>
+        <GhostButton>CSV</GhostButton><PrimaryButton disabled={!canEdit} title={canEdit ? undefined : needText('edit')}>＋ 社員を追加</PrimaryButton>
       </PageTitle>
 
       <div className="mo-fade-up flex flex-wrap gap-2" style={{ ['--i' as string]: 1 }} role="tablist">
@@ -78,7 +80,9 @@ export default function StaffPage() {
           <b className="num">{sel.size}人を選択中</b><span className="h-5 w-px bg-white/20" />
           <button onClick={() => { hit(); toast({ text: `${sel.size}人にLINEを送る準備をしました`, sub: '→ 連絡の下書きに入りました' }); setSel(new Set()); }} className="min-h-9 rounded-[9px] bg-white/10 px-3 text-[13px]">LINEで送る</button>
           <button onClick={() => { hit(); toast({ text: `${sel.size}人に書類の回収を依頼しました`, sub: '→ 入社手続きの提出待ちに載りました' }); setSel(new Set()); }} className="min-h-9 rounded-[9px] bg-white/10 px-3 text-[13px]">書類の回収を依頼</button>
-          <Link href="/jinji/yoyaku" className="btn inline-flex min-h-9 items-center rounded-[9px] px-3.5 text-[13px] font-bold" style={{ background: 'var(--a)', color: 'var(--ao)' }}>変更を予約（{sel.size}人）</Link>
+          {canEdit
+            ? <Link href="/jinji/yoyaku" className="btn inline-flex min-h-9 items-center rounded-[9px] px-3.5 text-[13px] font-bold" style={{ background: 'var(--a)', color: 'var(--ao)' }}>変更を予約（{sel.size}人）</Link>
+            : <span title={needText('edit')} className="inline-flex min-h-9 cursor-not-allowed items-center rounded-[9px] bg-white/10 px-3.5 text-[13px] text-white/50">変更の予約は「直す」の権限が要ります</span>}
         </div>
       )}
     </main>

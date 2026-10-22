@@ -1,9 +1,11 @@
 import 'server-only';
 import { cookies } from 'next/headers';
-import { DEV_VIEWERS, VIEWER_COOKIE, type Viewer } from './access';
+import { VIEWER_COOKIE, type Member } from './access';
+import { loadMembers } from './members-store';
 
-/** いまの人。ログインをつなぐまでは cookie の切り替え（既定は内勤）。 */
-export async function getViewer(): Promise<Viewer> {
-  const k = (await cookies()).get(VIEWER_COOKIE)?.value;
-  return DEV_VIEWERS[k || 'naikin'] ?? DEV_VIEWERS.naikin;
+/** いまの人。ログインをつなぐまでは上のバーの「見え方」で切り替え（cookie・既定は全体管理者）。 */
+export async function getViewer(): Promise<Member> {
+  const id = (await cookies()).get(VIEWER_COOKIE)?.value;
+  const ms = await loadMembers();
+  return ms.find((m) => m.id === id) ?? ms[0];
 }

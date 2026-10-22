@@ -26,9 +26,10 @@ export function PageTitle({ title, sub, children }: { title: string; sub?: strin
   );
 }
 
-export function PrimaryButton({ children, onClick, disabled }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean }) {
+/** 主ボタン。権限が足りないときは disabled＋title に「どの権限が要るか」を入れる。 */
+export function PrimaryButton({ children, onClick, disabled, title }: { children: React.ReactNode; onClick?: () => void; disabled?: boolean; title?: string }) {
   return (
-    <button onClick={onClick} disabled={disabled} className="min-h-10 rounded-[10px] px-4 text-[13.5px] font-semibold disabled:opacity-40" style={{ background: 'var(--a)', color: 'var(--ao)' }}>{children}</button>
+    <button onClick={onClick} disabled={disabled} title={title} className="min-h-10 rounded-[10px] px-4 text-[13.5px] font-semibold disabled:cursor-not-allowed disabled:opacity-40" style={{ background: 'var(--a)', color: 'var(--ao)' }}>{children}</button>
   );
 }
 

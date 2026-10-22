@@ -1,22 +1,24 @@
 import { ViewerSwitch } from '@/components/Shell';
 import { canUseApp } from '@/lib/access';
+import { loadMembers } from '@/lib/members-store';
 import { getViewer } from '@/lib/viewer';
 import { PEOPLE } from '@/lib/sample';
 
 // 営業共有リスト。内勤以外の人が見られるのはここだけ。
 export default async function SharedListPage() {
-  const viewer = await getViewer();
+  const me = await getViewer();
+  const members = (await loadMembers()).map((m) => ({ id: m.id, name: m.name }));
   const rows = PEOPLE.filter((p) => p.status === '待機' || p.status === '入場予定' || p.contractEnd);
   return (
     <div data-module="eigyo" className="min-h-screen">
       <header className="flex min-h-[58px] items-center gap-3 border-b border-line bg-white px-6">
         <div aria-hidden className="flex size-7 items-center justify-center rounded-lg bg-sumi text-[15px] font-extrabold text-white">S</div>
         <b className="text-[15px]">営業共有リスト</b>
-        <span className="text-[12.5px] text-muted">{viewer.name}・この画面だけ見られます</span>
-        <div className="ml-auto"><ViewerSwitch viewer={viewer} /></div>
+        <span className="text-[12.5px] text-muted">{me.name}{canUseApp(me) ? '' : '・この画面だけ見られます'}</span>
+        <div className="ml-auto"><ViewerSwitch members={members} current={me.id} /></div>
       </header>
       <main className="mx-auto flex max-w-[1200px] flex-col gap-4 px-6 py-6">
-        {canUseApp(viewer) && <a href="/" className="text-[13px] font-semibold" style={{ color: 'var(--ad)' }}>← 社内管理に戻る</a>}
+        {canUseApp(me) && <a href="/" className="text-[13px] font-semibold" style={{ color: 'var(--ad)' }}>← 戻る</a>}
         <h1 className="mo-fade-up text-[22px] font-bold">いま提案できる要員</h1>
         <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-white" style={{ ['--i' as string]: 1 }}>
           <table className="w-full border-collapse text-[13px]">
