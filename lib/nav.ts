@@ -11,7 +11,7 @@ export const NAV: NavGroup[] = [
       { href: '/jinji/staff', label: '社員一覧', built: true },
       { href: '/jinji/yoyaku', label: '変更の予約', built: true, badge: 2 },
       { href: '/jinji/nyusha', label: '入社手続き', built: true, badge: 17 },
-      { href: '/jinji/kihon', label: '基本情報', built: true, badge: 5 },
+      { href: '/jinji/skillsheet', label: 'スキルシート作成', built: true },
       { href: '/jinji/jimu', label: '参画決定者の手続き', built: true, badge: 5 },
       { href: '/jinji/tenseki', label: '転籍台帳', built: true, badge: 4 },
       { href: '/jinji/shikaku', label: '資格手当', built: true, badge: 6 },
