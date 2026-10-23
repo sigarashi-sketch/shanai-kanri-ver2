@@ -3,7 +3,9 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { Check, ChevronRight } from 'lucide-react';
-import { APPROVALS, RESERVATIONS, TODOS, type Todo } from '@/lib/sample';
+import { APPROVALS, TODOS, type Todo } from '@/lib/sample';
+import { FIELD_RULES, daysFrom, fmtDate } from '@/lib/yoyaku-sample';
+import { moduleOf, useYoyaku, within } from '@/components/YoyakuStore';
 import { MODULES } from '@/lib/theme';
 import { CountUp, RemainRing, useMotivation } from '@/components/Motivation';
 import { usePerms } from '@/components/Perms';
@@ -22,7 +24,9 @@ export default function HomePage() {
   // 見えない分類のものは出さない。承認は「承認」を持つ分類だけ。
   const mine = TODOS.filter((t) => can(t.module, 'view'));
   const myApprovals = APPROVALS.filter((a) => can(a.module, 'approve'));
-  const myReservations = RESERVATIONS.filter((r) => can(r.module, 'view'));
+  // 変更の予約と同じもの（7日以内に切り替わる・見られる分類だけ）
+  const { rows: yoyaku } = useYoyaku();
+  const myReservations = within(yoyaku, 7).filter((r) => can(moduleOf(r), 'view'));
   const kpis = [
     { m: 'jinji', label: '稼働中', n: 251, unit: '人', sub: '先月より +6', subC: 'var(--color-ok)' },
     { m: 'eigyo', label: '待機', n: 26, unit: '人', sub: '平均 18日', subC: 'var(--color-warn)' },
@@ -112,8 +116,8 @@ export default function HomePage() {
 
       <section className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 7 }}>
         <div className="flex items-center justify-between px-[18px] py-3.5">
-          <h2 className="text-[15px] font-bold">7日以内に切り替わる予約</h2>
-          <span className="flex items-center gap-1.5 text-[12px] text-muted"><i className="mo-pulse size-[7px] rounded-full bg-ok" />毎朝6:00に自動で切り替え</span>
+          <h2 className="text-[15px] font-bold">7日以内に切り替わる予約 <span className="num text-muted">{myReservations.length}</span></h2>
+          <span className="flex items-center gap-3 text-[12px] text-muted"><span className="flex items-center gap-1.5"><i className="mo-pulse size-[7px] rounded-full bg-ok" />毎朝6:00に自動で切り替え</span><Link href="/jinji/yoyaku" className="font-semibold" style={{ color: 'var(--ad)' }}>すべての予約</Link></span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] border-collapse text-[13px]">
@@ -121,13 +125,14 @@ export default function HomePage() {
               <th className="px-[18px] py-2.5 font-semibold">適用日</th><th className="px-2 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">分類</th><th className="px-2 py-2.5 font-semibold">変更前 → 変更後</th><th className="px-[18px] py-2.5 font-semibold">一緒に変わるもの</th>
             </tr></thead>
             <tbody>
+              {myReservations.length === 0 && <tr><td colSpan={5} className="px-[18px] py-6 text-center text-muted">7日以内に切り替わる予約はありません</td></tr>}
               {myReservations.map((r, i) => (
-                <tr key={r.person + r.field} className="row mo-fade-in border-t border-line-soft" style={{ ['--i' as string]: 8 + i }}>
-                  <td className="px-[18px] py-2.5 font-semibold">{r.date}</td>
-                  <td className="px-2 py-2.5">{r.person}</td>
-                  <td className="px-2 py-2.5"><span className="font-bold"><span style={{ color: `var(--c-${r.module})` }}>●</span> {SHORT[r.module]}</span> {r.field}</td>
+                <tr key={r.id} className="row mo-fade-in border-t border-line-soft" style={{ ['--i' as string]: 8 + i }}>
+                  <td className="px-[18px] py-2.5"><b>{fmtDate(r.date)}</b><div className="text-[11.5px] text-faint">{daysFrom(r.date) === 0 ? '今日' : `あと${daysFrom(r.date)}日`}</div></td>
+                  <td className="px-2 py-2.5"><Link href={`/jinji/staff/${r.personId}`} className="hover:underline">{r.person}</Link></td>
+                  <td className="px-2 py-2.5"><span className="font-bold"><span style={{ color: `var(--c-${moduleOf(r)})` }}>●</span> {SHORT[moduleOf(r)]}</span> {r.field}{r.state === '承認待ち' && <span className="chip ml-1.5" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>承認待ち</span>}</td>
                   <td className="px-2 py-2.5"><s className="text-faint">{r.from}</s> → <b>{r.to}</b></td>
-                  <td className="px-[18px] py-2.5 text-muted">{r.with}</td>
+                  <td className="px-[18px] py-2.5 text-muted">{FIELD_RULES[r.field].with.join('／')}</td>
                 </tr>
               ))}
             </tbody>

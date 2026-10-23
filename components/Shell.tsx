@@ -12,6 +12,7 @@ import { MotivationProvider, TodayPill } from './Motivation';
 import { NoAccess, levelLabel, usePerms } from './Perms';
 import { RenrakuButton } from './Renraku';
 import { ThemeSwitch } from './ThemeSwitch';
+import { YoyakuProvider } from './YoyakuStore';
 
 const MODULE_ICON: Record<ModuleKey, typeof Users> = { jinji: Users, roumu: Clock, eigyo: Briefcase, keiri: ReceiptText };
 
@@ -37,6 +38,7 @@ export function Shell({ members, children }: { members: { id: string; name: stri
 
   return (
     <MotivationProvider>
+      <YoyakuProvider>
       <div data-module={module} className="flex min-h-screen">
         <nav aria-label="メニュー" className={`sticky top-0 flex h-screen shrink-0 flex-col gap-3 overflow-y-auto side px-2.5 py-3.5 text-[13.5px] transition-[width] duration-[260ms] ${open ? 'w-[240px]' : 'w-[64px]'}`}>
           <div className="flex items-center gap-2.5 px-2 pb-1.5 pt-1">
@@ -106,6 +108,7 @@ export function Shell({ members, children }: { members: { id: string; name: stri
         </div>
         <div id="drawer-root" />
       </div>
+      </YoyakuProvider>
     </MotivationProvider>
   );
 }

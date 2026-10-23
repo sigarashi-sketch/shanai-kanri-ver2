@@ -7,10 +7,14 @@ import { PEOPLE, STATUS_COUNTS } from '@/lib/sample';
 import { GhostButton, PageTitle, Pill, PrimaryButton, TONE } from '@/components/ui';
 import { useMotivation } from '@/components/Motivation';
 import { needText, usePerms } from '@/components/Perms';
+import { isPending, useYoyaku, yoyakuLine } from '@/components/YoyakuStore';
 
 export function StaffList({ embedded = false }: { embedded?: boolean }) {
   const { hit, toast } = useMotivation();
   const canEdit = usePerms().can('jinji', 'edit');
+  const { rows: yoyaku } = useYoyaku();
+  // 現場の列の下に、いちばん近い予約を1行（変更の予約と同じデータ）
+  const nextOf = (id: string) => yoyaku.filter((r) => r.personId === id && isPending(r)).sort((a, b) => a.date.localeCompare(b.date))[0];
   const [tab, setTab] = useState<string>('すべて');
   const [q, setQ] = useState('');
   const [sel, setSel] = useState<Set<string>>(new Set());
@@ -64,7 +68,7 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
                     <div><Link href={`/jinji/staff/${p.id}`} className="font-semibold hover:underline">{p.name}</Link><div className="text-[11.5px] text-faint">{p.no}・{p.joined.slice(0, 7)}入社</div></div>
                   </div></td>
                   <td className="px-2 py-2"><Pill>{p.status}</Pill></td>
-                  <td className="px-2 py-2">{p.site}{p.reserve && <div className="text-[11.5px] font-semibold" style={{ color: 'var(--ad)' }}>{p.reserve}</div>}</td>
+                  <td className="px-2 py-2">{p.site}{nextOf(p.id) && <Link href="/jinji/yoyaku" className="block text-[11.5px] font-semibold hover:underline" style={{ color: 'var(--ad)' }}>{yoyakuLine(nextOf(p.id)!)}</Link>}</td>
                   <td className="px-2 py-2">{p.contract}{p.contractEnd && <div className="text-[11.5px] font-semibold text-warn">{p.contractEnd}</div>}</td>
                   <td className="px-2 py-2">{p.station}</td>
                   <td className="num px-2 py-2 text-right">{p.price}</td>

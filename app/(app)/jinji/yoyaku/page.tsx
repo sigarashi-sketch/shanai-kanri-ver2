@@ -4,11 +4,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowRight, CalendarClock, Check, X } from 'lucide-react';
 import { PEOPLE } from '@/lib/sample';
 import { MODULES } from '@/lib/theme';
-import { FIELD_RULES, TODAY, YOYAKU, addDays, daysFrom, fmtDate, type Field, type YState, type Yoyaku } from '@/lib/yoyaku-sample';
+import { FIELD_RULES, TODAY, addDays, daysFrom, fmtDate, type Field, type YState, type Yoyaku } from '@/lib/yoyaku-sample';
 import { PageTitle, PrimaryButton } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
 import { DrawerPortal } from '@/components/DrawerPortal';
+import { useYoyaku } from '@/components/YoyakuStore';
 
 // 変更の予約（人事管理）。住所・通勤・単価・現場・状態（待機/退社/休職/産休/育休）を「いつから」つきで予約する。
 //   ・予約した日の朝6:00に切り替わり、「一緒に変わるもの」にも同じ日から入る
@@ -28,13 +29,14 @@ function StateChip({ s }: { s: YState }) {
 export default function YoyakuPage() {
   const { can } = usePerms();
   const { hit, toast } = useMotivation();
-  const [rows, setRows] = useState<Yoyaku[]>(YOYAKU);
+  // 予約は全画面で1つ（ホーム・社員ページ・社員一覧も同じものを読む）
+  const { rows, setRows } = useYoyaku();
   const [filter, setFilter] = useState<Filter>('これから');
   const [day, setDay] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
-  const [form, setForm] = useState<boolean>(false);
-  // ?new=1 で予約のパネルを開いた状態から始める（ホームの「変更を予約」・画面の見本を撮るとき用）
-  useEffect(() => { if (new URLSearchParams(window.location.search).get('new')) setForm(true); }, []);
+  const [form, setForm] = useState<string | false>(false); // 開いているときは最初に選んでおく社員の id（'' は先頭の人）
+  // ?new=1 で予約のパネルを開いた状態から始める（ホームの「変更を予約」）。&p=<社員id> でその人を選んでおく（社員ページから）
+  useEffect(() => { const q = new URLSearchParams(window.location.search); if (q.get('new')) setForm(q.get('p') ?? ''); }, []);
 
   const pulse = (id: string) => { setFlash(id); setTimeout(() => setFlash(null), 1300); };
   const upcoming = rows.filter((r) => r.state === '承認待ち' || r.state === '予約中');
@@ -66,7 +68,7 @@ export default function YoyakuPage() {
     const before = rows;
     setRows((rs) => rs.map((x) => (ids.includes(x.id) ? { ...x, state: '取り消し' } : x)));
     hit();
-    toast({ text: `${r.person} の${r.field}の予約を取り消しました`, sub: ids.length > 1 ? '→ 合わせて作った通勤の予約も取り消しました' : '→ 一緒に変わる予定だったものも元のままです', undo: () => setRows(before) });
+    toast({ text: `${r.person} の${r.field}の予約を取り消しました`, sub: ids.length > 1 ? '→ 合わせて作った通勤の予約も取り消しました' : '→ 一緒に変わる予定だったものも元のままです', undo: () => setRows(() => before) });
   };
   const add = (y: Yoyaku, replace?: string) => {
     const before = rows;
@@ -76,14 +78,14 @@ export default function YoyakuPage() {
     toast({
       text: `${y.person} の${y.field}を ${fmtDate(y.date)} から「${y.to}」に予約しました`,
       sub: y.state === '承認待ち' ? `→ ${SHORT[approverOf(y.field)]}の承認待ちに載りました` : `→ ${FIELD_RULES[y.field].with.join('・')} も同じ日に変わります${off.length > 1 ? '（前の現場に合わせた通勤の予約は取り消し）' : ''}`,
-      undo: () => setRows(before),
+      undo: () => setRows(() => before),
     });
   };
 
   return (
-    <main className={`flex flex-col gap-3.5 px-6 pb-12 pt-[22px] ${form ? 'xl:pr-[468px]' : ''}`}>
+    <main className={`flex flex-col gap-3.5 px-6 pb-12 pt-[22px] ${form !== false ? 'xl:pr-[468px]' : ''}`}>
       <PageTitle title="変更の予約" sub="住所・通勤・単価・現場・状態を「いつから」つきで。予約した日の朝6:00に切り替わり、一緒に変わるものにも入ります・見本データ">
-        <PrimaryButton onClick={() => setForm(true)}><span className="inline-flex items-center gap-1.5"><CalendarClock size={16} />変更を予約</span></PrimaryButton>
+        <PrimaryButton onClick={() => setForm('')}><span className="inline-flex items-center gap-1.5"><CalendarClock size={16} />変更を予約</span></PrimaryButton>
       </PageTitle>
 
       <section aria-label="これから30日" className="mo-fade-up rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
@@ -156,15 +158,15 @@ export default function YoyakuPage() {
         </div>
       </div>
 
-      {form && <YoyakuForm rows={rows} onClose={() => setForm(false)} onSave={add} />}
+      {form !== false && <YoyakuForm initial={form} rows={rows} onClose={() => setForm(false)} onSave={add} />}
     </main>
   );
 }
 
-function YoyakuForm({ rows, onClose, onSave }: { rows: Yoyaku[]; onClose: () => void; onSave: (y: Yoyaku, replace?: string) => void }) {
+function YoyakuForm({ initial, rows, onClose, onSave }: { initial: string; rows: Yoyaku[]; onClose: () => void; onSave: (y: Yoyaku, replace?: string) => void }) {
   const { can, me } = usePerms();
   const people = PEOPLE.filter((p) => p.status !== '退社');
-  const [pid, setPid] = useState(people[0].id);
+  const [pid, setPid] = useState(people.some((x) => x.id === initial) ? initial : people[0].id);
   const [field, setField] = useState<Field>('現場');
   const [date, setDate] = useState(addDays(TODAY, 7));
   const [to, setTo] = useState('');

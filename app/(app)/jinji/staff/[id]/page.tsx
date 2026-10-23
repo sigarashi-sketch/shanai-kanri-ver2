@@ -5,7 +5,11 @@ import { notFound, useParams } from 'next/navigation';
 import { useState } from 'react';
 import { PEOPLE, SITE_HISTORY, TIMELINE } from '@/lib/sample';
 import { MODULES } from '@/lib/theme';
-import { Pill, PrimaryButton } from '@/components/ui';
+import { Pill } from '@/components/ui';
+import { fmtDate } from '@/lib/yoyaku-sample';
+import { moduleOf, usePersonYoyaku } from '@/components/YoyakuStore';
+
+type SiteRow = (typeof SITE_HISTORY)[number] & { key: string; pending?: boolean };
 
 const TABS = ['基本情報', '現場の履歴', '勤怠', '請求', '書類', '面談メモ'] as const;
 
@@ -13,10 +17,24 @@ export default function PersonPage() {
   const { id } = useParams<{ id: string }>();
   const p = PEOPLE.find((x) => x.id === id);
   const [tab, setTab] = useState<(typeof TABS)[number]>('現場の履歴');
+  // この人のまだ切り替わっていない予約（変更の予約と同じデータ）
+  const pend = usePersonYoyaku(id);
   if (!p) notFound();
+  const siteNext = pend.find((r) => r.field === '現場');
+  const priceAt = (date: string) => pend.find((r) => r.field === '単価' && r.date <= date)?.to;
+  // 現場の履歴：予約した現場を先頭に足す（見本の履歴に入っていた「予約」の行は使わない）
+  const history = [
+    ...pend.filter((r) => r.field === '現場').reverse().map((r) => ({ period: `${r.date.replaceAll('-', '/')} 〜`, site: r.to, terms: `${p.contract}・${priceAt(r.date) ?? p.price}`, state: '予約' as const, pending: r.state === '承認待ち', key: r.id } as SiteRow)),
+    ...SITE_HISTORY.filter((h) => h.state !== '予約').map((h) => ({ ...h, key: h.period } as SiteRow)),
+  ];
+  // タイムライン：これからの予約（点線の丸）を上に、過去のできごとを下に
+  const timeline = [
+    ...pend.slice().reverse().map((r) => ({ module: moduleOf(r), when: `${fmtDate(r.date)} 予約`, text: `${r.field}が ${r.to} に`, sub: `登録 ${r.by}${r.state === '承認待ち' ? '・承認待ち' : ''}`, future: true, key: r.id })),
+    ...TIMELINE.filter((t) => !t.future).map((t) => ({ ...t, key: t.when + t.text })),
+  ];
 
   const facts: [string, React.ReactNode][] = [
-    ['現場', <b key="s">{p.site}</b>], ['契約・単価', `${p.contract}・${p.price}`],
+    ['現場', <span key="s"><b>{p.site}</b>{siteNext && <span className="block text-[11.5px] font-semibold" style={{ color: 'var(--ad)' }}>→ {fmtDate(siteNext.date)}〜 {siteNext.to}</span>}</span>], ['契約・単価', `${p.contract}・${p.price}`],
     ['担当営業', <span key="e"><span style={{ color: 'var(--c-eigyo)' }}>●</span> {p.sales}</span>], ['採用担当', <span key="j"><span style={{ color: 'var(--c-jinji)' }}>●</span> {p.recruiter}</span>],
     ['入社日', p.joined], ['最寄駅', p.station], ['通勤', '定期 ¥15,840'], ['今月の勤怠', p.kintai.text],
   ];
@@ -32,7 +50,7 @@ export default function PersonPage() {
           <div className="w-[210px]">
             <div className="text-[12px] text-faint">{p.kana}・{p.no}</div>
             <div className="text-[22px] font-bold tracking-tight">{p.name}</div>
-            <div className="mt-2 flex gap-1.5"><Pill>{p.status}</Pill>{p.reserve && <Pill>予約</Pill>}</div>
+            <div className="mt-2 flex gap-1.5"><Pill>{p.status}</Pill>{pend.length > 0 && <Pill>予約</Pill>}</div>
           </div>
           <dl className="grid min-w-[480px] flex-1 grid-cols-4 gap-x-5 gap-y-2.5 text-[13px]">
             {facts.map(([k, v]) => <div key={k}><dt className="text-[11.5px] text-faint">{k}</dt><dd>{v}</dd></div>)}
@@ -55,7 +73,7 @@ export default function PersonPage() {
             <section className="min-w-0 flex-[999_1_640px] overflow-hidden rounded-xl border border-line bg-surface">
               <div className="flex flex-wrap items-center justify-between gap-2.5 px-[18px] py-3.5">
                 <div><h2 className="text-[15px] font-bold">現場の履歴</h2><div className="text-[12px] text-faint">期間ごとに、勤務表の稼働と請求を並べています</div></div>
-                <PrimaryButton>＋ 適用日つきで変更</PrimaryButton>
+                <Link href={`/jinji/yoyaku?new=1&p=${p.id}`} className="btn btn-primary inline-flex min-h-10 items-center rounded-[10px] px-4 text-[13.5px] font-semibold">＋ 適用日つきで変更</Link>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[760px] border-collapse text-[13px]">
@@ -63,14 +81,14 @@ export default function PersonPage() {
                     <th className="px-[18px] py-2.5 font-semibold">期間</th><th className="px-2 py-2.5 font-semibold">現場</th><th className="px-2 py-2.5 font-semibold">契約・単価</th><th className="px-2 py-2.5 text-right font-semibold">稼働（勤務表）</th><th className="px-2 py-2.5 text-right font-semibold">請求</th><th className="px-[18px] py-2.5 font-semibold">状態</th>
                   </tr></thead>
                   <tbody>
-                    {SITE_HISTORY.map((h, i) => (
-                      <tr key={h.period} className={`mo-fade-in border-t border-line-soft ${h.state === '予約' ? 'bg-warn-soft' : 'row'}`} style={{ ['--i' as string]: i + 3 }}>
+                    {history.map((h, i) => (
+                      <tr key={h.key} className={`mo-fade-in border-t border-line-soft ${h.state === '予約' ? 'bg-warn-soft' : 'row'}`} style={{ ['--i' as string]: i + 3 }}>
                         <td className="px-[18px] py-2.5 font-semibold">{h.period}</td>
                         <td className={`px-2 py-2.5 ${h.terms === '—' ? 'text-muted' : ''}`}>{h.site}</td>
                         <td className="px-2 py-2.5">{h.terms}</td>
                         <td className="num px-2 py-2.5 text-right">{h.hours ?? <span className="text-faint">—</span>}{h.hoursSub && <div className="text-[11.5px] text-faint">{h.hoursSub}</div>}</td>
                         <td className="px-2 py-2.5 text-right">{h.bill ?? <span className="text-faint">—</span>}{h.billSub && <div className="text-[11.5px]" style={{ color: h.billTone === 'ok' ? 'var(--color-ok)' : 'var(--color-warn)' }}>{h.billSub}</div>}</td>
-                        <td className="px-[18px] py-2.5"><Pill>{h.state}</Pill>{h.state === '予約' && <span className="ml-1.5 text-[11.5px] text-muted">通勤・様式も切替</span>}</td>
+                        <td className="px-[18px] py-2.5"><Pill>{h.state}</Pill>{h.state === '予約' && <span className="ml-1.5 text-[11.5px] text-muted">{h.pending ? '承認待ち' : '通勤・様式も切替'}</span>}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -82,8 +100,8 @@ export default function PersonPage() {
                 <div className="flex gap-1.5 text-[11.5px]">{MODULES.map((m) => <span key={m.key}><span style={{ color: `var(--c-${m.key})` }}>●</span>{m.short}</span>)}</div></div>
               <div className="relative flex flex-col gap-3.5 pl-[22px] text-[13px]">
                 <div className="absolute bottom-1.5 left-1.5 top-1.5 w-0.5 bg-track" />
-                {TIMELINE.map((t, i) => (
-                  <div key={t.when} className="mo-fade-up relative" style={{ ['--i' as string]: i + 4 }}>
+                {timeline.map((t, i) => (
+                  <div key={t.key} className="mo-fade-up relative" style={{ ['--i' as string]: i + 4 }}>
                     <i className="absolute -left-[21px] top-1 size-3 rounded-full" style={t.future ? { background: 'var(--color-surface)', border: `2.5px dashed var(--c-${t.module})` } : { background: `var(--c-${t.module})` }} />
                     <div className={`text-[11.5px] ${t.future ? 'font-semibold text-warn' : 'text-faint'}`}>{t.when}</div>
                     {t.text}{t.sub && <div className="text-[11.5px] text-faint">{t.sub}</div>}
