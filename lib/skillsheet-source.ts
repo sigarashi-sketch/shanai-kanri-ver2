@@ -1,30 +1,21 @@
 import 'server-only';
-import { cookies } from 'next/headers';
+import { IKE_TOKEN_COOKIE, ikeFetch, ikeToken } from './ike';
 import type { SsDetail, SsList, SsQuery, SsResult, SsRow } from './skillsheet-types';
 
 // スキルシート作成のデータの出どころ。
 //   ・本物：今の社内システム（IKEIKE_ORIGIN）の /api/basic-info・/api/skillsheet を、ログインした人のトークンで呼ぶ。
 //     中身の計算（検索・絞り込み・件数・生成・PDF・Excel）は全部今のシステムがやる＝仕様は今と同じ
 //   ・トークンが無いとき（まだログインをつないでいない）は見本データ。見本では本物を作らない
-export const IKE_TOKEN_COOKIE = 'v2_ike_token';
-const ORIGIN = process.env.IKEIKE_ORIGIN || 'https://ikeike-app.vercel.app';
-
-async function token(): Promise<string> {
-  return (await cookies()).get(IKE_TOKEN_COOKIE)?.value || '';
-}
+export { IKE_TOKEN_COOKIE };
 
 async function callIke<T>(path: string, init?: RequestInit, timeoutMs = 25000): Promise<T> {
-  const t = await token();
-  const r = await fetch(ORIGIN + path, {
-    ...init, cache: 'no-store', signal: AbortSignal.timeout(timeoutMs),
-    headers: { ...(init?.headers || {}), Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
-  });
+  const r = await ikeFetch(path, init, timeoutMs);
   const j = (await r.json().catch(() => ({ error: `応答が読めませんでした（${r.status}）` }))) as T & { error?: string };
   if (r.status === 401) return { ...j, error: 'ログインが切れました。もう一度ログインしてください' } as T;
   return j;
 }
 
-export async function isLive() { return !!(await token()); }
+export async function isLive() { return !!(await ikeToken()); }
 
 export async function listRows(q: SsQuery): Promise<SsList> {
   if (await isLive()) {
