@@ -5,7 +5,7 @@ import { CASES } from './progress-sample';
 import { commuteMin } from './map-sample';
 import type { Taiki } from './taiki-sample';
 
-export type Shouryu = 'エンド直' | '元請けから' | '二次請けから';
+export type Shouryu = 'エンド直' | '元請けから' | '二次請けから' | '不明';   // 不明＝本物（今のシステムは商流を列で持っていない）
 export type StockCase = {
   no: string; name: string; place: string; station: string; priceMin: number; priceMax: number;
   skills: string[]; shouryu: Shouryu; deadline: string; daysLeft: number; start: string; work: string;
@@ -41,6 +41,7 @@ export function matchOf(c: StockCase, p: Taiki) {
   const m = commuteMin(p.station, c.station) ?? 90;
   s += m <= 45 ? 30 : m <= 60 ? 15 : 0;
   why.push(`通勤 約${m}分`);
-  if (c.priceMax >= p.price) { s += 15; why.push('希望単価の内'); } else why.push(`希望 ${p.price}万に届かない`);
+  if (!p.price) { /* 希望単価が分からない（本物のプロパーリストには列が無い）＝単価の点は入れない */ }
+  else if (c.priceMax >= p.price) { s += 15; why.push('希望単価の内'); } else why.push(`希望 ${p.price}万に届かない`);
   return { score: Math.min(99, s), why, min: m };
 }

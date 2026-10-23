@@ -4,7 +4,7 @@
 //   ★取引先の「送付不要」は「こちらから上位に送らなくてよい」の意味で、届かない理由にはしない。
 export const TS_MONTH = { label: '10月分', due: '11/3' };
 export type TsState = '届いた' | '未着' | '読めない';
-export type Route = '上位から' | '所属会社から' | '本人から';
+export type Route = '上位から' | '所属会社から' | '本人から' | '流れが未設定' | '提出不要'; // 後ろ2つは本物のとき
 export type TsRow = {
   id: string; partner: string; personId: string; name: string; site: string; route: Route;
   state: TsState; arrivedAt?: string; unreadable?: string;

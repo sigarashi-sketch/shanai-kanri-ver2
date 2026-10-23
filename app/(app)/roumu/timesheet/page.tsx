@@ -7,6 +7,8 @@ import { READ_FIX, TS_MONTH, TS_ROWS, type TsRow, type TsState } from '@/lib/tim
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
+import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { tsFromIke, type IkeTimesheet } from '@/lib/live/timesheet';
 
 // 勤務表の届き具合（労務/営業管理）＝現場の勤務表（客先の様式）の今月分が届いたかを、取引先ごと・人ごとに見る。
 //   ・届いた／未着／読めない。未着は本人・取引先にお願い（あおい）、読めないは「どうしたか」を選ぶ
@@ -33,11 +35,19 @@ export default function TimesheetPage() {
   const [asked, setAsked] = useState<Record<string, boolean>>({});
   const [flash, setFlash] = useState<string | null>(null);
   useEffect(() => { if (new URLSearchParams(window.location.search).get('view') === 'person') setView('person'); }, []);
+  const [ym, setYm] = useState('');
+  const ike = useIke<IkeTimesheet>(`roster?op=timesheet&action=list${ym ? `&ym=${ym}` : ''}`);
+  const live = ike.live && !!ike.data?.ok;
+  const L = live ? tsFromIke(ike.data) : null;
+  const all = L ? L.rows : rows;
+  const okEdit = canEdit && !live;
+  const block = live ? LIVE_WRITE_BLOCKED : !canEdit ? needText('edit') : undefined;
+  const missingOf = (name: string) => all.filter((r) => r.partner === name && r.state !== '届いた').length;
 
-  const open = rows.filter((r) => isOpen(r, asked));
-  const initial = TS_ROWS.filter((r) => r.state !== '届いた').length;
-  const partners = [...new Set(rows.map((r) => r.partner))].map((name) => ({ name, rs: rows.filter((r) => r.partner === name) }))
-    .sort((a, b) => partnerOpen(b.name) - partnerOpen(a.name));
+  const open = all.filter((r) => isOpen(r, asked));
+  const initial = L ? open.length : TS_ROWS.filter((r) => r.state !== '届いた').length;
+  const partners = [...new Set(all.map((r) => r.partner))].map((name) => ({ name, rs: all.filter((r) => r.partner === name) }))
+    .sort((a, b) => (L ? missingOf(b.name) - missingOf(a.name) || a.name.localeCompare(b.name, 'ja') : partnerOpen(b.name) - partnerOpen(a.name)));
   const pulse = (id: string) => { setFlash(id); setTimeout(() => setFlash(null), 1300); };
 
   const ask = (rs: TsRow[]) => {
@@ -62,6 +72,7 @@ export default function TimesheetPage() {
   };
 
   const diff = (r: TsRow) => {
+    if (live) return <span className="text-[12px] text-faint">勤怠の締めで見る</span>;
     if (r.sheetH == null || r.freeeH == null) return <span className="text-[12px] text-faint">{r.state === '届いた' ? '手で確かめた' : '—'}</span>;
     const d = Math.round((r.freeeH - r.sheetH) * 10) / 10;
     const off = r.offDays ?? 0;
@@ -71,14 +82,14 @@ export default function TimesheetPage() {
   };
   const action = (r: TsRow) => {
     if (r.state === '未着') return asked[r.id] ? <span className="chip" style={{ background: ST['お願い済み'].bg, color: ST['お願い済み'].fg }}>お願い済み</span>
-      : <button onClick={() => ask([r])} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="min-h-8 rounded-lg border border-field bg-surface px-2.5 text-[12px] font-semibold disabled:opacity-40">お願いする（あおい）</button>;
+      : <button onClick={() => ask([r])} disabled={!okEdit} title={block} className="min-h-8 rounded-lg border border-field bg-surface px-2.5 text-[12px] font-semibold disabled:opacity-40">お願いする（あおい）</button>;
     if (r.state === '読めない') return <select aria-label="どうしたか" value="" disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} onChange={(e) => e.target.value && resolve(r, e.target.value)} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-[12px] disabled:opacity-40"><option value="">どうしたか選ぶ</option>{READ_FIX.map((x) => <option key={x}>{x}</option>)}</select>;
     return <span className="text-[12px] text-faint">{r.arrivedAt} 着</span>;
   };
   // 部品にせず関数で描く（描くたびに行が作り直されて選択中の欄が閉じないように）
   const row = (r: TsRow, showPartner?: boolean) => (
     <tr key={r.id} className={`border-t border-line-soft align-top ${flash === r.id ? 'mo-flash' : 'row'}`}>
-      <td className="px-4 py-2.5"><Link href={`/jinji/staff/${r.personId}`} className="font-semibold hover:underline">{r.name}</Link><div className="text-[11.5px] text-faint">{r.site}</div></td>
+      <td className="px-4 py-2.5">{live ? <span className="font-semibold">{r.name}</span> : <Link href={`/jinji/staff/${r.personId}`} className="font-semibold hover:underline">{r.name}</Link>}<div className="text-[11.5px] text-faint">{r.site}</div></td>
       {showPartner && <td className="px-2 py-2.5 text-[12.5px]">{r.partner}</td>}
       <td className="px-2 py-2.5 text-[12px] text-muted">{r.route}</td>
       <td className="px-2 py-2.5"><span className="chip" style={{ background: ST[r.state].bg, color: ST[r.state].fg }}>{r.state}</span>{r.state !== '届いた' && r.unreadable && <div className="mt-1 text-[11.5px] text-muted">{r.unreadable}</div>}</td>
@@ -87,23 +98,30 @@ export default function TimesheetPage() {
     </tr>
   );
   const head = (showPartner?: boolean) => <thead><tr className="th-row text-left"><th className="px-4 py-2 font-semibold">社員</th>{showPartner && <th className="px-2 py-2 font-semibold">取引先</th>}<th className="px-2 py-2 font-semibold">届く道すじ</th><th className="px-2 py-2 font-semibold">今月分</th><th className="px-2 py-2 font-semibold">freee の打刻との差</th><th className="px-4 py-2 font-semibold" /></tr></thead>;
-  const waitingAsk = rows.filter((r) => r.state === '未着' && !asked[r.id]);
+  const waitingAsk = all.filter((r) => r.state === '未着' && !asked[r.id]);
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="勤務表の届き具合" sub={`現場の勤務表（客先の様式）の${TS_MONTH.label}・届く目安は ${TS_MONTH.due}・見本データ`}>
+      <PageTitle title="勤務表の届き具合" sub={L ? `現場の勤務表（客先の様式）の${L.label}・ミンミカの稼働契約ごと（提出不要の ${L.na}件は外しています）${L.synced ? `・${L.synced} にミンミカから取り込み` : ''}` : `現場の勤務表（客先の様式）の${TS_MONTH.label}・届く目安は ${TS_MONTH.due}・見本データ`}>
+        {live && (
+          <select aria-label="月" value={ike.data?.ym || ''} onChange={(e) => setYm(e.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-[13px]">
+            {(ike.data?.months || []).map((m) => <option key={m} value={m}>{Number(m.slice(5))}月分</option>)}
+          </select>
+        )}
         <div className="flex rounded-[10px] border border-field bg-surface p-0.5 text-[12.5px] font-semibold">
           {([['partner', '取引先ごと'], ['person', '人ごと']] as const).map(([k, l]) => <button key={k} onClick={() => setView(k)} className={`min-h-8 rounded-lg px-3 ${view === k ? 'text-white' : 'text-muted'}`} style={view === k ? { background: 'var(--a)' } : undefined}>{l}</button>)}
         </div>
       </PageTitle>
+      <LiveBanner state={ike.live && !ike.data?.ok ? 'error' : ike.state} error={ike.error || ike.data?.error} onReload={ike.reload} note="見るだけです。お願いの連絡・ミンミカからの取り直しは今の社内システムの画面から" />
+      {live && <NotInLegacy what="勤務表が「読めない」の見分けと freee の打刻との差（今は勤怠の締めの画面にあります）" />}
 
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <RemainRing remain={open.length} total={initial} />
         <div className="text-[13px]"><b>手を打つ勤務表 残り {open.length}件</b>
-          <span className="ml-2 text-muted">届いた {rows.filter((r) => r.state === '届いた').length}・未着 {rows.filter((r) => r.state === '未着').length}（お願い済み {rows.filter((r) => r.state === '未着' && asked[r.id]).length}）・読めない {rows.filter((r) => r.state === '読めない').length}</span>
+          <span className="ml-2 text-muted">届いた {all.filter((r) => r.state === '届いた').length}・未着 {all.filter((r) => r.state === '未着').length}（お願い済み {all.filter((r) => r.state === '未着' && asked[r.id]).length}）{!live && `・読めない ${all.filter((r) => r.state === '読めない').length}`}</span>
           {!canEdit && <div className="text-[12px] text-bad">{needText('edit')}</div>}
         </div>
-        <button onClick={() => waitingAsk.length && ask(waitingAsk)} disabled={!canEdit || waitingAsk.length === 0} title={!canEdit ? needText('edit') : undefined} className="btn-primary ml-auto inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-[10px] px-4 text-[13px] font-bold disabled:opacity-40"><Send size={15} />未着 {waitingAsk.length}人にまとめてお願い</button>
+        <button onClick={() => waitingAsk.length && ask(waitingAsk)} disabled={!okEdit || waitingAsk.length === 0} title={block} className="btn-primary ml-auto inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-[10px] px-4 text-[13px] font-bold disabled:opacity-40"><Send size={15} />未着 {waitingAsk.length}人にまとめてお願い</button>
         <Link href="/roumu/shime" className="text-[12px] font-semibold" style={{ color: 'var(--ad)' }}>勤怠の締めへ</Link>
       </div>
 
@@ -122,7 +140,7 @@ export default function TimesheetPage() {
         </section>
       )) : (
         <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
-          <div className="overflow-x-auto"><table className="w-full min-w-[860px] border-collapse text-[13px]">{head(true)}<tbody>{[...rows].sort((a, b) => Number(FIRST_OPEN[b.id]) - Number(FIRST_OPEN[a.id])).map((r) => row(r, true))}</tbody></table></div>
+          <div className="overflow-x-auto"><table className="w-full min-w-[860px] border-collapse text-[13px]">{head(true)}<tbody>{[...all].sort((a, b) => (live ? Number(b.state !== '届いた') - Number(a.state !== '届いた') : Number(FIRST_OPEN[b.id]) - Number(FIRST_OPEN[a.id]))).map((r) => row(r, true))}</tbody></table></div>
         </div>
       )}
       <p className="text-[11.5px] text-faint">取引先の「送付不要」は、こちらから上位に送らなくてよいという意味で、届かない理由にはしていません。勤務表は届いたものを毎晩読み、1日30分未満のずれは合っている扱いにしています（見本の中だけで動きます）。</p>

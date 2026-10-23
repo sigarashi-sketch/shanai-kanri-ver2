@@ -11,11 +11,15 @@ import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
 import { DrawerPortal } from '@/components/DrawerPortal';
+import { LIVE_WRITE_BLOCKED, LiveBanner, useIke } from '@/components/Live';
+import { estimateAt, liveJobs, liveYouin, type CasesMapList, type MapData } from '@/lib/live/map';
 
 // 案件・要員マップ（営業）。今の社内システムの「案件マップ」と「要員マップ」を1画面の2つのタブにしたもの。中身・操作・言葉は今の画面どおり。
 //   案件マップ：マップ／案件入力（案件文を貼る → AI が欄を埋める）／充足・終了。出発駅を選ぶと通勤の目安で並ぶ（実経路は出さない）
 //   要員マップ：営業中の要員を最寄駅の丸、Slack の案件をオレンジの丸で出す。案件1件＋要員を選んで「転記＆配信先設定」
 //   地図は見本の簡易な地図（SVG）。地図タイルは本物につなぐときに入れる。
+//   本物（ログイン中）：案件マップ＝今の /api/cases-map?action=list、要員マップ＝/api/proxy?action=getMapData を読むだけ。
+//     ピンは行の座標（lat/lng）で置く。登録・充足・同期・転記は今の画面から
 const pct = (lat: number, lng: number) => { const p = xy(lat, lng); return { left: `${(p.x / MAP_W) * 100}%`, top: `${(p.y / MAP_H) * 100}%` }; };
 const fmt = (s?: string) => { const m = s?.match(/\d{4}-(\d{2})-(\d{2})/); return m ? `${+m[1]}/${+m[2]}` : s ?? ''; };
 const addDays = (n: number) => { const d = new Date(`${TODAY}T00:00:00`); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -44,6 +48,7 @@ function BaseMap({ children, overlay, onBg }: { children: React.ReactNode; overl
 
 export default function MapPage() {
   const [tab, setTab] = useState<'cases' | 'youin'>('cases');
+  const cm = useIke<CasesMapList>('cases-map?action=list');
   const [from, setFrom] = useState('');
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -53,14 +58,15 @@ export default function MapPage() {
   const go = (t: 'cases' | 'youin') => { setTab(t); window.history.replaceState(null, '', t === 'youin' ? '?tab=youin' : window.location.pathname); };
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-24 pt-[22px]">
-      <PageTitle title="案件・要員マップ" sub="今の社内システムの「案件マップ」と「要員マップ」です。通勤時間は目安・見本データ" />
+      <PageTitle title="案件・要員マップ" sub={`今の社内システムの「案件マップ」と「要員マップ」です。通勤時間は目安${cm.live ? '' : '・見本データ'}`} />
+      <LiveBanner state={cm.state} error={cm.error} onReload={cm.reload} note="今の案件マップ・要員マップの中身です。地図は簡易な地図のまま（枠の外の駅は一覧だけ）。登録・充足・同期・転記は今の画面から" />
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 1 }}>
         {([['cases', '案件マップ'], ['youin', '要員マップ']] as const).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="px-3.5 py-2.5 text-[14px]"
             style={tab === k ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>{l}</button>
         ))}
       </div>
-      <div key={tab} className="mo-axis">{tab === 'cases' ? <CasesMap from={from} setFrom={setFrom} /> : <YouinMap />}</div>
+      <div key={tab} className="mo-axis">{tab === 'cases' ? <CasesMap from={from} setFrom={setFrom} data={cm.live ? cm.data : null} /> : <YouinMap live={cm.live} />}</div>
     </main>
   );
 }
@@ -68,23 +74,29 @@ export default function MapPage() {
 // ========================= 案件マップ =========================
 type Fill = { job: Job; kind: 'now' | 'reserve' | 'close'; days: number; note: string };
 
-function CasesMap({ from, setFrom }: { from: string; setFrom: (s: string) => void }) {
-  const canEdit = usePerms().can('eigyo', 'edit');
+function CasesMap({ from, setFrom, data }: { from: string; setFrom: (s: string) => void; data: CasesMapList | null }) {
+  const live = !!data;
+  const canEdit = usePerms().can('eigyo', 'edit') && !live;
+  const noEdit = live ? LIVE_WRITE_BLOCKED : needText('edit');
+  const lj = useMemo(() => liveJobs(data), [data]);
+  const at = (n?: string) => (n ? (live ? lj.pos.get(n) ?? stationOf(n) : stationOf(n)) : undefined);
+  const owners = live ? lj.owners : OWNERS;
   const { hit, toast } = useMotivation();
   const [sub, setSub] = useState<'map' | 'input' | 'done'>('map');
-  const [jobs, setJobs] = useState<Job[]>(JOBS);
+  const [jobsS, setJobs] = useState<Job[]>(JOBS);
+  const jobs = live ? lj.jobs : jobsS;
   const [time, setTime] = useState(999), [owner, setOwner] = useState(''), [mode, setMode] = useState(''), [cats, setCats] = useState<Cat[]>([]);
   const [focus, setFocus] = useState<number | null>(null), [pop, setPop] = useState<string | null>(null);
   const [open, setOpen] = useState<Record<number, boolean>>({}), [flash, setFlash] = useState<number | null>(null);
   const [fill, setFill] = useState<Fill | null>(null);
 
-  const est = (j: Job) => (from && j.station ? estimate(from, j.station, j.access) : null);
-  const live = jobs.filter((j) => j.status === 'open');
+  const est = (j: Job) => (from && j.station ? (live ? estimateAt(stationOf(from), at(j.station), j.access) : estimate(from, j.station, j.access)) : null);
+  const openJobs = jobs.filter((j) => j.status === 'open');
   const pass = (j: Job, ignoreCat = false) => j.status === 'open' && (ignoreCat || !cats.length || cats.includes(j.category)) && (!owner || j.owner === owner)
     && (!mode || j.modes.includes(mode)) && (time === 999 || (est(j)?.min ?? 0) <= time); // 出発駅が無い間は時間で絞らない
-  const order = [...live].sort((a, b) => (est(a)?.min ?? 9999) - (est(b)?.min ?? 9999));
-  const pinned = order.filter((j) => j.station && stationOf(j.station) && pass(j));
-  const areaJobs = order.filter((j) => !j.station && pass(j));
+  const order = [...openJobs].sort((a, b) => (est(a)?.min ?? 9999) - (est(b)?.min ?? 9999));
+  const pinned = order.filter((j) => j.station && at(j.station) && pass(j));
+  const areaJobs = order.filter((j) => (!j.station || !at(j.station)) && pass(j));
   const groups = pinned.reduce<Record<string, Job[]>>((g, j) => ({ ...g, [j.station!]: [...(g[j.station!] ?? []), j] }), {});
   const fj = jobs.find((j) => j.case_no === focus && j.status === 'open');
   const fromS = from ? stationOf(from) : undefined;
@@ -125,7 +137,7 @@ function CasesMap({ from, setFrom }: { from: string; setFrom: (s: string) => voi
         {j.reserve && (
           <div className="mt-1.5 flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-semibold" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>
             <CalendarDays size={13} />充足予定 {fmt(j.reserve)}（あと{daysLeft(j.reserve)}日）{j.reserveNote && <span className="font-normal">— {j.reserveNote}</span>}
-            <button disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onClick={(ev) => { ev.stopPropagation(); update(j.id, { reserve: undefined, reserveNote: undefined }, `No.${j.case_no} の充足予約を外しました`, '→ ふつうの案件としてマップに出します'); }} className="ml-auto underline disabled:opacity-40">予約を外す</button>
+            <button disabled={!canEdit} title={canEdit ? undefined : noEdit} onClick={(ev) => { ev.stopPropagation(); update(j.id, { reserve: undefined, reserveNote: undefined }, `No.${j.case_no} の充足予約を外しました`, '→ ふつうの案件としてマップに出します'); }} className="ml-auto underline disabled:opacity-40">予約を外す</button>
           </div>
         )}
         {open[j.case_no] && (
@@ -139,18 +151,18 @@ function CasesMap({ from, setFrom }: { from: string; setFrom: (s: string) => voi
           <a href={from ? `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(`${from}駅`)}&destination=${encodeURIComponent(j.station ?? j.area ?? '')}&travelmode=transit&hl=ja` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(j.station ?? j.area ?? '')}`}
             target="_blank" rel="noopener" className={ghost} style={{ color: 'var(--ad)' }}><Route size={12} />{from ? `${from}駅 → 電車で経路` : 'マップで見る'}</a>
           <button className={ghost} onClick={() => setOpen((o) => ({ ...o, [j.case_no]: !o[j.case_no] }))}>詳細</button>
-          <button className={ghost} disabled={!canEdit} title={canEdit ? '充足 / 充足予約 / 終了' : needText('edit')} onClick={() => setFill({ job: j, kind: 'now', days: 7, note: '' })}><Check size={12} />充足</button>
+          <button className={ghost} disabled={!canEdit} title={canEdit ? '充足 / 充足予約 / 終了' : noEdit} onClick={() => setFill({ job: j, kind: 'now', days: 7, note: '' })}><Check size={12} />充足</button>
         </div>
       </div>
     );
   };
 
-  const subTabs = [['map', 'マップ', live.length], ['input', '案件入力', null], ['done', '充足・終了', jobs.length - live.length]] as const;
+  const subTabs = [['map', 'マップ', openJobs.length], ['input', '案件入力', null], ['done', '充足・終了', jobs.length - openJobs.length]] as const;
   return (
     <div className="flex flex-col gap-3">
       <div className="flex gap-1.5">
         {subTabs.map(([k, l, n]) => (
-          <button key={k} onClick={() => setSub(k)} disabled={k === 'input' && !canEdit} title={k === 'input' && !canEdit ? needText('edit') : undefined}
+          <button key={k} onClick={() => setSub(k)} disabled={k === 'input' && !canEdit} title={k === 'input' && !canEdit ? noEdit : undefined}
             className="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] disabled:opacity-40" style={sub === k ? { borderColor: 'var(--a)', background: 'var(--as)', color: 'var(--ad)', fontWeight: 700 } : { borderColor: 'var(--color-line)' }}>
             {k === 'map' ? <MapPin size={13} /> : k === 'input' ? <Plus size={13} /> : <Archive size={13} />}{l}{n != null && <b className="num">{n}</b>}
           </button>
@@ -159,9 +171,9 @@ function CasesMap({ from, setFrom }: { from: string; setFrom: (s: string) => voi
 
       {sub === 'map' && <>
         <div className="flex flex-wrap items-center gap-3 rounded-lg bg-sunken px-3 py-2 text-[12px] text-muted">
-          {(['sheet', 'ike', 'juchu'] as const).map((s) => <span key={s}>{s === 'sheet' ? 'スプレッドシートから' : s === 'ike' ? '社内ツールで入力' : '案件受注から'} <b className="text-ink">{live.filter((j) => j.source === s).length}</b> 件</span>)}
+          {(['sheet', 'ike', 'juchu'] as const).map((s) => <span key={s}>{s === 'sheet' ? 'スプレッドシートから' : s === 'ike' ? '社内ツールで入力' : '案件受注から'} <b className="text-ink">{openJobs.filter((j) => j.source === s).length}</b> 件</span>)}
           <span>10分ごとに自動同期</span>
-          <button className={`${ghost} ml-auto`} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onClick={() => { hit(); toast({ text: '今すぐ同期しました（見本）', sub: '→ シートと案件受注の新しい行をマップに取り込みます' }); }}><RefreshCw size={12} />今すぐ同期</button>
+          <button className={`${ghost} ml-auto`} disabled={!canEdit} title={canEdit ? undefined : noEdit} onClick={() => { hit(); toast({ text: '今すぐ同期しました（見本）', sub: '→ シートと案件受注の新しい行をマップに取り込みます' }); }}><RefreshCw size={12} />今すぐ同期</button>
         </div>
         <div className="flex flex-wrap items-end gap-3 rounded-xl border border-line bg-surface px-4 py-3">
           <label className="flex flex-col gap-1 text-[12px] text-muted"><span className="flex items-center gap-1"><Train size={12} />要員の出発駅（お住まい）</span>
@@ -169,7 +181,7 @@ function CasesMap({ from, setFrom }: { from: string; setFrom: (s: string) => voi
           <label className="flex flex-col gap-1 text-[12px] text-muted"><span className="flex items-center gap-1"><Clock size={12} />通勤時間の目安</span>
             <select aria-label="通勤時間の目安" value={time} onChange={(e) => setTime(+e.target.value)} className={sel}>{[999, 30, 45, 60, 90].map((t) => <option key={t} value={t}>{t === 999 ? '指定なし' : `〜${t}分`}</option>)}</select></label>
           <label className="flex flex-col gap-1 text-[12px] text-muted"><span className="flex items-center gap-1"><User size={12} />担当者</span>
-            <select aria-label="担当者" value={owner} onChange={(e) => setOwner(e.target.value)} className={sel}><option value="">すべて</option>{OWNERS.map((o) => <option key={o}>{o}</option>)}</select></label>
+            <select aria-label="担当者" value={owner} onChange={(e) => setOwner(e.target.value)} className={sel}><option value="">すべて</option>{owners.map((o) => <option key={o}>{o}</option>)}</select></label>
           <label className="flex flex-col gap-1 text-[12px] text-muted">通勤手段
             <select aria-label="通勤手段" value={mode} onChange={(e) => setMode(e.target.value)} className={sel}><option value="">すべて</option>{MODES.map((m) => <option key={m.v} value={m.v}>{m.l}</option>)}</select></label>
           <button className={ghost} onClick={() => { setFrom(''); setTime(999); setOwner(''); setMode(''); setCats([]); setFocus(null); setPop(null); }}>リセット</button>
@@ -179,14 +191,14 @@ function CasesMap({ from, setFrom }: { from: string; setFrom: (s: string) => voi
         <div className="flex flex-wrap items-center gap-1.5 text-[12px]">
           <span className="text-muted">職種で絞り込み（複数可）</span>
           <button onClick={() => setCats([])} className="chip" style={!cats.length ? { background: 'var(--as)', color: 'var(--ad)' } : { background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>すべて</button>
-          {CATS.map((c) => { const n = live.filter((j) => j.category === c && pass(j, true)).length, on = cats.includes(c); return n ? (
+          {CATS.map((c) => { const n = openJobs.filter((j) => j.category === c && pass(j, true)).length, on = cats.includes(c); return n ? (
             <button key={c} onClick={() => setCats((x) => (on ? x.filter((y) => y !== c) : [...x, c]))} className="chip" style={on ? { background: catFg(c), color: 'var(--color-surface)' } : { background: catBg(c), color: catFg(c) }}>{c}<b className="num">{n}</b></button>) : null; })}
         </div>
 
         <div className="grid gap-3.5 lg:grid-cols-[1.25fr_1fr]">
           <div className="self-start lg:sticky lg:top-3">
             <BaseMap onBg={() => setPop(null)} overlay={<>
-              {pop && groups[pop] && (() => { const s = stationOf(pop)!, list = groups[pop]; return (
+              {pop && groups[pop] && (() => { const s = at(pop)!, list = groups[pop]; return (
                 <div className="absolute z-10 w-[250px] -translate-x-1/2 -translate-y-[calc(100%+30px)] rounded-lg border border-line bg-surface p-2.5 text-[12px] shadow-lg" style={pct(s.lat, s.lng)}>
                   <button className="absolute right-1.5 top-1.5 text-faint" onClick={() => setPop(null)} aria-label="閉じる"><X size={13} /></button>
                   {list.length > 1 && <div className="mb-1 font-semibold">この場所の案件 <b>{list.length}件</b></div>}
@@ -206,9 +218,9 @@ function CasesMap({ from, setFrom }: { from: string; setFrom: (s: string) => voi
                 </div>)}
               {!fj && from && <div className="absolute inset-x-2 bottom-6 rounded-lg bg-surface/90 px-3 py-1.5 text-[12px] text-muted"><Train size={12} className="inline" /> ピンかカードを選ぶと、地図に経路の目安（距離・所要時間）が出ます</div>}
             </>}>
-              {fj && fromS && (() => { const a = xy(fromS.lat, fromS.lng), s = stationOf(fj.station!)!, b = xy(s.lat, s.lng); return <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="var(--ad)" strokeWidth={3} strokeDasharray="7 6" />; })()}
+              {fj && fromS && (() => { const a = xy(fromS.lat, fromS.lng), s = at(fj.station!)!, b = xy(s.lat, s.lng); return <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="var(--ad)" strokeWidth={3} strokeDasharray="7 6" />; })()}
               {Object.entries(groups).map(([st, list]) => {
-                const s = stationOf(st)!, p = xy(s.lat, s.lng), head = list[0], on = list.some((j) => j.case_no === focus);
+                const s = at(st)!, p = xy(s.lat, s.lng), head = list[0], on = list.some((j) => j.case_no === focus);
                 return (
                   <g key={st} transform={`translate(${p.x},${p.y})`} className="cursor-pointer" onClick={(e) => { e.stopPropagation(); pick(head); }}>
                     <title>{list.map((j) => `No.${j.case_no} ${j.title}`).join('\n')}</title>
@@ -224,16 +236,16 @@ function CasesMap({ from, setFrom }: { from: string; setFrom: (s: string) => voi
           </div>
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-2 text-[12.5px]">地図上 <b>{pinned.length}件</b>
-              <span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}>生きている案件 {live.length}件</span>
-              {live.some((j) => j.reserve) && <span className="chip" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>充足予定 {live.filter((j) => j.reserve).length}件</span>}</div>
+              <span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}>生きている案件 {openJobs.length}件</span>
+              {openJobs.some((j) => j.reserve) && <span className="chip" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>充足予定 {openJobs.filter((j) => j.reserve).length}件</span>}</div>
             {pinned.map(card)}
             {!pinned.length && <div className="rounded-lg border border-dashed border-line px-4 py-8 text-center text-[13px] text-muted">条件に合う案件がありません。<br />通勤時間を長め・手段を「すべて」にしてお試しください。</div>}
           </div>
         </div>
         {areaJobs.length > 0 && (
           <section className="flex flex-col gap-2">
-            <h2 className="flex items-center gap-1.5 text-[15px] font-bold"><MapPin size={15} />エリア指定の案件</h2>
-            <p className="text-[12px] text-faint">勤務地が複数店舗・広域のため地図にピンを立てられない案件。</p>
+            <h2 className="flex items-center gap-1.5 text-[15px] font-bold"><MapPin size={15} />{live ? '地図にピンを立てられない案件' : 'エリア指定の案件'}</h2>
+            <p className="text-[12px] text-faint">{live ? 'エリア指定の案件と、簡易な地図の枠の外の駅・座標がまだ無い駅の案件。' : '勤務地が複数店舗・広域のため地図にピンを立てられない案件。'}</p>
             <div className="grid gap-2 md:grid-cols-2">{areaJobs.map(card)}</div>
           </section>
         )}
@@ -256,7 +268,7 @@ function CasesMap({ from, setFrom }: { from: string; setFrom: (s: string) => voi
                   <td className="px-3 py-2 num">{j.case_no}</td><td className="px-3 py-2 font-semibold">{j.title}</td><td className="px-3 py-2">{j.owner}</td><td className="px-3 py-2">{j.station ?? j.area}</td>
                   <td className="px-3 py-2"><span className="chip" style={j.status === 'filled' ? { background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' } : { background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>{j.status === 'filled' ? '充足' : '終了'}</span></td>
                   <td className="px-3 py-2">{fmt(j.doneOn)}</td><td className="px-3 py-2 text-muted">{j.doneNote}</td>
-                  <td className="px-3 py-2 text-right"><button className={ghost} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onClick={() => update(j.id, { status: 'open', doneOn: undefined, doneNote: undefined }, `No.${j.case_no} を再掲載しました`, '→ 案件マップに戻しました')}><Undo2 size={12} />再掲載</button></td>
+                  <td className="px-3 py-2 text-right"><button className={ghost} disabled={!canEdit} title={canEdit ? undefined : noEdit} onClick={() => update(j.id, { status: 'open', doneOn: undefined, doneNote: undefined }, `No.${j.case_no} を再掲載しました`, '→ 案件マップに戻しました')}><Undo2 size={12} />再掲載</button></td>
                 </tr>))}</tbody>
             </table>
           </div>
@@ -353,17 +365,21 @@ function CaseInput({ onSave }: { onSave: (j: Omit<Job, 'id' | 'case_no'>) => voi
 }
 
 // ========================= 要員マップ =========================
-function YouinMap() {
-  const canEdit = usePerms().can('eigyo', 'edit');
+function YouinMap({ live }: { live: boolean }) {
+  const md = useIke<MapData>(live ? 'proxy?action=getMapData' : null);
+  const ly = useMemo(() => liveYouin(md.live ? md.data : null), [md.live, md.data]);
+  const YOUIN_ = live ? ly.youin : YOUIN, CASES_ = live ? ly.cases : SLACK_CASES;
+  const at = (n?: string) => (n ? (live ? ly.pos.get(n) ?? stationOf(n) : stationOf(n)) : undefined);
+  const canEdit = usePerms().can('eigyo', 'edit') && !live;
   const { hit, toast } = useMotivation();
   const [q, setQ] = useState(''), [hidden, setHidden] = useState<Record<string, boolean>>({});
   const [selCase, setSelCase] = useState<string | null>(null), [members, setMembers] = useState<string[]>([]);
   const [pop, setPop] = useState<string | null>(null), [detail, setDetail] = useState<Youin | null>(null);
   const [noSt, setNoSt] = useState(false), [loading, setLoading] = useState(false), [focus, setFocus] = useState<string | null>(null);
 
-  const shown = YOUIN.filter((y) => y.station && (!q || y.name.includes(q) || y.station.includes(q)));
+  const shown = YOUIN_.filter((y) => y.station && at(y.station) && (!q || y.name.includes(q) || y.station.includes(q)));
   const byStation = useMemo(() => shown.reduce<Record<string, Youin[]>>((g, y) => ({ ...g, [y.station!]: [...(g[y.station!] ?? []), y] }), {}), [shown]);
-  const noStation = YOUIN.filter((y) => !y.station);
+  const noStation = YOUIN_.filter((y) => !y.station);
   const toggle = (id: string) => setMembers((m) => (m.includes(id) ? m.filter((x) => x !== id) : [...m, id]));
   const apply = () => {
     const prev = { selCase, members };
@@ -377,21 +393,27 @@ function YouinMap() {
     <div className="grid gap-3.5 lg:grid-cols-[340px_1fr]">
       <aside className="flex flex-col gap-2.5 self-start rounded-xl border border-line bg-surface p-3">
         <div className="flex items-center gap-2">
-          <button className={ghost} onClick={refresh} disabled={loading}><RefreshCw size={12} className={loading ? 'animate-spin' : ''} />{loading ? '案件取得中…' : '案件を更新'}</button>
-          <span className="text-[12px] text-muted">地図表示 <b className="text-ink">{shown.length}</b>名 / 案件 <b className="text-ink">{SLACK_CASES.length}</b>件</span>
+          <button className={ghost} onClick={refresh} disabled={loading || live} title={live ? LIVE_WRITE_BLOCKED : undefined}><RefreshCw size={12} className={loading ? 'animate-spin' : ''} />{loading ? '案件取得中…' : '案件を更新'}</button>
+          <span className="text-[12px] text-muted">地図表示 <b className="text-ink">{shown.length}</b>名 / 案件 <b className="text-ink">{CASES_.length}</b>件</span>
         </div>
         <div className="rounded-lg bg-soft px-2.5 py-2 text-[11.5px] leading-relaxed text-muted">
+          {live ? (<>
+            {md.state === 'loading' && <>読み込み中…<br /></>}{md.state === 'error' && <span className="text-bad">{md.error}<br /></span>}
+            対象 {md.data?.counts?.target ?? '—'}名（除外 {md.data?.counts?.excluded ?? '—'}名）／最寄駅あり {YOUIN_.length - noStation.length}・なし {noStation.length}<br />
+            座標取得待ち {md.data?.counts?.pendingPeople ?? 0}名{ly.outside > 0 && `・簡易な地図の枠の外 ${ly.outside}名`}<br />
+          </>) : (<>
           対象 {YOUIN_COUNTS.target}名（除外 {YOUIN_COUNTS.excluded}名）／最寄駅あり {YOUIN.length - noStation.length}・なし {noStation.length}（見本）<br />
           座標取得待ち {YOUIN_COUNTS.pending}名（{YOUIN_COUNTS.pendingNames.join('、')}）→ もう一度「更新」を押すと表示されます<br />
+          </>)}
           <button className="font-semibold underline" style={{ color: 'var(--ad)' }} onClick={() => setNoSt((v) => !v)}>最寄駅が空の {noStation.length}名を見る</button>
           {noSt && <span className="block">{noStation.map((y) => y.name).join('、')}（営業用リストの最寄駅を埋めると地図に出ます）</span>}
         </div>
         <label className="flex items-center gap-1.5 rounded-[10px] border border-field px-2"><Search size={13} className="text-faint" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="名前・駅で要員を絞り込み" className="min-h-9 flex-1 bg-transparent text-[13px] outline-none" /></label>
-        <div className="flex items-center justify-between border-t border-line-soft pt-2 text-[13px] font-bold">案件情報（{SLACK_CASES.length}）
-          <span className="text-[11.5px] font-normal"><button className="underline" onClick={() => setHidden({})}>全表示</button> / <button className="underline" onClick={() => setHidden(Object.fromEntries(SLACK_CASES.map((c) => [c.kNo, true])))}>全非表示</button></span></div>
+        <div className="flex items-center justify-between border-t border-line-soft pt-2 text-[13px] font-bold">案件情報（{CASES_.length}）
+          <span className="text-[11.5px] font-normal"><button className="underline" onClick={() => setHidden({})}>全表示</button> / <button className="underline" onClick={() => setHidden(Object.fromEntries(CASES_.map((c) => [c.kNo, true])))}>全非表示</button></span></div>
         <div className="flex max-h-[520px] flex-col gap-2 overflow-y-auto">
-          {SLACK_CASES.map((c) => { const isSel = selCase === c.kNo; return (
+          {CASES_.map((c) => { const isSel = selCase === c.kNo; return (
             <div key={c.kNo} className="rounded-lg border p-2.5 text-[12px]" style={{ borderColor: isSel ? 'var(--a)' : 'var(--color-line)', background: isSel ? 'var(--as)' : undefined }}>
               <div className="flex items-center gap-2">
                 <label className="flex items-center gap-1 text-muted"><input type="checkbox" checked={!hidden[c.kNo]} onChange={() => setHidden((h) => ({ ...h, [c.kNo]: !h[c.kNo] }))} />表示</label>
@@ -408,21 +430,21 @@ function YouinMap() {
       </aside>
 
       <div className="self-start lg:sticky lg:top-3">
-        <BaseMap onBg={() => setPop(null)} overlay={pop && byStation[pop] && (() => { const s = stationOf(pop)!, list = byStation[pop]; return (
+        <BaseMap onBg={() => setPop(null)} overlay={pop && byStation[pop] && (() => { const s = at(pop)!, list = byStation[pop]; return (
           <div className="absolute z-10 w-[220px] -translate-x-1/2 -translate-y-[calc(100%+26px)] rounded-lg border border-line bg-surface p-2.5 text-[12.5px] shadow-lg" style={pct(s.lat, s.lng)}>
             <button className="absolute right-1.5 top-1.5 text-faint" onClick={() => setPop(null)} aria-label="閉じる"><X size={13} /></button>
             <div className="mb-1 font-bold"><Train size={12} className="inline" /> {pop}（{list.length}名）</div>
             {list.map((y) => <label key={y.id} className="flex items-center gap-1.5 py-0.5"><input type="checkbox" checked={members.includes(y.id)} onChange={() => toggle(y.id)} />
               <button className="font-semibold underline" style={{ color: 'var(--ad)' }} onClick={(e) => { e.preventDefault(); setDetail(y); }}>{y.name}</button></label>)}
           </div>); })()}>
-          {SLACK_CASES.filter((c) => !hidden[c.kNo]).flatMap((c, ci) => c.stations.map((st) => {
-            const s = stationOf(st); if (!s) return null; const p = xy(s.lat, s.lng), on = focus === c.kNo || selCase === c.kNo;
+          {CASES_.filter((c) => !hidden[c.kNo]).flatMap((c, ci) => c.stations.map((st) => {
+            const s = at(st); if (!s) return null; const p = xy(s.lat, s.lng), on = focus === c.kNo || selCase === c.kNo;
             return <g key={c.kNo + st} transform={`translate(${p.x + 12 + (ci % 3) * 5},${p.y - 10 - (ci % 2) * 5})`} onClick={(e) => { e.stopPropagation(); setFocus(c.kNo); }} className="cursor-pointer">
               <title>{`${c.kNo}（${st}）${c.remote ? ' リモート併用' : ''}\n${c.content}`}</title>
               {on && <circle r={13} fill="var(--tone-warn-bg)" className="mo-pulse" />}<circle r={7} fill="var(--tone-warn-fg)" stroke="var(--color-surface)" strokeWidth={2} /></g>;
           }))}
           {Object.entries(byStation).map(([st, list]) => {
-            const s = stationOf(st)!, p = xy(s.lat, s.lng), r = Math.min(9 + list.length * 1.5, 22), picked = list.some((y) => members.includes(y.id));
+            const s = at(st)!, p = xy(s.lat, s.lng), r = Math.min(9 + list.length * 1.5, 22), picked = list.some((y) => members.includes(y.id));
             return <g key={st} onClick={(e) => { e.stopPropagation(); setPop(st); }} className="cursor-pointer">
               <title>{`${st} ${list.length}`}</title>
               <circle cx={p.x} cy={p.y} r={r} fill="var(--tone-info-fg)" fillOpacity={0.85} stroke={picked ? 'var(--a)' : 'var(--color-surface)'} strokeWidth={picked ? 4 : 2} />
@@ -436,7 +458,7 @@ function YouinMap() {
         <div className="mo-fade-up fixed bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 rounded-xl border border-line bg-surface px-4 py-2.5 text-[13px] shadow-lg">
           <span>{selCase ? <>案件 <b>{selCase}</b></> : <span className="text-warn">案件 未選択</span>}　／　要員 <b>{members.length}</b> 名</span>
           <button className={ghost} onClick={() => { setSelCase(null); setMembers([]); }}>選択解除</button>
-          <button className="btn-primary" disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onClick={apply}>転記＆配信先設定</button>
+          <button className="btn-primary" disabled={!canEdit} title={canEdit ? undefined : live ? LIVE_WRITE_BLOCKED : needText('edit')} onClick={apply}>転記＆配信先設定</button>
         </div>
       )}
 
@@ -445,7 +467,8 @@ function YouinMap() {
           <div className="fixed inset-0 z-40 bg-sumi/30" onClick={() => setDetail(null)} />
           <aside className="mo-drawer fixed inset-y-0 right-0 z-50 flex w-full max-w-[380px] flex-col gap-3 overflow-y-auto bg-surface p-5 shadow-xl">
             <div className="flex items-center justify-between"><h2 className="text-[15px] font-bold">要員詳細情報</h2><button onClick={() => setDetail(null)} aria-label="閉じる"><X size={16} /></button></div>
-            <Link href={`/jinji/staff/${detail.id}`} className="text-[17px] font-bold hover:underline">{detail.name}</Link>
+            {live ? <div className="text-[17px] font-bold">{detail.name}</div> : <Link href={`/jinji/staff/${detail.id}`} className="text-[17px] font-bold hover:underline">{detail.name}</Link>}
+            {live && <p className="text-[12.5px] text-muted">サマリ・前職・面談可能日は要員リストの要員ページで見られます。<Link href={`/eigyo/proper?q=${encodeURIComponent(detail.name)}`} className="font-semibold" style={{ color: 'var(--ad)' }}>要員リストを開く</Link></p>}
             <dl className="grid grid-cols-[84px_1fr] gap-y-2 text-[13px]">
               <dt className="text-faint">最寄駅</dt><dd>{detail.station}</dd>
               <dt className="text-faint">タグ</dt><dd className="flex flex-wrap gap-1">{detail.tags.map((t) => <span key={t} className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>{t}</span>)}</dd>

@@ -7,6 +7,7 @@ import { CONTRACTS, LEVEL_STYLE, contractLevel as levelOf, type DispatchContract
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
+import { NotInLegacy } from '@/components/Live';
 import { stageTo, useRule } from '@/components/AlertStore';
 import { numOf } from '@/lib/alert-rules';
 
@@ -56,6 +57,8 @@ export default function ContractsPage() {
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="現場・契約" sub="派遣契約の終わりと抵触日が近い人。更新するか決まるまで、段階ごとに知らせます（準委任は対象外）・見本データ" />
+      {/* 今の社内システムには派遣契約の終わり・抵触日・更新の意向を持つ画面も表も無い（稼働の終了日はあるが抵触日とは別物なのでつながない） */}
+      <NotInLegacy what="派遣契約の終わり・抵触日・更新の意向" />
 
       <div className="mo-fade-up flex flex-wrap items-stretch gap-3" style={{ ['--i' as string]: 1 }}>
         <div className="flex min-w-[240px] items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">

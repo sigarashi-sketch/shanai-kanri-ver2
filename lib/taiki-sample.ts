@@ -27,4 +27,5 @@ export const TAIKI: Taiki[] = [
 const DAY = 86400000;
 export const daysBetween = (a: string, b: string) => Math.round((new Date(b).getTime() - new Date(a).getTime()) / DAY);
 /** 待機中＝待機に入ってから何日目／もうすぐ待機＝契約終了まであと何日 */
-export const taikiDays = (t: Taiki) => (t.kind === '待機中' ? daysBetween(t.since!, TODAY) : daysBetween(TODAY, t.contractEnd!));
+//   本物では待機に入った日が無い（since なし）＝ -1。今日は本物のとき実際の今日
+export const taikiDays = (t: Taiki, today = TODAY) => (t.kind === '待機中' ? (t.since ? daysBetween(t.since, today) : -1) : t.contractEnd ? daysBetween(today, t.contractEnd) : -1);

@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Bell, Check, ChevronDown, Clock } from 'lucide-react';
 import { NOW, TODAY_ROWS, TODAY_TOTAL, type TodayRow } from '@/lib/kintai-sample';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
+import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { todayFromIke, type IkeAbsence, type IkeToday } from '@/lib/live/today';
 
 // 当日の出勤状況（労務/営業管理）＝今の時点で「出勤しているはずなのに打刻が無い人」から片づける。
 //   ・材料は freee の打刻＋提出済みシフト（空欄＝休み）＋勤怠連絡＋出発コール（今のシステムと同じ）
@@ -15,7 +17,9 @@ import { RemainRing, useMotivation } from '@/components/Motivation';
 //   ・未打刻のお知らせは平日10:00にも自動で出る（今のシステムの決まりのまま）
 const NEED: TodayRow['state'][] = ['未打刻', '出発コール未着', '欠勤の連絡', '遅刻の連絡'];
 const RESULTS = ['打ち忘れ（出勤している）', '遅刻だった（連絡なし）', '欠勤だった（連絡なし）', '連絡がつかない → 担当営業へ'];
-const STATE_TONE: Record<TodayRow['state'], string> = { 未打刻: 'bad', 出発コール未着: 'warn', 欠勤の連絡: 'warn', 遅刻の連絡: 'caution', 出勤済み: 'ok', 休み: 'mute' };
+const STATE_TONE: Record<TodayRow['state'], string> = { 未打刻: 'bad', 出発コール未着: 'warn', 欠勤の連絡: 'warn', 遅刻の連絡: 'caution', 出勤済み: 'ok', 休み: 'mute', 始業前: 'info', 取得できていない: 'mute' };
+// 本物：1段目（キャッシュだけ・すぐ）→ 2段目（freee から取り直す）。2段目が間に合わなければ1段目のまま（今の画面と同じ2段構え）
+const jstToday = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
 
 export default function TodayPage() {
   const canEdit = usePerms().can('roumu', 'edit');
@@ -25,9 +29,23 @@ export default function TodayPage() {
   const [sales, setSales] = useState('すべて');
   const [showOthers, setShowOthers] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+  const [date, setDate] = useState<string | null>(null);
+  useEffect(() => setDate(jstToday()), []);
+  const quick = useIke<IkeToday>(date ? `kintai-today?date=${date}&stale=1` : null);
+  const full = useIke<IkeToday>(quick.live && date ? `kintai-today?date=${date}` : null);
+  const absence = useIke<IkeAbsence>(quick.live && date ? `attendance-board?action=absence&date=${date}` : null);
+  const live = quick.live;
+  const best = full.live && full.data?.ok ? full.data : quick.data;
+  const L = live ? todayFromIke(best, absence.live ? absence.data : null) : null;
+  const ALL = L ? L.rows : TODAY_ROWS;
+  const TOTAL = L ? { planned: L.planned, done: L.done } : TODAY_TOTAL;
+  const AT = L ? { date: L.date, time: L.time } : NOW;
+  const block = live ? LIVE_WRITE_BLOCKED : !canEdit ? needText('edit') : undefined;
+  const okEdit = canEdit && !live;
+  const loadErr = live && best && !best.ok ? (typeof best.error === 'string' ? best.error : best.error?.message) : '';
 
-  const reps = ['すべて', ...Array.from(new Set(TODAY_ROWS.map((r) => r.sales)))];
-  const mine = TODAY_ROWS.filter((r) => sales === 'すべて' || r.sales === sales);
+  const reps = ['すべて', ...Array.from(new Set(ALL.map((r) => r.sales)))];
+  const mine = ALL.filter((r) => sales === 'すべて' || r.sales === sales);
   const need = mine.filter((r) => NEED.includes(r.state)).sort((a, b) => NEED.indexOf(a.state) - NEED.indexOf(b.state) || (b.late ?? 0) - (a.late ?? 0));
   const open = need.filter((r) => !done[r.personId]);
   const others = mine.filter((r) => !NEED.includes(r.state));
@@ -50,16 +68,19 @@ export default function TodayPage() {
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="当日の出勤状況" sub={`${NOW.date} ${NOW.time} 時点。freee の打刻・提出済みシフト・勤怠連絡・出発コールから出しています・見本データ`}>
+      <PageTitle title="当日の出勤状況" sub={`${AT.date} ${AT.time} 時点。freee の打刻・提出済みシフト・勤怠連絡${live ? '' : '・出発コール'}から出しています${live ? (full.live ? '' : '・いまは前に取った打刻（freee から取り直し中）') : '・見本データ'}`}>
         <select aria-label="担当営業で絞る" value={sales} onChange={(e) => setSales(e.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-[13px]">
           {reps.map((x) => <option key={x} value={x}>{x === 'すべて' ? '担当営業：すべて' : `担当営業：${x}`}</option>)}
         </select>
       </PageTitle>
+      <LiveBanner state={loadErr ? 'error' : quick.state} error={quick.error || loadErr} onReload={() => { quick.reload(); full.reload(); absence.reload(); }}
+        note={`見るだけです。促す・結果の記録・現場への連絡は今の社内システムの画面から。${full.state === 'error' ? 'freee からの取り直しが間に合わなかったので、前に取った打刻で出しています。' : ''}${absence.state === 'error' ? '欠勤・遅刻の連絡は読めませんでした。' : ''}`} />
+      {live && <NotInLegacy what="出発コールの未着" />}
 
       <div className="mo-fade-up grid grid-cols-2 gap-3 md:grid-cols-4" style={{ ['--i' as string]: 1 }}>
         {[
-          ['出勤予定', TODAY_TOTAL.planned, '人', 'var(--color-ink)'],
-          ['出勤済み', TODAY_TOTAL.done + Object.values(done).filter((x) => x.startsWith('打ち忘れ')).length, '人', 'var(--color-ok)'],
+          ['出勤予定', TOTAL.planned, '人', 'var(--color-ink)'],
+          ['出勤済み', TOTAL.done + Object.values(done).filter((x) => x.startsWith('打ち忘れ')).length, '人', 'var(--color-ok)'],
           ['未打刻', noPunch, '人', noPunch ? 'var(--color-bad)' : 'var(--color-ok)'],
           ['対応が要る', open.length, '件', open.length ? 'var(--color-warn)' : 'var(--color-ok)'],
         ].map(([l, n, u, c]) => (
@@ -97,7 +118,7 @@ export default function TodayPage() {
                   const tone = STATE_TONE[r.state];
                   return (
                     <tr key={r.personId} className={`mo-fade-in border-t border-line-soft align-top ${flash === r.personId ? 'mo-flash' : 'row'} ${d ? 'opacity-55' : ''}`} style={{ ['--i' as string]: i }}>
-                      <td className="px-4 py-2.5"><Link href={`/jinji/staff/${r.personId}`} className="font-semibold hover:underline">{r.person}</Link><div className="text-[11.5px] text-faint">営業 {r.sales}</div></td>
+                      <td className="px-4 py-2.5">{live ? <span className="font-semibold">{r.person}</span> : <Link href={`/jinji/staff/${r.personId}`} className="font-semibold hover:underline">{r.person}</Link>}<div className="text-[11.5px] text-faint">営業 {r.sales}</div></td>
                       <td className="px-2 py-2.5">{r.site}<div className="num text-[11.5px] text-faint">{r.shift}</div></td>
                       <td className="px-2 py-2.5">
                         <span className="chip" style={{ background: `var(--tone-${tone}-bg)`, color: `var(--tone-${tone}-fg)` }}>{r.state}</span>
@@ -109,14 +130,14 @@ export default function TodayPage() {
                           : r.state === '未打刻' || r.state === '出発コール未着' ? (
                             <div className="flex flex-wrap items-center gap-2">
                               {nudged[r.personId] ? <span className="text-[12px] text-faint">促しました・返事待ち</span>
-                                : <button onClick={() => nudge(r)} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Bell size={14} />あおいで促す</button>}
-                              <select aria-label={`${r.person} の結果`} value="" disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} onChange={(e) => e.target.value && settle(r, e.target.value, resultSub(e.target.value))} className="min-h-8 rounded-lg border border-field bg-surface px-2 text-[12.5px] disabled:opacity-50">
+                                : <button onClick={() => nudge(r)} disabled={!okEdit} title={block} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Bell size={14} />あおいで促す</button>}
+                              <select aria-label={`${r.person} の結果`} value="" disabled={!okEdit} title={block} onChange={(e) => e.target.value && settle(r, e.target.value, resultSub(e.target.value))} className="min-h-8 rounded-lg border border-field bg-surface px-2 text-[12.5px] disabled:opacity-50">
                                 <option value="">結果を選ぶ…</option>
                                 {RESULTS.map((x) => <option key={x} value={x}>{x}</option>)}
                               </select>
                             </div>
                           ) : (
-                            <button onClick={() => settle(r, '現場に伝えた', `→ ${r.sales}（担当営業）から現場に伝えた記録を残しました`)} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="btn-primary min-h-8 rounded-lg px-3 text-[12.5px] font-bold disabled:opacity-40">現場に伝えた</button>
+                            <button onClick={() => settle(r, '現場に伝えた', `→ ${r.sales}（担当営業）から現場に伝えた記録を残しました`)} disabled={!okEdit} title={block} className="btn-primary min-h-8 rounded-lg px-3 text-[12.5px] font-bold disabled:opacity-40">現場に伝えた</button>
                           )}
                       </td>
                     </tr>
@@ -131,14 +152,14 @@ export default function TodayPage() {
       <div className="rounded-xl border border-line bg-surface">
         <button onClick={() => setShowOthers((v) => !v)} className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px]">
           <ChevronDown size={16} className={`transition-transform ${showOthers ? '' : '-rotate-90'}`} />
-          <b>出勤済み・休みの人</b><span className="text-muted">（見本は {others.length}人だけ・全体は出勤予定 {TODAY_TOTAL.planned}人）</span>
+          <b>出勤済み・休みの人</b><span className="text-muted">{live ? `（${others.length}人）` : `（見本は ${others.length}人だけ・全体は出勤予定 ${TODAY_TOTAL.planned}人）`}</span>
         </button>
         {showOthers && (
           <ul className="mo-fade-in border-t border-line-soft px-4 py-2 text-[12.5px]">
             {others.map((r) => (
               <li key={r.personId} className="flex flex-wrap items-center gap-3 py-1.5">
                 <span className="chip" style={{ background: `var(--tone-${STATE_TONE[r.state]}-bg)`, color: `var(--tone-${STATE_TONE[r.state]}-fg)` }}>{r.state}</span>
-                <Link href={`/jinji/staff/${r.personId}`} className="font-semibold hover:underline">{r.person}</Link>
+                {live ? <span className="font-semibold">{r.person}</span> : <Link href={`/jinji/staff/${r.personId}`} className="font-semibold hover:underline">{r.person}</Link>}
                 <span className="text-muted">{r.site}</span>
                 <span className="num text-faint">{r.punch ? `${r.punch} 出勤` : r.contact}</span>
               </li>

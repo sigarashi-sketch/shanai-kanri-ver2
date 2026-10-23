@@ -3,12 +3,13 @@
 //   ★提出済みの月で空欄の日は「休み」とみなす（本人は空欄＝休みのつもりで出している）。未提出の月の空欄は「まだ入っていない」。
 //   20日を過ぎたら翌月のシフトを集める（今日は 10/23 なので 11月）。
 export const SHIFT_MONTH = { label: '11月', year: 2026, month: 11, days: 30, firstDow: 0 /* 11/1 は日曜 */, deadline: '10/25（日）' };
-export type ShiftKind = '早番' | '日勤' | '遅番' | '夜勤' | '休み' | '';
+export type ShiftKind = '早番' | '日勤' | '遅番' | '夜勤' | '出勤' | '休み' | ''; // 出勤＝本物のとき（今のシステムは 出勤（時間つき）／休み の2つだけ）
 export const SHIFT_KINDS: { k: ShiftKind; short: string; time: string; tone: string }[] = [
   { k: '早番', short: '早', time: '7:00〜16:00', tone: 'info' },
   { k: '日勤', short: '日', time: '9:00〜18:00', tone: 'ok' },
   { k: '遅番', short: '遅', time: '13:00〜22:00', tone: 'caution' },
   { k: '夜勤', short: '夜', time: '20:00〜翌5:00', tone: 'purple' },
+  { k: '出勤', short: '出', time: '', tone: 'ok' },
   { k: '休み', short: '休', time: '', tone: 'mute' },
   { k: '', short: '', time: '', tone: 'mute' },
 ];

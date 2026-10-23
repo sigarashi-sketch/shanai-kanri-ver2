@@ -7,12 +7,16 @@ import { calc, CLIENTS, FMT_LABEL, SHEET_REJECT, STAGES, type Client, type SPers
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
+import { LIVE_WRITE_BLOCKED, LiveBanner, useIke, type LiveState } from '@/components/Live';
+import { SEIKYU_STAGE, SEIKYU_STAGES, toSeikyu, type SeikyuListLive, type SeikyuLive } from '@/lib/live/seikyu';
 
 // 請求書（経理管理）。今月の請求書づくりを 取引先ごと・人ごとに、1社ずつ片づける。
 //   勤務表が届いた → 時間を読んだ → 精算幅で金額 → 請求書の下書き → 送付
 //   ・精算幅を外れたら控除／超過を自動で出す（単価は 月額÷下限・月額÷上限）
 //   ・勤務表に不備がある人は理由を選んで差し戻す。格納の請求書PDFで名前が読めないものは「人を選ぶ」
 //   ・その会社の全員が下書きまで来て、止まりが無ければ「送付」→ 次の会社へ
+//   本物（ログイン中）：今の GET /api/seikyu?action=list&cache=1 を読むだけ（前回の計算結果）。段階・理由・金額・答え合わせは今の API の答えのまま
+//     （請求の仕様は崩さない＝ver2 で計算し直さない）。確定・送付などは押せない（今の請求書の画面から）
 const yen = (n: number) => `¥${n.toLocaleString('ja-JP')}`;
 const clone = () => CLIENTS.map((c) => ({ ...c, people: c.people.map((p) => ({ ...p })), files: c.files.map((f) => ({ ...f })) }));
 const sentAll = (c: Client) => c.people.every((p) => p.stage >= 5);
@@ -44,6 +48,9 @@ export default function SeikyuPage() {
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [flash, setFlash] = useState<string | null>(null);
 
+  const [ym, setYm] = useState('');
+  const live0 = useIke<SeikyuListLive>(`seikyu?action=list&cache=1${ym ? `&ym=${ym}` : ''}`);
+  const L = live0.live ? toSeikyu(live0.data) : null;
   useEffect(() => { const c = new URLSearchParams(window.location.search).get('client'); if (c && CLIENTS.some((x) => x.id === c)) setCurIdRaw(c); return () => { if (autoNext.current) clearTimeout(autoNext.current); }; }, []);
 
   const cur = clients.find((c) => c.id === curId)!;
@@ -109,11 +116,14 @@ export default function SeikyuPage() {
     if (nxt) autoNext.current = setTimeout(() => { autoNext.current = null; setCurId(nxt.id); }, 600);
   };
 
+  if (L) return <LiveSeikyu L={L} ym={ym || L.ym} setYm={setYm} state={live0.state} error={live0.error} reload={live0.reload} />;
+
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="請求書" sub="10月分。取引先ごとに、勤務表 → 時間 → 金額 → 下書き → 送付 を1社ずつ片づけます・見本データ">
         <Link href="/keiri/chingin" className="inline-flex min-h-10 items-center rounded-[10px] border border-field bg-surface px-3.5 text-[13px] font-semibold">想定賃金・粗利へ</Link>
       </PageTitle>
+      <LiveBanner state={live0.state} error={live0.error} onReload={live0.reload} />
 
       <div className="mo-fade-up flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <RemainRing remain={remainClients.length} total={clients.length} />
@@ -218,6 +228,91 @@ export default function SeikyuPage() {
         </div>
       )}
       <p className="text-[11.5px] text-faint">控除・超過の単価は 月額÷下限・月額÷上限（10円未満切り捨て）で見本を出しています。契約ごとの精算の決め方・消費税の扱いの最終判断は税理士・法務に確認してください。</p>
+    </main>
+  );
+}
+
+// ---------------- 本物（今の社内システムの請求書の答えをそのまま出す・見るだけ） ----------------
+const ymJa = (ym: string) => `${ym.slice(0, 4)}年${Number(ym.slice(5, 7))}月分`;
+const sgn = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}¥${Math.abs(n).toLocaleString('ja-JP')}`;
+function StagePill({ s }: { s: keyof typeof SEIKYU_STAGE }) {
+  const t = SEIKYU_STAGE[s];
+  return <span className="chip" title={t.hint} style={{ background: `var(--tone-${t.tone}-bg)`, color: `var(--tone-${t.tone}-fg)` }}>{t.label}</span>;
+}
+
+function LiveSeikyu({ L, ym, setYm, state, error, reload }: { L: SeikyuLive; ym: string; setYm: (v: string) => void; state: LiveState; error: string; reload: () => void }) {
+  const [curId, setCurId] = useState('');
+  const cur = L.clients.find((c) => c.id === curId) || L.clients[0];
+  const remain = L.clients.filter((c) => c.sent < c.people.length);
+  const built = L.builtAt ? new Date(L.builtAt).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+  return (
+    <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
+      <PageTitle title="請求書" sub={`${ymJa(L.ym)}。取引先（上位会社）ごとに、今の社内システムの請求書の段階をそのまま出しています`}>
+        {L.months.length > 0 && (
+          <select aria-label="作業月" value={ym} onChange={(e) => { setYm(e.target.value); setCurId(''); }} className="min-h-10 rounded-[10px] border border-field bg-surface px-2 text-[13px]">
+            {L.months.map((m) => <option key={m} value={m}>{ymJa(m)}</option>)}
+          </select>
+        )}
+        <Link href="/keiri/chingin" className="inline-flex min-h-10 items-center rounded-[10px] border border-field bg-surface px-3.5 text-[13px] font-semibold">想定賃金・粗利へ</Link>
+      </PageTitle>
+      <LiveBanner state={state} error={error} onReload={reload} note={`今の請求書の画面で最後に計算した結果です${built ? `（${built}）` : ''}。確定・送付・勤務表の読み込み・格納は今の画面から（ここでは押せません）`} />
+
+      {L.noCache || L.clients.length === 0 ? (
+        <div className="rounded-xl border border-line bg-soft px-4 py-6 text-center text-[13px] text-muted">
+          {ymJa(L.ym)}の計算結果がまだありません。今の社内システムの「請求書」の画面でこの月を一度開くと、ここにも出ます（ここからは計算し直しません）。
+        </div>
+      ) : (
+        <>
+          <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
+            <RemainRing remain={remain.length} total={L.clients.length} />
+            <div className="text-[13px]"><b>送付ずみでない会社 {remain.length}社</b><span className="ml-2 text-muted">今月請求する人 {L.people}人・止まっている {L.stop}人・下書きの合計 {yen(L.draftTotal)}（税込）</span></div>
+            <div className="ml-auto flex flex-wrap gap-1.5">
+              {SEIKYU_STAGES.map((s) => <span key={s} className="inline-flex items-center gap-1 text-[11.5px] text-muted"><StagePill s={s} /><b className="num text-ink">{L.counts[s]}</b></span>)}
+            </div>
+          </div>
+
+          <div className="grid gap-3.5 md:grid-cols-[240px_1fr]">
+            <ul className="mo-fade-up flex max-h-[70vh] flex-col gap-1 self-start overflow-y-auto rounded-xl border border-line bg-surface p-2" style={{ ['--i' as string]: 2 }}>
+              {L.clients.map((c) => (
+                <li key={c.id}><button onClick={() => setCurId(c.id)} aria-current={c.id === cur.id ? 'true' : undefined} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px]" style={c.id === cur.id ? { background: 'var(--al)', color: 'var(--ad)' } : undefined}>
+                  {c.sent === c.people.length ? <Check size={14} className="text-ok" /> : <span className="num w-[14px] text-center text-[11px] text-faint">{c.people.length}</span>}
+                  <span className={`min-w-0 flex-1 truncate ${c.id === cur.id ? 'font-bold' : ''}`}>{c.name}</span>
+                  {c.stop > 0 && <span className="chip" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>止まり {c.stop}</span>}
+                </button></li>
+              ))}
+            </ul>
+
+            <article key={cur.id} className="mo-spring-in min-w-0 rounded-xl border border-line bg-surface" style={{ boxShadow: 'var(--card-shadow)' }}>
+              <div className="flex flex-wrap items-center gap-2 border-b border-line-soft px-5 py-3">
+                <span className="text-[18px] font-bold">{cur.name}</span>
+                {cur.site && <span className="text-[12px] text-muted">{cur.site}</span>}
+                <span className="ml-auto text-[12px] text-faint">{cur.people.length}人・送付ずみ {cur.sent}人</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[820px] border-collapse text-[13px]">
+                  <thead><tr className="th-row text-left"><th className="px-5 py-2 font-semibold">社員</th><th className="px-2 py-2 font-semibold">段階・止まっている理由</th><th className="px-2 py-2 font-semibold">時間</th><th className="px-2 py-2 text-right font-semibold">下書き（税抜／税込）</th><th className="px-2 py-2 font-semibold">答え合わせ</th><th className="px-5 py-2" /></tr></thead>
+                  <tbody>
+                    {cur.people.map((p, i) => (
+                      <tr key={p.key} className="row mo-fade-in border-t border-line-soft align-top" style={{ ['--i' as string]: i }}>
+                        <td className="px-5 py-2.5"><span className="font-semibold">{p.name}</span>{p.genba && <div className="text-[11.5px] text-faint">{p.genba}</div>}</td>
+                        <td className="px-2 py-2.5"><StagePill s={p.stage} />{p.reason && <div className={`mt-1 text-[12px] ${p.stage === 'needs' ? 'font-semibold text-bad' : 'text-muted'}`}>{p.reason}{p.more > 0 && <span className="text-faint">（ほか {p.more}件）</span>}</div>}{p.confirmedBy && <div className="mt-0.5 text-[11px] text-faint">確定：{p.confirmedBy}</div>}</td>
+                        <td className="num px-2 py-2.5 text-[12.5px]">{p.hours}<div className="text-[11px] text-faint">{p.hoursFrom}</div></td>
+                        <td className="num px-2 py-2.5 text-right">{p.total ? <><b>{yen(p.subtotal)}</b><div className="text-[11.5px] text-faint">{yen(p.total)}</div></> : <span className="text-faint">—</span>}</td>
+                        <td className="px-2 py-2.5 text-[12px]">
+                          {([['ミンミカ', p.mnm], ['freee', p.freee]] as const).map(([w, c]) => c && <div key={w}><span className="text-faint">{w} </span><span style={{ color: `var(--tone-${c.tone}-fg)` }}>{c.label}{c.kind !== 'match' && c.diff ? ` ${sgn(c.diff)}` : ''}</span></div>)}
+                          {!p.mnm && !p.freee && <span className="text-faint">まだ請求書なし</span>}
+                        </td>
+                        <td className="px-5 py-2.5 text-right"><button disabled title={LIVE_WRITE_BLOCKED} className="min-h-8 whitespace-nowrap rounded-lg border border-field px-2.5 text-[12px] disabled:opacity-40">確定にする</button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          </div>
+        </>
+      )}
+      <p className="text-[11.5px] text-faint">段階・金額・答え合わせは今の社内システムの計算そのままで、ここでは計算し直していません。契約ごとの精算の決め方・消費税の扱いの最終判断は税理士・法務に確認してください。</p>
     </main>
   );
 }

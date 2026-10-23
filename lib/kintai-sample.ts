@@ -55,7 +55,7 @@ export const REQUESTS: Req[] = [
 export const REJECT_REASONS = ['時間が打刻・勤務表と合わない', '現場の確認が取れていない', '申請の日付が違う', '理由を詳しく書き直してほしい', '同じ日の申請が二重'];
 
 // ---- 当日の出勤状況 ----
-export type Today = '出勤済み' | '未打刻' | '遅刻の連絡' | '欠勤の連絡' | '休み' | '出発コール未着';
+export type Today = '出勤済み' | '未打刻' | '遅刻の連絡' | '欠勤の連絡' | '休み' | '出発コール未着' | '始業前' | '取得できていない'; // 後ろ2つは本物のときだけ出る
 export type TodayRow = {
   personId: string; person: string; site: string; sales: string;
   shift: string; state: Today; punch?: string; contact?: string; late?: number; memo?: string;

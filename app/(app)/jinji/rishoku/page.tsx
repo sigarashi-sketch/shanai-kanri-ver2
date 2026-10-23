@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, CalendarPlus, Check, CircleAlert } from 'lucide-react';
 import { COHORTS, MENDAN_BY, MENDAN_WHEN, RISK_PEOPLE, type RiskPerson } from '@/lib/rishoku-sample';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
+import { LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { pctText, rateFromIke, type IkeRishoku, type LiveRate } from '@/lib/live/rishoku';
 
 // 離職リスク・離職率（人事管理）。
 //   ・リスクは点数にせず「材料」を並べる：残業の増え方・未打刻・欠勤・面談メモの気になる言葉・待機の長さ・入社からの月数
@@ -42,16 +44,20 @@ export default function RishokuPage() {
   const by = useState<Record<string, string>>({});
   const when = useState<Record<string, string>>({});
   const showLow = useState(false);
+  // 本物：今の社内システムの離職率（直近12か月・人数と率だけ）。1人ずつのリスクは今のシステムに無いので見本のまま
+  const ike = useIke<IkeRishoku>('rishoku?months=12');
+  const liveRate = useMemo(() => (ike.live ? rateFromIke(ike.data) : null), [ike.live, ike.data]);
   const go = (t: 'risk' | 'rate') => { setTab(t); window.history.replaceState(null, '', t === 'rate' ? '?tab=rate' : window.location.pathname); };
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="離職リスク・離職率" sub="点数ではなく「なぜ気になるか」を並べます。勤怠・日報・面談メモから・見本データ" />
+      <PageTitle title="離職リスク・離職率" sub={`点数ではなく「なぜ気になるか」を並べます。勤怠・日報・面談メモから${ike.live ? '' : '・見本データ'}`} />
+      <LiveBanner state={ike.state} error={ike.error} onReload={ike.reload} note="離職率は今の社内システムの集計（直近12か月・見るだけ）。1人ずつのリスクは見本のままです" />
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 1 }}>
         {([['risk', '1人ずつのリスク'], ['rate', '離職率（入社月ごと）']] as const).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="whitespace-nowrap px-3.5 py-2.5 text-[14px]" style={tab === k ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>{l}</button>
         ))}
       </div>
-      <div key={tab} className="mo-axis">{tab === 'risk' ? <RiskTab st={{ booked, by, when, showLow }} /> : <RateTab />}</div>
+      <div key={tab} className="mo-axis">{tab === 'risk' ? (<>{ike.live && <div className="mb-3"><NotInLegacy what="1人ずつの離職リスク" /></div>}<RiskTab st={{ booked, by, when, showLow }} /></>) : liveRate ? <LiveRateTab r={liveRate} /> : <RateTab />}</div>
       <p className="text-[11.5px] text-faint">年齢・性別・健康の申告は材料に入れていません。退職の扱い・面談での聞き方に迷ったら、最終判断は社労士・法務に確認してください。</p>
     </main>
   );
@@ -165,6 +171,50 @@ function RateTab() {
         </table>
       </div>
       <p className="text-[11.5px] leading-relaxed text-faint">数え方：初回入場の日から在籍を通しで数えます（現場替え・待機を挟んでも、退社していなければ在籍）。未経験で入った社員だけ。2026年1月以前の入場は、辞めた人の記録が残っておらず高く見えるため出していません。</p>
+    </div>
+  );
+}
+
+// 本物の離職率（今の社内システムの数え方のまま）。月ごとの行は「その月に入社した人が今日も在籍しているか」と「その月の離職率」
+function LiveRateTab({ r }: { r: LiveRate }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap gap-3">
+        {r.early.map(({ label, cell }) => (
+          <div key={label} className="rounded-xl border border-line bg-surface px-4 py-3">
+            <div className="text-[12px] text-muted">{label}</div>
+            <div className="num text-[24px] font-bold">{pctText(cell)}</div>
+            <div className="num text-[11.5px] text-faint">{cell.left}人 / {cell.n}人</div>
+          </div>
+        ))}
+        <div className="rounded-xl border border-line bg-surface px-4 py-3"><div className="text-[12px] text-muted">対象の人数（この1年）</div><div className="num text-[24px] font-bold">{r.people}<span className="text-[13px] text-muted">人</span></div><div className="text-[11.5px] text-faint">{r.asOf} 時点</div></div>
+      </div>
+      <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+        <table className="w-full min-w-[760px] border-collapse text-[13px]">
+          <thead><tr className="th-row text-left"><th className="px-4 py-2.5 font-semibold">月</th><th className="px-2 py-2.5 font-semibold">月初の在籍</th><th className="px-2 py-2.5 font-semibold">入社</th><th className="px-2 py-2.5 font-semibold">退職</th><th className="px-2 py-2.5 font-semibold">その月の離職率</th><th className="px-2 py-2.5 font-semibold">その月の入社で今日も在籍</th></tr></thead>
+          <tbody>
+            {r.rows.map((x, i) => (
+              <tr key={x.ym} className="row border-t border-line-soft">
+                <td className="num px-4 py-2.5 font-semibold">{x.ym.replace('-', '年')}月</td>
+                <td className="num px-2 py-2.5">{x.start}人</td>
+                <td className="num px-2 py-2.5">{x.joined}人</td>
+                <td className="num px-2 py-2.5">{x.left}人</td>
+                <td className="num px-2 py-2.5">{x.monthRate == null ? '—' : `${x.monthRate}%`}</td>
+                <td className="px-2 py-2.5">
+                  {x.stayPct == null ? <span className="text-[12px] text-faint">入社なし</span> : (
+                    <div className="flex items-center gap-2">
+                      <div className="h-2.5 w-28 shrink-0 overflow-hidden rounded-full bg-sunken"><div className="mo-bar h-full rounded-full" style={{ width: `${x.stayPct}%`, background: x.stayPct >= 85 ? 'var(--tone-ok-bar)' : x.stayPct >= 75 ? 'var(--tone-caution-bar)' : 'var(--tone-bad-bar)', ['--i' as string]: i }} /></div>
+                      <span className="num whitespace-nowrap text-[12.5px]">{x.stayPct}%<span className="ml-1 text-faint">（{x.stay}人）</span></span>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {r.notes.length > 0 && <ul className="flex flex-col gap-0.5 text-[11.5px] text-faint">{r.notes.map((n) => <li key={n}>・{n}</li>)}</ul>}
+      <p className="text-[11.5px] leading-relaxed text-faint">数え方は今の社内システムと同じです：未経験で入った社員だけ・入場する前に辞めた人は数えない・その月の離職率＝その月の退職 ÷（月初の在籍＋その月の入社）。入社3/6/12か月ごとの定着の表は、今の社内システムにまだ無いので出していません。</p>
     </div>
   );
 }

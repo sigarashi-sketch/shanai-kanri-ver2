@@ -6,10 +6,13 @@ import { MONTHS, PL, REPS, monthLabel, type RepMonth } from '@/lib/pl-sample';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { CountUp, useMotivation } from '@/components/Motivation';
+import { NotInLegacy } from '@/components/Live';
 
 // 売上・粗利（営業）。営業別の売上・粗利・成約数・行動指標を月ごとに。棒は div、推移は小さな SVG。
 //   粗利＝単価−額面−額面×19%（社保）−交通費。請求の無い退場は売上・粗利から引く（成約数には残す）
 //   数字を確かめたら「この月を締める」→ 損益シミュレーションの「営業別」に載る想定
+//   本物につなぐ先：今の社内システムには営業別の表を返す画面・API が無い（毎朝スプレッドシートの「営業別」タブに書くだけ・
+//     日報の ?action=self は本人の今月分だけで、交通費に駅すぱあとの回数を使う）ので見本のまま
 const adj = (r: RepMonth, cut: boolean) => (cut ? { ...r, uri: r.uri - r.cut, arari: r.arari - Math.round(r.cut * 0.15) } : r);
 const man = (n: number) => `${n.toLocaleString('ja-JP')}万`;
 
@@ -50,6 +53,7 @@ export default function PlPage() {
       <PageTitle title="売上・粗利" sub="営業別（担当営業＝成約者）。未経験の要員の成約だけを数えています・見本データ">
         <button onClick={close} disabled={!canApprove || closed[month]} title={!canApprove ? needText('approve') : closed[month] ? 'この月は締めてあります' : undefined} className="btn-primary inline-flex min-h-10 items-center gap-1.5 rounded-[10px] px-4 text-[13.5px] font-bold disabled:cursor-not-allowed disabled:opacity-40"><Lock size={15} />{closed[month] ? `${monthLabel(month)}は締めました` : `${monthLabel(month)}を締める`}</button>
       </PageTitle>
+      <NotInLegacy what="営業別の売上・粗利の画面（今は損益シミュレーションのスプレッドシートの「営業別」タブだけ）" />
 
       <div className="mo-fade-up flex flex-wrap items-center gap-1.5" style={{ ['--i' as string]: 1 }}>
         {MONTHS.map((m) => (

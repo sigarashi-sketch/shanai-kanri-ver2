@@ -5,7 +5,7 @@
 export type Kind = '欠勤' | '遅刻' | '後日の相談' | '欠勤ではない' | '未確認';
 export const KINDS: Kind[] = ['未確認', '欠勤', '遅刻', '後日の相談', '欠勤ではない'];
 export const REASONS = ['未分類', '体調不良', '通院', '家庭の事情', '交通機関', '寝坊', '連絡なし（無断の可能性）', 'その他'];
-export type Route = 'グループLINE' | '公式LINE（1:1）' | '電話' | '連絡なし';
+export type Route = 'グループLINE' | '公式LINE（1:1）' | '電話' | '連絡なし' | 'LINEの欠勤連絡' | '手で追加'; // 後ろ2つは本物のとき
 export type Absence = {
   id: string; personId: string; name: string; site: string; sales: string;
   month: '9月' | '10月'; day: string; at: string; route: Route; text: string;

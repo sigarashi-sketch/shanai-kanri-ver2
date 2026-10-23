@@ -13,6 +13,9 @@ import { MODULES } from '@/lib/theme';
 import { Pill } from '@/components/ui';
 import { fmtDate } from '@/lib/yoyaku-sample';
 import { moduleOf, usePersonYoyaku } from '@/components/YoyakuStore';
+import { LiveBanner, NotInLegacy } from '@/components/Live';
+import { useLiveRoute } from '@/lib/live/use-live-route';
+import { isLiveStaffId, slashDate, type LiveStaffList } from '@/lib/live/staff';
 
 type SiteRow = (typeof SITE_HISTORY)[number] & { key: string; pending?: boolean };
 
@@ -37,6 +40,11 @@ const TABS = ['基本情報', '現場の履歴', '勤怠', '請求', '書類', '
 
 export default function PersonPage() {
   const { id } = useParams<{ id: string }>();
+  // r で始まる id ＝今の名簿の人（本物）。それ以外は見本の人（今のまま）
+  return isLiveStaffId(id) ? <LivePerson id={id} /> : <SamplePerson id={id} />;
+}
+
+function SamplePerson({ id }: { id: string }) {
   const inRoster = PEOPLE.some((x) => x.id === id);
   const p = PEOPLE.find((x) => x.id === id) ?? fallbackPerson(id);
   const [tab, setTab] = useState<(typeof TABS)[number]>('現場の履歴');
@@ -144,6 +152,83 @@ export default function PersonPage() {
                 ))}
               </div>
             </aside>
+          </>
+        ) : (
+          <section className="w-full rounded-xl border border-dashed border-field bg-surface px-6 py-10 text-center text-[13.5px] text-muted">「{tab}」タブはこれから作ります（今の社内システムの中身を、この型に載せ替えます）</section>
+        )}
+      </main>
+    </div>
+  );
+}
+
+// ---- 本物の人（今の従業員名簿）。名簿の行からわかる分だけ出す。見るだけ ------------------------------
+function LivePerson({ id }: { id: string }) {
+  const { data, state, error, reload, live } = useLiveRoute<LiveStaffList>('/api/live/staff');
+  const [tab, setTab] = useState<(typeof TABS)[number]>('現場の履歴');
+  const p = live ? data?.rows.find((r) => r.id === id) : undefined;
+  const crumb = (
+    <div className="flex items-center gap-2 border-b border-line bg-surface px-6 py-2.5 text-[13px]">
+      <Link href="/jinji/staff" className="text-muted hover:underline">社員一覧</Link><span className="text-faint">/</span><b>{p?.name ?? '社員'}</b>
+    </div>
+  );
+  if (!p) return (
+    <div className="flex flex-col">
+      {crumb}
+      <main className="flex flex-col gap-3 px-6 pb-12 pt-[18px]">
+        <LiveBanner state={state} error={error} onReload={reload} />
+        {state === 'loading' && <div className="text-[13px] text-muted">読み込み中…</div>}
+        {state === 'sample' && <div className="rounded-xl border border-line bg-surface px-6 py-8 text-center text-[13px] text-muted">この社員ページは今の社内システムの名簿の人です。ログインすると見られます。</div>}
+        {live && <div className="rounded-xl border border-line bg-surface px-6 py-8 text-center text-[13px] text-muted">{data?.month}の名簿にこの人は見つかりませんでした（名前が変わった・名簿から外れた可能性があります）。<Link href="/jinji/staff" className="ml-1 font-semibold underline">社員一覧へ</Link></div>}
+      </main>
+    </div>
+  );
+  const facts: [string, React.ReactNode][] = [
+    ['現場（上位会社）', <span key="s"><b>{p.site}</b>{p.siteEki && <span className="block text-[11.5px] text-faint">{p.siteEki}</span>}</span>],
+    ['契約・単価', `${p.contract}・${p.price}`],
+    ['担当営業', <span key="e"><span style={{ color: 'var(--c-eigyo)' }}>●</span> {p.sales}</span>], ['採用担当', <span key="j"><span style={{ color: 'var(--c-jinji)' }}>●</span> {p.recruiter}</span>],
+    ['入社日', slashDate(p.joined)], ['最寄駅', p.station], ['所属会社', p.company || '—'],
+    [p.statusKey === 'taisha' ? '退社日' : '入場日', p.statusKey === 'taisha' ? slashDate(p.taishaBi) : (p.nyuujou ? slashDate(p.nyuujou) : '—')],
+  ];
+  return (
+    <div className="flex flex-col">
+      {crumb}
+      <section className="mo-fade-up border-b border-line bg-surface px-6 pt-5">
+        <div className="mb-3"><LiveBanner state={state} error={error} onReload={reload} note="今の従業員名簿の行から出しています（見るだけ）。直すのは今の社内システムの名簿から" /></div>
+        <div className="flex flex-wrap items-start gap-5">
+          <div aria-hidden className="flex size-[72px] shrink-0 items-center justify-center rounded-full text-[26px] font-bold" style={{ background: 'var(--as)', color: 'var(--ad)', boxShadow: '0 0 0 3px var(--color-surface), 0 0 0 5px var(--al)' }}>{p.name[0]}</div>
+          <div className="w-[210px]">
+            <div className="text-[12px] text-faint">{p.kana || ' '}</div>
+            <div className="text-[22px] font-bold tracking-tight">{p.name}</div>
+            <div className="mt-2 flex gap-1.5"><Pill>{p.status}</Pill>{p.provisional && <span className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>仮</span>}</div>
+          </div>
+          <dl className="grid min-w-[480px] flex-1 grid-cols-4 gap-x-5 gap-y-2.5 text-[13px]">
+            {facts.map(([k, v]) => <div key={k}><dt className="text-[11.5px] text-faint">{k}</dt><dd>{v}</dd></div>)}
+          </dl>
+        </div>
+        <div role="tablist" className="mt-4 flex gap-1 overflow-x-auto text-[13.5px]">
+          {TABS.map((t) => (
+            <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className="whitespace-nowrap px-3 py-2.5"
+              style={tab === t ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>{t}</button>
+          ))}
+        </div>
+      </section>
+      <main key={tab} className="mo-axis flex flex-col gap-3 px-6 pb-12 pt-[18px]">
+        {tab === '現場の履歴' ? (
+          <>
+            <section className="overflow-hidden rounded-xl border border-line bg-surface">
+              <div className="px-[18px] py-3.5"><h2 className="text-[15px] font-bold">いまの契約</h2><div className="text-[12px] text-faint">{data?.month}の稼働管理情報一覧の行{p.provisional ? '（まだ一覧に載っていないので、営業リストから立てた仮の行です）' : p.carriedFrom ? `（当月の行が無いので ${p.carriedFrom} の行）` : ''}</div></div>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[640px] border-collapse text-[13px]">
+                  <thead><tr className="th-row text-left"><th className="px-[18px] py-2.5 font-semibold">期間</th><th className="px-2 py-2.5 font-semibold">上位会社</th><th className="px-2 py-2.5 font-semibold">契約区分・単価</th><th className="px-[18px] py-2.5 font-semibold">状態</th></tr></thead>
+                  <tbody><tr className="border-t border-line-soft">
+                    <td className="whitespace-nowrap px-[18px] py-2.5 font-semibold">{p.start || p.end ? `${slashDate(p.start)} 〜 ${p.end ? slashDate(p.end) : ''}` : '—'}</td>
+                    <td className="px-2 py-2.5">{p.site}</td><td className="px-2 py-2.5">{p.contract}・{p.price}</td>
+                    <td className="px-[18px] py-2.5"><Pill>{p.status}</Pill>{p.taijou && <span className="ml-1.5 text-[11.5px] text-muted">退場 {slashDate(p.taijou)}</span>}</td>
+                  </tr></tbody>
+                </table>
+              </div>
+            </section>
+            <NotInLegacy what="期間ごとの現場の履歴（勤務表の稼働・請求と並べたもの）とタイムライン" />
           </>
         ) : (
           <section className="w-full rounded-xl border border-dashed border-field bg-surface px-6 py-10 text-center text-[13.5px] text-muted">「{tab}」タブはこれから作ります（今の社内システムの中身を、この型に載せ替えます）</section>

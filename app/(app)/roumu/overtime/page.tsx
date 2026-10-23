@@ -6,6 +6,7 @@ import { KYOTEI, LEAVES, LEVEL_STYLE, MONTH, OVERTIME, leaveLevel, otLevel, proj
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
+import { NotInLegacy } from '@/components/Live';
 import { stageTo, useRule } from '@/components/AlertStore';
 import { numOf } from '@/lib/alert-rules';
 
@@ -59,6 +60,8 @@ export default function OvertimePage() {
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="残業・36協定・有給" sub={`${MONTH.label}（締め ${MONTH.closeOn}）・所定 ${MONTH.workdays}日のうち ${MONTH.passed}日経過・見本データ`} />
+      {/* 今の社内システムには残業の見込み・36協定の段階・有給の年5日を出す画面が無い。freee の月次の残業は1人ずつ freee を読む口（freee-kintai?action=monthly）しか無く、全員分の一覧の口は無いのでつながない */}
+      <NotInLegacy what="残業の見込み・36協定・有給の年5日" />
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 1 }}>
         {([['ot', '残業・36協定'], ['leave', '有給の年5日']] as const).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="px-3.5 py-2.5 text-[14px]"

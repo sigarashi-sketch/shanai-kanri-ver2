@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Check, Lock, Unlock } from 'lucide-react';
 import { OT_LINE, OT_REASONS, SHIME_MONTH, SHIME_ROWS, UNREADABLE_FIX, type ShimeRow } from '@/lib/shime-sample';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
+import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { SHIME_LABEL, defaultShimeYm, hhmm, shimeRowsOf, ymLabel, type IkeShimeBoard } from '@/lib/live/shime';
 
 // 勤怠の締め（労務/営業管理）＝月の締めまでにやることを人ごとに並べ、全部0になった人から「締められる」にする。
 //   ・やること4つ：打刻漏れ・未承認の申請・残業の見込み（45h超は理由を選ぶ）・現場の勤務表（未着/読めない）
@@ -35,6 +37,12 @@ export default function ShimePage() {
   const [fix, setFix] = useState<Record<string, Fix>>({});
   const [closed, setClosed] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+  const ike = useIke<IkeShimeBoard>('roster?op=shime&action=board');
+  const live = ike.live && !!ike.data?.ok;
+  const [ym, setYm] = useState('');
+  useEffect(() => { if (live && !ym) setYm(defaultShimeYm(ike.data)); }, [live, ym, ike.data]);
+  const lrows = live ? shimeRowsOf(ike.data, ym) : [];
+  const lopen = lrows.filter((r) => SHIME_LABEL[r.cell.status].todo);
 
   const rows = ROWS;
   const notReady = rows.filter((r) => total(r, fix[r.personId]) > 0);
@@ -60,11 +68,53 @@ export default function ShimePage() {
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="勤怠の締め" sub={`${SHIME_MONTH.label}（${SHIME_MONTH.period}）＝${SHIME_MONTH.freeeLabel}・締めは ${SHIME_MONTH.closeOn} まで・見本データ`}>
+      <PageTitle title="勤怠の締め" sub={live ? `${ymLabel(ym)}・勤務表と freee の打刻を人ごとに日ごとで突き合わせた結果（1日30分未満のずれは合っている扱い）` : `${SHIME_MONTH.label}（${SHIME_MONTH.period}）＝${SHIME_MONTH.freeeLabel}・締めは ${SHIME_MONTH.closeOn} まで・見本データ`}>
+        {live && (
+          <select aria-label="月" value={ym} onChange={(e) => setYm(e.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-[13px]">
+            {[...(ike.data?.months || [])].sort().reverse().map((m) => <option key={m} value={m}>{ymLabel(m)}{m >= (ike.data?.currentYm || '') ? '（月の途中）' : ''}</option>)}
+          </select>
+        )}
         <Link href="/roumu/approval" className="inline-flex min-h-9 items-center rounded-[10px] border border-field bg-surface px-3 text-[12.5px] font-semibold">申請の承認へ</Link>
         <Link href="/roumu/today" className="inline-flex min-h-9 items-center rounded-[10px] border border-field bg-surface px-3 text-[12.5px] font-semibold">当日の出勤状況へ</Link>
       </PageTitle>
+      <LiveBanner state={ike.live && !ike.data?.ok ? 'error' : ike.state} error={ike.error || ike.data?.error} onReload={ike.reload} note="見るだけです。締める・開け直すは今の社内システムの「勤怠の締め」の画面から" />
 
+      {live && <>
+        <NotInLegacy what="打刻漏れ・未承認の申請・残業の見込み（締めの前のやること）" />
+        <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
+          <RemainRing remain={lopen.length} total={Math.max(lrows.length, 1)} />
+          <div className="text-[13px]"><b>{ymLabel(ym)}でまだ締めていない人 {lopen.length}人</b>
+            <span className="ml-2 text-muted">{(['match', 'freee_only', 'diff', 'unread', 'missing', 'no_freee'] as const).map((k) => `${SHIME_LABEL[k].label.replace(/（.*）/, '')} ${lrows.filter((r) => r.cell.status === k).length}`).join('・')}</span>
+          </div>
+          <button disabled title={LIVE_WRITE_BLOCKED} className="btn-primary ml-auto inline-flex min-h-10 items-center gap-1.5 rounded-[10px] px-4 text-[13.5px] font-bold disabled:opacity-40"><Lock size={15} />一致した人をまとめて締める</button>
+        </div>
+        {lrows.length > 0 && lopen.length === 0 && (
+          <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-8 text-center"><Check className="mx-auto text-ok" size={26} /><div className="mt-2 text-[15px] font-bold">{ymLabel(ym)}の勤怠は全員締まっています</div></div>
+        )}
+        <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[820px] border-collapse text-[13px]">
+              <thead><tr className="th-row text-left"><th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">状態</th><th className="px-2 py-2.5 font-semibold">勤務表／freee</th><th className="px-2 py-2.5 font-semibold">ずれ</th><th className="px-4 py-2.5 font-semibold" /></tr></thead>
+              <tbody>
+                {lrows.map((r, i) => {
+                  const st = SHIME_LABEL[r.cell.status];
+                  return (
+                    <tr key={r.key} className="mo-fade-in row border-t border-line-soft align-top" style={{ ['--i' as string]: Math.min(i, 30) }}>
+                      <td className="px-4 py-2.5"><span className="font-semibold">{r.name}</span>{r.company && <div className="text-[11.5px] text-faint">{r.company}</div>}</td>
+                      <td className="px-2 py-2.5"><span className="chip" style={{ background: `var(--tone-${st.tone}-bg)`, color: `var(--tone-${st.tone}-fg)` }}>{st.label}</span>{r.cell.status === 'closed' && r.cell.reason && <div className="mt-1 text-[11.5px] text-faint">理由：{r.cell.reason}</div>}</td>
+                      <td className="num px-2 py-2.5 text-[12.5px]">{hhmm(r.cell.sheetMins)}／{hhmm(r.cell.freeeMins)}</td>
+                      <td className="px-2 py-2.5 text-[12.5px]">{r.cell.diffMins == null ? <span className="text-faint">—</span> : r.cell.diffDays ? <span className="font-semibold text-warn">勤務表のほうが{r.cell.diffMins > 0 ? '長い' : '短い'} {hhmm(r.cell.diffMins)}・ずれた日 {r.cell.diffDays}日</span> : <span className="text-ok">合っている</span>}</td>
+                      <td className="px-4 py-2.5 text-right">{st.todo && <button disabled title={LIVE_WRITE_BLOCKED} className={btn}>締める</button>}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </>}
+
+      {!live && <>
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <RemainRing remain={notReady.length} total={rows.length} />
         <div className="text-[13px]"><b>まだ締められない人 {notReady.length}人</b>
@@ -129,6 +179,7 @@ export default function ShimePage() {
           </div>
         </div>
       )}
+      </>}
       <p className="text-[11.5px] text-faint">勤務表と freee の打刻は日ごとに比べ、1日30分未満のずれは合っている扱いにしています。締めはこの画面の印だけで、freee の月次の締めはしません（見本の中だけで動きます）。残業・欠勤控除など労務の最終判断は社労士に確認してください。</p>
     </main>
   );

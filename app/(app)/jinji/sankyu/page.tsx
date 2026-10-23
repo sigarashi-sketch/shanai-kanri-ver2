@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Baby, Check, Send } from 'lucide-react';
 import { CASES, EXTEND, TODAY, TODOS, type Base, type ExtendKey, type SankyuCase, type Todo } from '@/lib/sankyu-sample';
 import { PageTitle } from '@/components/ui';
+import { NotInLegacy } from '@/components/Live';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
 
@@ -90,6 +91,7 @@ export default function SankyuPage() {
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="産休・育休" sub="予定日を選ぶと期間とやることを自動で出します。社保・給付金の申請は労務担当（freee）へ渡すだけ・見本データ" />
+      <NotInLegacy what="産休・育休の管理" />
 
       <div className="mo-fade-up flex flex-wrap gap-2" style={{ ['--i' as string]: 1 }}>
         {cases.map((c) => (

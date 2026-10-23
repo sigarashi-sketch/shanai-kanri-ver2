@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Check, Megaphone, Users } from 'lucide-react';
 import { COMMUNITIES, EVENTS, MENDAN_THIS_WEEK, TARGETS, type Attendee, type CEvent } from '@/lib/community-sample';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
+import { LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { communitiesFromIke, type IkeTeams } from '@/lib/live/community';
 
 // コミュニティ（人事管理）＝勉強会・イベントの予定と参加者、参加の呼びかけ。
 //   ・呼びかけは「誰に」を選ぶだけ → LINE 配信の下書きに入る（送るのは配信の画面で、送れる人だけ）
@@ -26,6 +28,11 @@ export default function CommunityPage() {
   const [target, setTarget] = useState<Record<string, string>>({});
   const [flash, setFlash] = useState<string | null>(null);
   const remain = events.filter((e) => !called[e.id]).length;
+  // 本物：今の社内システムのコミュニティ（名前・リーダー・サブ・人数）だけ。勉強会・イベントと出欠は今のシステムに無いので見本のまま
+  const ike = useIke<IkeTeams>('teams?action=list');
+  const live = ike.live;
+  const liveComms = useMemo(() => communitiesFromIke(ike.data), [ike.data]);
+  const comms = live ? liveComms : COMMUNITIES;
 
   const call = (e: CEvent) => {
     const t = target[e.id] ?? targetsOf(e)[0];
@@ -41,20 +48,22 @@ export default function CommunityPage() {
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="コミュニティ" sub="勉強会・イベントの予定と参加者。呼びかけは「誰に」を選ぶだけ・見本データ" />
+      <PageTitle title="コミュニティ" sub={`勉強会・イベントの予定と参加者。呼びかけは「誰に」を選ぶだけ${live ? '' : '・見本データ'}`} />
+      <LiveBanner state={ike.state} error={ike.error} onReload={ike.reload} note="コミュニティの名前・リーダー・人数は今の社内システムから（見るだけ）。勉強会・イベントの予定と出欠は見本のままです" />
+      {live && <NotInLegacy what="勉強会・イベントの予定・出欠・コミュニティ面談の件数" />}
 
       <div className="mo-fade-up flex flex-wrap items-stretch gap-3" style={{ ['--i' as string]: 1 }}>
         <div className="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
           <RemainRing remain={remain} total={events.length} />
           <div className="text-[13px]"><b>まだ呼びかけていない {remain}件</b>{!canEdit && <div className="text-[12px] text-bad">{needText('edit')}</div>}</div>
         </div>
-        {COMMUNITIES.map((c) => (
+        {comms.map((c) => (
           <div key={c.id} className="rounded-xl border border-line bg-surface px-4 py-3 text-[12.5px]">
             <div className="flex items-center gap-1.5 text-[13.5px] font-bold"><Users size={14} style={{ color: 'var(--ad)' }} />{c.name}<span className="font-normal text-muted">{c.members}人</span></div>
             <div className="mt-0.5 text-muted">リーダー {c.leader}{c.sub && `・サブ ${c.sub}`}</div>
           </div>
         ))}
-        <div className="rounded-xl border border-line bg-surface px-4 py-3 text-[12.5px]"><div className="text-muted">今週のコミュニティ面談</div><div className="num text-[20px] font-bold">{MENDAN_THIS_WEEK}<span className="text-[12px] text-muted">件</span></div></div>
+        {!live && <div className="rounded-xl border border-line bg-surface px-4 py-3 text-[12.5px]"><div className="text-muted">今週のコミュニティ面談</div><div className="num text-[20px] font-bold">{MENDAN_THIS_WEEK}<span className="text-[12px] text-muted">件</span></div></div>}
       </div>
 
       {remain === 0 && <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-6 text-center"><Check className="mx-auto text-ok" size={22} /><div className="mt-1.5 text-[14px] font-bold">予定の呼びかけはぜんぶ済みました</div></div>}

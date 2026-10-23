@@ -5,7 +5,7 @@
 //   そこから「案件らしい発言」を拾って回収候補にし、内勤が✓で確定したものだけ案件進捗に載せる（10-23 shoya Q1=A）。
 
 export type Via = 'あおい' | 'グループ直接' | '手動配信';
-export type Decision = 'OK' | 'NG' | '未判断';
+export type Decision = 'OK' | 'NG' | 'その他' | '未判断';   // その他＝今の📮判断の「その他」（本物のときだけ出る）
 
 export type Case = { no: string; name: string; place: string; price: string };
 export const CASES: Case[] = [

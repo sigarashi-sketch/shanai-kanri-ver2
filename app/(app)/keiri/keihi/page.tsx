@@ -8,12 +8,15 @@ import type { Check as Chk } from '@/lib/kintai-sample';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
+import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { toClaims, type KeihiAdminList } from '@/lib/live/keihi';
 
 // 交通費・経費（経理管理）。
 //   ・経理の確認：申請ごとに 打刻・ICカードの履歴・定期の期間・現場の予約 を先に照らす → 問題なしはまとめて承認
 //   ・本人の申請画面（見本）：ICカードの利用履歴から選ぶだけ。よく使う経路は★で登録して次から一発で選ぶ
 //     出勤の打刻が無い日・交通でない利用（買い物）は選べない（今のシステムと同じ「不備があると申請できない」）
 //   本人の画面は LINE から開くスマホの画面の想定。ここでは内勤が中身を確かめるための見本
+//   本物（ログイン中）：今の GET /api/keihi?action=adminList&status=申請中 を読むだけ。承認・差し戻しは押せない（今の keihi-admin.html から）
 const yen = (n: number) => `¥${n.toLocaleString('ja-JP')}`;
 const toneOf = (c: Chk[]) => (c.some((x) => x.tone === 'bad') ? 'bad' : c.some((x) => x.tone === 'warn') ? 'warn' : 'ok');
 const CHIP: Record<string, { bg: string; fg: string; label: string }> = {
@@ -34,11 +37,14 @@ export default function KeihiPage() {
   // 処理した状態はページで持つ（タブを行き来しても消えない）
   const [done, setDone] = useState<Record<string, Done>>({});
   useEffect(() => { if (new URLSearchParams(window.location.search).get('tab') === 'apply') setTab('apply'); }, []);
+  const { data, state, error, reload, live } = useIke<KeihiAdminList>(`keihi?action=adminList&status=${encodeURIComponent('申請中')}`);
+  const list = live ? toClaims(data) : claims;
   const go = (t: 'check' | 'apply') => { setTab(t); window.history.replaceState(null, '', t === 'apply' ? '?tab=apply' : window.location.pathname); };
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="交通費・経費" sub="通勤（日ごと）・定期・バス・出張面談。申請は本人が LINE から、ICカードの利用履歴を選ぶだけ・見本データ" />
+      <PageTitle title="交通費・経費" sub={`通勤（日ごと）・定期・バス・出張面談。申請は本人が LINE から、ICカードの利用履歴を選ぶだけ${live ? '' : '・見本データ'}`} />
+      <LiveBanner state={state} error={error} onReload={reload} note="今の社内システムの「申請中」をそのまま出しています。承認・差し戻しは今の経費の管理画面から（ここでは押せません）" />
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 1 }}>
         {([['check', '経理の確認'], ['apply', '本人の申請画面（見本）']] as const).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="px-3.5 py-2.5 text-[14px]"
@@ -46,7 +52,7 @@ export default function KeihiPage() {
         ))}
       </div>
       <div key={tab} className="mo-axis">
-        {tab === 'check' ? <CheckTab claims={claims} done={done} setDone={setDone} /> : <ApplyTab onSubmit={(c) => { setClaims((cs) => [c, ...cs.filter((x) => x.id !== 'c2')]); go('check'); }} />}
+        {tab === 'check' ? <CheckTab claims={list} done={done} setDone={setDone} live={live} /> : <ApplyTab live={live} onSubmit={(c) => { setClaims((cs) => [c, ...cs.filter((x) => x.id !== 'c2')]); go('check'); }} />}
       </div>
     </main>
   );
@@ -54,8 +60,11 @@ export default function KeihiPage() {
 
 // ---------------- 経理の確認 ----------------
 type Done = { result: '承認' | '差し戻し'; reason?: string };
-function CheckTab({ claims, done, setDone }: { claims: Claim[]; done: Record<string, Done>; setDone: React.Dispatch<React.SetStateAction<Record<string, Done>>> }) {
-  const canApprove = usePerms().can('keiri', 'approve');
+function CheckTab({ claims, done, setDone, live }: { claims: Claim[]; done: Record<string, Done>; setDone: React.Dispatch<React.SetStateAction<Record<string, Done>>>; live: boolean }) {
+  const permApprove = usePerms().can('keiri', 'approve');
+  // 本物のときは今のシステムの中身を変えない＝承認・差し戻しは押せない
+  const canApprove = permApprove && !live;
+  const lockText = live ? LIVE_WRITE_BLOCKED : needText('approve');
   const { hit, toast } = useMotivation();
   const [ok, setOk] = useState<Record<string, boolean>>({});
   const [kind, setKind] = useState<string>('すべて');
@@ -85,7 +94,7 @@ function CheckTab({ claims, done, setDone }: { claims: Claim[]; done: Record<str
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
         <RemainRing remain={pending.length} total={claims.length} />
         <div className="text-[13px]"><b>承認待ち {pending.length}件</b><span className="ml-2 num text-muted">{yen(pending.reduce((s, c) => s + c.amount, 0))}</span>
-          <div className="text-[12px] text-muted">勤怠の打刻・ICカードの履歴・定期の期間・現場の予約を先に照らしています。{!canApprove && <span className="text-bad"> {needText('approve')}</span>}</div>
+          <div className="text-[12px] text-muted">勤怠の打刻・ICカードの履歴・定期の期間・現場の予約を先に照らしています。{!permApprove && <span className="text-bad"> {needText('approve')}</span>}</div>
         </div>
         <Link href="/keiri/check" className="ml-auto text-[12px] font-semibold" style={{ color: 'var(--ad)' }}>月ごとの交通費チェックへ</Link>
       </div>
@@ -103,7 +112,7 @@ function CheckTab({ claims, done, setDone }: { claims: Claim[]; done: Record<str
               const n = k === 'すべて' ? pending.length : pending.filter((c) => c.kind === k).length;
               return <button key={k} onClick={() => setKind(k)} className={`min-h-8 rounded-full border px-3 text-[12.5px] ${kind === k ? 'font-semibold' : 'text-muted'}`} style={kind === k ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>{k} {n}</button>;
             })}
-            <button onClick={() => okRows.length && settle(okRows, { result: '承認' })} disabled={!canApprove || okRows.length === 0} title={!canApprove ? needText('approve') : undefined} className="btn-primary ml-auto whitespace-nowrap min-h-8 rounded-lg px-3 text-[12.5px] font-bold disabled:opacity-40">問題なし {okRows.length}件をまとめて承認</button>
+            <button onClick={() => okRows.length && settle(okRows, { result: '承認' })} disabled={!canApprove || okRows.length === 0} title={!canApprove ? lockText : undefined} className="btn-primary ml-auto whitespace-nowrap min-h-8 rounded-lg px-3 text-[12.5px] font-bold disabled:opacity-40">問題なし {okRows.length}件をまとめて承認</button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] border-collapse text-[13px]">
@@ -117,7 +126,7 @@ function CheckTab({ claims, done, setDone }: { claims: Claim[]; done: Record<str
                   const need = t === 'bad' && !ok[c.id];
                   return (
                     <tr key={c.id} className={`mo-fade-in border-t border-line-soft align-top ${flash === c.id ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
-                      <td className="px-4 py-2.5"><Link href={`/jinji/staff/${c.personId}`} className="font-semibold hover:underline">{c.person}</Link><div className="text-[11.5px] text-faint">{c.site}</div></td>
+                      <td className="px-4 py-2.5">{c.personId ? <Link href={`/jinji/staff/${c.personId}`} className="font-semibold hover:underline">{c.person}</Link> : <span className="font-semibold">{c.person}</span>}<div className="text-[11.5px] text-faint">{c.site}</div></td>
                       <td className="px-2 py-2.5">
                         <div className="flex flex-wrap items-center gap-1.5"><span className="chip" style={{ background: CHIP[t].bg, color: CHIP[t].fg }}>{c.kind}</span><span className="text-[11.5px] text-faint">{c.month}・{c.source}</span></div>
                         <div className="mt-1 text-[12px] text-muted">{c.detail}</div>
@@ -128,8 +137,8 @@ function CheckTab({ claims, done, setDone }: { claims: Claim[]; done: Record<str
                       </td>
                       <td className="px-4 py-2.5">
                         <div className="flex flex-col gap-1.5">
-                          <button onClick={() => settle([c], { result: '承認' })} disabled={!canApprove || need} title={!canApprove ? needText('approve') : need ? '要確認の点を確かめてから' : undefined} className="btn-primary min-h-8 whitespace-nowrap rounded-lg px-3 text-[12.5px] font-bold disabled:opacity-40">承認</button>
-                          <select aria-label={`${c.person} を差し戻す理由`} value="" disabled={!canApprove} title={!canApprove ? needText('approve') : undefined} onChange={(e) => { const v = e.target.value; if (v) settle([c], { result: '差し戻し', reason: v }); }} className="min-h-8 max-w-[190px] rounded-lg border border-field bg-surface px-2 text-[12px] text-muted disabled:opacity-50">
+                          <button onClick={() => settle([c], { result: '承認' })} disabled={!canApprove || need} title={!canApprove ? lockText : need ? '要確認の点を確かめてから' : undefined} className="btn-primary min-h-8 whitespace-nowrap rounded-lg px-3 text-[12.5px] font-bold disabled:opacity-40">承認</button>
+                          <select aria-label={`${c.person} を差し戻す理由`} value="" disabled={!canApprove} title={!canApprove ? lockText : undefined} onChange={(e) => { const v = e.target.value; if (v) settle([c], { result: '差し戻し', reason: v }); }} className="min-h-8 max-w-[190px] rounded-lg border border-field bg-surface px-2 text-[12px] text-muted disabled:opacity-50">
                             <option value="">差し戻す理由…</option>
                             {KEIHI_REJECT.map((x) => <option key={x}>{x}</option>)}
                           </select>
@@ -149,7 +158,7 @@ function CheckTab({ claims, done, setDone }: { claims: Claim[]; done: Record<str
 }
 
 // ---------------- 本人の申請画面（見本） ----------------
-function ApplyTab({ onSubmit }: { onSubmit: (c: Claim) => void }) {
+function ApplyTab({ onSubmit, live }: { onSubmit: (c: Claim) => void; live: boolean }) {
   const { hit, toast } = useMotivation();
   const [routes, setRoutes] = useState<Route[]>(ROUTES);
   const [sel, setSel] = useState<Record<string, boolean>>({});
@@ -188,6 +197,7 @@ function ApplyTab({ onSubmit }: { onSubmit: (c: Claim) => void }) {
 
   return (
     <div className="flex flex-wrap items-start gap-6">
+      {live && <div className="w-full"><NotInLegacy what="ICカードの利用履歴から選ぶ申請画面" /></div>}
       <div className="w-full max-w-[390px] overflow-hidden rounded-[28px] border-[6px] border-ink/80 bg-surface shadow-[0_18px_40px_rgba(20,20,40,.18)]">
         <div className="px-4 pb-3 pt-4" style={{ background: 'var(--al)' }}>
           <div className="text-[11.5px] text-muted">{ME.name} さん・{ME.site}</div>
@@ -251,7 +261,7 @@ function ApplyTab({ onSubmit }: { onSubmit: (c: Claim) => void }) {
         <div className="border-t border-line px-4 py-3">
           <div className="flex items-baseline justify-between"><span className="text-[12.5px] text-muted">{picked.length}件を選択</span><span className="num text-[20px] font-bold">{yen(total)}</span></div>
           {missing.length > 0 && <div className="mt-1 text-[11.5px] text-bad">「何のための移動？」を {missing.length}件 選んでください</div>}
-          <button onClick={submit} disabled={picked.length === 0 || missing.length > 0} className="btn-primary mt-2 min-h-11 w-full rounded-[12px] text-[14px] font-bold disabled:opacity-40">申請する</button>
+          <button onClick={submit} disabled={live || picked.length === 0 || missing.length > 0} title={live ? LIVE_WRITE_BLOCKED : undefined} className="btn-primary mt-2 min-h-11 w-full rounded-[12px] text-[14px] font-bold disabled:opacity-40">申請する</button>
         </div>
       </div>
 

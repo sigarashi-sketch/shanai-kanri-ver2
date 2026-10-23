@@ -11,6 +11,8 @@ import { needText, usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
 import { DrawerPortal } from '@/components/DrawerPortal';
 import { useYoyaku } from '@/components/YoyakuStore';
+import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { yoyakuFromRosterStatus, type IkeRosterStatus } from '@/lib/live/yoyaku';
 
 // 変更の予約（人事管理）。住所・通勤・単価・現場・状態（待機/退社/休職/産休/育休）を「いつから」つきで予約する。
 //   ・予約した日の朝6:00に切り替わり、「一緒に変わるもの」にも同じ日から入る
@@ -45,13 +47,19 @@ export default function YoyakuPage() {
   const { can } = usePerms();
   const { hit, toast } = useMotivation();
   // 予約は全画面で1つ（ホーム・社員ページ・社員一覧も同じものを読む）
-  const { rows, setRows } = useYoyaku();
+  const { rows: storeRows, setRows } = useYoyaku();
+  // 本物：今の社内システムの「待機の予約」「退社の予約」（従業員名簿）だけ。本物のときは予約を作る・承認・取り消しを止める
+  const ike = useIke<IkeRosterStatus[]>('proxy?action=getRosterStatus');
+  const liveRows = useMemo(() => yoyakuFromRosterStatus(ike.data), [ike.data]);
+  const live = ike.live;
+  const rows = live ? liveRows : storeRows;
   const [filter, setFilter] = useState<Filter>('これから');
   const [day, setDay] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [form, setForm] = useState<string | false>(false); // 開いているときは最初に選んでおく社員の id（'' は先頭の人）
   // ?new=1 で予約のパネルを開いた状態から始める（ホームの「変更を予約」）。&p=<社員id> でその人を選んでおく（社員ページから）
   useEffect(() => { const q = new URLSearchParams(window.location.search); if (q.get('new')) setForm(q.get('p') ?? ''); }, []);
+  useEffect(() => { if (live) setForm(false); }, [live]);
 
   const pulse = (id: string) => { setFlash(id); setTimeout(() => setFlash(null), 1300); };
   const upcoming = rows.filter((r) => r.state === '承認待ち' || r.state === '予約中');
@@ -102,9 +110,11 @@ export default function YoyakuPage() {
 
   return (
     <main className={`flex flex-col gap-3.5 px-6 pb-12 pt-[22px] ${form !== false ? 'xl:pr-[468px]' : ''}`}>
-      <PageTitle title="変更の予約" sub="住所・通勤・単価・現場・状態を「いつから」つきで。予約した日の朝6:00に切り替わり、一緒に変わるものにも入ります・見本データ">
-        <PrimaryButton onClick={() => setForm('')}><span className="inline-flex items-center gap-1.5"><CalendarClock size={16} />変更を予約</span></PrimaryButton>
+      <PageTitle title="変更の予約" sub={`住所・通勤・単価・現場・状態を「いつから」つきで。予約した日の朝6:00に切り替わり、一緒に変わるものにも入ります${live ? '' : '・見本データ'}`}>
+        <PrimaryButton onClick={() => setForm('')} disabled={live} title={live ? LIVE_WRITE_BLOCKED : undefined}><span className="inline-flex items-center gap-1.5"><CalendarClock size={16} />変更を予約</span></PrimaryButton>
       </PageTitle>
+      <LiveBanner state={ike.state} error={ike.error} onReload={ike.reload} note="今の社内システムにある予約は、従業員名簿の「待機の予約」「退社の予約」だけです（見るだけ・切り替わった予約は残りません）" />
+      {live && <NotInLegacy what="住所・通勤・単価・現場の予約と承認" />}
 
       <section aria-label="これから30日" className="mo-fade-up rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <div className="mb-2 flex items-center justify-between text-[12px] text-muted"><b className="text-[13px] text-ink">これから30日</b>{day && <button onClick={() => setDay(null)} className="font-semibold" style={{ color: 'var(--ad)' }}>{fmtDate(day)} の絞り込みを外す</button>}</div>
@@ -159,14 +169,14 @@ export default function YoyakuPage() {
                 return (
                   <tr key={r.id} className={`mo-fade-in border-t border-line-soft align-top ${flash === r.id ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
                     <td className="whitespace-nowrap px-4 py-2.5"><b className="num">{fmtDate(r.date)}</b><div className="text-[11.5px]" style={{ color: left >= 0 && left <= 3 && r.state !== '適用済み' ? 'var(--color-bad)' : 'var(--color-faint)' }}>{r.state === '適用済み' ? `${-left}日前に切り替え` : left === 0 ? '今日の朝に切り替え' : `あと${left}日`}</div></td>
-                    <td className="whitespace-nowrap px-2 py-2.5 font-semibold"><Link href={`/jinji/staff/${r.personId}`} className="hover:underline">{r.person}</Link><div className="text-[11.5px] font-normal text-faint">登録 {r.by}</div></td>
+                    <td className="whitespace-nowrap px-2 py-2.5 font-semibold">{r.personId ? <Link href={`/jinji/staff/${r.personId}`} className="hover:underline">{r.person}</Link> : r.person}<div className="text-[11.5px] font-normal text-faint">登録 {r.by}</div></td>
                     <td className="px-2 py-2.5"><span className="inline-flex items-center gap-1.5 font-semibold"><i className="size-[7px] rounded-full" style={{ background: `var(--c-${rule.module})` }} />{r.field}</span><div className="text-[11.5px] text-faint">{SHORT[rule.module]}</div></td>
                     <td className="px-2 py-2.5"><span className="text-faint line-through">{r.from}</span> <ArrowRight size={13} className="inline text-faint" /> <b>{r.to}</b>{r.note && <div className="mt-0.5 text-[11.5px] text-muted">{r.note}</div>}</td>
                     <td className="max-w-[280px] px-2 py-2.5"><div className="flex flex-wrap gap-1">{rule.with.map((w) => <span key={w} className="rounded-md bg-soft px-1.5 py-0.5 text-[11.5px] text-muted">{w}</span>)}</div></td>
                     <td className="px-2 py-2.5"><StateChip s={r.state} />{r.state === '承認待ち' && <div className="mt-1 text-[11px] text-faint">{SHORT[rule.module]}の承認が要る</div>}</td>
                     <td className="whitespace-nowrap px-4 py-2.5 text-right">
-                      {r.state === '承認待ち' && <button onClick={() => approve(r)} disabled={!canApprove} title={!canApprove ? needText('approve') : undefined} className="btn-primary mr-1.5 inline-flex min-h-8 items-center gap-1 rounded-lg px-2.5 text-[12.5px] font-semibold disabled:opacity-40"><Check size={14} />承認する</button>}
-                      {(r.state === '承認待ち' || r.state === '予約中') && <button onClick={() => cancel(r)} disabled={!can(rule.module, 'edit')} title={!can(rule.module, 'edit') ? needText('edit') : undefined} className="inline-flex min-h-8 items-center rounded-lg border border-field bg-surface px-2.5 text-[12.5px] font-semibold disabled:opacity-40">取り消す</button>}
+                      {r.state === '承認待ち' && <button onClick={() => approve(r)} disabled={live || !canApprove} title={live ? LIVE_WRITE_BLOCKED : !canApprove ? needText('approve') : undefined} className="btn-primary mr-1.5 inline-flex min-h-8 items-center gap-1 rounded-lg px-2.5 text-[12.5px] font-semibold disabled:opacity-40"><Check size={14} />承認する</button>}
+                      {(r.state === '承認待ち' || r.state === '予約中') && <button onClick={() => cancel(r)} disabled={live || !can(rule.module, 'edit')} title={live ? LIVE_WRITE_BLOCKED : !can(rule.module, 'edit') ? needText('edit') : undefined} className="inline-flex min-h-8 items-center rounded-lg border border-field bg-surface px-2.5 text-[12.5px] font-semibold disabled:opacity-40">取り消す</button>}
                     </td>
                   </tr>
                 );
@@ -176,7 +186,7 @@ export default function YoyakuPage() {
         </div>
       </div>
 
-      {form !== false && <YoyakuForm initial={form} rows={rows} onClose={() => setForm(false)} onSave={add} />}
+      {form !== false && !live && <YoyakuForm initial={form} rows={rows} onClose={() => setForm(false)} onSave={add} />}
     </main>
   );
 }

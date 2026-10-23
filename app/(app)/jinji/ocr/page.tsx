@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Camera, Check, IdCard, PauseCircle } from 'lucide-react';
 import { DOCS, FIELDS, PERSON, type DocKey } from '@/lib/ocr-sample';
 import { PageTitle } from '@/components/ui';
+import { NotInLegacy } from '@/components/Live';
 import { needText, usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
 
@@ -37,6 +38,7 @@ export default function OcrPage() {
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="身分証の読み取り" sub="参画が決まった人の身分証の写真から、基本情報を入れる流れの見本" />
+      <NotInLegacy what="身分証の読み取り" />
 
       <div className="mo-fade-up flex items-start gap-3 rounded-xl border px-4 py-3" style={{ ['--i' as string]: 1, background: 'var(--tone-caution-bg)', color: 'var(--tone-caution-fg)', borderColor: 'var(--tone-caution-bar)' }}>
         <PauseCircle size={20} className="mt-0.5 shrink-0" />

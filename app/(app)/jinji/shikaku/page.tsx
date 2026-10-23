@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, Check, CornerUpLeft, FileCheck2, Paperclip } from 'lucide-react';
 import { APPS, MASTER, MONTHLY, PAY_MONTH, S_REJECT, amountOf, yen, type SState, type ShikakuApp } from '@/lib/shikaku-sample';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { CountUp, RemainRing, useMotivation } from '@/components/Motivation';
+import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { shikakuFromIke, type IkeShikakuList, type LiveShikakuApp } from '@/lib/live/shikaku';
 
 // 資格手当（人事管理）＝本人の申請を 合格証の確認 → 承認 → 給与に反映 の順に片づける。
 //   ・手当の額は資格から決まる（本人は額を入れない）。「現場経験で加算」は承認のときに選ぶだけ
@@ -23,8 +25,17 @@ export default function ShikakuPage() {
   const { hit, toast } = useMotivation();
   const [tab, setTab] = useState<Tab>('apps');
   // 並びは開いたときの「段階 → 申請日」で固定（処理しても行が跳ねない）
-  const [apps, setApps] = useState<ShikakuApp[]>(() => [...APPS].sort((a, b) => STAGES.indexOf(a.state) - STAGES.indexOf(b.state) || a.filedAt.localeCompare(b.filedAt)));
-  const [monthly, setMonthly] = useState(MONTHLY);
+  const [sApps, setApps] = useState<ShikakuApp[]>(() => [...APPS].sort((a, b) => STAGES.indexOf(a.state) - STAGES.indexOf(b.state) || a.filedAt.localeCompare(b.filedAt)));
+  const [sMonthly, setMonthly] = useState(MONTHLY);
+  // 本物：今の社内システムの資格手当の申請（未確認＝確認待ち・承認＝毎月の手当）。本物のときは確認・差し戻し・承認・反映を止める
+  const ike = useIke<IkeShikakuList>('shikaku-apply?action=list');
+  const live = ike.live;
+  const L = useMemo(() => shikakuFromIke(ike.data), [ike.data]);
+  const apps: ShikakuApp[] = live ? L.apps : sApps;
+  const monthly = live ? L.monthly : sMonthly;
+  const amt = (a: ShikakuApp) => (a as LiveShikakuApp).amount ?? amountOf(a);
+  const urlOf = (a: ShikakuApp, f: string) => (f === '合格証' ? (a as LiveShikakuApp).certUrl : (a as LiveShikakuApp).receiptUrl);
+  const noW = live ? LIVE_WRITE_BLOCKED : undefined;
   const [stage, setStage] = useState<SState | 'すべて'>('すべて');
   const [reason, setReason] = useState<Record<string, string>>({});
   const [flash, setFlash] = useState<string | null>(null);
@@ -55,7 +66,9 @@ export default function ShikakuPage() {
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="資格手当" sub="本人の申請（LINE の資格手当申請から）を、合格証の確認 → 承認 → 給与に反映 の順に片づけます・見本データ" />
+      <PageTitle title="資格手当" sub={`本人の申請（LINE の資格手当申請から）を、合格証の確認 → 承認 → 給与に反映 の順に片づけます${live ? '' : '・見本データ'}`} />
+      <LiveBanner state={ike.state} error={ike.error} onReload={ike.reload} note="今の社内システムの段階は「未確認・承認・却下」だけです。未確認を確認待ちに、承認ずみを毎月の手当に出しています（見るだけ）" />
+      {live && <NotInLegacy what="「承認待ち」「給与に反映」の段と現場経験の加算" />}
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 1 }}>
         {([['apps', `申請 ${open.length}`], ['monthly', '毎月の手当']] as const).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => { setTab(k); window.history.replaceState(null, '', k === 'monthly' ? '?tab=monthly' : window.location.pathname); }} className="whitespace-nowrap px-3.5 py-2.5 text-[14px]"
@@ -99,15 +112,15 @@ export default function ShikakuPage() {
                       const t = STAGE_TONE[a.state];
                       return (
                         <tr key={a.id} className={`mo-fade-in border-t border-line-soft align-top ${flash === a.id ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
-                          <td className="px-4 py-2.5"><Link href={`/jinji/staff/${a.personId}`} className="font-semibold hover:underline">{a.name}</Link><div className="text-[11.5px] text-faint">申請 {a.filedAt}・現場経験 {a.years}年</div></td>
+                          <td className="px-4 py-2.5">{a.personId ? <Link href={`/jinji/staff/${a.personId}`} className="font-semibold hover:underline">{a.name}</Link> : <span className="font-semibold">{a.name}</span>}<div className="text-[11.5px] text-faint">申請 {a.filedAt}{a.years >= 0 && `・現場経験 ${a.years}年`}</div></td>
                           <td className="px-2 py-2.5">{a.cert}<div className="num text-[11.5px] text-faint">{a.passedOn} 合格</div></td>
                           <td className="px-2 py-2.5">
-                            <div className="flex flex-wrap gap-1">{a.files.map((f) => <span key={f} className="inline-flex items-center gap-1 text-[12px] text-muted"><Paperclip size={12} />{f}</span>)}</div>
+                            <div className="flex flex-wrap gap-1">{a.files.map((f) => { const u = urlOf(a, f); return u ? <a key={f} href={u} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[12px] text-muted underline"><Paperclip size={12} />{f}</a> : <span key={f} className="inline-flex items-center gap-1 text-[12px] text-muted"><Paperclip size={12} />{f}</span>; })}</div>
                             {noCert && <div className="mt-1 flex items-center gap-1 text-[11.5px] font-semibold text-bad"><AlertTriangle size={12} />合格証が付いていません</div>}
                           </td>
-                          <td className="num whitespace-nowrap px-2 py-2.5 text-right font-semibold">{yen(amountOf(a))}
+                          <td className="num whitespace-nowrap px-2 py-2.5 text-right font-semibold">{yen(amt(a))}{(a as LiveShikakuApp).masterUnknown && <div className="text-[11px] font-normal text-warn">手当一覧に無い資格（要確認）</div>}
                             {m?.plus && a.state === '承認待ち' && (
-                              <select aria-label={`${a.name} の現場経験の加算`} value={a.plus ? 'on' : 'off'} disabled={!canApprove} onChange={(e) => setApps((xs) => xs.map((x) => (x.id === a.id ? { ...x, plus: e.target.value === 'on' } : x)))} className="mt-1 block min-h-7 w-full rounded-md border border-field bg-surface px-1 text-[11.5px] font-normal disabled:opacity-50">
+                              <select aria-label={`${a.name} の現場経験の加算`} value={a.plus ? 'on' : 'off'} disabled={live || !canApprove} onChange={(e) => setApps((xs) => xs.map((x) => (x.id === a.id ? { ...x, plus: e.target.value === 'on' } : x)))} className="mt-1 block min-h-7 w-full rounded-md border border-field bg-surface px-1 text-[11.5px] font-normal disabled:opacity-50">
                                 <option value="off">加算なし</option>
                                 <option value="on">＋{yen(m.plus.amount)}（{m.plus.label}）</option>
                               </select>
@@ -117,15 +130,15 @@ export default function ShikakuPage() {
                           <td className="px-4 py-2.5">
                             {a.state === '確認待ち' && (
                               <div className="flex flex-wrap items-center gap-1.5">
-                                <button onClick={() => confirm(a)} disabled={!canEdit || noCert} title={!canEdit ? needText('edit') : noCert ? '合格証が無いので確かめられません' : undefined} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><FileCheck2 size={14} />合格証を確かめた</button>
-                                <select aria-label="差し戻しの理由" value={reason[a.id] ?? defReason(a)} disabled={!canEdit} onChange={(e) => setReason((r) => ({ ...r, [a.id]: e.target.value }))} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-[12px] disabled:opacity-50">
+                                <button onClick={() => confirm(a)} disabled={live || !canEdit || noCert} title={noW ?? (!canEdit ? needText('edit') : noCert ? '合格証が無いので確かめられません' : undefined)} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><FileCheck2 size={14} />合格証を確かめた</button>
+                                <select aria-label="差し戻しの理由" value={reason[a.id] ?? defReason(a)} disabled={live || !canEdit} title={noW} onChange={(e) => setReason((r) => ({ ...r, [a.id]: e.target.value }))} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-[12px] disabled:opacity-50">
                                   {S_REJECT.map((r) => <option key={r} value={r}>{r}</option>)}
                                 </select>
-                                <button onClick={() => reject(a)} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-[12.5px] text-muted disabled:opacity-40"><CornerUpLeft size={14} />差し戻す</button>
+                                <button onClick={() => reject(a)} disabled={live || !canEdit} title={noW ?? (!canEdit ? needText('edit') : undefined)} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-[12.5px] text-muted disabled:opacity-40"><CornerUpLeft size={14} />差し戻す</button>
                               </div>
                             )}
-                            {a.state === '承認待ち' && <button onClick={() => approve(a)} disabled={!canApprove} title={!canApprove ? needText('approve') : undefined} className="btn-primary inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg px-3 text-[12.5px] font-bold disabled:opacity-40"><Check size={14} />承認する</button>}
-                            {a.state === '反映待ち' && <button onClick={() => reflect(a)} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>{PAY_MONTH}の給与に反映</button>}
+                            {a.state === '承認待ち' && <button onClick={() => approve(a)} disabled={live || !canApprove} title={noW ?? (!canApprove ? needText('approve') : undefined)} className="btn-primary inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg px-3 text-[12.5px] font-bold disabled:opacity-40"><Check size={14} />承認する</button>}
+                            {a.state === '反映待ち' && <button onClick={() => reflect(a)} disabled={live || !canEdit} title={noW ?? (!canEdit ? needText('edit') : undefined)} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>{PAY_MONTH}の給与に反映</button>}
                           </td>
                         </tr>
                       );
@@ -138,16 +151,16 @@ export default function ShikakuPage() {
         </>) : (
           <div className="overflow-hidden rounded-xl border border-line bg-surface">
             <div className="flex flex-wrap items-baseline gap-3 border-b border-line-soft px-4 py-3">
-              <span className="text-[12px] text-muted">{PAY_MONTH}の資格手当</span>
+              <span className="text-[12px] text-muted">{live ? '承認ずみの資格手当（1か月）' : `${PAY_MONTH}の資格手当`}</span>
               <span className="text-[24px] font-bold">¥<CountUp key={total} to={total} /></span>
               <span className="text-[12.5px] text-muted">{monthly.length}人</span>
             </div>
             <table className="w-full border-collapse text-[13px]">
-              <thead><tr className="th-row text-left"><th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">資格</th><th className="px-2 py-2.5 font-semibold">いつから</th><th className="px-4 py-2.5 text-right font-semibold">月の手当</th></tr></thead>
+              <thead><tr className="th-row text-left"><th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">資格</th><th className="px-2 py-2.5 font-semibold">{live ? '申請した月' : 'いつから'}</th><th className="px-4 py-2.5 text-right font-semibold">月の手当</th></tr></thead>
               <tbody>
                 {monthly.map((m, i) => (
-                  <tr key={`${m.personId}-${m.cert}`} className="row mo-fade-in border-t border-line-soft" style={{ ['--i' as string]: i }}>
-                    <td className="px-4 py-2.5"><Link href={`/jinji/staff/${m.personId}`} className="font-semibold hover:underline">{m.name}</Link></td>
+                  <tr key={`${m.personId || m.name}-${m.cert}-${m.since}`} className="row mo-fade-in border-t border-line-soft" style={{ ['--i' as string]: i }}>
+                    <td className="px-4 py-2.5">{m.personId ? <Link href={`/jinji/staff/${m.personId}`} className="font-semibold hover:underline">{m.name}</Link> : <span className="font-semibold">{m.name}</span>}</td>
                     <td className="px-2 py-2.5">{m.cert}</td>
                     <td className="num px-2 py-2.5 text-muted">{m.since}〜</td>
                     <td className="num px-4 py-2.5 text-right font-semibold">{yen(m.amount)}</td>

@@ -7,11 +7,15 @@ import { HANDOFFS, LANES, TASKS, TO_LANE, type Handoff, type Lane } from '@/lib/
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
+import { LIVE_WRITE_BLOCKED, LiveBanner, useIke } from '@/components/Live';
+import { toJimuLive, type IkeJimuList, type LiveHandoff } from '@/lib/live/jimu';
 
 // 参画決定者の手続き（人事管理）＝参画が決まった人を 営業 → 人事 → 労務 → 完了 の列で引き継ぐ。
 //   ・カードをドラッグして次の列へ。その列のやることが全部済んでいないと先へは進めない（戻すのはいつでも）
 //   ・スマホなど ドラッグしにくいときは カードの「段階」を選んでも動かせる
 //   ・入場日・現場・単価は営業の持ち物。人事は契約書、労務は勤怠の設定と通勤
+//   ・ログインしていれば今の社内システムの「事務ページ」（/api/roster?op=jimu&action=list）を読むだけで出す。
+//     今のシステムに列は無いので「次にやること」で列に振り分ける。動かす・✓は押せない（今のシステムの画面で）
 const ORDER: Lane[] = ['営業', '人事', '労務', '完了'];
 const tasksOf = (h: Handoff, lane: Lane) => (lane === '完了' ? [] : TASKS[lane].filter((t) => !t.haken || h.contract === '派遣'));
 const missing = (h: Handoff, to: Lane) => {
@@ -21,7 +25,9 @@ const missing = (h: Handoff, to: Lane) => {
 
 export default function JimuPage() {
   const { can } = usePerms();
-  const canEdit = can('jinji', 'edit');
+  const ike = useIke<IkeJimuList>('roster?op=jimu&action=list');
+  const lv = ike.live && ike.data ? toJimuLive(ike.data) : null;
+  const canEdit = can('jinji', 'edit') && !lv;
   // 営業の列のやること（入場日・現場・単価）は営業の持ち物 → 営業管理を「直す」で持つ人だけが✓できる
   const canTask = (lane: Lane) => (lane === '営業' ? can('eigyo', 'edit') : canEdit);
   const { hit, toast } = useMotivation();
@@ -31,7 +37,7 @@ export default function JimuPage() {
   const [blocked, setBlocked] = useState<{ id: string; msg: string } | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
 
-  const remain = rows.filter((r) => r.lane !== '完了').length;
+  const remain = lv ? lv.rows.filter((r) => r.lane !== '完了').length : rows.filter((r) => r.lane !== '完了').length;
   const pulse = (id: string) => { setFlash(id); setTimeout(() => setFlash(null), 1300); };
 
   const move = (id: string, to: Lane) => {
@@ -58,12 +64,14 @@ export default function JimuPage() {
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="参画決定者の手続き" sub="参画が決まった人の、営業 → 人事 → 労務 の引き継ぎ。カードをドラッグして次の列へ渡します・見本データ" />
+      <PageTitle title="参画決定者の手続き" sub={lv ? '参画が決まった人の、次にやること。今の社内システムの事務ページの「次にやること」で列に分けています' : '参画が決まった人の、営業 → 人事 → 労務 の引き継ぎ。カードをドラッグして次の列へ渡します・見本データ'} />
+      <LiveBanner state={ike.state} error={ike.error} onReload={ike.reload}
+        note={lv ? `${lv.month}の名簿で参画決定の人（見るだけ）。列は「次にやること」で分けています。稼働中で対応なしの${lv.hiddenDone}人は出していません。操作は今の社内システムの事務ページから` : undefined} />
 
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
-        <RemainRing remain={remain} total={rows.length} />
+        <RemainRing remain={remain} total={lv ? lv.rows.length : rows.length} />
         <div className="text-[13px]"><b>引き継ぎ中 {remain}人</b>
-          <div className="text-[12px] text-muted">その列のやることに✓が全部付くと、次の列へ動かせます。{!canEdit && <span className="text-bad"> {needText('edit')}</span>}</div>
+          <div className="text-[12px] text-muted">{lv ? '次にやることが済むと、今の社内システムが次の列のやることに進めます。' : 'その列のやることに✓が全部付くと、次の列へ動かせます。'}{!lv && !canEdit && <span className="text-bad"> {needText('edit')}</span>}</div>
         </div>
         <Link href="/jinji/nyusha" className="ml-auto text-[12px] font-semibold" style={{ color: 'var(--ad)' }}>本人の入社手続きを見る</Link>
       </div>
@@ -71,6 +79,7 @@ export default function JimuPage() {
       <div className="mo-fade-up grid gap-3 md:grid-cols-2 xl:grid-cols-4" style={{ ['--i' as string]: 2 }}>
         {LANES.map((lane) => {
           const cards = rows.filter((r) => r.lane === lane.key);
+          const liveCards = lv ? lv.rows.filter((r) => r.lane === lane.key) : [];
           const isOver = over === lane.key && drag;
           return (
             <section key={lane.key}
@@ -81,10 +90,11 @@ export default function JimuPage() {
               style={{ borderColor: isOver ? 'var(--a)' : 'var(--color-line)', background: isOver ? 'var(--as)' : 'var(--color-soft)' }}>
               <header className="flex items-baseline gap-2 px-1">
                 <span className="text-[14px] font-bold">{lane.key}</span>
-                <span className="num text-[12px] text-muted">{cards.length}</span>
+                <span className="num text-[12px] text-muted">{lv ? liveCards.length : cards.length}</span>
                 <span className="ml-auto text-[11.5px] text-faint">{lane.note}</span>
               </header>
-              {cards.map((h) => {
+              {lv && liveCards.map((h) => <LiveCard key={h.id} h={h} />)}
+              {!lv && cards.map((h) => {
                 const tasks = tasksOf(h, h.lane);
                 const ready = tasks.every((t) => h.done.includes(t.key));
                 return (
@@ -127,12 +137,44 @@ export default function JimuPage() {
                   <div className="text-[11.5px] text-muted">新しく参画が決まると 営業の列に並びます</div>
                 </div>
               )}
-              {cards.length === 0 && lane.key !== '完了' && <div className="rounded-lg border border-dashed border-line px-3 py-5 text-center text-[12px] text-faint">ここにドラッグ</div>}
+              {(lv ? liveCards.length : cards.length) === 0 && lane.key !== '完了' && <div className="rounded-lg border border-dashed border-line px-3 py-5 text-center text-[12px] text-faint">{lv ? 'いまはいません' : 'ここにドラッグ'}</div>}
             </section>
           );
         })}
       </div>
       <p className="text-[11.5px] text-faint">派遣の就業条件の明示・雇用契約の中身は、最終判断は社労士・法務に確認してください。</p>
     </main>
+  );
+}
+
+// 本物のカード（見るだけ）。今のシステムの「次にやること」と、ミンミカ総務手続き7項目
+const STEP_TONE: Record<string, string> = { 完了: 'ok', 不要: 'mute', 対応中: 'info', 未着手: 'mute' };
+function LiveCard({ h }: { h: LiveHandoff }) {
+  return (
+    <article title={LIVE_WRITE_BLOCKED} className="rounded-lg border border-line bg-surface p-3">
+      <div className="flex items-center gap-1.5">
+        <Lock size={13} className="text-faint" />
+        <Link href={`/jinji/staff/${h.personId}`} className="font-semibold hover:underline">{h.name}</Link>
+        <span className="chip ml-auto" style={{ background: h.contract === '派遣' ? 'var(--tone-info-bg)' : 'var(--tone-purple-bg)', color: h.contract === '派遣' ? 'var(--tone-info-fg)' : 'var(--tone-purple-fg)' }}>{h.contract}</span>
+      </div>
+      <div className="num mt-1 text-[12px] text-muted">入場 {h.day}・{h.site}<span className="text-faint">・営業 {h.sales}・{h.status}</span></div>
+      <div className={`mt-2 text-[12.5px] ${h.lane === '完了' ? 'font-semibold text-ok' : 'font-semibold'}`}>{h.lane === '完了' ? '対応なし（入場を待つだけ）' : `次にやること：${h.next}`}</div>
+      {h.onboarding && (
+        <div className="mt-2">
+          <div className="text-[11px] text-faint">ミンミカの総務手続き（{h.onboarding.typeLabel}）</div>
+          <ul className="mt-1 flex flex-wrap gap-1">
+            {h.onboarding.steps.map((s) => {
+              const t = STEP_TONE[s.text] || 'mute';
+              return <li key={s.key} className="chip" style={{ background: `var(--tone-${t}-bg)`, color: `var(--tone-${t}-fg)`, fontWeight: s.text === '完了' ? 700 : 500 }}>{s.text === '完了' ? '✓ ' : ''}{s.label}{s.text !== '完了' && `：${s.text}`}</li>;
+            })}
+          </ul>
+        </div>
+      )}
+      <div className="mt-2 flex items-center">
+        <select aria-label={`${h.name} の段階`} value={h.lane} disabled title={LIVE_WRITE_BLOCKED} className="ml-auto min-h-7 rounded-md border border-field bg-surface px-1.5 text-[12px] disabled:opacity-50">
+          <option value={h.lane}>{h.lane}</option>
+        </select>
+      </div>
+    </article>
   );
 }

@@ -13,6 +13,7 @@ import { RemainRing, useMotivation } from '@/components/Motivation';
 //   ・土日祝に2日以上出勤している人はシフト勤務＝平日の打刻なしを漏れにしない
 //   ・引っかかった人を選んで、理由を選んでまとめて差し戻す → 本人に知らせる（あおい）
 //   申請の承認そのものは /keiri/keihi（ここは月末の見回り）
+//   本物にはつながない（今の画面は freee の打刻を読む POST で、freee まわりは ver2 から使わない）
 const yen = (n: number) => `¥${n.toLocaleString('ja-JP')}`;
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 const LEGEND: DayKind[] = ['noPunch', 'half', 'outside', 'taiki', 'leak', 'ok', 'none'];
@@ -68,6 +69,11 @@ export default function KeihiCheckPage() {
         </select>
         <Link href="/keiri/keihi" className="inline-flex min-h-10 items-center rounded-[10px] border border-field bg-surface px-3.5 text-[13px] font-semibold">交通費・経費の承認へ</Link>
       </PageTitle>
+      {/* 今の交通費チェック（keihi-check.html）は、MF経費の明細CSVを読み込んで freee の打刻と照らす画面（POST /api/freee-kintai?action=keihi_check）。
+          freee につながる口なので ver2 からは読まない＝ここは見本のまま（10-23） */}
+      <div className="rounded-xl border border-line bg-soft px-4 py-2.5 text-[12.5px] text-muted">
+        交通費チェックは、今の社内システムでは経費の明細ファイルを読み込んで freee の打刻と照らす画面です。freee につながるため、ここからは本物を読まず見本データのままです（本物の見回りは今の「交通費チェック」の画面で）。
+      </div>
 
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <RemainRing remain={remain.length} total={targets.length} />

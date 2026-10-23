@@ -7,6 +7,7 @@ import { REJECT_REASONS, REQUESTS, type Check as Chk, type Req, type ReqKind } f
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
+import { NotInLegacy } from '@/components/Live';
 
 // 申請の承認（労務/営業管理）＝打刻修正・残業・有給・欠勤・遅刻早退を、上から順に1件ずつ片づける。
 //   ・ホームの「上から順に片づける」の行き先。1件ずつのカード（A=承認・R=差し戻し・S=あとで）と一覧の2通り
@@ -107,6 +108,8 @@ export default function ApprovalPage() {
           ))}
         </div>
       </PageTitle>
+      {/* 打刻修正・残業・有給などの申請と承認は今は freee の中でしていて、今の社内システムには申請を受ける表も画面も無い */}
+      <NotInLegacy what="打刻修正・残業・有給・欠勤・遅刻早退の申請と承認（今は freee の中でしています）" />
 
       <div className="mo-fade-up flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <RemainRing remain={pending.length} total={total} />

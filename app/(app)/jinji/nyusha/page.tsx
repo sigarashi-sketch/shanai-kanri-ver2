@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Check, CircleDashed, Minus } from 'lucide-react';
 import { NEWCOMERS, STEPS, openRequired, type Newcomer, type StepKey, type StepState } from '@/lib/nyusha-sample';
+import { LIVE_WRITE_BLOCKED, LiveBanner, useIke } from '@/components/Live';
+import { daysUntil, openOf, toNyushaLive, type IkeNyushaProgress, type LiveStep } from '@/lib/live/nyusha';
 import { daysFrom, fmtDate } from '@/lib/yoyaku-sample';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
@@ -14,7 +16,10 @@ import { RemainRing, useMotivation } from '@/components/Motivation';
 //   ・印は押すだけ（まだ → 済み）。任意の手続きは「まだ → 済み → 対象外」と回る
 //   ・freee・クラウドサインからは自動で取っていない（今のシステムと同じく手で付ける）
 //   ?p=<社員id> でその人のカードを開いた状態から始める（社員ページから）
+//   ・ログインしていれば今の社内システムの「入社手続きの進み具合」（/api/nyusha-progress?days=60）を読むだけで出す。
+//     項目は今のシステムのもの・印は押せない（今のシステムの画面で付ける）・入社日の欄は営業リストの入場日
 type Filter = 'すべて' | '入社予定' | '参画決定';
+type Card = { id: string; personId: string; name: string; kind: '入社予定' | '参画決定'; joinOn: string; joinRaw?: string; site: string; recruiter: string; notice?: string; steps: Record<string, StepState> };
 
 const next = (st: StepState, optional?: boolean): StepState => st === 'まだ' ? '済み' : st === '済み' && optional ? '対象外' : 'まだ';
 const STEP_STYLE: Record<StepState, React.CSSProperties> = {
@@ -26,26 +31,34 @@ const STEP_STYLE: Record<StepState, React.CSSProperties> = {
 export default function NyushaPage() {
   const canEdit = usePerms().can('jinji', 'edit');
   const { hit, toast } = useMotivation();
-  const [rows, setRows] = useState<Newcomer[]>(NEWCOMERS);
+  const ike = useIke<IkeNyushaProgress>('nyusha-progress?days=60');
+  const lv = ike.live && ike.data ? toNyushaLive(ike.data) : null;
+  const [sampleRows, setRows] = useState<Newcomer[]>(NEWCOMERS);
+  const rows: Card[] = lv ? lv.rows : sampleRows.map((n) => ({ ...n, personId: n.id }));
+  const stepDefs: LiveStep[] = lv ? lv.steps : STEPS;
+  const open = (n: Card) => (lv ? openOf(stepDefs, n) : openRequired(n as Newcomer));
+  const dayLeft = (iso: string) => (lv ? daysUntil(iso, lv.today) : daysFrom(iso));
   const [filter, setFilter] = useState<Filter>('すべて');
   const [flash, setFlash] = useState<string | null>(null);
   const [focus, setFocus] = useState<string | null>(null);
 
   useEffect(() => { const p = new URLSearchParams(window.location.search).get('p'); if (p) setFocus(p); }, []);
   // 社員ページから来たら、その人のカードまで送る
-  useEffect(() => { if (focus) document.getElementById(`nc-${focus}`)?.scrollIntoView({ block: 'center' }); }, [focus]);
+  useEffect(() => { if (focus) document.getElementById(`nc-${focus}`)?.scrollIntoView({ block: 'center' }); }, [focus, lv?.rows.length]);
 
-  const totalOpen = NEWCOMERS.reduce((s, n) => s + openRequired(n), 0);
-  const remain = rows.reduce((s, n) => s + openRequired(n), 0);
-  const sorted = [...rows].sort((a, b) => a.joinOn.localeCompare(b.joinOn));
-  const working = sorted.filter((n) => openRequired(n) > 0 && (filter === 'すべて' || n.kind === filter));
-  const finished = sorted.filter((n) => openRequired(n) === 0);
+  const totalOpen = lv ? rows.reduce((s, n) => s + open(n), 0) : NEWCOMERS.reduce((s, n) => s + openRequired(n), 0);
+  const remain = rows.reduce((s, n) => s + open(n), 0);
+  // 入社日が近い順（入社日が読めない人は下）
+  const sorted = [...rows].sort((a, b) => (a.joinOn || '9999').localeCompare(b.joinOn || '9999'));
+  const working = sorted.filter((n) => open(n) > 0 && (filter === 'すべて' || n.kind === filter));
+  const finished = sorted.filter((n) => open(n) === 0);
 
   const mark = (n: Newcomer, key: StepKey) => {
+    if (lv) return; // 本物のときは押せない（ボタンも disabled）
     const step = STEPS.find((s) => s.key === key)!;
     const prev = n.steps[key];
     const nv = next(prev, step.optional);
-    const after = rows.map((r) => (r.id === n.id ? { ...r, steps: { ...r.steps, [key]: nv } } : r));
+    const after = sampleRows.map((r) => (r.id === n.id ? { ...r, steps: { ...r.steps, [key]: nv } } : r));
     setRows(after);
     setFlash(n.id); setTimeout(() => setFlash(null), 1300);
     if (nv === 'まだ') return; // 戻しただけなら数えない
@@ -61,16 +74,17 @@ export default function NyushaPage() {
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="入社手続き" sub="参画が決まった人・入社予定の人の手続き。入社日が近い順に、終わったものに印を付けます・見本データ" />
+      <PageTitle title="入社手続き" sub={lv ? '参画が決まった人（参画決定の日が60日以内・付けかけの人）の手続き。入社日（入場日）が近い順' : '参画が決まった人・入社予定の人の手続き。入社日が近い順に、終わったものに印を付けます・見本データ'} />
+      <LiveBanner state={ike.state} error={ike.error} onReload={ike.reload} note="今の社内システムの「入社手続きの進み具合」と同じ中身です（見るだけ）。印は今の社内システムの画面で付けてください" />
 
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <RemainRing remain={remain} total={totalOpen} />
-        <div className="text-[13px]"><b>残りの手続き {remain}件</b><span className="ml-2 text-muted">{rows.filter((r) => openRequired(r) > 0).length}人ぶん</span>
+        <div className="text-[13px]"><b>残りの手続き {remain}件</b><span className="ml-2 text-muted">{rows.filter((r) => open(r) > 0).length}人ぶん</span>
           <div className="text-[12px] text-muted">freee・クラウドサインからは自動で取っていません。確かめたら印を押してください。{!canEdit && <span className="text-bad"> {needText('edit')}</span>}</div>
         </div>
         <div className="ml-auto flex flex-wrap gap-1.5">
           {(['すべて', '入社予定', '参画決定'] as Filter[]).map((f) => {
-            const n = rows.filter((r) => openRequired(r) > 0 && (f === 'すべて' || r.kind === f)).length;
+            const n = rows.filter((r) => open(r) > 0 && (f === 'すべて' || r.kind === f)).length;
             return <button key={f} onClick={() => setFilter(f)} className={`min-h-8 rounded-full border px-3 text-[12.5px] ${filter === f ? 'font-semibold' : 'text-muted'}`} style={filter === f ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>{f} {n}</button>;
           })}
         </div>
@@ -87,31 +101,32 @@ export default function NyushaPage() {
       ) : (
         <div className="grid gap-3 lg:grid-cols-2">
           {working.map((n, i) => {
-            const req = STEPS.filter((s) => !s.optional);
+            // 今のシステムと同じ数え方：対象外は分母から外す・任意は印が付いたものだけ数える
+            const req = stepDefs.filter((s) => n.steps[s.key] !== '対象外' && (!s.optional || n.steps[s.key] === '済み'));
             const done = req.filter((s) => n.steps[s.key] === '済み').length;
-            const d = daysFrom(n.joinOn);
-            const tone = d <= 5 ? 'bad' : d <= 10 ? 'warn' : 'info';
+            const d = n.joinOn ? dayLeft(n.joinOn) : null;
+            const tone = d == null ? 'mute' : d <= 5 ? 'bad' : d <= 10 ? 'warn' : 'info';
             return (
               <article key={n.id} id={`nc-${n.id}`} className={`mo-fade-up rounded-xl border bg-surface p-4 ${flash === n.id ? 'mo-flash' : ''}`} style={{ ['--i' as string]: i + 2, borderColor: focus === n.id ? 'var(--a)' : 'var(--color-line)' }}>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Link href={`/jinji/staff/${n.id}`} className="text-[15px] font-bold hover:underline">{n.name}</Link>
+                  <Link href={`/jinji/staff/${n.personId}`} className="text-[15px] font-bold hover:underline">{n.name}</Link>
                   <span className="chip" style={{ background: n.kind === '参画決定' ? 'var(--tone-ok-bg)' : 'var(--tone-info-bg)', color: n.kind === '参画決定' ? 'var(--tone-ok-fg)' : 'var(--tone-info-fg)' }}>{n.kind}</span>
-                  <span className="text-[12px] text-faint">{n.site}・採用 {n.recruiter}</span>
-                  <span className="num ml-auto whitespace-nowrap text-[12.5px] font-semibold" style={{ color: `var(--tone-${tone}-fg)` }}>入社 {fmtDate(n.joinOn)}・あと{d}日</span>
+                  <span className="text-[12px] text-faint">{lv ? `所属 ${n.site}` : n.site}・採用 {n.recruiter}{n.notice && `・入社案内 ${n.notice}`}</span>
+                  <span className="num ml-auto whitespace-nowrap text-[12.5px] font-semibold" style={{ color: `var(--tone-${tone}-fg)` }}>{n.joinOn ? `入社 ${fmtDate(n.joinOn)}・${d! < 0 ? `${-d!}日過ぎ` : `あと${d}日`}` : n.joinRaw ? `入社 ${n.joinRaw}` : '入社日 まだ'}</span>
                 </div>
                 <div className="mt-2.5 flex items-center gap-2">
                   <div className="h-2 flex-1 overflow-hidden rounded-full bg-sunken">
-                    <div key={done} className="mo-bar h-full rounded-full" style={{ width: `${(done / req.length) * 100}%`, background: 'var(--tone-ok-bar)' }} />
+                    <div key={done} className="mo-bar h-full rounded-full" style={{ width: `${req.length ? (done / req.length) * 100 : 0}%`, background: 'var(--tone-ok-bar)' }} />
                   </div>
                   <span className="num text-[12px] text-muted">{done}/{req.length}</span>
                 </div>
                 <ul className="mt-3 flex flex-wrap gap-1.5">
-                  {STEPS.map((s) => {
+                  {stepDefs.map((s) => {
                     const st = n.steps[s.key];
                     const Icon = st === '済み' ? Check : st === '対象外' ? Minus : CircleDashed;
                     return (
                       <li key={s.key}>
-                        <button onClick={() => mark(n, s.key)} disabled={!canEdit} title={!canEdit ? needText('edit') : s.optional ? '任意：まだ → 済み → 対象外' : 'まだ ⇄ 済み'}
+                        <button onClick={() => mark(n as Newcomer, s.key as StepKey)} disabled={!!lv || !canEdit} title={lv ? LIVE_WRITE_BLOCKED : !canEdit ? needText('edit') : s.optional ? '任意：まだ → 済み → 対象外' : 'まだ ⇄ 済み'}
                           aria-label={`${n.name} の${s.label}（${st}）`} className={`inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2.5 text-[12.5px] disabled:cursor-not-allowed disabled:opacity-50 ${st === 'まだ' ? '' : 'font-semibold'}`} style={STEP_STYLE[st]}>
                           <Icon size={13} className={st === 'まだ' ? 'text-faint' : ''} />{s.label}{s.optional && <span className="text-[10.5px] opacity-70">任意</span>}
                         </button>
@@ -132,8 +147,8 @@ export default function NyushaPage() {
             {finished.map((n) => (
               <li key={n.id} className={`flex flex-wrap items-center gap-2 rounded-md ${flash === n.id ? 'mo-flash' : ''}`}>
                 <Check size={14} className="text-ok" />
-                <Link href={`/jinji/staff/${n.id}`} className="font-semibold hover:underline">{n.name}</Link>
-                <span className="text-faint">入社 {fmtDate(n.joinOn)}・{n.site}</span>
+                <Link href={`/jinji/staff/${n.personId}`} className="font-semibold hover:underline">{n.name}</Link>
+                <span className="text-faint">{n.joinOn ? `入社 ${fmtDate(n.joinOn)}` : '入社日 まだ'}・{n.site}</span>
                 <Link href="/jinji/jimu" className="ml-auto text-[12px] font-semibold" style={{ color: 'var(--ad)' }}>労務への引き継ぎを見る</Link>
               </li>
             ))}

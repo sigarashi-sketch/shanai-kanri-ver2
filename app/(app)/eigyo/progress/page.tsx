@@ -1,25 +1,30 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Check, MessageSquareText, Plus, X } from 'lucide-react';
 import { CANDIDATES, CASES, PROGRESS, caseOf, type Candidate, type ChatMsg, type ProgressRow, type Via } from '@/lib/progress-sample';
 import { PageTitle, PrimaryButton } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
 import { DrawerPortal } from '@/components/DrawerPortal';
+import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { liveProgress } from '@/lib/live/progress';
+import type { ProgressData, ProgressReply } from '@/lib/live/eigyo-common';
 
 // 案件進捗（単独の画面・2026-10-23 shoya）。
 //   ・送った案件 … あおい／グループ直接／手動配信 のどれで送った分も1本で並べる。返信・OK/NG は経路に関係なく同じ扱い
 //   ・回収候補 … 内勤がグループに直接書いた「案件らしい発言」。一番近い案件を当てて、内勤が✓で確定したものだけ載せる
 //     どの案件か迷うものは「チャットで前後を見る」でグループのやりとりを確かめてから決める
 //   列・並び・タブを自分で変える「カスタム」はあとで決める（10-23 shoya）
+//   本物（ログイン中）：今の /api/proxy?action=getProgressData と getProgressReplies を読むだけ（直近7日の送信）。
+//     OK/NG の判断は今の画面から（ここでは押せない）。回収候補は今のシステムに無いので出さない
 const VIA_STYLE: Record<Via, { bg: string; fg: string }> = {
   あおい: { bg: 'var(--tone-info-bg)', fg: 'var(--tone-info-fg)' },
   グループ直接: { bg: 'var(--tone-warn-bg)', fg: 'var(--tone-warn-fg)' },
   手動配信: { bg: 'var(--tone-purple-bg)', fg: 'var(--tone-purple-fg)' },
 };
 const DEC_STYLE: Record<string, { bg: string; fg: string }> = {
-  OK: { bg: 'var(--tone-ok-bg)', fg: 'var(--tone-ok-fg)' }, NG: { bg: 'var(--tone-mute-bg)', fg: 'var(--tone-mute-fg)' }, 未判断: { bg: 'var(--tone-bad-bg)', fg: 'var(--tone-bad-fg)' },
+  OK: { bg: 'var(--tone-ok-bg)', fg: 'var(--tone-ok-fg)' }, NG: { bg: 'var(--tone-mute-bg)', fg: 'var(--tone-mute-fg)' }, その他: { bg: 'var(--tone-purple-bg)', fg: 'var(--tone-purple-fg)' }, 未判断: { bg: 'var(--tone-bad-bg)', fg: 'var(--tone-bad-fg)' },
 };
 const Chip = ({ s, children }: { s: { bg: string; fg: string }; children: React.ReactNode }) => (
   <span className="chip" style={{ background: s.bg, color: s.fg }}>{children}</span>
@@ -30,9 +35,17 @@ type TabKey = 'sent' | 'collect';
 type ChatOpen = { group: string; thread: ChatMsg[]; focus?: string; cand?: Candidate };
 
 export default function ProgressPage() {
-  const canEdit = usePerms().can('eigyo', 'edit');
+  const perm = usePerms().can('eigyo', 'edit');
   const { hit, toast } = useMotivation();
-  const [rows, setRows] = useState<ProgressRow[]>(PROGRESS);
+  const pd = useIke<ProgressData>('proxy?action=getProgressData');
+  const pr = useIke<ProgressReply[]>(pd.live ? 'proxy?action=getProgressReplies' : null);
+  const live = pd.live;
+  const lp = useMemo(() => liveProgress(pd.data, Array.isArray(pr.data) ? pr.data : null), [pd.data, pr.data]);
+  const canEdit = perm && !live;
+  const noEdit = live ? LIVE_WRITE_BLOCKED : needText('edit');
+  const caseOf = (no: string) => (live ? lp.cases : CASES).find((c) => c.no === no);
+  const [rowsS, setRows] = useState<ProgressRow[]>(PROGRESS);
+  const rows = live ? lp.rows : rowsS;
   const [cands, setCands] = useState<Candidate[]>(CANDIDATES);
   const [pick, setPick] = useState<Record<string, string>>({}); // 候補ごとに内勤が選び直した案件No
   const [flash, setFlash] = useState<string | null>(null);
@@ -85,7 +98,7 @@ export default function ProgressPage() {
 
   const shown = rows.filter((r) => via === 'すべて' || r.via === via);
   const kpi = [
-    { label: '今週送った', n: rows.length, sub: `グループ直接 ${rows.filter((r) => r.via === 'グループ直接').length}件` },
+    { label: live ? '直近7日に送った' : '今週送った', n: rows.length, sub: `グループ直接 ${rows.filter((r) => r.via === 'グループ直接').length}件` },
     { label: '返信待ち', n: rows.filter((r) => !r.reply).length, sub: '要員からの返事がまだ' },
     { label: '未判断', n: rows.filter((r) => r.reply && r.decision === '未判断').length, sub: '返信あり・OK/NG 待ち' },
     { label: 'OK', n: rows.filter((r) => r.decision === 'OK').length, sub: `営業へ ${rows.filter((r) => r.slack).length}件` },
@@ -94,6 +107,7 @@ export default function ProgressPage() {
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="案件進捗" sub="あおい・グループ直接・手動配信で送った案件を1本で。グループに直接書いた案件も回収して載せる" />
+      <LiveBanner state={pd.state} error={pd.error} onReload={() => { pd.reload(); pr.reload(); }} note={`直近7日の送信 ${rows.length}件（今の案件進捗と同じ材料）。OK・NG は今の画面で押してください${pr.state === 'error' ? '・返信が読めませんでした' : ''}`} />
 
       <div className="mo-fade-up grid grid-cols-2 gap-3 lg:grid-cols-4" style={{ ['--i' as string]: 1 }}>
         {kpi.map((k) => (
@@ -109,7 +123,7 @@ export default function ProgressPage() {
         {([['sent', '送った案件'], ['collect', '回収候補']] as [TabKey, string][]).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="px-3.5 py-2.5 text-[14px]"
             style={tab === k ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>
-            {l}{k === 'collect' && cands.length > 0 && <span className="num ml-1.5 rounded-full bg-bad px-1.5 text-[11px] font-bold text-white">{cands.length}</span>}
+            {l}{k === 'collect' && !live && cands.length > 0 && <span className="num ml-1.5 rounded-full bg-bad px-1.5 text-[11px] font-bold text-white">{cands.length}</span>}
           </button>
         ))}
         <span className="ml-auto self-center text-[11.5px] text-faint">列・並び・タブを自分で変えるのは、あとで決めます</span>
@@ -137,7 +151,7 @@ export default function ProgressPage() {
                       const c = caseOf(r.caseNo);
                       return (
                         <tr key={r.id} className={`mo-fade-in border-t border-line-soft ${rowFlash === r.id ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
-                          <td className="px-4 py-2.5"><div className="font-semibold">{c?.name ?? '新しい案件（登録待ち）'}</div><div className="text-[11.5px] text-faint">{r.caseNo}{c && ` ・ ${c.price}`}</div></td>
+                          <td className="px-4 py-2.5"><div className="font-semibold">{c?.name ?? (live ? r.caseNo : '新しい案件（登録待ち）')}</div><div className="text-[11.5px] text-faint">{r.caseNo}{c?.price && ` ・ ${c.price}`}</div></td>
                           <td className="px-2 py-2.5">{r.person}</td>
                           <td className="whitespace-nowrap px-2 py-2.5"><Chip s={VIA_STYLE[r.via]}>{r.via}</Chip>{r.via !== 'あおい' && <span className="ml-1.5 text-[11.5px] text-muted">{r.sender}</span>}</td>
                           <td className="num whitespace-nowrap px-2 py-2.5">{r.sentAt}</td>
@@ -146,14 +160,14 @@ export default function ProgressPage() {
                             {r.reply && r.decision === '未判断' ? (
                               <span className="inline-flex gap-1">
                                 {(['OK', 'NG'] as const).map((d) => (
-                                  <button key={d} onClick={() => decide(r, d)} disabled={!canEdit} title={!canEdit ? needText('edit') : `返事を見て「${d}」にする`} className="min-h-8 rounded-lg border border-field bg-surface px-2.5 text-[12.5px] font-semibold disabled:cursor-not-allowed disabled:opacity-40" style={d === 'OK' ? { color: 'var(--tone-ok-fg)' } : undefined}>{d}</button>
+                                  <button key={d} onClick={() => decide(r, d)} disabled={!canEdit} title={!canEdit ? noEdit : `返事を見て「${d}」にする`} className="min-h-8 rounded-lg border border-field bg-surface px-2.5 text-[12.5px] font-semibold disabled:cursor-not-allowed disabled:opacity-40" style={d === 'OK' ? { color: 'var(--tone-ok-fg)' } : undefined}>{d}</button>
                                 ))}
                               </span>
                             ) : <Chip s={DEC_STYLE[r.decision]}>{r.decision}</Chip>}
                             {r.slack && <span className="ml-1.5 text-[11.5px] text-muted">📮営業へ</span>}
                           </td>
                           <td className="px-4 py-2.5 text-right">
-                            <button onClick={() => setChat({ group: r.group, thread: threadFor(r) })} className="inline-flex min-h-8 items-center whitespace-nowrap gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><MessageSquareText size={14} />チャット</button>
+                            <button onClick={() => setChat({ group: r.group, thread: live ? lp.threads[r.id] ?? [] : threadFor(r) })} className="inline-flex min-h-8 items-center whitespace-nowrap gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><MessageSquareText size={14} />チャット</button>
                           </td>
                         </tr>
                       );
@@ -164,6 +178,8 @@ export default function ProgressPage() {
               </div>
             </div>
           </div>
+        ) : live ? (
+          <NotInLegacy what="グループに直接書いた案件の回収" />
         ) : (
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
@@ -206,8 +222,8 @@ export default function ProgressPage() {
                   </div>
                   <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line-soft px-4 py-2.5">
                     <button onClick={() => setChat({ group: c.group, thread: c.thread, focus: c.msgId, cand: c })} className="mr-auto inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border px-3 text-[13px] font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><MessageSquareText size={15} />チャットで前後を見る</button>
-                    <button onClick={() => settle(c, false)} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="min-h-9 rounded-[10px] border border-field bg-surface px-3 text-[13px] font-semibold disabled:opacity-40">案件ではない</button>
-                    <PrimaryButton onClick={() => settle(c, true)} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined}>
+                    <button onClick={() => settle(c, false)} disabled={!canEdit} title={!canEdit ? noEdit : undefined} className="min-h-9 rounded-[10px] border border-field bg-surface px-3 text-[13px] font-semibold disabled:opacity-40">案件ではない</button>
+                    <PrimaryButton onClick={() => settle(c, true)} disabled={!canEdit} title={!canEdit ? noEdit : undefined}>
                       <span className="inline-flex items-center gap-1.5">{no ? <Check size={15} /> : <Plus size={15} />}{no ? '案件進捗に載せる' : '登録して載せる'}</span>
                     </PrimaryButton>
                   </div>
@@ -243,8 +259,8 @@ export default function ProgressPage() {
             </div>
             {chat.cand && (
               <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
-                <button onClick={() => settle(chat.cand!, false)} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="min-h-10 rounded-[10px] border border-field bg-surface px-3.5 text-[13.5px] font-semibold disabled:opacity-40">案件ではない</button>
-                <PrimaryButton onClick={() => settle(chat.cand!, true)} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined}>{caseFor(chat.cand) ? '案件進捗に載せる' : '登録して載せる'}</PrimaryButton>
+                <button onClick={() => settle(chat.cand!, false)} disabled={!canEdit} title={!canEdit ? noEdit : undefined} className="min-h-10 rounded-[10px] border border-field bg-surface px-3.5 text-[13.5px] font-semibold disabled:opacity-40">案件ではない</button>
+                <PrimaryButton onClick={() => settle(chat.cand!, true)} disabled={!canEdit} title={!canEdit ? noEdit : undefined}>{caseFor(chat.cand) ? '案件進捗に載せる' : '登録して載せる'}</PrimaryButton>
               </div>
             )}
           </aside>
