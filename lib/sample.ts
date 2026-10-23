@@ -73,7 +73,7 @@ export const TODOS: Todo[] = [
 ];
 export const APPROVALS: Todo[] = [
   { module: 'keiri', text: '交通費・経費の申請', n: '9件', tone: 'plain', href: '/keiri/keihi' },
-  { module: 'roumu', text: '打刻修正・有給・残業', n: '8件', tone: 'plain', href: '/roumu/approval' },
+  { module: 'roumu', text: '打刻修正・有給・残業', n: '7件', tone: 'plain', href: '/roumu/approval' },
   { module: 'jinji', text: '引っ越し・通勤の変更（本人申請）', n: '2件', tone: 'plain', href: '/jinji/yoyaku' },
   { module: 'jinji', text: '入社情報（提出済み）', n: '3件', tone: 'plain', href: '/jinji/nyusha' },
 ];
