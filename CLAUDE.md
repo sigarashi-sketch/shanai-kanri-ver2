@@ -1,7 +1,7 @@
 # いけどん ver2（本番前）
 
 いけいけどんどん（ses/02_ツール/LINE/ikeike-next/legacy）の作り直し。**全部できあがるまで本番に出さない**（2026-10-22 shoya）。
-手元で `npm run dev`（http://localhost:3330）で動かす。Vercel にはまだ出さない（デプロイ節約）。
+手元で `npm run dev`（http://localhost:3330）で動かす。見本URL（本番とは別の Vercel プロジェクト shanai-kanri-v2・10-23〜）にも出す。本番（legacy）に入れる前は shoya ともう一度確認する。
 
 - 土台：Next.js 16（App Router）＋ React 19 ＋ Tailwind 4 ＋ lucide-react（それゆけ saiyou-app と同じ）
 - 字体：ミンミカと同じ Inter ＋ ヒラギノ角ゴ
