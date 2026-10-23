@@ -22,7 +22,8 @@ export default function ShikakuPage() {
   const canEdit = can('jinji', 'edit'), canApprove = can('jinji', 'approve');
   const { hit, toast } = useMotivation();
   const [tab, setTab] = useState<Tab>('apps');
-  const [apps, setApps] = useState<ShikakuApp[]>(APPS);
+  // 並びは開いたときの「段階 → 申請日」で固定（処理しても行が跳ねない）
+  const [apps, setApps] = useState<ShikakuApp[]>(() => [...APPS].sort((a, b) => STAGES.indexOf(a.state) - STAGES.indexOf(b.state) || a.filedAt.localeCompare(b.filedAt)));
   const [monthly, setMonthly] = useState(MONTHLY);
   const [stage, setStage] = useState<SState | 'すべて'>('すべて');
   const [reason, setReason] = useState<Record<string, string>>({});
@@ -31,24 +32,25 @@ export default function ShikakuPage() {
   useEffect(() => { if (new URLSearchParams(window.location.search).get('tab') === 'monthly') setTab('monthly'); }, []);
 
   const open = apps.filter((a) => STAGES.includes(a.state));
-  const rows = open.filter((a) => stage === 'すべて' || a.state === stage).sort((a, b) => STAGES.indexOf(a.state) - STAGES.indexOf(b.state) || a.filedAt.localeCompare(b.filedAt));
+  const rows = open.filter((a) => stage === 'すべて' || a.state === stage);
   const total = monthly.reduce((s, m) => s + m.amount, 0);
 
   const update = (a: ShikakuApp, patch: Partial<ShikakuApp>, text: string, sub: string, extra?: () => void, undoExtra?: () => void) => {
-    const before = apps;
+    // 変えた項目だけ、この申請の元の値に戻す（続けて別の申請を処理しても巻き込まない）
+    const prev = Object.fromEntries(Object.keys(patch).map((k) => [k, a[k as keyof ShikakuApp]])) as Partial<ShikakuApp>;
     setApps((xs) => xs.map((x) => (x.id === a.id ? { ...x, ...patch } : x)));
     extra?.();
     setFlash(a.id); setTimeout(() => setFlash(null), 1300); hit();
-    toast({ text, sub, undo: () => { setApps(before); undoExtra?.(); } });
+    toast({ text, sub, undo: () => { setApps((xs) => xs.map((x) => (x.id === a.id ? { ...x, ...prev } : x))); undoExtra?.(); } });
   };
   const confirm = (a: ShikakuApp) => update(a, { state: '承認待ち' }, `${a.name} の合格証を確かめました`, '→ 承認する人のやることに載りました');
   const reject = (a: ShikakuApp) => { const r = reason[a.id] ?? defReason(a); update(a, { state: '差し戻し', reason: r }, `${a.name} の申請を差し戻しました`, `→ 本人に「${r}」で戻しました（インフォメーション）`); };
   const approve = (a: ShikakuApp) => update(a, { state: '反映待ち' }, `${a.name} の${a.cert}を承認しました（月 ${yen(amountOf(a))}）`, `→ ${PAY_MONTH}の給与に足す一覧に載りました`);
   const reflect = (a: ShikakuApp) => {
-    const before = monthly;
     const label = a.plus && MASTER[a.cert]?.plus ? `${a.cert}（${MASTER[a.cert].plus!.label}）` : a.cert;
     update(a, { state: '反映ずみ' }, `${a.name} の手当を給与に反映しました`, `→ freee の${PAY_MONTH}の給与に「資格手当 ${yen(amountOf(a))}」を足しました・毎月の手当に載りました`,
-      () => setMonthly((m) => [...m, { personId: a.personId, name: a.name, cert: label, amount: amountOf(a), since: '2026/11' }]), () => setMonthly(before));
+      () => setMonthly((m) => [...m, { personId: a.personId, name: a.name, cert: label, amount: amountOf(a), since: '2026/11' }]),
+      () => setMonthly((m) => m.filter((x) => !(x.personId === a.personId && x.cert === label && x.since === '2026/11'))));
   };
 
   return (
@@ -56,7 +58,7 @@ export default function ShikakuPage() {
       <PageTitle title="資格手当" sub="本人の申請（LINE の資格手当申請から）を、合格証の確認 → 承認 → 給与に反映 の順に片づけます・見本データ" />
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 1 }}>
         {([['apps', `申請 ${open.length}`], ['monthly', '毎月の手当']] as const).map(([k, l]) => (
-          <button key={k} role="tab" aria-selected={tab === k} onClick={() => { setTab(k); window.history.replaceState(null, '', k === 'monthly' ? '?tab=monthly' : window.location.pathname); }} className="px-3.5 py-2.5 text-[14px]"
+          <button key={k} role="tab" aria-selected={tab === k} onClick={() => { setTab(k); window.history.replaceState(null, '', k === 'monthly' ? '?tab=monthly' : window.location.pathname); }} className="whitespace-nowrap px-3.5 py-2.5 text-[14px]"
             style={tab === k ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>{l}</button>
         ))}
       </div>
@@ -90,6 +92,7 @@ export default function ShikakuPage() {
                     <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">資格・合格日</th><th className="px-2 py-2.5 font-semibold">付いている書類</th><th className="px-2 py-2.5 text-right font-semibold">月の手当</th><th className="px-2 py-2.5 font-semibold">段階</th><th className="px-4 py-2.5 font-semibold">つぎにやること</th>
                   </tr></thead>
                   <tbody>
+                    {rows.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-[12.5px] text-muted">「{stage}」の申請はありません。</td></tr>}
                     {rows.map((a, i) => {
                       const m = MASTER[a.cert];
                       const noCert = !a.files.includes('合格証');
@@ -102,7 +105,7 @@ export default function ShikakuPage() {
                             <div className="flex flex-wrap gap-1">{a.files.map((f) => <span key={f} className="inline-flex items-center gap-1 text-[12px] text-muted"><Paperclip size={12} />{f}</span>)}</div>
                             {noCert && <div className="mt-1 flex items-center gap-1 text-[11.5px] font-semibold text-bad"><AlertTriangle size={12} />合格証が付いていません</div>}
                           </td>
-                          <td className="num px-2 py-2.5 text-right font-semibold">{yen(amountOf(a))}
+                          <td className="num whitespace-nowrap px-2 py-2.5 text-right font-semibold">{yen(amountOf(a))}
                             {m?.plus && a.state === '承認待ち' && (
                               <select aria-label={`${a.name} の現場経験の加算`} value={a.plus ? 'on' : 'off'} disabled={!canApprove} onChange={(e) => setApps((xs) => xs.map((x) => (x.id === a.id ? { ...x, plus: e.target.value === 'on' } : x)))} className="mt-1 block min-h-7 w-full rounded-md border border-field bg-surface px-1 text-[11.5px] font-normal disabled:opacity-50">
                                 <option value="off">加算なし</option>
@@ -114,15 +117,15 @@ export default function ShikakuPage() {
                           <td className="px-4 py-2.5">
                             {a.state === '確認待ち' && (
                               <div className="flex flex-wrap items-center gap-1.5">
-                                <button onClick={() => confirm(a)} disabled={!canEdit || noCert} title={!canEdit ? needText('edit') : noCert ? '合格証が無いので確かめられません' : undefined} className="inline-flex min-h-8 items-center gap-1 rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><FileCheck2 size={14} />合格証を確かめた</button>
+                                <button onClick={() => confirm(a)} disabled={!canEdit || noCert} title={!canEdit ? needText('edit') : noCert ? '合格証が無いので確かめられません' : undefined} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><FileCheck2 size={14} />合格証を確かめた</button>
                                 <select aria-label="差し戻しの理由" value={reason[a.id] ?? defReason(a)} disabled={!canEdit} onChange={(e) => setReason((r) => ({ ...r, [a.id]: e.target.value }))} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-[12px] disabled:opacity-50">
                                   {S_REJECT.map((r) => <option key={r} value={r}>{r}</option>)}
                                 </select>
-                                <button onClick={() => reject(a)} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="inline-flex min-h-8 items-center gap-1 rounded-lg px-2 text-[12.5px] text-muted disabled:opacity-40"><CornerUpLeft size={14} />差し戻す</button>
+                                <button onClick={() => reject(a)} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-[12.5px] text-muted disabled:opacity-40"><CornerUpLeft size={14} />差し戻す</button>
                               </div>
                             )}
-                            {a.state === '承認待ち' && <button onClick={() => approve(a)} disabled={!canApprove} title={!canApprove ? needText('approve') : undefined} className="btn-primary inline-flex min-h-8 items-center gap-1 rounded-lg px-3 text-[12.5px] font-bold disabled:opacity-40"><Check size={14} />承認する</button>}
-                            {a.state === '反映待ち' && <button onClick={() => reflect(a)} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="inline-flex min-h-8 items-center gap-1 rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>{PAY_MONTH}の給与に反映</button>}
+                            {a.state === '承認待ち' && <button onClick={() => approve(a)} disabled={!canApprove} title={!canApprove ? needText('approve') : undefined} className="btn-primary inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg px-3 text-[12.5px] font-bold disabled:opacity-40"><Check size={14} />承認する</button>}
+                            {a.state === '反映待ち' && <button onClick={() => reflect(a)} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>{PAY_MONTH}の給与に反映</button>}
                           </td>
                         </tr>
                       );

@@ -20,6 +20,12 @@ const left = (r: ShimeRow, f: Fix = {}) => ({
   sheet: r.sheet !== '届いた' && !f.sheet ? 1 : 0,
 });
 const total = (r: ShimeRow, f?: Fix) => Object.values(left(r, f)).reduce((a, b) => a + b, 0);
+// 並びははじめの残りの多い順で固定（片づけるたびに行が動いて、押そうとした行が逃げないように）
+const ROWS = [...SHIME_ROWS].sort((a, b) => total(b) - total(a));
+
+function Cell({ n, children }: { n: number; children?: React.ReactNode }) {
+  return <td className="px-2 py-2.5 align-top">{n === 0 ? <span className="inline-flex items-center gap-1 text-[12px] text-ok"><Check size={13} />0</span> : <div className="flex flex-col items-start gap-1">{children}</div>}</td>;
+}
 
 export default function ShimePage() {
   const { can } = usePerms();
@@ -30,18 +36,19 @@ export default function ShimePage() {
   const [closed, setClosed] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
 
-  const rows = [...SHIME_ROWS].sort((a, b) => total(b, fix[b.personId]) - total(a, fix[a.personId]));
+  const rows = ROWS;
   const notReady = rows.filter((r) => total(r, fix[r.personId]) > 0);
   const sum = (k: keyof ReturnType<typeof left>) => rows.reduce((a, r) => a + left(r, fix[r.personId])[k], 0);
 
   const apply = (r: ShimeRow, patch: Fix, text: string, sub: string) => {
-    const before = fix;
     const next = { ...fix[r.personId], ...patch };
-    setFix((x) => ({ ...x, [r.personId]: next }));
+    setFix((x) => ({ ...x, [r.personId]: { ...x[r.personId], ...patch } }));
     setFlash(r.personId); setTimeout(() => setFlash(null), 1300);
     hit();
     const ready = total(r, next) === 0;
-    toast({ text: ready ? `${r.name} は締められる状態になりました` : text, sub, undo: () => setFix(before) });
+    // 取り消しはこの人のこの操作だけ戻す
+    const undo = () => setFix((x) => { const p = { ...x[r.personId] }; (Object.keys(patch) as (keyof Fix)[]).forEach((k) => delete p[k]); return { ...x, [r.personId]: p }; });
+    toast({ text: ready ? `${r.name} は締められる状態になりました` : text, sub, undo });
   };
   const close = () => {
     setClosed(true); hit(rows.length);
@@ -50,9 +57,6 @@ export default function ShimePage() {
 
   const btn = 'min-h-8 rounded-lg border border-field bg-surface px-2.5 text-[12px] font-semibold disabled:opacity-40';
   const sel = 'min-h-8 max-w-[200px] rounded-lg border border-field bg-surface px-1.5 text-[12px] disabled:opacity-40';
-  const Cell = ({ n, children }: { n: number; children?: React.ReactNode }) => (
-    <td className="px-2 py-2.5 align-top">{n === 0 ? <span className="inline-flex items-center gap-1 text-[12px] text-ok"><Check size={13} />0</span> : <div className="flex flex-col items-start gap-1">{children}</div>}</td>
-  );
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
@@ -90,7 +94,7 @@ export default function ShimePage() {
                 {rows.map((r, i) => {
                   const f = fix[r.personId] || {}; const l = left(r, f); const ready = total(r, f) === 0;
                   return (
-                    <tr key={r.personId} className={`mo-fade-in border-t border-line-soft ${flash === r.personId ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
+                    <tr key={r.personId} className={`mo-fade-in border-t border-line-soft ${flash === r.personId ? 'mo-flash' : 'row'} ${ready && total(r) > 0 ? 'opacity-60' : ''}`} style={{ ['--i' as string]: i }}>
                       <td className="px-4 py-2.5 align-top"><Link href={`/jinji/staff/${r.personId}`} className="font-semibold hover:underline">{r.name}</Link><div className="text-[11.5px] text-faint">{r.site}・担当 {r.sales}</div></td>
                       <Cell n={l.punch}><span className="text-[12px] text-warn">{r.missingPunch}日</span>
                         <button className={btn} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} onClick={() => apply(r, { punch: true }, `${r.name} に打刻の直しをお願いしました`, '→ 本人に知らせました（あおい）・見本では直しが届いたものとして0にします')}>直しをお願い（あおい）</button></Cell>
@@ -110,7 +114,7 @@ export default function ShimePage() {
                             <span className={`text-[12px] ${r.sheet === '未着' ? 'text-bad' : 'text-warn'}`}>{r.sheet}</span>
                             {r.sheet === '未着'
                               ? <button className={btn} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} onClick={() => apply(r, { sheet: 'お願い済み' }, `${r.name} の勤務表をお願いしました`, '→ 本人と取引先に知らせました（あおい）・勤務表の届き具合に反映')}>送ってもらう（あおい）</button>
-                              : <select aria-label="読めない勤務表" className={sel} disabled={!canEdit} value="" onChange={(e) => e.target.value && apply(r, { sheet: e.target.value }, `${r.name} の勤務表を確かめました`, '→ 勤務表の届き具合に反映しました')}><option value="">どうしたか選ぶ</option>{UNREADABLE_FIX.map((x) => <option key={x}>{x}</option>)}</select>}
+                              : <select aria-label="読めない勤務表" className={sel} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} value="" onChange={(e) => e.target.value && apply(r, { sheet: e.target.value }, `${r.name} の勤務表を確かめました`, '→ 勤務表の届き具合に反映しました')}><option value="">どうしたか選ぶ</option>{UNREADABLE_FIX.map((x) => <option key={x}>{x}</option>)}</select>}
                           </div>) : <span className="text-[12px] text-ok">{f.sheet}</span>}
                         {r.diffNote && <div className="mt-1 text-[11.5px] text-faint">freee との差：{r.diffNote}</div>}
                       </td>

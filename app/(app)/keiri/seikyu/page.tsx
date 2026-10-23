@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Check, ChevronRight, CornerUpLeft, FileText, Send, UserSearch } from 'lucide-react';
 import { calc, CLIENTS, FMT_LABEL, SHEET_REJECT, STAGES, type Client, type SPerson } from '@/lib/seikyu-sample';
@@ -33,21 +33,38 @@ export default function SeikyuPage() {
   const canEdit = usePerms().can('keiri', 'edit');
   const { hit, toast } = useMotivation();
   const [clients, setClients] = useState<Client[]>(clone);
-  const [curId, setCurId] = useState(CLIENTS[0].id);
+  const [curId, setCurIdRaw] = useState(CLIENTS[0].id);
+  // 送付のあと「次の会社へ」自動で移る予約。左の一覧を押したら取り消す（押した会社が上書きされないように）
+  const autoNext = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const setCurId = (id: string) => {
+    if (autoNext.current) { clearTimeout(autoNext.current); autoNext.current = null; }
+    setCurIdRaw(id);
+    window.history.replaceState(null, '', `?client=${id}`);
+  };
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [flash, setFlash] = useState<string | null>(null);
 
-  useEffect(() => { const c = new URLSearchParams(window.location.search).get('client'); if (c && CLIENTS.some((x) => x.id === c)) setCurId(c); }, []);
+  useEffect(() => { const c = new URLSearchParams(window.location.search).get('client'); if (c && CLIENTS.some((x) => x.id === c)) setCurIdRaw(c); return () => { if (autoNext.current) clearTimeout(autoNext.current); }; }, []);
 
   const cur = clients.find((c) => c.id === curId)!;
   const remainClients = clients.filter((c) => !sentAll(c));
   const remainPeople = clients.reduce((n, c) => n + c.people.filter((p) => p.stage < 5).length, 0);
   const lock = canEdit ? undefined : needText('edit');
 
+  // 今の会社に fn を当てる。取り消しは「この操作で変わった人・ファイル」だけを元に戻す
+  //   （続けて別の人を進めた後や、送付して次の会社へ移った後でも、ほかの操作は消えない）
   const edit = (fn: (c: Client) => void) => {
-    const before = clients.map((c) => ({ ...c, people: c.people.map((p) => ({ ...p })), files: c.files.map((f) => ({ ...f })) }));
-    setClients((cs) => cs.map((c) => { if (c.id !== curId) return c; const n = { ...c, people: c.people.map((p) => ({ ...p })), files: c.files.map((f) => ({ ...f })) }; fn(n); return n; }));
-    return () => setClients(before);
+    const id = curId;
+    const orig = clients.find((c) => c.id === id)!;
+    const copy = (c: Client): Client => ({ ...c, people: c.people.map((p) => ({ ...p })), files: c.files.map((f) => ({ ...f })) });
+    const probe = copy(orig); fn(probe);
+    const bp = Object.fromEntries(orig.people.filter((p, i) => JSON.stringify(p) !== JSON.stringify(probe.people[i])).map((p) => [p.id, { ...p }]));
+    const bf = Object.fromEntries(orig.files.filter((f, i) => JSON.stringify(f) !== JSON.stringify(probe.files[i])).map((f) => [f.id, { ...f }]));
+    setClients((cs) => cs.map((c) => { if (c.id !== id) return c; const n = copy(c); fn(n); return n; }));
+    return () => {
+      setClients((cs) => cs.map((c) => c.id !== id ? c : { ...c, people: c.people.map((p) => bp[p.id] ? { ...bp[p.id] } : p), files: c.files.map((f) => bf[f.id] ? { ...bf[f.id] } : f) }));
+      setCurId(id);
+    };
   };
   const pulse = (id: string) => { setFlash(id); setTimeout(() => setFlash(null), 1300); };
 
@@ -60,7 +77,7 @@ export default function SeikyuPage() {
     toast({ text: `${p.name}：${STAGES[to - 1]}`, sub, undo });
   };
   const reject = (p: SPerson) => {
-    const r = reasons[p.id] || SHEET_REJECT[0];
+    const r = reasons[p.id] || p.issue || SHEET_REJECT[0];
     const undo = edit((c) => { const x = c.people.find((y) => y.id === p.id)!; x.issue = undefined; x.stage = 1; });
     pulse(p.id); hit();
     toast({ text: `${p.name} の勤務表を差し戻しました`, sub: `→ 本人に「${r}」で出し直しを頼みました（あおい）・見本では出し直しが届いた扱い`, undo });
@@ -75,8 +92,9 @@ export default function SeikyuPage() {
     const undo = edit((c) => { c.files.find((f) => f.id === fid)!.who = who; });
     hit(); toast({ text: `格納のファイルを ${name} の分にしました`, sub: '→ 格納の「誰の分」に入れました（次から自動で上書きしません）', undo });
   };
+  const bulkTargets = cur.people.filter((p) => !p.issue && p.stage >= 1 && p.stage < 4);
   const bulk = () => {
-    const ps = cur.people.filter((p) => !p.issue && p.stage >= 1 && p.stage < 4);
+    const ps = bulkTargets;
     if (!ps.length) return;
     const undo = edit((c) => { c.people.forEach((p) => { if (!p.issue && p.stage >= 1 && p.stage < 4) p.stage = 4; }); });
     hit(ps.length); toast({ text: `${ps.length}人を下書きまで進めました`, sub: '→ 時間を読んで精算幅で金額を出し、請求書の下書きに入れました', undo });
@@ -88,7 +106,7 @@ export default function SeikyuPage() {
     const undo = edit((c) => { c.people.forEach((p) => { p.stage = 5; }); });
     hit(); toast({ text: `${cur.name} に請求書を送付しました（${yen(total)}・税抜）`, sub: '→ 送付の記録と、格納（請求書PDFの置き場）に入れました・粗利の一覧に反映', undo });
     const nxt = clients.find((c) => c.id !== cur.id && !sentAll(c));
-    if (nxt) setTimeout(() => setCurId(nxt.id), 600);
+    if (nxt) autoNext.current = setTimeout(() => { autoNext.current = null; setCurId(nxt.id); }, 600);
   };
 
   return (
@@ -116,7 +134,7 @@ export default function SeikyuPage() {
             {clients.map((c) => {
               const done = c.people.filter((p) => p.stage >= 5).length, b = blockers(c);
               return (
-                <li key={c.id}><button onClick={() => setCurId(c.id)} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px]" style={c.id === curId ? { background: 'var(--al)', color: 'var(--ad)' } : undefined}>
+                <li key={c.id}><button onClick={() => setCurId(c.id)} aria-current={c.id === curId ? 'true' : undefined} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px]" style={c.id === curId ? { background: 'var(--al)', color: 'var(--ad)' } : undefined}>
                   {sentAll(c) ? <Check size={14} className="text-ok" /> : <span className="num w-[14px] text-center text-[11px] text-faint">{c.people.length}</span>}
                   <span className={`flex-1 ${c.id === curId ? 'font-bold' : ''}`}>{c.name}</span>
                   {b > 0 && !sentAll(c) && <span className="chip" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>止まり {b}</span>}
@@ -151,13 +169,13 @@ export default function SeikyuPage() {
                               <select aria-label="差し戻す理由" value={reasons[p.id] || p.issue} onChange={(e) => setReasons((r) => ({ ...r, [p.id]: e.target.value }))} className="min-h-8 max-w-[220px] rounded-lg border border-field bg-surface px-2 text-[12px]">
                                 {SHEET_REJECT.map((r) => <option key={r}>{r}</option>)}
                               </select>
-                              <div className="flex gap-1.5">
+                              <div className="flex gap-1.5 whitespace-nowrap">
                                 <button onClick={() => reject(p)} disabled={!canEdit} title={lock} className="inline-flex min-h-8 items-center gap-1 rounded-lg px-2.5 text-[12px] font-bold text-white disabled:opacity-40" style={{ background: 'var(--color-bad)' }}><CornerUpLeft size={13} />差し戻す</button>
                                 <button onClick={() => okAnyway(p)} disabled={!canEdit} title={lock} className="min-h-8 rounded-lg border border-field px-2.5 text-[12px] disabled:opacity-40">確かめた・進める</button>
                               </div>
                             </div>
                           ) : p.stage < 4 ? (
-                            <button onClick={() => next(p)} disabled={!canEdit} title={lock} className="inline-flex min-h-8 items-center gap-1 rounded-lg border px-2.5 text-[12px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>{p.stage === 0 ? '本人に催促' : STAGES[p.stage]}<ChevronRight size={13} /></button>
+                            <button onClick={() => next(p)} disabled={!canEdit} title={lock} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2.5 text-[12px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>{p.stage === 0 ? '本人に催促' : STAGES[p.stage]}<ChevronRight size={13} /></button>
                           ) : <span className="text-[12px] text-faint">{p.stage === 4 ? '送付を待つ' : '済み'}</span>}
                         </td>
                       </tr>
@@ -191,8 +209,8 @@ export default function SeikyuPage() {
 
             {!sentAll(cur) && (
               <div className="flex flex-wrap items-center gap-2 border-t border-line-soft px-5 py-3">
-                <button onClick={send} disabled={!ready || !canEdit} title={lock ?? (!ready ? '全員が下書きまで来て、差し戻し・人を選ぶ が残っていないと送れません' : undefined)} className="btn-primary inline-flex min-h-10 items-center gap-1.5 rounded-[10px] px-4 text-[13.5px] font-bold disabled:opacity-40"><Send size={15} />{cur.name} に送付する</button>
-                <button onClick={bulk} disabled={!canEdit} title={lock} className="min-h-10 rounded-[10px] border border-field bg-surface px-3.5 text-[13px] font-semibold disabled:opacity-40">止まっていない人を下書きまで進める</button>
+                <button onClick={send} disabled={!ready || !canEdit} title={lock ?? (!ready ? '全員が下書きまで来て、差し戻し・人を選ぶ が残っていないと送れません' : undefined)} className="btn-primary inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-[10px] px-4 text-[13.5px] font-bold disabled:opacity-40"><Send size={15} />{cur.name} に送付する</button>
+                <button onClick={bulk} disabled={!canEdit || bulkTargets.length === 0} title={lock ?? (bulkTargets.length === 0 ? '進められる人がいません（勤務表まだ・差し戻し中・下書き済み）' : undefined)} className="min-h-10 whitespace-nowrap rounded-[10px] border border-field bg-surface px-3.5 text-[13px] font-semibold disabled:opacity-40">止まっていない {bulkTargets.length}人を下書きまで進める</button>
                 <span className="ml-auto text-[12px] text-faint">合計 {yen(cur.people.filter((p) => p.stage >= 3).reduce((n, p) => n + calc(p).amount, 0))}（金額を出した分）</span>
               </div>
             )}

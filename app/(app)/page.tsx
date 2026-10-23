@@ -8,7 +8,7 @@ import { FIELD_RULES, daysFrom, fmtDate } from '@/lib/yoyaku-sample';
 import { moduleOf, useYoyaku, within } from '@/components/YoyakuStore';
 import { MODULES } from '@/lib/theme';
 import { CountUp, RemainRing, useMotivation } from '@/components/Motivation';
-import { usePerms } from '@/components/Perms';
+import { needText, usePerms } from '@/components/Perms';
 
 const SHORT = Object.fromEntries(MODULES.map((m) => [m.key, m.short]));
 const FLOW: Record<string, string> = {
@@ -43,7 +43,7 @@ export default function HomePage() {
       setTodos((xs) => xs.filter((x) => x.text !== t.text));
       setFlashing(null);
       hit();
-      toast({ text: `「${t.text}」を片づけました`, sub: FLOW[t.module], undo: () => setTodos((xs) => (xs.some((x) => x.text === t.text) ? xs : [t, ...xs])) });
+      toast({ text: `「${t.text}」を片づけました`, sub: FLOW[t.module], undo: () => setTodos((xs) => (xs.some((x) => x.text === t.text) ? xs : mine.filter((m) => m === t || xs.some((x) => x.text === m.text)))) });
     }, 450);
   };
 
@@ -51,12 +51,12 @@ export default function HomePage() {
     <main className="flex flex-col gap-[18px] px-6 pb-12 pt-[22px]">
       <div className="mo-fade-up flex flex-wrap items-end justify-between gap-3">
         <div>
-          <div className="text-[12.5px] text-muted">10月22日（木）・見本データ</div>
+          <div className="text-[12.5px] text-muted">10月23日（金）・見本データ</div>
           <h1 className="mt-0.5 text-[22px] font-bold tracking-tight">
             おはようございます。今日の対応は <span className="text-bad">{todos.length + myApprovals.length}件</span>
           </h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link href="/jinji/yoyaku?new=1" className="btn inline-flex min-h-10 items-center rounded-[10px] border border-field bg-surface px-3.5 text-[13.5px] font-semibold">変更を予約</Link>
           <Link href="/roumu/approval" className="btn inline-flex min-h-10 items-center rounded-[10px] bg-sumi px-4 text-[13.5px] font-semibold text-white">上から順に片づける</Link>
         </div>
@@ -88,10 +88,10 @@ export default function HomePage() {
               {todos.map((t) => (
                 <div key={t.text} className={`flex items-center gap-3 border-t border-line-soft px-[18px] py-2.5 ${flashing === t.text ? 'mo-flash' : ''}`}>
                   <i className="size-2 rounded-full" style={{ background: `var(--c-${t.module})` }} />
-                  <span className="w-8 text-[11.5px] font-semibold text-muted">{SHORT[t.module]}</span>
-                  <span className="flex-1 text-[13.5px]">{t.text}</span>
-                  <Link href={t.href} className={`num font-bold ${t.tone === 'bad' ? 'text-bad' : t.tone === 'warn' ? 'text-warn' : ''}`}>{t.n}</Link>
-                  <button onClick={() => done(t)} aria-label={`${t.text}を片づけた`} className="flex size-8 items-center justify-center rounded-lg border border-line text-muted hover:border-ok hover:text-ok"><Check size={16} /></button>
+                  <span className="w-8 shrink-0 text-[11.5px] font-semibold text-muted">{SHORT[t.module]}</span>
+                  <span className="min-w-0 flex-1 text-[13.5px]">{t.text}</span>
+                  <Link href={t.href} className={`num whitespace-nowrap font-bold ${t.tone === 'bad' ? 'text-bad' : t.tone === 'warn' ? 'text-warn' : ''}`}>{t.n}</Link>
+                  <button onClick={() => done(t)} disabled={!can(t.module, 'edit') || flashing === t.text} title={!can(t.module, 'edit') ? needText('edit') : undefined} aria-label={`${t.text}を片づけた`} className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-line text-muted hover:border-ok hover:text-ok disabled:cursor-not-allowed disabled:opacity-40"><Check size={16} /></button>
                 </div>
               ))}
             </div>
@@ -107,8 +107,8 @@ export default function HomePage() {
           {myApprovals.map((a) => (
             <Link key={a.text} href={a.href} className="row flex items-center gap-3 border-t border-line-soft px-[18px] py-2.5">
               <i className="size-2 rounded-full" style={{ background: `var(--c-${a.module})` }} />
-              <span className="flex-1 text-[13.5px]">{a.text}</span>
-              <b className="num">{a.n}</b><ChevronRight size={16} className="text-faint" />
+              <span className="min-w-0 flex-1 text-[13.5px]">{a.text}</span>
+              <b className="num whitespace-nowrap">{a.n}</b><ChevronRight size={16} className="text-faint" />
             </Link>
           ))}
         </section>

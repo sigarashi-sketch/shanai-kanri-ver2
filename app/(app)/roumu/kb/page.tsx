@@ -20,13 +20,14 @@ export default function KbPage() {
   useEffect(() => { const v = new URLSearchParams(window.location.search).get('q'); if (v) setQ(v); }, []);
 
   const words = q.trim().split(/\s+/).filter(Boolean);
-  const list = KB.filter((k) => (cat === 'すべて' || k.cat === cat) && words.every((w) => (k.q + k.a.join('') + k.tags.join(' ')).includes(w)))
+  const hitWords = (k: (typeof KB)[number]) => words.every((w) => (k.q + k.a.join('') + k.tags.join(' ')).includes(w));
+  const list = KB.filter((k) => (cat === 'すべて' || k.cat === cat) && hitWords(k))
     .sort((a, b) => Number(!!b.warn) - Number(!!a.warn) || b.seen - a.seen);
 
   const help = (id: string) => {
     if (helped[id]) return;
     setHelped((h) => ({ ...h, [id]: true })); hit();
-    toast({ text: '「役に立った」を残しました', sub: '→ よく読まれる順の並びに反映しました', undo: () => setHelped((h) => { const n = { ...h }; delete n[id]; return n; }) });
+    toast({ text: '「役に立った」を残しました', sub: '→ 「参考にした人」の数に反映しました', undo: () => setHelped((h) => { const n = { ...h }; delete n[id]; return n; }) });
   };
 
   return (
@@ -39,11 +40,11 @@ export default function KbPage() {
             <Search size={15} className="text-faint" />
             <input value={q} onChange={(e) => { setQ(e.target.value); setAi(null); }} placeholder="例：残業 上限、有給 5日、準委任 指示" className="w-full bg-transparent text-[13.5px] outline-none" aria-label="ナレッジを検索" />
           </label>
-          <button onClick={() => { setAi(AI_SAMPLE); hit(); }} className="btn-primary inline-flex min-h-10 items-center gap-1.5 rounded-[10px] px-4 text-[13px] font-bold"><Sparkles size={15} />AIに聞く</button>
+          <button onClick={() => { setAi(AI_SAMPLE); hit(); }} disabled={!q.trim()} title={!q.trim() ? '聞きたいことを左の欄に入れてください' : undefined} className="btn-primary inline-flex min-h-10 whitespace-nowrap disabled:opacity-40 items-center gap-1.5 rounded-[10px] px-4 text-[13px] font-bold"><Sparkles size={15} />AIに聞く</button>
         </div>
         <div className="flex flex-wrap gap-1.5">
           {(['すべて', ...KB_CATS] as const).map((c) => {
-            const n = c === 'すべて' ? KB.length : KB.filter((k) => k.cat === c).length;
+            const n = KB.filter((k) => (c === 'すべて' || k.cat === c) && hitWords(k)).length;
             return <button key={c} onClick={() => setCat(c)} className={`min-h-8 rounded-full border px-3 text-[12.5px] ${cat === c ? 'font-semibold' : 'text-muted'}`} style={cat === c ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>{c} {n}</button>;
           })}
         </div>
@@ -58,7 +59,7 @@ export default function KbPage() {
       )}
 
       <div className="flex flex-col gap-2">
-        {list.length === 0 && <div className="rounded-xl border border-line bg-surface px-4 py-8 text-center text-[13px] text-muted">見つかりませんでした。言葉を減らすか「AIに聞く」を試してください。</div>}
+        {list.length === 0 && <div className="rounded-xl border border-line bg-surface px-4 py-8 text-center text-[13px] text-muted">見つかりませんでした。言葉を減らすか、分類を「すべて」にするか、「AIに聞く」を試してください。</div>}
         {list.map((k, i) => {
           const open = openId === k.id;
           return (
@@ -67,13 +68,13 @@ export default function KbPage() {
                 {k.warn && <AlertTriangle size={16} className="shrink-0 text-bad" />}
                 <span className="text-[14px] font-bold">{k.q}</span>
                 <span className="chip ml-auto" style={{ background: 'var(--al)', color: 'var(--ad)' }}>{k.cat}</span>
-                <span className="num text-[11.5px] text-faint">{k.seen + (helped[k.id] ? 1 : 0)}人が参考に</span>
+                <span className="num whitespace-nowrap text-[11.5px] text-faint">{k.seen + (helped[k.id] ? 1 : 0)}人が参考に</span>
               </button>
               {open && (
                 <div className="mo-fade-in border-t border-line-soft px-4 py-3">
                   {k.warn && <div className="mo-shake mb-2.5 flex items-start gap-2 rounded-[10px] px-3 py-2 text-[13px] font-bold" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}><AlertTriangle size={16} className="mt-0.5 shrink-0" />{k.warn}</div>}
                   <ul className="flex list-disc flex-col gap-1.5 pl-5 text-[13px]">{k.a.map((t) => <li key={t}>{t}</li>)}</ul>
-                  <div className="mt-2 flex flex-wrap gap-1">{k.tags.map((t) => <button key={t} onClick={() => setQ(t)} className="rounded-full bg-soft px-2 py-0.5 text-[11.5px] text-muted">#{t}</button>)}</div>
+                  <div className="mt-2 flex flex-wrap gap-1">{k.tags.map((t) => <button key={t} onClick={() => { setQ(t); setCat('すべて'); setAi(null); }} className="rounded-full bg-soft px-2 py-0.5 text-[11.5px] text-muted">#{t}</button>)}</div>
                   <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line-soft pt-2.5">
                     <span className="text-[11.5px] text-faint">最終判断は社労士・法務に確認してください。</span>
                     <button onClick={() => help(k.id)} disabled={!!helped[k.id]} className="ml-auto inline-flex min-h-8 items-center gap-1 rounded-lg border border-field px-2.5 text-[12px] font-semibold disabled:text-ok"><ThumbsUp size={13} />{helped[k.id] ? '役に立った' : '役に立った？'}</button>

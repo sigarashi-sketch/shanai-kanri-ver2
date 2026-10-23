@@ -41,11 +41,12 @@ export default function CasesPage() {
   const choose = (no: string) => { setCur(no); setPick({}); window.history.replaceState(null, '', `?case=${no}`); };
   const send = () => {
     if (!canEdit || ng || !picked.length) return;
-    const before = sent;
-    setSent((s) => ({ ...s, [c.no]: [...(s[c.no] ?? []), ...picked.map((m) => m.p.id)] }));
+    // 取り消しは「この回に送った人」だけを外す（あとから別の回を送っていても巻き込まない）
+    const no = c.no, ids = picked.map((m) => m.p.id);
+    setSent((s) => ({ ...s, [no]: [...(s[no] ?? []), ...ids] }));
     setPick({}); setFlash(c.no); setTimeout(() => setFlash(null), 1300);
     hit(picked.length);
-    toast({ text: `${c.name} を ${picked.map((m) => m.p.name).join('・')} に送りました`, sub: '→ 案件進捗の「送った案件」に載せました（返信待ち）', undo: () => setSent(before) });
+    toast({ text: `${c.name} を ${picked.map((m) => m.p.name).join('・')} に送りました`, sub: '→ 案件進捗の「送った案件」に載せました（返信待ち）', undo: () => setSent((s) => { const left = (s[no] ?? []).filter((id) => !ids.includes(id)); const n = { ...s }; if (left.length) n[no] = left; else delete n[no]; return n; }) });
   };
 
   return (
@@ -60,7 +61,7 @@ export default function CasesPage() {
           {!canEdit && <div className="text-[12px] text-bad">{needText('edit')}</div>}
         </div>
         <label className="ml-auto flex min-h-9 items-center gap-1.5 rounded-[10px] border border-field bg-surface px-2.5 text-[13px]">
-          <Search size={14} className="text-faint" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="案件名・場所・スキルで探す" className="w-52 bg-transparent outline-none" />
+          <Search size={14} className="text-faint" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="案件名・場所・スキルで探す" className="w-52 min-w-0 bg-transparent outline-none" />
         </label>
       </div>
 
@@ -83,14 +84,15 @@ export default function CasesPage() {
                 return (
                   <tr key={r.no} onClick={() => choose(r.no)} className={`mo-fade-in cursor-pointer border-t border-line-soft align-top ${flash === r.no ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i, ...(cur === r.no ? { background: 'var(--al)' } : {}) }}>
                     <td className="px-4 py-2.5"><div className="font-semibold">{r.name}</div><div className="text-[11.5px] text-faint">{r.no}・{r.station}駅・{r.start}〜</div></td>
-                    <td className="num px-2 py-2.5">{r.priceMin}〜{r.priceMax}万</td>
+                    <td className="num whitespace-nowrap px-2 py-2.5">{r.priceMin}〜{r.priceMax}万</td>
                     <td className="px-2 py-2.5"><div className="flex flex-wrap gap-1">{r.skills.length ? r.skills.map((s) => <span key={s} className="chip" style={{ background: 'var(--as)', color: 'var(--ad)' }}>{s}</span>) : <span className="text-faint">—</span>}</div></td>
-                    <td className="px-2 py-2.5"><span className="chip" style={{ background: SHOURYU_STYLE[r.shouryu].bg, color: SHOURYU_STYLE[r.shouryu].fg }}>{r.shouryu}</span></td>
-                    <td className="num px-2 py-2.5"><span className={r.daysLeft <= 2 ? 'font-bold text-bad' : ''}>{r.deadline}</span><div className="text-[11.5px] text-faint">あと{r.daysLeft}日</div></td>
-                    <td className="px-4 py-2.5">{bad ? <span className="chip" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}><Ban size={11} />送れない</span> : sent[r.no] ? <span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}>{sent[r.no].length}人</span> : <span className="text-faint">まだ</span>}</td>
+                    <td className="whitespace-nowrap px-2 py-2.5"><span className="chip" style={{ background: SHOURYU_STYLE[r.shouryu].bg, color: SHOURYU_STYLE[r.shouryu].fg }}>{r.shouryu}</span></td>
+                    <td className="num whitespace-nowrap px-2 py-2.5"><span className={r.daysLeft <= 2 ? 'font-bold text-bad' : ''}>{r.deadline}</span><div className="text-[11.5px] text-faint">あと{r.daysLeft}日</div></td>
+                    <td className="whitespace-nowrap px-4 py-2.5">{bad ? <span className="chip" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}><Ban size={11} />送れない</span> : sent[r.no] ? <span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}>{sent[r.no].length}人</span> : <span className="text-faint">まだ</span>}</td>
                   </tr>
                 );
               })}
+              {rows.length === 0 && <tr><td colSpan={6} className="px-4 py-10 text-center text-[13px] text-muted">「{q}」に合う案件はありません。<button onClick={() => setQ('')} className="ml-1 font-semibold underline">検索を消す</button></td></tr>}
             </tbody>
           </table>
         </div>

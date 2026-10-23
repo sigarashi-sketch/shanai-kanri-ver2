@@ -49,20 +49,20 @@ export default function KeihiCheckPage() {
 
   const sendBack = (js: Judged[]) => {
     if (!canApprove || js.length === 0) return;
-    const before = back;
+    const ids = js.map((j) => j.p.id);
     setBack((b) => ({ ...b, ...Object.fromEntries(js.map((j) => [j.p.id, { reason: reason === 'auto' ? topReason(j) : reason }])) }));
     setSel({}); setFlash(js.map((j) => j.p.id)); setTimeout(() => setFlash([]), 1300);
     hit(js.length);
     toast({
       text: js.length > 1 ? `${js.length}人の${month.label.replace(/（.*/, '')}の交通費を差し戻しました` : `${js[0].p.name} の交通費を差し戻しました`,
       sub: '→ 本人に理由と日付を知らせました（あおい）・経費の申請は「差し戻し」に',
-      undo: () => setBack(before),
+      undo: () => setBack((b) => { const n = { ...b }; ids.forEach((id) => delete n[id]); return n; }),
     });
   };
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="交通費チェック" sub="交通費の申請（日ごと）と freee の打刻を、人ごと・1日ずつ照らします・見本データ">
+      <PageTitle title="交通費チェック" sub="交通費の申請（日ごと）と勤怠の打刻を、人ごと・1日ずつ照らします・見本データ">
         <select aria-label="対象の月" value={mkey} onChange={(e) => { setMkey(e.target.value); setSel({}); }} className="min-h-10 rounded-[10px] border border-field bg-surface px-2 text-[13px]">
           {MONTHS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
         </select>
@@ -90,7 +90,7 @@ export default function KeihiCheckPage() {
       <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
         <div className="flex flex-wrap items-center gap-1.5 border-b border-line-soft px-4 py-2.5">
           {([['bad', `差し戻し対象 ${remain.length}`], ['ok', `問題なし ${judged.length - targets.length}`], ['all', `すべて ${judged.length}`]] as const).map(([k, l]) => (
-            <button key={k} onClick={() => setTab(k)} className={`min-h-8 rounded-full border px-3 text-[12.5px] ${tab === k ? 'font-semibold' : 'text-muted'}`} style={tab === k ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>{l}</button>
+            <button key={k} onClick={() => setTab(k)} className={`min-h-8 whitespace-nowrap rounded-full border px-3 text-[12.5px] ${tab === k ? 'font-semibold' : 'text-muted'}`} style={tab === k ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>{l}</button>
           ))}
           {tab === 'bad' && remain.length > 0 && (
             <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -98,8 +98,8 @@ export default function KeihiCheckPage() {
                 <option value="auto">理由：人ごとに いちばん多いもの</option>
                 {Object.values(REASONS).map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
-              <button onClick={() => sendBack(picked)} disabled={!canApprove || picked.length === 0} title={!canApprove ? needText('approve') : undefined} className="inline-flex min-h-8 items-center gap-1 rounded-lg px-3 text-[12.5px] font-bold text-white disabled:opacity-40" style={{ background: 'var(--color-bad)' }}><CornerUpLeft size={14} />選んだ {picked.length}人を差し戻す</button>
-              <button onClick={() => sendBack(remain)} disabled={!canApprove} title={!canApprove ? needText('approve') : undefined} className="min-h-8 rounded-lg border px-3 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>{remain.length}人 ぜんぶ差し戻す</button>
+              <button onClick={() => sendBack(picked)} disabled={!canApprove || picked.length === 0} title={!canApprove ? needText('approve') : undefined} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg px-3 text-[12.5px] font-bold text-white disabled:opacity-40" style={{ background: 'var(--color-bad)' }}><CornerUpLeft size={14} />選んだ {picked.length}人を差し戻す</button>
+              <button onClick={() => sendBack(remain)} disabled={!canApprove} title={!canApprove ? needText('approve') : undefined} className="min-h-8 whitespace-nowrap rounded-lg border px-3 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>{remain.length}人 ぜんぶ差し戻す</button>
             </div>
           )}
         </div>
@@ -111,7 +111,7 @@ export default function KeihiCheckPage() {
             <tbody>
               {rows.map((j, i) => (
                 <tr key={j.p.id} className={`mo-fade-in border-t border-line-soft align-top ${flash.includes(j.p.id) ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
-                  <td className="px-4 py-2.5">{j.n > 0 && !back[j.p.id] && <input type="checkbox" aria-label={`${j.p.name} を選ぶ`} checked={!!sel[j.p.id]} onChange={(e) => setSel((s) => ({ ...s, [j.p.id]: e.target.checked }))} />}</td>
+                  <td className="px-4 py-2.5">{j.n > 0 && !back[j.p.id] && <input type="checkbox" aria-label={`${j.p.name} を選ぶ`} disabled={!canApprove} title={!canApprove ? needText('approve') : undefined} checked={!!sel[j.p.id]} onChange={(e) => setSel((s) => ({ ...s, [j.p.id]: e.target.checked }))} />}</td>
                   <td className="px-2 py-2.5">
                     <Link href={`/jinji/staff/${j.p.personId}`} className="font-semibold hover:underline">{j.p.name}</Link>
                     <div className="text-[11.5px] text-faint">{j.p.site}</div>
@@ -143,7 +143,7 @@ export default function KeihiCheckPage() {
           </table>
         </div>
       </div>
-      <p className="text-[11.5px] text-faint">出勤＝出勤か退勤の打刻がある日。在籍期間は freee の入社日・退社日、待機中は退場日〜次の入場日の前。差し戻しは経費の申請を「差し戻し」に戻して本人に知らせる想定です（本物につなぐまでは見本の中だけで動きます）。</p>
+      <p className="text-[11.5px] text-faint">出勤＝出勤か退勤の打刻がある日。在籍期間は名簿の入社日・退社日、待機中は退場日〜次の入場日の前。差し戻しは経費の申請を「差し戻し」に戻して本人に知らせる想定です（本物につなぐまでは見本の中だけで動きます）。</p>
     </main>
   );
 }

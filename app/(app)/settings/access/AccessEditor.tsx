@@ -16,18 +16,20 @@ export function AccessEditor({ initial, meId }: { initial: Member[]; meId: strin
   const [members, setMembers] = useState(initial);
   const [shake, setShake] = useState<string | null>(null);
 
-  const put = async (id: string, patch: { role?: RoleKey; own?: Member['own'] }, msg: string) => {
-    const before = members;
+  type Patch = { role?: RoleKey; own?: Member['own'] };
+  const put = async (id: string, patch: Patch, msg: string, back?: Patch) => {
+    // 失敗したときは、この人だけ元に戻す（ほかの人への変更は消さない）
+    const beforeM = members.find((m) => m.id === id)!;
     setMembers((ms) => ms.map((m) => (m.id === id ? { ...m, ...(patch.role ? { role: patch.role } : {}), own: { ...m.own, ...(patch.own || {}) } } : m)));
     const r = await fetch('/api/members', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...patch }) });
     if (!r.ok) {
-      setMembers(before);
+      setMembers((ms) => ms.map((m) => (m.id === id ? beforeM : m)));
       setShake(id); setTimeout(() => setShake(null), 400);
       toast({ text: (await r.json().catch(() => ({}))).error || '保存できませんでした' });
       return;
     }
     hit();
-    toast({ text: msg, sub: '→ その人のメニューとボタンに、次に開いたときから反映' });
+    toast({ text: msg, sub: '→ その人のメニューとボタンに、次に開いたときから反映', undo: back ? () => { void put(id, back, `${beforeM.name}を元に戻しました`); } : undefined });
     router.refresh();
   };
 
@@ -66,7 +68,7 @@ export function AccessEditor({ initial, meId }: { initial: Member[]; meId: strin
                     {inside ? (
                       <>
                         <td className="px-2 py-3">
-                          <select aria-label={`${m.name}のロール`} value={m.role} onChange={(e) => put(m.id, { role: e.target.value as RoleKey }, `${m.name}を「${ROLES[e.target.value as RoleKey].label}」にしました`)}
+                          <select aria-label={`${m.name}のロール`} value={m.role} onChange={(e) => put(m.id, { role: e.target.value as RoleKey }, `${m.name}を「${ROLES[e.target.value as RoleKey].label}」にしました`, { role: m.role })}
                             className="rounded-lg border border-field bg-surface px-2 py-1.5 text-[13px]">
                             {(Object.keys(ROLES) as RoleKey[]).map((k) => <option key={k} value={k}>{ROLES[k].label}</option>)}
                           </select>
@@ -80,8 +82,8 @@ export function AccessEditor({ initial, meId }: { initial: Member[]; meId: strin
                                 return (
                                   <button key={lv.key} role="radio" aria-checked={on} disabled={belowRole}
                                     title={belowRole ? `ロール「${ROLES[m.role].label}」で${LEVELS.find((x) => x.key === floor[mod.key])!.label}まで持っています` : lv.hint}
-                                    onClick={() => put(m.id, { own: { [mod.key]: lv.key as Level } }, `${m.name}の${mod.label}を「${lv.label}」にしました`)}
-                                    className="px-2 py-1.5 text-[12px] disabled:cursor-not-allowed disabled:opacity-35"
+                                    onClick={() => { if (!on) put(m.id, { own: { [mod.key]: lv.key as Level } }, `${m.name}の${mod.label}を「${lv.label}」にしました`, { own: { [mod.key]: m.own[mod.key] ?? 'none' } }); }}
+                                    className="whitespace-nowrap px-2 py-1.5 text-[12px] disabled:cursor-not-allowed disabled:opacity-35"
                                     style={on ? { background: `var(--c-${mod.key})`, color: `var(--o-${mod.key})`, fontWeight: 700 } : { background: 'var(--color-surface)' }}>
                                     {lv.label}
                                   </button>

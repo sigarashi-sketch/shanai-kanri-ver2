@@ -4,22 +4,34 @@ import { useEffect, useState } from 'react';
 import { AlertTriangle, FileSpreadsheet, Search, X } from 'lucide-react';
 import { LIVERS, PEOPLE, PROPERS, type Proper } from '@/lib/sample';
 import { StaffList } from '@/components/lists/StaffList';
-import { useRouter, useSearchParams } from 'next/navigation';
 import { PageTitle, Pill, PrimaryButton } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
 import { DrawerPortal } from '@/components/DrawerPortal';
 
 // 要員（プロパー）＋スキシ作成（2026-10-23 shoya「プロパーリストの中にスキシ作成をマージ」）。
-//   スキシは客先に出す紙：本名は載せずイニシャル、経歴は古い順、稼働開始に健康情報らしい値は載せない（今のいけどんと同じ決まり）。
+//   スキシは客先に出す紙：本名は載せずイニシャル、経歴は古い順、稼働開始に健康情報らしい値は載せない（今のシステムと同じ決まり）。
 const SK_STYLE: Record<string, { bg: string; fg: string }> = {
   作成済み: { bg: 'var(--tone-ok-bg)', fg: 'var(--tone-ok-fg)' }, 未作成: { bg: 'var(--tone-mute-bg)', fg: 'var(--tone-mute-fg)' }, 要確認: { bg: 'var(--tone-bad-bg)', fg: 'var(--tone-bad-fg)' },
 };
 
-function ProperTab() {
+type ChipKey = 'すべて' | '営業中' | 'スキシ未作成' | 'スキシ要確認';
+const CHIP_TEST: Record<ChipKey, (p: Proper) => boolean> = {
+  すべて: () => true, 営業中: (p) => p.status === '営業中', スキシ未作成: (p) => p.sukishi.state === '未作成', スキシ要確認: (p) => p.sukishi.state === '要確認',
+};
+const SALES_OPTS = Array.from(new Set(PROPERS.map((p) => p.sales)));
+const START_OPTS = Array.from(new Set(PROPERS.map((p) => p.sukishi.start)));
+
+// rows は親（タブの外）で持つ。タブを行き来しても、作ったスキシの状態が消えないように
+function ProperTab({ rows, setRows }: { rows: Proper[]; setRows: React.Dispatch<React.SetStateAction<Proper[]>> }) {
   const canEdit = usePerms().can('eigyo', 'edit');
   const { hit, toast } = useMotivation();
-  const [rows, setRows] = useState<Proper[]>(PROPERS);
+  const [chip, setChip] = useState<ChipKey>('すべて');
+  const [q, setQ] = useState('');
+  const [fSales, setFSales] = useState('');
+  const [fStart, setFStart] = useState('');
+  const shown = rows.filter((p) => CHIP_TEST[chip](p) && (!q || `${p.name}${p.station}${p.want}`.includes(q)) && (!fSales || p.sales === fSales) && (!fStart || p.sukishi.start === fStart));
+  const filtered = chip !== 'すべて' || q || fSales || fStart;
   // ?sukishi=<id> でそのスキシを開いた状態から始める（画面の見本を撮るとき用）
   const [open, setOpen] = useState<Proper | null>(null);
   useEffect(() => { const id = new URLSearchParams(window.location.search).get('sukishi'); const p = PROPERS.find((x) => x.id === id); if (p) setOpen(p); }, []);
@@ -30,11 +42,12 @@ function ProperTab() {
     setBusy(true);
     setTimeout(() => {
       setBusy(false);
+      const prev = rows.find((r) => r.id === p.id)?.sukishi ?? p.sukishi;
       setRows((rs) => rs.map((r) => (r.id === p.id ? { ...r, sukishi: { ...r.sukishi, state: '作成済み', updated: '今日' } } : r)));
       setFlash(p.id); setTimeout(() => setFlash(null), 1300);
       setOpen(null);
       hit();
-      toast({ text: `${p.sukishi.initial || p.name} のスキシを作りました`, sub: '→ 案件の提案と、営業共有リストから開けます' });
+      toast({ text: `${p.sukishi.initial || p.name} のスキシを作りました`, sub: '→ 案件の提案と、営業共有リストから開けます', undo: () => setRows((rs) => rs.map((r) => (r.id === p.id ? { ...r, sukishi: prev } : r))) });
     }, 900);
   };
 
@@ -42,14 +55,20 @@ function ProperTab() {
     <div className="flex min-h-full">
       <div className={`flex min-w-0 flex-1 flex-col gap-3.5 ${open ? 'xl:pr-[444px]' : ''}`}>
         <div className="mo-fade-up flex flex-wrap gap-2" style={{ ['--i' as string]: 1 }}>
-          {[['すべて', rows.length], ['営業中', rows.filter((r) => r.status === '営業中').length], ['スキシ未作成', rows.filter((r) => r.sukishi.state === '未作成').length], ['スキシ要確認', rows.filter((r) => r.sukishi.state === '要確認').length]].map(([l, n], i) => (
-            <button key={l} className="min-h-9 rounded-full border px-3.5 text-[13px]" style={i === 0 ? { borderColor: 'var(--a)', background: 'var(--as)', color: 'var(--ad)', fontWeight: 700 } : { borderColor: 'var(--color-field)', background: 'var(--color-surface)' }}>{l} <span className="num">{n}</span></button>
+          {(Object.keys(CHIP_TEST) as ChipKey[]).map((l) => (
+            <button key={l} onClick={() => setChip(l)} aria-pressed={chip === l} className="min-h-9 whitespace-nowrap rounded-full border px-3.5 text-[13px]" style={chip === l ? { borderColor: 'var(--a)', background: 'var(--as)', color: 'var(--ad)', fontWeight: 700 } : { borderColor: 'var(--color-field)', background: 'var(--color-surface)' }}>{l} <span className="num">{rows.filter(CHIP_TEST[l]).length}</span></button>
           ))}
         </div>
         <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
           <div className="flex flex-wrap items-center gap-2 px-3.5 py-3">
-            <label className="flex min-h-9 min-w-[240px] items-center gap-2 rounded-[10px] border border-field px-3 text-faint"><Search size={15} /><input aria-label="この一覧を検索" placeholder="名前・最寄駅・希望" className="flex-1 bg-transparent text-[13px] text-ink outline-none" /></label>
-            {['担当営業', '希望の職種', '稼働開始'].map((f) => <button key={f} className="min-h-9 rounded-[10px] border border-field bg-surface px-3 text-[13px]">{f} ⌄</button>)}
+            <label className="flex min-h-9 min-w-[240px] items-center gap-2 rounded-[10px] border border-field px-3 text-faint"><Search size={15} /><input value={q} onChange={(e) => setQ(e.target.value)} aria-label="この一覧を検索" placeholder="名前・最寄駅・希望" className="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none" /></label>
+            {([['担当営業', fSales, setFSales, SALES_OPTS], ['稼働開始', fStart, setFStart, START_OPTS]] as const).map(([l, v, set, opts]) => (
+              <select key={l} aria-label={`${l}で絞る`} value={v} onChange={(e) => set(e.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-[13px]" style={v ? { borderColor: 'var(--a)', color: 'var(--ad)', fontWeight: 600 } : undefined}>
+                <option value="">{l}：すべて</option>{opts.map((o) => <option key={o} value={o}>{l}：{o}</option>)}
+              </select>
+            ))}
+            {filtered && <button onClick={() => { setChip('すべて'); setQ(''); setFSales(''); setFStart(''); }} className="text-[12.5px] text-muted underline">絞り込みを外す</button>}
+            <span className="ml-auto text-[12.5px] text-muted"><span className="num">{shown.length}</span>人</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[960px] border-collapse text-[13px]">
@@ -57,25 +76,26 @@ function ProperTab() {
                 <th className="px-4 py-2.5 font-semibold">要員</th><th className="px-2 py-2.5 font-semibold">状態</th><th className="px-2 py-2.5 font-semibold">最寄駅</th><th className="px-2 py-2.5 font-semibold">希望</th><th className="px-2 py-2.5 text-right font-semibold">単価</th><th className="px-2 py-2.5 font-semibold">担当営業</th><th className="px-2 py-2.5 font-semibold">スキシ</th><th className="px-4 py-2.5" />
               </tr></thead>
               <tbody>
-                {rows.map((p, i) => {
+                {shown.map((p, i) => {
                   const s = SK_STYLE[p.sukishi.state];
                   return (
                     <tr key={p.id} className={`mo-fade-in border-t border-line-soft ${flash === p.id ? 'mo-flash' : open?.id === p.id ? '' : 'row'}`} style={{ ['--i' as string]: i + 3, background: open?.id === p.id ? 'var(--as)' : undefined }}>
                       <td className="px-4 py-2.5 font-semibold">{p.name}</td>
-                      <td className="px-2 py-2.5"><Pill>{p.status === '営業中' ? '待機' : p.status === '参画決定' ? '入場予定' : '稼働中'}</Pill> <span className="text-[11.5px] text-muted">{p.status}</span></td>
+                      <td className="whitespace-nowrap px-2 py-2.5"><Pill>{p.status === '営業中' ? '待機' : p.status === '参画決定' ? '入場予定' : '稼働中'}</Pill> <span className="text-[11.5px] text-muted">{p.status}</span></td>
                       <td className="px-2 py-2.5">{p.station}</td>
                       <td className="px-2 py-2.5">{p.want}</td>
-                      <td className="num px-2 py-2.5 text-right">{p.price}</td>
+                      <td className="num whitespace-nowrap px-2 py-2.5 text-right">{p.price}</td>
                       <td className="px-2 py-2.5">{p.sales}</td>
-                      <td className="px-2 py-2.5"><span className="chip" style={{ background: s.bg, color: s.fg }}>{p.sukishi.state}</span>{p.sukishi.updated && <span className="ml-1.5 text-[11.5px] text-faint">{p.sukishi.updated}</span>}</td>
+                      <td className="whitespace-nowrap px-2 py-2.5"><span className="chip" style={{ background: s.bg, color: s.fg }}>{p.sukishi.state}</span>{p.sukishi.updated && <span className="ml-1.5 text-[11.5px] text-faint">{p.sukishi.updated}</span>}</td>
                       <td className="px-4 py-2.5 text-right">
-                        <button onClick={() => setOpen(p)} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>
+                        <button onClick={() => setOpen(p)} className="inline-flex min-h-8 items-center whitespace-nowrap gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>
                           <FileSpreadsheet size={14} />{p.sukishi.state === '作成済み' ? 'スキシを見る' : 'スキシを作る'}
                         </button>
                       </td>
                     </tr>
                   );
                 })}
+                {shown.length === 0 && <tr><td colSpan={8} className="px-4 py-10 text-center text-[13px] text-muted">この条件の要員はいません</td></tr>}
               </tbody>
             </table>
           </div>
@@ -109,7 +129,7 @@ function ProperTab() {
             <p className="text-[11.5px] text-faint">出どころ：基本情報（氏名・年齢・最寄駅・資格）／経歴フォーム／プロパーの稼働開始。本名・健康に関する内容は載せません。</p>
           </div>
           <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
-            {open.sukishi.state === '作成済み' && <button className="min-h-10 rounded-[10px] border border-field bg-surface px-3.5 text-[13.5px] font-semibold">スプレッドシートを開く</button>}
+            {open.sukishi.state === '作成済み' && <button onClick={() => toast({ text: `${open.sukishi.initial} のスキシを開きます（見本）`, sub: '→ 本物ではスプレッドシートが新しいタブで開きます' })} className="min-h-10 rounded-[10px] border border-field bg-surface px-3.5 text-[13.5px] font-semibold">スプレッドシートを開く</button>}
             <PrimaryButton onClick={() => make(open)} disabled={!canEdit || busy || !!open.sukishi.warn} title={!canEdit ? needText('edit') : open.sukishi.warn ? '先に要確認を直してください' : undefined}>
               {busy ? <span className="inline-flex items-center gap-2"><span className="mo-pulse">作成中</span></span> : open.sukishi.state === '作成済み' ? '作り直す' : 'スキシを作る'}
             </PrimaryButton>
@@ -130,31 +150,32 @@ type TabKey = 'proper' | 'shared' | 'meibo' | 'liver';
 
 export default function YoinPage() {
   const { can, manageAccess } = usePerms();
-  const router = useRouter();
-  const sp = useSearchParams();
+  const [rows, setRows] = useState<Proper[]>(PROPERS);
+  const [want, setWant] = useState<TabKey>('proper');
+  // クエリは useEffect で読む（hydration ずれ防止）
+  useEffect(() => { const t = new URLSearchParams(window.location.search).get('tab') as TabKey | null; if (t) setWant(t); }, []);
   const tabs: { key: TabKey; label: string }[] = [
     { key: 'proper', label: 'プロパー・スキシ' },
     { key: 'shared', label: '営業共有リスト' },
     ...(can('jinji', 'view') ? [{ key: 'meibo' as TabKey, label: '従業員名簿' }] : []),
     ...(manageAccess ? [{ key: 'liver' as TabKey, label: 'ライバーリスト' }] : []),
   ];
-  const want = (sp.get('tab') as TabKey) || 'proper';
   const tab = tabs.some((t) => t.key === want) ? want : 'proper';
-  const go = (k: TabKey) => router.replace(`/eigyo/proper${k === 'proper' ? '' : `?tab=${k}`}`, { scroll: false });
+  const go = (k: TabKey) => { setWant(k); window.history.replaceState(null, '', `/eigyo/proper${k === 'proper' ? '' : `?tab=${k}`}`); };
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="要員リスト" sub="プロパー（スキシ作成つき）・営業共有リスト・従業員名簿を1か所で。タブで切り替え" />
-      <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 1 }}>
+      <div role="tablist" className="mo-fade-up flex gap-1 overflow-x-auto border-b border-line" style={{ ['--i' as string]: 1 }}>
         {tabs.map((t) => (
-          <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => go(t.key)} className="px-3.5 py-2.5 text-[14px]"
+          <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => go(t.key)} className="whitespace-nowrap px-3.5 py-2.5 text-[14px]"
             style={tab === t.key ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>
             {t.label}{t.key === 'liver' && <span className="ml-1.5 rounded bg-sunken px-1.5 text-[10.5px] text-muted">全体管理者だけ</span>}
           </button>
         ))}
       </div>
       <div key={tab} className="mo-axis">
-        {tab === 'proper' && <ProperTab />}
+        {tab === 'proper' && <ProperTab rows={rows} setRows={setRows} />}
         {tab === 'shared' && <SharedTab />}
         {tab === 'meibo' && <StaffList embedded />}
         {tab === 'liver' && <LiverTab />}
@@ -168,8 +189,8 @@ function SharedTab() {
   return (
     <div className="flex flex-col gap-2">
       <p className="text-[12.5px] text-muted">内勤以外の人（営業など）が見られるのはこの中身だけです。</p>
-      <div className="overflow-hidden rounded-xl border border-line bg-surface">
-        <table className="w-full border-collapse text-[13px]">
+      <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+        <table className="w-full min-w-[640px] border-collapse text-[13px]">
           <thead><tr className="th-row text-left">
             <th className="px-4 py-2.5 font-semibold">要員</th><th className="px-2 py-2.5 font-semibold">状態</th><th className="px-2 py-2.5 font-semibold">最寄駅</th><th className="px-2 py-2.5 font-semibold">稼働できる日</th><th className="px-4 py-2.5 font-semibold">担当営業</th>
           </tr></thead>
@@ -195,8 +216,8 @@ function LiverTab() {
   return (
     <div className="flex flex-col gap-2">
       <p className="text-[12.5px] text-muted">プロパーには入れない別のリストです（全体管理者だけ）。</p>
-      <div className="overflow-hidden rounded-xl border border-line bg-surface">
-        <table className="w-full border-collapse text-[13px]">
+      <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+        <table className="w-full min-w-[640px] border-collapse text-[13px]">
           <thead><tr className="th-row text-left">
             <th className="px-4 py-2.5 font-semibold">名前</th><th className="px-2 py-2.5 font-semibold">配信先</th><th className="px-2 py-2.5 text-right font-semibold">フォロワー</th><th className="px-2 py-2.5 font-semibold">状態</th><th className="px-4 py-2.5 font-semibold">メモ</th>
           </tr></thead>

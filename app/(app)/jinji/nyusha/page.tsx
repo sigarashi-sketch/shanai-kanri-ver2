@@ -32,6 +32,8 @@ export default function NyushaPage() {
   const [focus, setFocus] = useState<string | null>(null);
 
   useEffect(() => { const p = new URLSearchParams(window.location.search).get('p'); if (p) setFocus(p); }, []);
+  // 社員ページから来たら、その人のカードまで送る
+  useEffect(() => { if (focus) document.getElementById(`nc-${focus}`)?.scrollIntoView({ block: 'center' }); }, [focus]);
 
   const totalOpen = NEWCOMERS.reduce((s, n) => s + openRequired(n), 0);
   const remain = rows.reduce((s, n) => s + openRequired(n), 0);
@@ -43,7 +45,6 @@ export default function NyushaPage() {
     const step = STEPS.find((s) => s.key === key)!;
     const prev = n.steps[key];
     const nv = next(prev, step.optional);
-    const before = rows;
     const after = rows.map((r) => (r.id === n.id ? { ...r, steps: { ...r.steps, [key]: nv } } : r));
     setRows(after);
     setFlash(n.id); setTimeout(() => setFlash(null), 1300);
@@ -53,7 +54,8 @@ export default function NyushaPage() {
     toast({
       text: nv === '対象外' ? `${n.name} の${step.label}を「対象外」にしました` : left === 0 ? `${n.name} の必須の手続きがぜんぶ済みました` : `${n.name} の${step.label}を済みにしました（残り ${left}）`,
       sub: nv === '対象外' ? '→ この人の手続きの一覧から外しました' : left === 0 ? '→ 参画決定者の手続き（労務への引き継ぎ）に回しました' : step.to,
-      undo: () => setRows(before),
+      // その印だけ元に戻す（続けて2つ押してから1つ目を取り消しても、2つ目は残る）
+      undo: () => setRows((rs) => rs.map((r) => (r.id === n.id ? { ...r, steps: { ...r.steps, [key]: prev } } : r))),
     });
   };
 
@@ -90,12 +92,12 @@ export default function NyushaPage() {
             const d = daysFrom(n.joinOn);
             const tone = d <= 5 ? 'bad' : d <= 10 ? 'warn' : 'info';
             return (
-              <article key={n.id} className={`mo-fade-up rounded-xl border bg-surface p-4 ${flash === n.id ? 'mo-flash' : ''}`} style={{ ['--i' as string]: i + 2, borderColor: focus === n.id ? 'var(--a)' : 'var(--color-line)' }}>
+              <article key={n.id} id={`nc-${n.id}`} className={`mo-fade-up rounded-xl border bg-surface p-4 ${flash === n.id ? 'mo-flash' : ''}`} style={{ ['--i' as string]: i + 2, borderColor: focus === n.id ? 'var(--a)' : 'var(--color-line)' }}>
                 <div className="flex flex-wrap items-center gap-2">
                   <Link href={`/jinji/staff/${n.id}`} className="text-[15px] font-bold hover:underline">{n.name}</Link>
                   <span className="chip" style={{ background: n.kind === '参画決定' ? 'var(--tone-ok-bg)' : 'var(--tone-info-bg)', color: n.kind === '参画決定' ? 'var(--tone-ok-fg)' : 'var(--tone-info-fg)' }}>{n.kind}</span>
                   <span className="text-[12px] text-faint">{n.site}・採用 {n.recruiter}</span>
-                  <span className="num ml-auto text-[12.5px] font-semibold" style={{ color: `var(--tone-${tone}-fg)` }}>入社 {fmtDate(n.joinOn)}・あと{d}日</span>
+                  <span className="num ml-auto whitespace-nowrap text-[12.5px] font-semibold" style={{ color: `var(--tone-${tone}-fg)` }}>入社 {fmtDate(n.joinOn)}・あと{d}日</span>
                 </div>
                 <div className="mt-2.5 flex items-center gap-2">
                   <div className="h-2 flex-1 overflow-hidden rounded-full bg-sunken">
@@ -110,7 +112,7 @@ export default function NyushaPage() {
                     return (
                       <li key={s.key}>
                         <button onClick={() => mark(n, s.key)} disabled={!canEdit} title={!canEdit ? needText('edit') : s.optional ? '任意：まだ → 済み → 対象外' : 'まだ ⇄ 済み'}
-                          aria-label={`${n.name} の${s.label}（${st}）`} className={`inline-flex min-h-8 items-center gap-1 rounded-lg border px-2.5 text-[12.5px] disabled:cursor-not-allowed disabled:opacity-50 ${st === 'まだ' ? '' : 'font-semibold'}`} style={STEP_STYLE[st]}>
+                          aria-label={`${n.name} の${s.label}（${st}）`} className={`inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2.5 text-[12.5px] disabled:cursor-not-allowed disabled:opacity-50 ${st === 'まだ' ? '' : 'font-semibold'}`} style={STEP_STYLE[st]}>
                           <Icon size={13} className={st === 'まだ' ? 'text-faint' : ''} />{s.label}{s.optional && <span className="text-[10.5px] opacity-70">任意</span>}
                         </button>
                       </li>
@@ -128,7 +130,7 @@ export default function NyushaPage() {
           <div className="text-[12px] font-semibold text-muted">必須の手続きが終わった人</div>
           <ul className="mt-2 flex flex-col gap-1 text-[12.5px]">
             {finished.map((n) => (
-              <li key={n.id} className="flex flex-wrap items-center gap-2">
+              <li key={n.id} className={`flex flex-wrap items-center gap-2 rounded-md ${flash === n.id ? 'mo-flash' : ''}`}>
                 <Check size={14} className="text-ok" />
                 <Link href={`/jinji/staff/${n.id}`} className="font-semibold hover:underline">{n.name}</Link>
                 <span className="text-faint">入社 {fmtDate(n.joinOn)}・{n.site}</span>

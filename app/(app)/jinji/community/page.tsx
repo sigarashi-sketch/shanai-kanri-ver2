@@ -14,6 +14,8 @@ import { RemainRing, useMotivation } from '@/components/Motivation';
 //   ・コミュニティは1人1つ（リーダー＋任意のサブリーダー）
 const WD = '日月火水木金土';
 const fmt = (s: string) => { const d = new Date(`${s}T00:00:00Z`); return `${d.getUTCMonth() + 1}/${d.getUTCDate()}(${WD[d.getUTCDay()]})`; };
+// 全体で開く会には「このコミュニティの全員」は出さない
+const targetsOf = (e: CEvent) => TARGETS.filter((t) => e.host !== '全体' || t !== 'このコミュニティの全員');
 const ST_TONE: Record<Attendee['state'], string> = { 参加: 'ok', 未定: 'caution', 不参加: 'mute' };
 
 export default function CommunityPage() {
@@ -26,14 +28,14 @@ export default function CommunityPage() {
   const remain = events.filter((e) => !called[e.id]).length;
 
   const call = (e: CEvent) => {
-    const t = target[e.id] ?? TARGETS[0];
+    const t = target[e.id] ?? targetsOf(e)[0];
     setCalled((c) => ({ ...c, [e.id]: t }));
     setFlash(e.id); setTimeout(() => setFlash(null), 1300); hit();
     toast({ text: `「${e.title}」の参加の呼びかけを作りました（${t}）`, sub: '→ LINE 配信の下書きに入りました（送るのは配信の画面から）', undo: () => setCalled((c) => { const n = { ...c }; delete n[e.id]; return n; }) });
   };
   const setState = (e: CEvent, a: Attendee, state: Attendee['state']) => {
     setEvents((es) => es.map((x) => (x.id === e.id ? { ...x, attendees: x.attendees.map((y) => (y.id === a.id ? { ...y, state } : y)) } : x)));
-    hit();
+    setFlash(e.id); setTimeout(() => setFlash(null), 1300); hit();
     toast({ text: `${a.name} を「${state}」にしました`, sub: `→ ${e.title} の参加者と、社員ページの参加歴に反映しました`, undo: () => setEvents((es) => es.map((x) => (x.id === e.id ? { ...x, attendees: x.attendees.map((y) => (y.id === a.id ? { ...y, state: a.state } : y)) } : x))) });
   };
 
@@ -63,16 +65,16 @@ export default function CommunityPage() {
           return (
             <article key={e.id} className={`mo-fade-up flex flex-col rounded-xl border border-line bg-surface ${flash === e.id ? 'mo-flash' : ''}`} style={{ ['--i' as string]: i + 2 }}>
               <div className="border-b border-line-soft px-4 py-3">
-                <div className="flex items-center gap-2"><span className="chip" style={{ background: 'var(--al)', color: 'var(--ad)' }}>{e.kind}</span><span className="num text-[12.5px] text-muted">{fmt(e.date)} {e.time}・{e.place}</span></div>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1"><span className="chip" style={{ background: 'var(--al)', color: 'var(--ad)' }}>{e.kind}</span><span className="num text-[12.5px] text-muted">{fmt(e.date)} {e.time}・{e.place}</span></div>
                 <div className="mt-1 text-[14.5px] font-bold">{e.title}</div>
                 <div className="text-[12px] text-faint">主催 {e.host}</div>
-                <div className="mt-2 flex items-center gap-2"><div className="h-2 flex-1 overflow-hidden rounded-full bg-sunken"><div className="mo-bar h-full rounded-full" style={{ width: `${(going / e.cap) * 100}%`, background: 'var(--a)' }} /></div><span className="num text-[12px]">参加 {going} / {e.cap}人</span></div>
+                <div className="mt-2 flex items-center gap-2"><div className="h-2 flex-1 overflow-hidden rounded-full bg-sunken"><div className="mo-bar h-full rounded-full" style={{ width: `${(going / e.cap) * 100}%`, background: 'var(--a)' }} /></div><span className="num whitespace-nowrap text-[12px]">参加 {going} / {e.cap}人</span></div>
               </div>
               <ul className="flex-1 px-4 py-2">
                 {e.attendees.map((a) => (
                   <li key={a.id} className="flex items-center gap-2 py-1 text-[12.5px]">
                     <Link href={`/jinji/staff/${a.id}`} className="flex-1 hover:underline">{a.name}</Link>
-                    <select aria-label={`${a.name} の出欠`} value={a.state} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(ev) => setState(e, a, ev.target.value as Attendee['state'])} className="min-h-7 rounded-md border border-field px-1 text-[12px]" style={{ background: `var(--tone-${ST_TONE[a.state]}-bg)`, color: `var(--tone-${ST_TONE[a.state]}-fg)` }}>
+                    <select aria-label={`${a.name} の出欠`} value={a.state} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(ev) => setState(e, a, ev.target.value as Attendee['state'])} className="min-h-7 rounded-md border border-field px-1 text-[12px] disabled:opacity-60" style={{ background: `var(--tone-${ST_TONE[a.state]}-bg)`, color: `var(--tone-${ST_TONE[a.state]}-fg)` }}>
                       {(['参加', '未定', '不参加'] as const).map((s) => <option key={s}>{s}</option>)}
                     </select>
                   </li>
@@ -82,8 +84,8 @@ export default function CommunityPage() {
                 {called[e.id] ? (
                   <span className="flex items-center gap-1.5 text-[12.5px] text-ok"><Check size={14} />呼びかけ済み（{called[e.id]}）</span>
                 ) : (<>
-                  <select aria-label="呼びかける相手" value={target[e.id] ?? TARGETS[0]} onChange={(ev) => setTarget((t) => ({ ...t, [e.id]: ev.target.value }))} className="min-h-8 flex-1 rounded-lg border border-field bg-surface px-1.5 text-[12.5px]">{TARGETS.map((t) => <option key={t}>{t}</option>)}</select>
-                  <button onClick={() => call(e)} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} className="btn-primary inline-flex min-h-8 items-center gap-1 rounded-lg px-2.5 text-[12.5px] font-bold disabled:opacity-40"><Megaphone size={14} />参加を呼びかける</button>
+                  <select aria-label="呼びかける相手" value={target[e.id] ?? targetsOf(e)[0]} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(ev) => setTarget((t) => ({ ...t, [e.id]: ev.target.value }))} className="min-h-8 min-w-[140px] flex-1 rounded-lg border border-field bg-surface px-1.5 text-[12.5px] disabled:opacity-50">{targetsOf(e).map((t) => <option key={t}>{t}</option>)}</select>
+                  <button onClick={() => call(e)} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} className="btn-primary inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg px-2.5 text-[12.5px] font-bold disabled:cursor-not-allowed disabled:opacity-40"><Megaphone size={14} />参加を呼びかける</button>
                 </>)}
               </div>
             </article>

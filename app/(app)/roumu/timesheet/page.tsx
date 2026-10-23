@@ -20,6 +20,10 @@ const ST: Record<TsState | 'お願い済み', { bg: string; fg: string }> = {
   お願い済み: { bg: 'var(--tone-info-bg)', fg: 'var(--tone-info-fg)' },
 };
 const isOpen = (r: TsRow, asked: Record<string, boolean>) => (r.state === '未着' && !asked[r.id]) || r.state === '読めない';
+// 並びは、はじめの「手を打つ」ものが多い順で固定（片づけるたびに取引先の枠や行が動かないように）
+const FIRST_OPEN = Object.fromEntries(TS_ROWS.map((r) => [r.id, r.state !== '届いた']));
+const partnerOpen = (name: string) => TS_ROWS.filter((r) => r.partner === name && FIRST_OPEN[r.id]).length;
+const REASK = '取引先に読める形で出し直しをお願いした';
 
 export default function TimesheetPage() {
   const canEdit = usePerms().can('roumu', 'edit');
@@ -33,29 +37,37 @@ export default function TimesheetPage() {
   const open = rows.filter((r) => isOpen(r, asked));
   const initial = TS_ROWS.filter((r) => r.state !== '届いた').length;
   const partners = [...new Set(rows.map((r) => r.partner))].map((name) => ({ name, rs: rows.filter((r) => r.partner === name) }))
-    .sort((a, b) => b.rs.filter((r) => isOpen(r, asked)).length - a.rs.filter((r) => isOpen(r, asked)).length);
+    .sort((a, b) => partnerOpen(b.name) - partnerOpen(a.name));
   const pulse = (id: string) => { setFlash(id); setTimeout(() => setFlash(null), 1300); };
 
   const ask = (rs: TsRow[]) => {
-    const before = asked;
-    setAsked((a) => ({ ...a, ...Object.fromEntries(rs.map((r) => [r.id, true])) }));
+    const ids = rs.map((r) => r.id);
+    setAsked((a) => ({ ...a, ...Object.fromEntries(ids.map((id) => [id, true])) }));
     if (rs.length === 1) pulse(rs[0].id);
     hit(rs.length);
-    toast({ text: rs.length > 1 ? `${rs.length}人ぶんの勤務表をお願いしました` : `${rs[0].name} の勤務表をお願いしました`, sub: `→ あおいから本人に、担当営業から取引先に「${TS_MONTH.label}を ${TS_MONTH.due} までに」と送りました`, undo: () => setAsked(before) });
+    toast({ text: rs.length > 1 ? `${rs.length}人ぶんの勤務表をお願いしました` : `${rs[0].name} の勤務表をお願いしました`, sub: `→ あおいから本人に、担当営業から取引先に「${TS_MONTH.label}を ${TS_MONTH.due} までに」と送りました`, undo: () => setAsked((a) => { const n = { ...a }; ids.forEach((id) => delete n[id]); return n; }) });
   };
   const resolve = (r: TsRow, how: string) => {
-    const before = rows;
-    setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, state: '届いた', unreadable: how } : x)));
+    // 出し直しをお願いしたものは「届いた」にせず、未着（お願い済み）に戻して届くのを待つ
+    const reask = how === REASK;
+    const prev = { state: r.state, unreadable: r.unreadable };
+    setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, state: reask ? '未着' : '届いた', unreadable: how } : x)));
+    if (reask) setAsked((a) => ({ ...a, [r.id]: true }));
     pulse(r.id); hit();
-    toast({ text: `${r.name} の勤務表を「${how}」にしました`, sub: '→ 勤怠の締めと請求書づくりに反映しました', undo: () => setRows(before) });
+    toast({
+      text: `${r.name} の勤務表を「${how}」にしました`,
+      sub: reask ? '→ 担当営業から取引先に出し直しをお願いしました・届いたら毎晩の読み取りで時間が出ます' : '→ 勤怠の締めと請求書づくりに反映しました',
+      undo: () => { setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, ...prev } : x))); if (reask) setAsked((a) => { const n = { ...a }; delete n[r.id]; return n; }); },
+    });
   };
 
   const diff = (r: TsRow) => {
     if (r.sheetH == null || r.freeeH == null) return <span className="text-[12px] text-faint">{r.state === '届いた' ? '手で確かめた' : '—'}</span>;
     const d = Math.round((r.freeeH - r.sheetH) * 10) / 10;
-    const big = (r.offDays ?? 0) >= 3;
-    return <div className="text-[12px]"><span className="num">勤務表 {r.sheetH}h／freee {r.freeeH}h</span>
-      <div className={big ? 'font-semibold text-warn' : 'text-ok'}>{big ? `差 ${d > 0 ? '+' : ''}${d}h・30分以上ずれた日 ${r.offDays}日` : '合っている（ずれは丸めの内）'}</div></div>;
+    const off = r.offDays ?? 0;
+    const big = off >= 3;
+    return <div className="text-[12px]"><span className="num whitespace-nowrap">勤務表 {r.sheetH}h／freee {r.freeeH}h</span>
+      <div className={big ? 'font-semibold text-warn' : off ? 'text-muted' : 'text-ok'}>{off ? `差 ${d > 0 ? '+' : ''}${d}h・30分以上ずれた日 ${off}日${big ? '' : '（少ないので様子見）'}` : '合っている（ずれは丸めの内）'}</div></div>;
   };
   const action = (r: TsRow) => {
     if (r.state === '未着') return asked[r.id] ? <span className="chip" style={{ background: ST['お願い済み'].bg, color: ST['お願い済み'].fg }}>お願い済み</span>
@@ -63,12 +75,13 @@ export default function TimesheetPage() {
     if (r.state === '読めない') return <select aria-label="どうしたか" value="" disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} onChange={(e) => e.target.value && resolve(r, e.target.value)} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-[12px] disabled:opacity-40"><option value="">どうしたか選ぶ</option>{READ_FIX.map((x) => <option key={x}>{x}</option>)}</select>;
     return <span className="text-[12px] text-faint">{r.arrivedAt} 着</span>;
   };
-  const Row = ({ r, showPartner }: { r: TsRow; showPartner?: boolean }) => (
-    <tr className={`border-t border-line-soft align-top ${flash === r.id ? 'mo-flash' : 'row'}`}>
+  // 部品にせず関数で描く（描くたびに行が作り直されて選択中の欄が閉じないように）
+  const row = (r: TsRow, showPartner?: boolean) => (
+    <tr key={r.id} className={`border-t border-line-soft align-top ${flash === r.id ? 'mo-flash' : 'row'}`}>
       <td className="px-4 py-2.5"><Link href={`/jinji/staff/${r.personId}`} className="font-semibold hover:underline">{r.name}</Link><div className="text-[11.5px] text-faint">{r.site}</div></td>
       {showPartner && <td className="px-2 py-2.5 text-[12.5px]">{r.partner}</td>}
       <td className="px-2 py-2.5 text-[12px] text-muted">{r.route}</td>
-      <td className="px-2 py-2.5"><span className="chip" style={{ background: ST[r.state].bg, color: ST[r.state].fg }}>{r.state}</span>{r.state === '読めない' && <div className="mt-1 text-[11.5px] text-muted">{r.unreadable}</div>}</td>
+      <td className="px-2 py-2.5"><span className="chip" style={{ background: ST[r.state].bg, color: ST[r.state].fg }}>{r.state}</span>{r.state !== '届いた' && r.unreadable && <div className="mt-1 text-[11.5px] text-muted">{r.unreadable}</div>}</td>
       <td className="px-2 py-2.5">{diff(r)}</td>
       <td className="px-4 py-2.5">{action(r)}</td>
     </tr>
@@ -90,7 +103,7 @@ export default function TimesheetPage() {
           <span className="ml-2 text-muted">届いた {rows.filter((r) => r.state === '届いた').length}・未着 {rows.filter((r) => r.state === '未着').length}（お願い済み {rows.filter((r) => r.state === '未着' && asked[r.id]).length}）・読めない {rows.filter((r) => r.state === '読めない').length}</span>
           {!canEdit && <div className="text-[12px] text-bad">{needText('edit')}</div>}
         </div>
-        <button onClick={() => waitingAsk.length && ask(waitingAsk)} disabled={!canEdit || waitingAsk.length === 0} title={!canEdit ? needText('edit') : undefined} className="btn-primary ml-auto inline-flex min-h-10 items-center gap-1.5 rounded-[10px] px-4 text-[13px] font-bold disabled:opacity-40"><Send size={15} />未着 {waitingAsk.length}人にまとめてお願い</button>
+        <button onClick={() => waitingAsk.length && ask(waitingAsk)} disabled={!canEdit || waitingAsk.length === 0} title={!canEdit ? needText('edit') : undefined} className="btn-primary ml-auto inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-[10px] px-4 text-[13px] font-bold disabled:opacity-40"><Send size={15} />未着 {waitingAsk.length}人にまとめてお願い</button>
         <Link href="/roumu/shime" className="text-[12px] font-semibold" style={{ color: 'var(--ad)' }}>勤怠の締めへ</Link>
       </div>
 
@@ -105,11 +118,11 @@ export default function TimesheetPage() {
       {view === 'partner' ? partners.map((p, i) => (
         <section key={p.name} className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: i + 2 }}>
           <div className="flex items-center gap-2 border-b border-line-soft px-4 py-2.5"><b className="text-[14px]">{p.name}</b><span className="text-[12px] text-muted">{p.rs.filter((r) => r.state === '届いた').length} / {p.rs.length}人 届いた</span></div>
-          <div className="overflow-x-auto"><table className="w-full min-w-[760px] border-collapse text-[13px]">{head()}<tbody>{p.rs.map((r) => <Row key={r.id} r={r} />)}</tbody></table></div>
+          <div className="overflow-x-auto"><table className="w-full min-w-[760px] border-collapse text-[13px]">{head()}<tbody>{p.rs.map((r) => row(r))}</tbody></table></div>
         </section>
       )) : (
         <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
-          <div className="overflow-x-auto"><table className="w-full min-w-[860px] border-collapse text-[13px]">{head(true)}<tbody>{[...rows].sort((a, b) => Number(isOpen(b, asked)) - Number(isOpen(a, asked))).map((r) => <Row key={r.id} r={r} showPartner />)}</tbody></table></div>
+          <div className="overflow-x-auto"><table className="w-full min-w-[860px] border-collapse text-[13px]">{head(true)}<tbody>{[...rows].sort((a, b) => Number(FIRST_OPEN[b.id]) - Number(FIRST_OPEN[a.id])).map((r) => row(r, true))}</tbody></table></div>
         </div>
       )}
       <p className="text-[11.5px] text-faint">取引先の「送付不要」は、こちらから上位に送らなくてよいという意味で、届かない理由にはしていません。勤務表は届いたものを毎晩読み、1日30分未満のずれは合っている扱いにしています（見本の中だけで動きます）。</p>

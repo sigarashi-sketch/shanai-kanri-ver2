@@ -21,7 +21,8 @@ const isClosed = (s: TState) => s === '完了' || s === '取りやめ';
 export default function TensekiPage() {
   const canEdit = usePerms().can('jinji', 'edit');
   const { hit, toast } = useMotivation();
-  const [rows, setRows] = useState<Tenseki[]>(TENSEKI);
+  // 並びは開いたときの転籍日の順で固定（日付を選び直しても行が逃げない。足した行は下へ）
+  const [rows, setRows] = useState<Tenseki[]>(() => [...TENSEKI].sort((a, b) => a.on.localeCompare(b.on)));
   const [tab, setTab] = useState<Tab>('open');
   const [flash, setFlash] = useState<string | null>(null);
   const [add, setAdd] = useState({ personId: CANDIDATES[0].id, on: MONTH_STARTS[1], to: 'グループA社' as Company });
@@ -29,28 +30,33 @@ export default function TensekiPage() {
   useEffect(() => { if (new URLSearchParams(window.location.search).get('tab') === 'done') setTab('done'); }, []);
 
   const open = rows.filter((r) => !isClosed(r.state));
-  const shown = rows.filter((r) => (tab === 'open' ? !isClosed(r.state) : isClosed(r.state))).sort((a, b) => a.on.localeCompare(b.on));
+  const shown = rows.filter((r) => (tab === 'open' ? !isClosed(r.state) : isClosed(r.state)));
   const pulse = (id: string) => { setFlash(id); setTimeout(() => setFlash(null), 1300); };
 
   const change = (r: Tenseki, patch: Partial<Tenseki>, text: string, sub: string) => {
-    const before = rows;
+    // 変えた項目だけ、この行の元の値に戻す（続けて別の行を変えても巻き込まない）
+    const prev = Object.fromEntries(Object.keys(patch).map((k) => [k, r[k as keyof Tenseki]])) as Partial<Tenseki>;
     setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, ...patch } : x)));
     pulse(r.id); hit();
-    toast({ text, sub, undo: () => setRows(before) });
+    toast({ text, sub, undo: () => setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, ...prev } : x))) });
   };
-  const setState = (r: Tenseki, s: TState) => change(r, { state: s }, `${r.name} の転籍を「${s}」にしました`, T_TO[s]);
+  const setState = (r: Tenseki, s: TState) => change(r, { state: s }, `${r.name} の転籍を「${s}」にしました`,
+    isClosed(s) !== isClosed(r.state) ? `${T_TO[s]}（「${isClosed(s) ? '終わったもの' : '手続き中'}」に移しました）` : T_TO[s]);
   const setOn = (r: Tenseki, on: string) => change(r, { on }, `${r.name} の転籍日を ${fmtDate(on)} にしました`, '→ 名簿の切り替えの予約と、労務の手続きの期限を合わせました');
   const setTo = (r: Tenseki, to: Company) => change(r, { to }, `${r.name} の転籍先を ${to} にしました`, '→ 契約書の下書きの会社名を差し替えました');
 
-  const cand = CANDIDATES.find((c) => c.id === add.personId)!;
+  // 手続き中の人は二重に足せない
+  const avail = CANDIDATES.filter((c) => !rows.some((r) => r.personId === c.id && !isClosed(r.state)));
+  const cand = avail.find((c) => c.id === add.personId) ?? avail[0] ?? CANDIDATES[0];
+  const canAdd = canEdit && avail.length > 0;
   const toOptions = COMPANIES.filter((c) => c !== cand.company);
   const addRow = () => {
     const to = toOptions.includes(add.to) ? add.to : toOptions[0];
     const row: Tenseki = { id: `t${Date.now()}`, personId: cand.id, name: cand.name, on: add.on, from: cand.company, to, state: '打診中', by: 'あなた' };
-    const before = rows;
+    if (!canAdd) return;
     setRows((rs) => [...rs, row]); setTab('open');
     pulse(row.id); hit();
-    toast({ text: `${cand.name} を転籍台帳に足しました（${cand.company} → ${to}）`, sub: '→ 社員ページに「転籍の予定」を出しました', undo: () => setRows(before) });
+    toast({ text: `${cand.name} を転籍台帳に足しました（${cand.company} → ${to}）`, sub: '→ 社員ページに「転籍の予定」を出しました', undo: () => setRows((rs) => rs.filter((x) => x.id !== row.id)) });
   };
 
   return (
@@ -64,22 +70,23 @@ export default function TensekiPage() {
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-1.5 rounded-lg border border-line-soft bg-soft px-2 py-1.5 text-[12.5px]">
           <span className="text-muted">台帳に足す</span>
-          <select aria-label="社員" value={add.personId} disabled={!canEdit} onChange={(e) => setAdd((a) => ({ ...a, personId: e.target.value }))} className="min-h-8 rounded-lg border border-field bg-surface px-2 disabled:opacity-50">
-            {CANDIDATES.map((c) => <option key={c.id} value={c.id}>{c.name}（{c.company}）</option>)}
+          <select aria-label="社員" value={cand.id} disabled={!canAdd} onChange={(e) => setAdd((a) => ({ ...a, personId: e.target.value }))} className="min-h-8 rounded-lg border border-field bg-surface px-2 disabled:opacity-50">
+            {avail.length === 0 && <option value={cand.id}>足せる人はいません</option>}
+            {avail.map((c) => <option key={c.id} value={c.id}>{c.name}（{c.company}）</option>)}
           </select>
-          <select aria-label="転籍日" value={add.on} disabled={!canEdit} onChange={(e) => setAdd((a) => ({ ...a, on: e.target.value }))} className="min-h-8 rounded-lg border border-field bg-surface px-2 disabled:opacity-50">
+          <select aria-label="転籍日" value={add.on} disabled={!canAdd} onChange={(e) => setAdd((a) => ({ ...a, on: e.target.value }))} className="min-h-8 rounded-lg border border-field bg-surface px-2 disabled:opacity-50">
             {MONTH_STARTS.map((d) => <option key={d} value={d}>{fmtDate(d)}</option>)}
           </select>
-          <select aria-label="転籍先" value={toOptions.includes(add.to) ? add.to : toOptions[0]} disabled={!canEdit} onChange={(e) => setAdd((a) => ({ ...a, to: e.target.value as Company }))} className="min-h-8 rounded-lg border border-field bg-surface px-2 disabled:opacity-50">
+          <select aria-label="転籍先" value={toOptions.includes(add.to) ? add.to : toOptions[0]} disabled={!canAdd} onChange={(e) => setAdd((a) => ({ ...a, to: e.target.value as Company }))} className="min-h-8 rounded-lg border border-field bg-surface px-2 disabled:opacity-50">
             {toOptions.map((c) => <option key={c} value={c}>{c} へ</option>)}
           </select>
-          <button onClick={addRow} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="btn-primary inline-flex min-h-8 items-center gap-1 rounded-lg px-2.5 font-bold disabled:opacity-40"><Plus size={14} />足す</button>
+          <button onClick={addRow} disabled={!canAdd} title={!canEdit ? needText('edit') : !avail.length ? '足せる人はみんな手続き中です' : undefined} className="btn-primary inline-flex whitespace-nowrap min-h-8 items-center gap-1 rounded-lg px-2.5 font-bold disabled:opacity-40"><Plus size={14} />足す</button>
         </div>
       </div>
 
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 2 }}>
         {([['open', `手続き中 ${open.length}`], ['done', `終わったもの ${rows.length - open.length}`]] as const).map(([k, l]) => (
-          <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className="px-3.5 py-2.5 text-[14px]"
+          <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className="whitespace-nowrap px-3.5 py-2.5 text-[14px]"
             style={tab === k ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>{l}</button>
         ))}
       </div>
@@ -113,7 +120,7 @@ export default function TensekiPage() {
                       </td>
                       <td className="px-2 py-2.5">
                         <div className="flex items-center gap-1.5">
-                          <span>{r.from}</span><ArrowRight size={14} className="text-faint" />
+                          <span className="whitespace-nowrap">{r.from}</span><ArrowRight size={14} className="text-faint" />
                           <select aria-label={`${r.name} の転籍先`} value={r.to} disabled={lock} title={!canEdit ? needText('edit') : undefined} onChange={(e) => setTo(r, e.target.value as Company)} className="min-h-8 rounded-lg border border-field bg-surface px-2 text-[12.5px] font-semibold disabled:opacity-60">
                             {COMPANIES.filter((c) => c !== r.from).map((c) => <option key={c} value={c}>{c}</option>)}
                           </select>

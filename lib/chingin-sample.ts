@@ -6,7 +6,7 @@
 export const WELFARE_RATE = 0.19;
 export type SalarySrc = 'offer' | 'self' | 'temp';
 export type FareSrc = 'claim' | 'teiki' | 'temp';
-export const SALARY_LABEL: Record<SalarySrc, string> = { offer: 'ミンミカの内定月給', self: '本人提示（備考）', temp: '仮 21万' };
+export const SALARY_LABEL: Record<SalarySrc, string> = { offer: '内定の月給', self: '本人提示（備考）', temp: '仮 21万' };
 export const FARE_LABEL: Record<FareSrc, string> = { claim: '経費の申請の実額', teiki: '定期代の見積もり', temp: '仮 25,000円' };
 export type ArariRow = {
   id: string; personId: string; name: string; client: string; sales: string; billed: number;

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
 import { Check, MessageSquareText, Plus, X } from 'lucide-react';
 import { CANDIDATES, CASES, PROGRESS, caseOf, type Candidate, type ChatMsg, type ProgressRow, type Via } from '@/lib/progress-sample';
 import { PageTitle, PrimaryButton } from '@/components/ui';
@@ -31,8 +30,6 @@ type TabKey = 'sent' | 'collect';
 type ChatOpen = { group: string; thread: ChatMsg[]; focus?: string; cand?: Candidate };
 
 export default function ProgressPage() {
-  const router = useRouter();
-  const sp = useSearchParams();
   const canEdit = usePerms().can('eigyo', 'edit');
   const { hit, toast } = useMotivation();
   const [rows, setRows] = useState<ProgressRow[]>(PROGRESS);
@@ -43,14 +40,16 @@ export default function ProgressPage() {
   const [via, setVia] = useState<Via | 'すべて'>('すべて');
   const total = CANDIDATES.length;
 
-  const tab: TabKey = sp.get('tab') === 'collect' ? 'collect' : 'sent';
-  const go = (k: TabKey) => router.replace(`/eigyo/progress${k === 'sent' ? '' : '?tab=collect'}`, { scroll: false });
-  // ?chat=<候補id> で前後のパネルを開いた状態から始める（画面の見本を撮るとき用）
-  useEffect(() => { const id = new URLSearchParams(window.location.search).get('chat'); const c = CANDIDATES.find((x) => x.id === id); if (c) setChat({ group: c.group, thread: c.thread, focus: c.msgId, cand: c }); }, []);
+  const [tab, setTab] = useState<TabKey>('sent');
+  const [rowFlash, setRowFlash] = useState<string | null>(null);
+  const go = (k: TabKey) => { setTab(k); window.history.replaceState(null, '', `/eigyo/progress${k === 'sent' ? '' : '?tab=collect'}`); };
+  // ?tab=collect / ?chat=<候補id> で始める（画面の見本を撮るとき用）。クエリは useEffect で読む
+  useEffect(() => { const q = new URLSearchParams(window.location.search); if (q.get('tab') === 'collect') setTab('collect'); const id = q.get('chat'); const c = CANDIDATES.find((x) => x.id === id); if (c) setChat({ group: c.group, thread: c.thread, focus: c.msgId, cand: c }); }, []);
 
   const caseFor = (c: Candidate) => pick[c.id] ?? c.match?.caseNo ?? '';
 
   const settle = (c: Candidate, asCase: boolean) => {
+    if (!canEdit || flash === c.id) return; // 消える前に2回押しても二重に載せない
     const no = caseFor(c);
     setFlash(c.id);
     setChat((o) => (o?.cand?.id === c.id ? null : o));
@@ -59,20 +58,35 @@ export default function ProgressPage() {
       setCands((xs) => xs.filter((x) => x.id !== c.id));
       const reply = c.thread.find((m) => m.who === 'person' && m.at > c.postedAt);
       const row: ProgressRow = { id: `g-${c.id}`, caseNo: no || '新規', person: c.person, personId: c.personId, group: c.group, via: 'グループ直接', sentAt: c.postedAt, sender: c.poster, reply: reply?.text ?? '', replyAt: reply?.at.slice(-5), decision: '未判断' };
-      if (asCase) setRows((rs) => [row, ...rs]);
+      if (asCase) { setRows((rs) => [row, ...rs]); setRowFlash(row.id); setTimeout(() => setRowFlash(null), 1300); }
       hit();
       toast({
         text: asCase ? `${c.person} への ${no ? caseOf(no)?.name : '新しい案件'} を載せました` : '案件ではない、にしました',
         sub: asCase ? '→ 送った案件に「グループ直接」で載り、返信待ちに入りました' : '→ 同じ発言はもう候補に出ません',
-        undo: () => { setCands((xs) => (xs.some((x) => x.id === c.id) ? xs : [c, ...xs])); if (asCase) setRows((rs) => rs.filter((r) => r.id !== row.id)); },
+        // 元の並びの位置に戻す（先頭に飛ばさない）
+        undo: () => { setCands((xs) => (xs.some((x) => x.id === c.id) ? xs : CANDIDATES.filter((k) => k.id === c.id || xs.some((x) => x.id === k.id)))); if (asCase) setRows((rs) => rs.filter((r) => r.id !== row.id)); },
       });
     }, 450);
+  };
+
+  // 返信があった行の OK / NG を選ぶ（未判断を片づける）
+  const decide = (r: ProgressRow, d: 'OK' | 'NG') => {
+    if (!canEdit) return;
+    const prev = { decision: r.decision, slack: r.slack };
+    setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, decision: d, slack: d === 'OK' ? true : x.slack } : x)));
+    setRowFlash(r.id); setTimeout(() => setRowFlash(null), 1300);
+    hit();
+    toast({
+      text: `${r.person} の ${caseOf(r.caseNo)?.name ?? '新しい案件'} を「${d}」にしました`,
+      sub: d === 'OK' ? '→ 担当営業に知らせました（📮営業へ）' : '→ この案件はこの人の候補から外しました',
+      undo: () => setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, ...prev } : x))),
+    });
   };
 
   const shown = rows.filter((r) => via === 'すべて' || r.via === via);
   const kpi = [
     { label: '今週送った', n: rows.length, sub: `グループ直接 ${rows.filter((r) => r.via === 'グループ直接').length}件` },
-    { label: '返信待ち', n: rows.filter((r) => !r.reply).length, sub: '24時間を超えたら赤' },
+    { label: '返信待ち', n: rows.filter((r) => !r.reply).length, sub: '要員からの返事がまだ' },
     { label: '未判断', n: rows.filter((r) => r.reply && r.decision === '未判断').length, sub: '返信あり・OK/NG 待ち' },
     { label: 'OK', n: rows.filter((r) => r.decision === 'OK').length, sub: `営業へ ${rows.filter((r) => r.slack).length}件` },
   ];
@@ -91,7 +105,7 @@ export default function ProgressPage() {
         ))}
       </div>
 
-      <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 2 }}>
+      <div role="tablist" className="mo-fade-up flex flex-wrap gap-1 border-b border-line" style={{ ['--i' as string]: 2 }}>
         {([['sent', '送った案件'], ['collect', '回収候補']] as [TabKey, string][]).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="px-3.5 py-2.5 text-[14px]"
             style={tab === k ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>
@@ -122,19 +136,29 @@ export default function ProgressPage() {
                     {shown.map((r, i) => {
                       const c = caseOf(r.caseNo);
                       return (
-                        <tr key={r.id} className={`mo-fade-in border-t border-line-soft ${r.id.startsWith('g-') ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
+                        <tr key={r.id} className={`mo-fade-in border-t border-line-soft ${rowFlash === r.id ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
                           <td className="px-4 py-2.5"><div className="font-semibold">{c?.name ?? '新しい案件（登録待ち）'}</div><div className="text-[11.5px] text-faint">{r.caseNo}{c && ` ・ ${c.price}`}</div></td>
                           <td className="px-2 py-2.5">{r.person}</td>
-                          <td className="px-2 py-2.5"><Chip s={VIA_STYLE[r.via]}>{r.via}</Chip>{r.via !== 'あおい' && <span className="ml-1.5 text-[11.5px] text-muted">{r.sender}</span>}</td>
-                          <td className="num px-2 py-2.5">{r.sentAt}</td>
+                          <td className="whitespace-nowrap px-2 py-2.5"><Chip s={VIA_STYLE[r.via]}>{r.via}</Chip>{r.via !== 'あおい' && <span className="ml-1.5 text-[11.5px] text-muted">{r.sender}</span>}</td>
+                          <td className="num whitespace-nowrap px-2 py-2.5">{r.sentAt}</td>
                           <td className="max-w-[240px] px-2 py-2.5">{r.reply ? <><span className="line-clamp-1">{r.reply}</span><span className="text-[11.5px] text-faint">{r.replyAt}</span></> : <span className="text-[12px] font-semibold text-bad">返信待ち</span>}</td>
-                          <td className="px-2 py-2.5"><Chip s={DEC_STYLE[r.decision]}>{r.decision}</Chip>{r.slack && <span className="ml-1.5 text-[11.5px] text-muted">📮営業へ</span>}</td>
+                          <td className="whitespace-nowrap px-2 py-2.5">
+                            {r.reply && r.decision === '未判断' ? (
+                              <span className="inline-flex gap-1">
+                                {(['OK', 'NG'] as const).map((d) => (
+                                  <button key={d} onClick={() => decide(r, d)} disabled={!canEdit} title={!canEdit ? needText('edit') : `返事を見て「${d}」にする`} className="min-h-8 rounded-lg border border-field bg-surface px-2.5 text-[12.5px] font-semibold disabled:cursor-not-allowed disabled:opacity-40" style={d === 'OK' ? { color: 'var(--tone-ok-fg)' } : undefined}>{d}</button>
+                                ))}
+                              </span>
+                            ) : <Chip s={DEC_STYLE[r.decision]}>{r.decision}</Chip>}
+                            {r.slack && <span className="ml-1.5 text-[11.5px] text-muted">📮営業へ</span>}
+                          </td>
                           <td className="px-4 py-2.5 text-right">
-                            <button onClick={() => setChat({ group: r.group, thread: threadFor(r) })} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><MessageSquareText size={14} />チャット</button>
+                            <button onClick={() => setChat({ group: r.group, thread: threadFor(r) })} className="inline-flex min-h-8 items-center whitespace-nowrap gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><MessageSquareText size={14} />チャット</button>
                           </td>
                         </tr>
                       );
                     })}
+                    {shown.length === 0 && <tr><td colSpan={7} className="px-4 py-10 text-center text-[13px] text-muted">「{via}」で送った案件はまだありません</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -219,7 +243,7 @@ export default function ProgressPage() {
             </div>
             {chat.cand && (
               <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
-                <button onClick={() => settle(chat.cand!, false)} disabled={!canEdit} className="min-h-10 rounded-[10px] border border-field bg-surface px-3.5 text-[13.5px] font-semibold disabled:opacity-40">案件ではない</button>
+                <button onClick={() => settle(chat.cand!, false)} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="min-h-10 rounded-[10px] border border-field bg-surface px-3.5 text-[13.5px] font-semibold disabled:opacity-40">案件ではない</button>
                 <PrimaryButton onClick={() => settle(chat.cand!, true)} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined}>{caseFor(chat.cand) ? '案件進捗に載せる' : '登録して載せる'}</PrimaryButton>
               </div>
             )}

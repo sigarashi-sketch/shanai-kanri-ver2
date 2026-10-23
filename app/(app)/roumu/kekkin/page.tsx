@@ -14,6 +14,8 @@ import { RemainRing, useMotivation } from '@/components/Motivation';
 //   ・その月の欠勤が多い人ほど上に。2回以上は段階の対応と離職リスクへのリンクを出す
 const MONTHS = ['10月', '9月'] as const;
 const KIND_TONE: Record<Kind, string> = { 未確認: 'caution', 欠勤: 'bad', 遅刻: 'warn', 後日の相談: 'info', 欠勤ではない: 'mute' };
+// 人の並びは、はじめの欠勤の回数で固定（選ぶたびに人の枠が上下に動かないように）
+const firstCount = (id: string, month: string) => ABSENCES.filter((r) => r.personId === id && r.month === month && r.kind === '欠勤').length;
 const todo = (a: Absence) => a.kind === '未確認' || (a.kind === '欠勤' && (!a.siteNotified || a.reason === '未分類'));
 
 export default function KekkinPage() {
@@ -27,16 +29,17 @@ export default function KekkinPage() {
   const people = [...new Set(inMonth.map((r) => r.personId))].map((id) => {
     const rs = inMonth.filter((r) => r.personId === id);
     return { id, name: rs[0].name, site: rs[0].site, sales: rs[0].sales, rs, count: rs.filter((r) => r.kind === '欠勤').length };
-  }).sort((a, b) => b.count - a.count || b.rs.length - a.rs.length);
+  }).sort((a, b) => firstCount(b.id, month) - firstCount(a.id, month) || b.rs.length - a.rs.length);
   const open = inMonth.filter(todo);
   const initialOpen = ABSENCES.filter((r) => r.month === month && todo(r)).length;
 
   const change = (a: Absence, patch: Partial<Absence>, text: string, sub: string) => {
-    const before = rows;
+    // 取り消しはこの行の変えた所だけ元の値に戻す（続けて変えた別の行は戻さない）
+    const prev = Object.fromEntries(Object.keys(patch).map((k) => [k, a[k as keyof Absence]])) as Partial<Absence>;
     setRows((rs) => rs.map((r) => (r.id === a.id ? { ...r, ...patch } : r)));
     setFlash(a.id); setTimeout(() => setFlash(null), 1300);
     hit();
-    toast({ text, sub, undo: () => setRows(before) });
+    toast({ text, sub, undo: () => setRows((rs) => rs.map((r) => (r.id === a.id ? { ...r, ...prev } : r))) });
   };
   const sel = 'min-h-8 rounded-lg border border-field bg-surface px-1.5 text-[12px] disabled:opacity-40';
 
@@ -76,21 +79,21 @@ export default function KekkinPage() {
           </div>
           <ul>
             {p.rs.map((a) => (
-              <li key={a.id} className={`grid gap-2 border-t border-line-soft px-4 py-2.5 first:border-t-0 md:grid-cols-[150px_1fr_auto] ${flash === a.id ? 'mo-flash' : ''}`}>
+              <li key={a.id} className={`grid gap-2 border-t border-line-soft px-4 py-2.5 first:border-t-0 md:grid-cols-[130px_1fr] xl:grid-cols-[150px_1fr_auto] ${flash === a.id ? 'mo-flash' : ''}`}>
                 <div className="text-[12.5px]"><div className="num font-semibold">{a.day}</div><div className="text-[11.5px] text-faint">{a.route}{a.at !== '—' && `・${a.at}`}</div></div>
                 <div className="rounded-[10px] bg-soft px-3 py-2 text-[12.5px]">{a.text}</div>
-                <div className="flex flex-wrap items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5 md:col-start-2 xl:col-start-auto">
                   <select aria-label="この連絡は" value={a.kind} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className={sel}
                     style={{ background: `var(--tone-${KIND_TONE[a.kind]}-bg)`, color: `var(--tone-${KIND_TONE[a.kind]}-fg)` }}
                     onChange={(e) => change(a, { kind: e.target.value as Kind }, `${a.name} の ${a.day} を「${e.target.value}」にしました`, e.target.value === '欠勤' ? '→ 名簿の欠勤の回数と、離職リスクの材料に反映しました' : '→ 欠勤の回数には数えません')}>
                     {KINDS.map((k) => <option key={k}>{k}</option>)}
                   </select>
                   {a.kind === '欠勤' && <>
-                    <select aria-label="理由" value={a.reason} disabled={!canEdit} className={sel} onChange={(e) => change(a, { reason: e.target.value }, `${a.name} の理由を「${e.target.value}」にしました`, '→ 欠勤の記録に反映しました')}>
+                    <select aria-label="理由" value={a.reason} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className={sel} onChange={(e) => change(a, { reason: e.target.value }, `${a.name} の理由を「${e.target.value}」にしました`, '→ 欠勤の記録に反映しました')}>
                       {REASONS.map((x) => <option key={x}>{x}</option>)}
                     </select>
-                    <label className={`inline-flex min-h-8 items-center gap-1 rounded-lg border px-2 text-[12px] ${a.siteNotified ? 'border-line text-ok' : 'border-field text-bad'}`}>
-                      <input type="checkbox" checked={a.siteNotified} disabled={!canEdit} onChange={(e) => change(a, { siteNotified: e.target.checked }, e.target.checked ? `${a.name} の欠勤を現場に伝えた印を付けました` : '現場に伝えた印を外しました', '→ 担当営業の「要対応」から外れました')} />現場に連絡済み
+                    <label title={!canEdit ? needText('edit') : undefined} className={`inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2 text-[12px] ${a.siteNotified ? 'border-line text-ok' : 'border-field text-bad'}`}>
+                      <input type="checkbox" checked={a.siteNotified} disabled={!canEdit} onChange={(e) => change(a, { siteNotified: e.target.checked }, e.target.checked ? `${a.name} の欠勤を現場に伝えた印を付けました` : '現場に伝えた印を外しました', e.target.checked ? '→ 担当営業の「要対応」から外れました' : '→ 担当営業の「要対応」に戻しました')} />現場に連絡済み
                     </label>
                   </>}
                 </div>

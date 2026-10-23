@@ -40,12 +40,14 @@ export default function JimuPage() {
     const forward = ORDER.indexOf(to) > ORDER.indexOf(h.lane);
     const lack = forward ? missing(h, to) : [];
     if (lack.length) { setBlocked({ id, msg: `まだ済んでいません：${lack.join('・')}` }); setTimeout(() => setBlocked(null), 2600); return; }
-    const before = rows;
+    const from = h.lane;
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, lane: to } : r)));
     pulse(id); hit();
     toast({
       text: forward ? (to === '完了' ? `${h.name} の入場の準備ができました` : `${h.name} を${to}に渡しました`) : `${h.name} を${to}に戻しました`,
-      sub: TO_LANE[to], undo: () => setRows(before),
+      sub: forward ? TO_LANE[to] : `→ ${to}のやることに戻しました`,
+      // この人の列だけ元に戻す（ほかの人の動きや✓はそのまま）
+      undo: () => setRows((rs) => rs.map((r) => (r.id === id ? { ...r, lane: from } : r))),
     });
   };
   const toggle = (h: Handoff, key: string) => {

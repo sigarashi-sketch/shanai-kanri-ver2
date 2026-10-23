@@ -63,8 +63,23 @@ export default function SankyuPage() {
       undo: () => setDone((d) => ({ ...d, [k]: false })),
     });
   };
-  const setDue = (v: string) => { if (v) setCases((cs) => cs.map((c) => (c.id === cur.id ? { ...c, due: v } : c))); };
-  const setMulti = (v: boolean) => setCases((cs) => cs.map((c) => (c.id === cur.id ? { ...c, multi: v } : c)));
+  // 予定日・多胎・育休の終わりを変えたら、期間とやることの時期を出し直す（取り消しでこの人の元の値に戻す）
+  const patchCase = (patch: Partial<SankyuCase>, text: string) => {
+    const id = cur.id;
+    const prev = Object.fromEntries(Object.keys(patch).map((k) => [k, cur[k as keyof SankyuCase]])) as Partial<SankyuCase>;
+    setCases((cs) => cs.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+    hit();
+    toast({ text, sub: '→ 期間とやることの時期を出し直しました（社員ページの予定にも反映）', undo: () => setCases((cs) => cs.map((c) => (c.id === id ? { ...c, ...prev } : c))) });
+  };
+  const setDue = (v: string) => { if (v && v !== cur.due) patchCase({ due: v }, `${cur.person} の予定日を ${fmt(v)} にしました`); };
+  const setMulti = (v: boolean) => patchCase({ multi: v }, `${cur.person} を${v ? '多胎（産前14週）' : '多胎でない（産前6週）'}にしました`);
+  const setExtend = (v: ExtendKey) => {
+    const id = cur.id, prev = e;
+    setExt((x) => ({ ...x, [id]: v })); hit();
+    toast({ text: `${cur.person} の育休を「${EXTEND.find((x) => x.key === v)!.label}」にしました`, sub: '→ 育休の終わりと、復帰に向けたやることの時期を出し直しました', undo: () => setExt((x) => ({ ...x, [id]: prev })) });
+  };
+  // 人ごとの残りのやること（上の人のボタンに出す）
+  const remainOf = (c: SankyuCase) => TODOS.filter((t) => (!t.only || t.only === c.kind) && !done[`${c.id}:${t.id}`]).length;
 
   const bars = [
     ...(p.self ? [{ label: '産前', from: p.preStart, to: add(cur.due, 0), tone: 'caution' }, { label: '産後', from: add(cur.due, 1), to: p.postEnd, tone: 'warn' }] : []),
@@ -80,7 +95,7 @@ export default function SankyuPage() {
         {cases.map((c) => (
           <button key={c.id} onClick={() => setCurId(c.id)} className="flex min-h-12 items-center gap-2 rounded-xl border bg-surface px-3.5 text-left" style={c.id === cur.id ? { borderColor: 'var(--a)', background: 'var(--al)' } : { borderColor: 'var(--color-line)' }}>
             <Baby size={16} style={{ color: 'var(--ad)' }} />
-            <span><span className="block text-[13.5px] font-bold">{c.person}</span><span className="text-[11.5px] text-muted">{c.kind}・予定日 {fmt(c.due)}</span></span>
+            <span><span className="block text-[13.5px] font-bold">{c.person}<span className="num ml-1.5 text-[11.5px] font-semibold" style={{ color: remainOf(c) ? 'var(--ad)' : 'var(--color-ok)' }}>{remainOf(c) ? `残り${remainOf(c)}` : '✓ 済み'}</span></span><span className="text-[11.5px] text-muted">{c.kind}・予定日 {fmt(c.due)}</span></span>
           </button>
         ))}
       </div>
@@ -92,8 +107,8 @@ export default function SankyuPage() {
           <label className="ml-auto flex items-center gap-1.5 text-[12.5px] text-muted">予定日
             <input type="date" value={cur.due} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(ev) => setDue(ev.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-[13px] text-ink" />
           </label>
-          {p.self && <label className="flex items-center gap-1.5 text-[12.5px]"><input type="checkbox" checked={cur.multi} disabled={!canEdit} onChange={(ev) => setMulti(ev.target.checked)} />多胎（双子など）</label>}
-          <select aria-label="育休の終わり" value={e} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(ev) => setExt((x) => ({ ...x, [cur.id]: ev.target.value as ExtendKey }))} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-[13px]">
+          {p.self && <label title={canEdit ? undefined : needText('edit')} className="flex items-center gap-1.5 whitespace-nowrap text-[12.5px]"><input type="checkbox" checked={cur.multi} disabled={!canEdit} onChange={(ev) => setMulti(ev.target.checked)} />多胎（双子など）</label>}
+          <select aria-label="育休の終わり" value={e} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(ev) => setExtend(ev.target.value as ExtendKey)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-[13px]">
             {EXTEND.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
           </select>
         </div>
@@ -129,9 +144,9 @@ export default function SankyuPage() {
                 <li key={t.id} className={`flex flex-wrap items-center gap-3 border-t border-line-soft px-5 py-2.5 first:border-t-0 ${flash === k ? 'mo-flash' : ''}`}>
                   <input type="checkbox" aria-label={t.text} checked={!!done[k]} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={() => toggle(t)} />
                   <span className="num w-[112px] text-[12.5px]" style={{ color: late ? 'var(--color-bad)' : undefined }}>{fmt(t.date)}{late && <span className="block text-[11px]">過ぎています</span>}</span>
-                  <span className={`flex-1 text-[13px] ${done[k] ? 'text-faint line-through' : ''}`}>{t.text}</span>
+                  <span className={`min-w-[200px] flex-1 text-[13px] ${done[k] ? 'text-faint line-through' : ''}`}>{t.text}</span>
                   {t.link && <Link href={t.link.href} className="text-[12px] font-semibold" style={{ color: 'var(--ad)' }}>{t.link.label}</Link>}
-                  <span className="chip" style={{ background: `var(--tone-${WHO_TONE[t.who]}-bg)`, color: `var(--tone-${WHO_TONE[t.who]}-fg)` }}>{t.who === '労務担当（freee）へ渡す' && <Send size={11} />}{t.who}</span>
+                  <span className="chip whitespace-nowrap" style={{ background: `var(--tone-${WHO_TONE[t.who]}-bg)`, color: `var(--tone-${WHO_TONE[t.who]}-fg)` }}>{t.who === '労務担当（freee）へ渡す' && <Send size={11} />}{t.who}</span>
                 </li>
               );
             })}

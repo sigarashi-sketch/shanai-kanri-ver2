@@ -31,17 +31,18 @@ export default function ShiftPage() {
   const notSubmitted = people.filter((p) => p.state !== '提出済み');
 
   const setCell = (p: ShiftPerson, i: number, k: ShiftKind) => {
-    const before = people;
-    setPeople((ps) => ps.map((x) => (x.personId === p.personId ? { ...x, days: x.days.map((v, j) => (j === i ? k : v)) } : x)));
+    const prev = p.days[i];
+    const put = (val: ShiftKind) => setPeople((ps) => ps.map((x) => (x.personId === p.personId ? { ...x, days: x.days.map((v, j) => (j === i ? val : v)) } : x)));
+    put(k);
     setFlash(`${p.personId}-${i}`); setTimeout(() => setFlash(null), 1300);
     hit();
-    toast({ text: `${p.name} の ${SHIFT_MONTH.month}/${i + 1} を「${k || '空欄'}」にしました`, sub: '→ 当日の出勤状況（未打刻の判定）と、本人のシフト画面に反映しました', undo: () => setPeople(before) });
+    toast({ text: `${p.name} の ${SHIFT_MONTH.month}/${i + 1} を「${k || '空欄'}」にしました`, sub: '→ 当日の出勤状況（未打刻の判定）と、本人のシフト画面に反映しました', undo: () => put(prev) });
   };
   const ask = (ps: ShiftPerson[]) => {
-    const before = asked;
-    setAsked((a) => ({ ...a, ...Object.fromEntries(ps.map((p) => [p.personId, true])) }));
+    const ids = ps.map((p) => p.personId);
+    setAsked((a) => ({ ...a, ...Object.fromEntries(ids.map((id) => [id, true])) }));
     hit(ps.length);
-    toast({ text: ps.length > 1 ? `${ps.length}人に提出のお願いを送りました` : `${ps[0].name} に提出のお願いを送りました`, sub: `→ あおいから本人に「${SHIFT_MONTH.label}のシフトを ${SHIFT_MONTH.deadline} までに」と送りました`, undo: () => setAsked(before) });
+    toast({ text: ps.length > 1 ? `${ps.length}人に提出のお願いを送りました` : `${ps[0].name} に提出のお願いを送りました`, sub: `→ あおいから本人に「${SHIFT_MONTH.label}のシフトを ${SHIFT_MONTH.deadline} までに」と送りました`, undo: () => setAsked((a) => { const n = { ...a }; ids.forEach((id) => delete n[id]); return n; }) });
   };
 
   return (
@@ -55,7 +56,7 @@ export default function ShiftPage() {
         <div className="text-[13px]"><b>まだ出していない人 {notSubmitted.length}人</b><span className="ml-2 text-muted">お願いを送っていない人 {waiting.length}人</span>
           {!canEdit && <div className="text-[12px] text-bad">{needText('edit')}</div>}
         </div>
-        <button onClick={() => waiting.length && ask(waiting)} disabled={!canEdit || waiting.length === 0} title={!canEdit ? needText('edit') : undefined} className="btn-primary ml-auto inline-flex min-h-10 items-center gap-1.5 rounded-[10px] px-4 text-[13px] font-bold disabled:opacity-40"><Send size={15} />{waiting.length}人にまとめてお願い（あおい）</button>
+        <button onClick={() => waiting.length && ask(waiting)} disabled={!canEdit || waiting.length === 0} title={!canEdit ? needText('edit') : undefined} className="btn-primary ml-auto inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-[10px] px-4 text-[13px] font-bold disabled:opacity-40"><Send size={15} />{waiting.length}人にまとめてお願い（あおい）</button>
       </div>
 
       {notSubmitted.length > 0 && waiting.length === 0 && (

@@ -31,14 +31,15 @@ export default function TodayPage() {
   const need = mine.filter((r) => NEED.includes(r.state)).sort((a, b) => NEED.indexOf(a.state) - NEED.indexOf(b.state) || (b.late ?? 0) - (a.late ?? 0));
   const open = need.filter((r) => !done[r.personId]);
   const others = mine.filter((r) => !NEED.includes(r.state));
-  const noPunch = TODAY_ROWS.filter((r) => r.state === '未打刻' && !done[r.personId]).length;
+  // 上の数は「担当営業で絞る」に合わせる（出勤予定・出勤済みの全体数は見本の総数から）
+  const noPunch = mine.filter((r) => r.state === '未打刻' && !done[r.personId]).length;
 
   const pulse = (id: string) => { setFlash(id); setTimeout(() => setFlash(null), 1300); };
   const settle = (r: TodayRow, what: string, sub: string) => {
-    const before = done;
     setDone((d) => ({ ...d, [r.personId]: what }));
     pulse(r.personId); hit();
-    toast({ text: `${r.person}：${what}`, sub, undo: () => setDone(before) });
+    // 取り消しはこの人の分だけ戻す（続けて処理した別の人は戻さない）
+    toast({ text: `${r.person}：${what}`, sub, undo: () => setDone((d) => { const n = { ...d }; delete n[r.personId]; return n; }) });
   };
   const nudge = (r: TodayRow) => {
     setNudged((n) => ({ ...n, [r.personId]: true }));
@@ -109,7 +110,7 @@ export default function TodayPage() {
                             <div className="flex flex-wrap items-center gap-2">
                               {nudged[r.personId] ? <span className="text-[12px] text-faint">促しました・返事待ち</span>
                                 : <button onClick={() => nudge(r)} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Bell size={14} />あおいで促す</button>}
-                              <select aria-label={`${r.person} の結果`} value="" disabled={!canEdit} onChange={(e) => e.target.value && settle(r, e.target.value, resultSub(e.target.value))} className="min-h-8 rounded-lg border border-field bg-surface px-2 text-[12.5px] disabled:opacity-50">
+                              <select aria-label={`${r.person} の結果`} value="" disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} onChange={(e) => e.target.value && settle(r, e.target.value, resultSub(e.target.value))} className="min-h-8 rounded-lg border border-field bg-surface px-2 text-[12.5px] disabled:opacity-50">
                                 <option value="">結果を選ぶ…</option>
                                 {RESULTS.map((x) => <option key={x} value={x}>{x}</option>)}
                               </select>

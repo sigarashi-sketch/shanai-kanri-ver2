@@ -31,6 +31,8 @@ function CheckLine({ c }: { c: Chk }) {
 export default function KeihiPage() {
   const [tab, setTab] = useState<'check' | 'apply'>('check');
   const [claims, setClaims] = useState<Claim[]>(CLAIMS);
+  // 処理した状態はページで持つ（タブを行き来しても消えない）
+  const [done, setDone] = useState<Record<string, Done>>({});
   useEffect(() => { if (new URLSearchParams(window.location.search).get('tab') === 'apply') setTab('apply'); }, []);
   const go = (t: 'check' | 'apply') => { setTab(t); window.history.replaceState(null, '', t === 'apply' ? '?tab=apply' : window.location.pathname); };
 
@@ -44,7 +46,7 @@ export default function KeihiPage() {
         ))}
       </div>
       <div key={tab} className="mo-axis">
-        {tab === 'check' ? <CheckTab claims={claims} /> : <ApplyTab onSubmit={(c) => { setClaims((cs) => [c, ...cs.filter((x) => x.id !== 'c2')]); go('check'); }} />}
+        {tab === 'check' ? <CheckTab claims={claims} done={done} setDone={setDone} /> : <ApplyTab onSubmit={(c) => { setClaims((cs) => [c, ...cs.filter((x) => x.id !== 'c2')]); go('check'); }} />}
       </div>
     </main>
   );
@@ -52,12 +54,10 @@ export default function KeihiPage() {
 
 // ---------------- 経理の確認 ----------------
 type Done = { result: '承認' | '差し戻し'; reason?: string };
-function CheckTab({ claims }: { claims: Claim[] }) {
+function CheckTab({ claims, done, setDone }: { claims: Claim[]; done: Record<string, Done>; setDone: React.Dispatch<React.SetStateAction<Record<string, Done>>> }) {
   const canApprove = usePerms().can('keiri', 'approve');
   const { hit, toast } = useMotivation();
-  const [done, setDone] = useState<Record<string, Done>>({});
   const [ok, setOk] = useState<Record<string, boolean>>({});
-  const [rej, setRej] = useState<Record<string, string>>({});
   const [kind, setKind] = useState<string>('すべて');
   const [flash, setFlash] = useState<string | null>(null);
 
@@ -67,7 +67,7 @@ function CheckTab({ claims }: { claims: Claim[] }) {
   const kinds = ['すべて', ...Array.from(new Set(claims.map((c) => c.kind)))];
 
   const settle = (cs: Claim[], d: Done) => {
-    const before = done;
+    const ids = cs.map((c) => c.id);
     setDone((x) => ({ ...x, ...Object.fromEntries(cs.map((c) => [c.id, d])) }));
     if (cs.length === 1) { setFlash(cs[0].id); setTimeout(() => setFlash(null), 1300); }
     hit(cs.length);
@@ -75,7 +75,8 @@ function CheckTab({ claims }: { claims: Claim[] }) {
     toast({
       text: cs.length > 1 ? `${cs.length}件（${yen(sum)}）をまとめて承認しました` : `${cs[0].person} の${cs[0].kind}を${d.result}しました`,
       sub: d.result === '差し戻し' ? `→ 本人に「${d.reason}」で戻しました（あおい）` : '→ 今月の給与の振込みと、想定賃金・粗利の交通費に反映しました',
-      undo: () => setDone(before),
+      // この回に処理した分だけ戻す（続けて処理した後でも、ほかの分は消えない）
+      undo: () => setDone((x) => { const n = { ...x }; ids.forEach((id) => delete n[id]); return n; }),
     });
   };
 
@@ -84,7 +85,7 @@ function CheckTab({ claims }: { claims: Claim[] }) {
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
         <RemainRing remain={pending.length} total={claims.length} />
         <div className="text-[13px]"><b>承認待ち {pending.length}件</b><span className="ml-2 num text-muted">{yen(pending.reduce((s, c) => s + c.amount, 0))}</span>
-          <div className="text-[12px] text-muted">freee の打刻・ICカードの履歴・定期の期間・現場の予約を先に照らしています。{!canApprove && <span className="text-bad"> {needText('approve')}</span>}</div>
+          <div className="text-[12px] text-muted">勤怠の打刻・ICカードの履歴・定期の期間・現場の予約を先に照らしています。{!canApprove && <span className="text-bad"> {needText('approve')}</span>}</div>
         </div>
         <Link href="/keiri/check" className="ml-auto text-[12px] font-semibold" style={{ color: 'var(--ad)' }}>月ごとの交通費チェックへ</Link>
       </div>
@@ -102,7 +103,7 @@ function CheckTab({ claims }: { claims: Claim[] }) {
               const n = k === 'すべて' ? pending.length : pending.filter((c) => c.kind === k).length;
               return <button key={k} onClick={() => setKind(k)} className={`min-h-8 rounded-full border px-3 text-[12.5px] ${kind === k ? 'font-semibold' : 'text-muted'}`} style={kind === k ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>{k} {n}</button>;
             })}
-            <button onClick={() => okRows.length && settle(okRows, { result: '承認' })} disabled={!canApprove || okRows.length === 0} className="btn-primary ml-auto min-h-8 rounded-lg px-3 text-[12.5px] font-bold disabled:opacity-40">問題なし {okRows.length}件をまとめて承認</button>
+            <button onClick={() => okRows.length && settle(okRows, { result: '承認' })} disabled={!canApprove || okRows.length === 0} title={!canApprove ? needText('approve') : undefined} className="btn-primary ml-auto whitespace-nowrap min-h-8 rounded-lg px-3 text-[12.5px] font-bold disabled:opacity-40">問題なし {okRows.length}件をまとめて承認</button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] border-collapse text-[13px]">
@@ -110,6 +111,7 @@ function CheckTab({ claims }: { claims: Claim[] }) {
                 <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">種類・中身</th><th className="px-2 py-2.5 text-right font-semibold">金額</th><th className="px-2 py-2.5 font-semibold">先に確かめたこと</th><th className="px-4 py-2.5 font-semibold">承認</th>
               </tr></thead>
               <tbody>
+                {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-[12.5px] text-muted">「{kind}」の承認待ちはありません。ほかの種類を選んでください。</td></tr>}
                 {rows.map((c, i) => {
                   const t = toneOf(c.checks);
                   const need = t === 'bad' && !ok[c.id];
@@ -126,8 +128,8 @@ function CheckTab({ claims }: { claims: Claim[] }) {
                       </td>
                       <td className="px-4 py-2.5">
                         <div className="flex flex-col gap-1.5">
-                          <button onClick={() => settle([c], { result: '承認' })} disabled={!canApprove || need} title={need ? '要確認の点を確かめてから' : undefined} className="btn-primary min-h-8 rounded-lg px-3 text-[12.5px] font-bold disabled:opacity-40">承認</button>
-                          <select aria-label={`${c.person} を差し戻す理由`} value={rej[c.id] ?? ''} disabled={!canApprove} onChange={(e) => { const v = e.target.value; setRej((r) => ({ ...r, [c.id]: v })); if (v) settle([c], { result: '差し戻し', reason: v }); }} className="min-h-8 max-w-[190px] rounded-lg border border-field bg-surface px-2 text-[12px] text-muted disabled:opacity-50">
+                          <button onClick={() => settle([c], { result: '承認' })} disabled={!canApprove || need} title={!canApprove ? needText('approve') : need ? '要確認の点を確かめてから' : undefined} className="btn-primary min-h-8 whitespace-nowrap rounded-lg px-3 text-[12.5px] font-bold disabled:opacity-40">承認</button>
+                          <select aria-label={`${c.person} を差し戻す理由`} value="" disabled={!canApprove} title={!canApprove ? needText('approve') : undefined} onChange={(e) => { const v = e.target.value; if (v) settle([c], { result: '差し戻し', reason: v }); }} className="min-h-8 max-w-[190px] rounded-lg border border-field bg-surface px-2 text-[12px] text-muted disabled:opacity-50">
                             <option value="">差し戻す理由…</option>
                             {KEIHI_REJECT.map((x) => <option key={x}>{x}</option>)}
                           </select>
@@ -153,6 +155,8 @@ function ApplyTab({ onSubmit }: { onSubmit: (c: Claim) => void }) {
   const [sel, setSel] = useState<Record<string, boolean>>({});
   const [purpose, setPurpose] = useState<Record<string, string>>({});
   const [starring, setStarring] = useState<string | null>(null);
+  const [readAt, setReadAt] = useState('10/23 9:12');
+  const readIc = (how: string) => { const d = new Date(); setReadAt(`${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`); toast({ text: `${how}から利用履歴を読み込みました（見本）`, sub: `→ 新しい利用は ${IC_ROWS.length}件のまま。本物では前回より後の分だけ足します` }); };
 
   const routeOf = (r: IcRow) => routes.find((x) => x.from === r.from && x.to === r.to && x.kind === r.kind);
   const why = (r: IcRow) => r.kind === '買い物' ? '交通ではない利用です' : !PUNCH_DAYS.includes(r.day) ? 'この日は出勤の打刻がありません' : '';
@@ -189,10 +193,10 @@ function ApplyTab({ onSubmit }: { onSubmit: (c: Claim) => void }) {
           <div className="text-[11.5px] text-muted">{ME.name} さん・{ME.site}</div>
           <div className="text-[17px] font-bold">交通費の申請（{ME.month}）</div>
           <div className="mt-2 flex gap-2">
-            <button className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-[10px] bg-surface text-[12.5px] font-semibold"><Smartphone size={15} />ICカードをかざす</button>
-            <button className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-[10px] bg-surface text-[12.5px] font-semibold"><CreditCard size={15} />モバイルSuicaから</button>
+            <button onClick={() => readIc('ICカード')} className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-[10px] bg-surface text-[12.5px] font-semibold"><Smartphone size={15} />ICカードをかざす</button>
+            <button onClick={() => readIc('モバイルSuica')} className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-[10px] bg-surface text-[12.5px] font-semibold"><CreditCard size={15} />モバイルSuicaから</button>
           </div>
-          <div className="mt-1.5 text-[11px] text-faint">10/23 9:12 に読み込み・{IC_ROWS.length}件</div>
+          <div className="mt-1.5 text-[11px] text-faint">{readAt} に読み込み・{IC_ROWS.length}件</div>
         </div>
 
         <div className="border-b border-line-soft px-4 py-3">

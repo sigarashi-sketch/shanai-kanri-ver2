@@ -37,21 +37,22 @@ export default function KihonPage() {
   const pulse = (ids: string[]) => { setFlash(ids); setTimeout(() => setFlash([]), 1300); };
 
   const ask = (rs: KihonRow[]) => {
-    const before = askedToday;
+    const ids = rs.map((r) => r.id);
     setAskedToday((a) => ({ ...a, ...Object.fromEntries(rs.map((r) => [r.id, true])) }));
     pulse(rs.map((r) => r.id)); hit(rs.length);
     const t = ASK_TEMPLATES.find((x) => x.key === (tpl[rs[0].id] ?? defaultTpl(rs[0])))!;
     toast({
       text: rs.length > 1 ? `${rs.length}人に回答をお願いしました` : `${rs[0].name} に「${t.label}」を送りました`,
       sub: '→ インフォメーション（LINE公式）から本人に届きます。3日たってもまだなら、ここに赤で出します',
-      undo: () => setAskedToday(before),
+      // この回にお願いした人だけ戻す（あとから別の人にお願いした分は残す）
+      undo: () => setAskedToday((a) => Object.fromEntries(Object.entries(a).filter(([id]) => !ids.includes(id)))),
     });
   };
   const alignName = (r: KihonRow) => {
-    const before = rows;
+    const old = r.otherName;
     setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, otherName: undefined } : x)));
     pulse([r.id]); hit();
-    toast({ text: `名簿の表記を「${r.name}」にそろえました`, sub: '→ 社員名簿・営業リスト・プロパーリストの氏名に反映しました（基本情報の名前が正）', undo: () => setRows(before) });
+    toast({ text: `名簿の表記を「${r.name}」にそろえました`, sub: '→ 社員名簿・営業リスト・プロパーリストの氏名に反映しました（基本情報の名前が正）', undo: () => setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, otherName: old } : x))) });
   };
 
   return (
@@ -64,7 +65,7 @@ export default function KihonPage() {
           <div className="text-[12px] text-muted">お願いはインフォメーション（LINE公式）から本人に届きます。{!canEdit && <span className="text-bad"> {needText('edit')}</span>}</div>
         </div>
         <button onClick={() => ask(waiting.filter((r) => r.state === '未回答'))} disabled={!canEdit || !waiting.some((r) => r.state === '未回答')} title={!canEdit ? needText('edit') : undefined}
-          className="btn-primary ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-[12.5px] font-bold disabled:opacity-40"><Send size={14} />未回答 {waiting.filter((r) => r.state === '未回答').length}人にまとめてお願いする</button>
+          className="btn-primary ml-auto inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-[12.5px] font-bold disabled:cursor-not-allowed disabled:opacity-40"><Send size={14} />未回答 {waiting.filter((r) => r.state === '未回答').length}人にまとめてお願いする</button>
       </div>
 
       {waiting.length === 0 && (
@@ -102,12 +103,12 @@ export default function KihonPage() {
                       {r.otherName && (
                         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11.5px]">
                           <span className="inline-flex items-center gap-1 text-warn"><TriangleAlert size={12} />名簿では「{r.otherName}」</span>
-                          <button onClick={() => alignName(r)} disabled={!canEdit} title={!canEdit ? needText('edit') : '基本情報の名前が正です'} className="rounded-md border px-1.5 font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>名簿をそろえる</button>
+                          <button onClick={() => alignName(r)} disabled={!canEdit} title={!canEdit ? needText('edit') : '基本情報の名前が正です'} className="whitespace-nowrap rounded-md border px-1.5 font-semibold disabled:cursor-not-allowed disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>名簿をそろえる</button>
                         </div>
                       )}
                     </td>
                     <td className="px-2 py-2.5"><span className="chip" style={{ background: `var(--tone-${t}-bg)`, color: `var(--tone-${t}-fg)` }}>{r.state}</span></td>
-                    <td className="num px-2 py-2.5 text-[12.5px]">{r.issued} 送付{r.submitted && <div className="text-faint">{r.submitted} 回答</div>}{r.step && <div className="text-muted">{r.step} まで</div>}</td>
+                    <td className="num whitespace-nowrap px-2 py-2.5 text-[12.5px]">{r.issued} 送付{r.submitted && <div className="text-faint">{r.submitted} 回答</div>}{r.step && <div className="text-muted">{r.step} まで</div>}</td>
                     <td className="px-2 py-2.5">{r.station ?? <span className="text-faint">—</span>}</td>
                     <td className="px-2 py-2.5">{r.jobs ? <div className="flex flex-wrap gap-1">{r.jobs.map((j) => <span key={j} className="chip" style={{ background: 'var(--as)', color: 'var(--ad)' }}>{j}</span>)}</div> : <span className="text-faint">—</span>}</td>
                     <td className="px-2 py-2.5 text-[12.5px]">{r.certs ?? <span className="text-faint">—</span>}</td>
@@ -120,8 +121,8 @@ export default function KihonPage() {
                               {ASK_TEMPLATES.map((a) => <option key={a.key} value={a.key}>{a.label}</option>)}
                             </select>
                             <button onClick={() => ask([r])} disabled={!canEdit} title={!canEdit ? needText('edit') : ASK_TEMPLATES.find((a) => a.key === (tpl[r.id] ?? defaultTpl(r)))!.text}
-                              className="inline-flex min-h-8 items-center gap-1 rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Send size={13} />お願いする</button>
-                            {late && <div className="w-full text-[11px] text-bad">{r.asked} にお願いずみ・まだ届いていません</div>}
+                              className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:cursor-not-allowed disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Send size={13} />お願いする</button>
+                            {late && <div className="w-full text-[11px] text-bad">{r.asked} にお願いずみ・まだ回答がありません</div>}
                           </div>
                         )}
                     </td>

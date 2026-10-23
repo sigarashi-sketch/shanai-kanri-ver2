@@ -45,7 +45,7 @@ export default function OcrPage() {
 
       <ol className="mo-fade-up flex flex-wrap gap-2" style={{ ['--i' as string]: 2 }}>
         {STEPS.map((s, i) => (
-          <li key={s} className="flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12.5px]" style={i === step ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)', fontWeight: 700 } : { borderColor: 'var(--color-line)', color: i < step ? 'var(--color-ok)' : 'var(--color-muted)' }}>
+          <li key={s} className="flex items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-[12.5px]" style={i === step ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)', fontWeight: 700 } : { borderColor: 'var(--color-line)', color: i < step ? 'var(--color-ok)' : 'var(--color-muted)' }}>
             {i < step ? <Check size={14} /> : <span className="num">{i + 1}</span>}{s}
           </li>
         ))}
@@ -70,18 +70,19 @@ export default function OcrPage() {
         {step === 1 && (
           <div>
             <div className="text-[13px] text-muted">読み取った値と、今の基本情報を並べています。違うところだけ「読み取りを使う」を選んでください。<b className="text-ink">確かめが要る</b>項目は、選ぶまで入れられません。</div>
-            <table className="mt-3 w-full border-collapse text-[13px]">
+            <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[640px] border-collapse text-[13px]">
               <thead><tr className="th-row text-left"><th className="px-3 py-2 font-semibold">項目</th><th className="px-2 py-2 font-semibold">読み取った値</th><th className="px-2 py-2 font-semibold">今の基本情報</th><th className="px-3 py-2 font-semibold">どちらを使う</th></tr></thead>
               <tbody>
                 {fields.map((f) => {
                   const p = pickOf(f.key, f.sure, f.current);
                   return (
                     <tr key={f.key} className="row border-t border-line-soft">
-                      <td className="px-3 py-2 font-semibold">{f.label}{f.sure === 'low' && <span className="chip ml-1.5" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>確かめが要る</span>}</td>
+                      <td className="whitespace-nowrap px-3 py-2 font-semibold">{f.label}{f.sure === 'low' && <span className="chip ml-1.5" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>確かめが要る</span>}</td>
                       <td className="px-2 py-2">{f.read}</td>
-                      <td className="px-2 py-2 text-muted">{f.current || '（空）'}{f.current && f.current === f.read && <span className="ml-1 text-ok">同じ</span>}</td>
+                      <td className="px-2 py-2 text-muted">{f.current || '（空）'}{f.current && f.current === f.read && <span className="ml-1 whitespace-nowrap text-ok">同じ</span>}</td>
                       <td className="px-3 py-2">
-                        <select aria-label={`${f.label} はどちらを使う`} value={p ?? ''} onChange={(e) => setPick((x) => ({ ...x, [f.key]: e.target.value as Pick }))} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-[12.5px]" style={!p ? { borderColor: 'var(--color-warn)' } : undefined}>
+                        <select aria-label={`${f.label} はどちらを使う`} value={p ?? ''} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(e) => setPick((x) => ({ ...x, [f.key]: e.target.value as Pick }))} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-[12.5px] disabled:opacity-50" style={!p ? { borderColor: 'var(--color-warn)' } : undefined}>
                           {!p && <option value="">選んでください</option>}
                           <option value="read">読み取りを使う</option><option value="keep">今のまま</option>
                         </select>
@@ -91,6 +92,7 @@ export default function OcrPage() {
                 })}
               </tbody>
             </table>
+            </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <button onClick={apply} disabled={!canEdit || undecided > 0} title={!canEdit ? needText('edit') : undecided ? '確かめが要る項目を選んでください' : undefined} className="btn-primary min-h-10 rounded-[10px] px-4 text-[13.5px] font-bold disabled:opacity-40">基本情報に入れる（{changes.length}項目）</button>
               <button onClick={reset} className="text-[12.5px] text-muted">写真を選び直す</button>

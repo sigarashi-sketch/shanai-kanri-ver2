@@ -65,17 +65,18 @@ export const STATUS_COUNTS: { label: Status | 'すべて'; n: number }[] = [
 
 export type Todo = { module: ModuleKey; text: string; n: string; tone: 'bad' | 'warn' | 'plain'; href: string };
 export const TODOS: Todo[] = [
-  { module: 'roumu', text: '打刻漏れ（未修正）', n: '12件', tone: 'bad', href: '/roumu/today' },
+  { module: 'roumu', text: '今日の出勤で対応が要る人（未打刻・連絡）', n: '4人', tone: 'bad', href: '/roumu/today' },
   { module: 'roumu', text: '残業が締め日に45hを超える見込み', n: '1人', tone: 'bad', href: '/roumu/overtime' },
-  { module: 'roumu', text: '派遣契約が30日以内に終わる（意向未確認）', n: '2人', tone: 'warn', href: '/roumu/contracts' },
-  { module: 'jinji', text: '離職リスクが上がった人', n: '3人', tone: 'warn', href: '/jinji/rishoku' },
-  { module: 'keiri', text: '勤務表が届いていない現場', n: '6件', tone: 'warn', href: '/roumu/timesheet' },
+  { module: 'roumu', text: '派遣契約が60日以内に終わる（意向未確認）', n: '3人', tone: 'warn', href: '/roumu/contracts' },
+  { module: 'jinji', text: '離職リスクがあって面談がまだの人', n: '5人', tone: 'warn', href: '/jinji/rishoku' },
+  { module: 'roumu', text: '勤務表が届いていない・読めない', n: '4件', tone: 'warn', href: '/roumu/timesheet' },
+  { module: 'jinji', text: '入社手続きのまだの分', n: '17件', tone: 'plain', href: '/jinji/nyusha' },
 ];
 export const APPROVALS: Todo[] = [
   { module: 'keiri', text: '交通費・経費の申請', n: '9件', tone: 'plain', href: '/keiri/keihi' },
   { module: 'roumu', text: '打刻修正・有給・残業', n: '7件', tone: 'plain', href: '/roumu/approval' },
   { module: 'jinji', text: '引っ越し・通勤の変更（本人申請）', n: '2件', tone: 'plain', href: '/jinji/yoyaku' },
-  { module: 'jinji', text: '入社情報（提出済み）', n: '3件', tone: 'plain', href: '/jinji/nyusha' },
+  { module: 'jinji', text: '資格手当の申請', n: '6件', tone: 'plain', href: '/jinji/shikaku' },
 ];
 
 export type Reservation = { date: string; person: string; module: ModuleKey; field: string; from: string; to: string; with: string };

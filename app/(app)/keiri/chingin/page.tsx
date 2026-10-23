@@ -26,6 +26,8 @@ export default function ChinginPage() {
   const [client, setClient] = useState('すべて');
   const [sales, setSales] = useState('すべて');
   const [flash, setFlash] = useState<string | null>(null);
+  // 並び順は「並べ直す」を押すまで固定（値を選ぶたびに行が動いて、押そうとした行が逃げないように）
+  const [order, setOrder] = useState<Record<string, number>>(() => Object.fromEntries(ROWS.map((r) => [r.id, arari(r).rate])));
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -34,13 +36,15 @@ export default function ChinginPage() {
   }, []);
 
   const shown = rows.filter((r) => (client === 'すべて' || r.client === client) && (sales === 'すべて' || r.sales === sales))
-    .map((r) => ({ r, a: arari(r) })).sort((x, y) => x.a.rate - y.a.rate);
+    .map((r) => ({ r, a: arari(r) })).sort((x, y) => (order[x.r.id] ?? x.a.rate) - (order[y.r.id] ?? y.a.rate));
+  const stale = shown.some(({ r, a }) => order[r.id] !== a.rate);
+  const resort = () => setOrder(Object.fromEntries(rows.map((r) => [r.id, arari(r).rate])));
   const sum = shown.reduce((s, { r, a }) => ({ billed: s.billed + r.billed, cost: s.cost + a.salary + a.fare + a.welfare, gross: s.gross + a.gross }), { billed: 0, cost: 0, gross: 0 });
   const tempAll = rows.filter(isTemp);
   const totalTemp = ROWS.filter(isTemp).length;
 
   const setSrc = (r: ArariRow, k: 'salarySrc' | 'fareSrc', v: SalarySrc | FareSrc) => {
-    const before = rows;
+    const prev = r[k];
     const nr = { ...r, [k]: v } as ArariRow;
     setRows((rs) => rs.map((x) => (x.id === r.id ? nr : x)));
     setFlash(r.id); setTimeout(() => setFlash(null), 1300); hit();
@@ -48,16 +52,18 @@ export default function ChinginPage() {
     toast({
       text: `${r.name} の${k === 'salarySrc' ? '給与' : '交通費'}を「${k === 'salarySrc' ? SALARY_LABEL[v as SalarySrc] : FARE_LABEL[v as FareSrc]}」にしました`,
       sub: `→ 粗利 ${yen(was.gross)} → ${yen(now.gross)}（${pct(now.rate)}）・営業別の粗利に反映`,
-      undo: () => setRows(before),
+      // この行のこの値だけ元に戻す（続けてほかの行を選んだ後でも、そちらは消えない）
+      undo: () => setRows((rs) => rs.map((x) => (x.id === r.id ? ({ ...x, [k]: prev } as ArariRow) : x))),
     });
   };
 
-  function SrcCell({ r, k, value }: { r: ArariRow; k: 'salarySrc' | 'fareSrc'; value: number }) {
+  // 部品にせず関数で描く（描くたびに部品が作り直されて、選んだ直後に select が消えて付け直されるのを防ぐ）
+  const srcCell = (r: ArariRow, k: 'salarySrc' | 'fareSrc', value: number) => {
     const opts = Object.keys(k === 'salarySrc' ? r.salary : r.fare) as (SalarySrc | FareSrc)[];
     const cur = r[k];
     const label = (s: string) => (k === 'salarySrc' ? SALARY_LABEL[s as SalarySrc] : FARE_LABEL[s as FareSrc]);
     return (
-      <td className="num px-2 py-2.5 text-right">
+      <td key={k} className="num px-2 py-2.5 text-right">
         {yen(value)}
         {cur === 'temp' && opts.length > 1 ? (
           <select aria-label={`${r.name} の${k === 'salarySrc' ? '給与' : '交通費'}の元`} value={cur} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(e) => setSrc(r, k, e.target.value as SalarySrc)} className="mt-0.5 block w-full rounded-md border px-1 text-[11px] disabled:opacity-50" style={{ borderColor: 'var(--color-warn)', background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>
@@ -66,7 +72,7 @@ export default function ChinginPage() {
         ) : <div className="text-[11px] text-faint">{label(cur)}</div>}
       </td>
     );
-  }
+  };
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
@@ -92,7 +98,7 @@ export default function ChinginPage() {
         <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-6 text-center">
           <Check className="mx-auto text-ok" size={24} />
           <div className="mt-1.5 text-[14.5px] font-bold">仮の値はもうありません</div>
-          <div className="mt-1 text-[12.5px] text-muted">給与と交通費が、全員 本当の値（内定月給・本人提示・経費の申請・定期代）になりました。</div>
+          <div className="mt-1 text-[12.5px] text-muted">給与と交通費が、全員 本当の値（内定の月給・本人提示・経費の申請・定期代）になりました。</div>
         </div>
       )}
 
@@ -105,6 +111,7 @@ export default function ChinginPage() {
             <select value={sales} onChange={(e) => setSales(e.target.value)} className="min-h-8 rounded-lg border border-field bg-surface px-2 text-ink">{['すべて', ...uniq(rows.map((r) => r.sales))].map((c) => <option key={c}>{c}</option>)}</select>
           </label>
           <span className="ml-auto text-faint">{shown.length}人・粗利率の低い順</span>
+          {stale && <button onClick={resort} className="min-h-8 whitespace-nowrap rounded-lg border px-2.5 text-[12px] font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>いまの粗利率で並べ直す</button>}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[920px] border-collapse text-[13px]">
@@ -112,6 +119,7 @@ export default function ChinginPage() {
               <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">取引先・営業</th><th className="px-2 py-2.5 text-right font-semibold">売上（請求）</th><th className="px-2 py-2.5 text-right font-semibold">給与（額面）</th><th className="px-2 py-2.5 text-right font-semibold">交通費</th><th className="px-2 py-2.5 text-right font-semibold">法定福利 {WELFARE_RATE * 100}%</th><th className="px-2 py-2.5 text-right font-semibold">粗利</th><th className="px-4 py-2.5 text-right font-semibold">粗利率</th>
             </tr></thead>
             <tbody>
+              {shown.length === 0 && <tr><td colSpan={8} className="px-4 py-8 text-center text-[12.5px] text-muted">この取引先・営業の組み合わせの人はいません。絞り込みを「すべて」に戻してください。</td></tr>}
               {shown.map(({ r, a }, i) => {
                 const t = rateTone(a.rate);
                 return (
@@ -119,8 +127,8 @@ export default function ChinginPage() {
                     <td className="px-4 py-2.5"><Link href={`/jinji/staff/${r.personId}`} className="font-semibold hover:underline">{r.name}</Link>{isTemp(r) && <div><span className="chip" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>仮の値あり</span></div>}</td>
                     <td className="px-2 py-2.5">{r.client}<div className="text-[11.5px] text-faint">営業 {r.sales}</div></td>
                     <td className="num px-2 py-2.5 text-right">{yen(r.billed)}</td>
-                    <SrcCell r={r} k="salarySrc" value={a.salary} />
-                    <SrcCell r={r} k="fareSrc" value={a.fare} />
+                    {srcCell(r, 'salarySrc', a.salary)}
+                    {srcCell(r, 'fareSrc', a.fare)}
                     <td className="num px-2 py-2.5 text-right text-muted">{yen(a.welfare)}</td>
                     <td className="num px-2 py-2.5 text-right font-bold">{yen(a.gross)}</td>
                     <td className="px-4 py-2.5 text-right">

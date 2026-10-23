@@ -32,9 +32,9 @@ export function MotivationProvider({ children }: { children: React.ReactNode }) 
       <div aria-live="polite" className="pointer-events-none fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-2">
         {toasts.map((t) => (
           <div key={t.id} className="mo-fade-up pointer-events-auto flex min-w-[340px] items-center gap-3 rounded-xl bg-sumi px-4 py-3 text-[13.5px] text-white shadow-[0_10px_28px_rgba(25,27,46,.28)]">
-            <svg aria-hidden width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#16A34A" /><path className="mo-check" d="M7.5 12.5 10.5 15.5 16.5 9" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            <span className="flex-1">{t.text}{t.sub && <span className="block text-[12px] text-[#C9CBE0]">{t.sub}</span>}</span>
-            {t.undo && <button onClick={() => { t.undo!(); setToasts((xs) => xs.filter((x) => x.id !== t.id)); }} className="font-bold text-[#A5F3C4]">取り消す</button>}
+            <svg aria-hidden width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="var(--color-ok)" /><path className="mo-check" d="M7.5 12.5 10.5 15.5 16.5 9" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            <span className="flex-1">{t.text}{t.sub && <span className="block text-[12px] text-white/70">{t.sub}</span>}</span>
+            {t.undo && <button onClick={() => { t.undo!(); setToasts((xs) => xs.filter((x) => x.id !== t.id)); }} className="font-bold" style={{ color: 'var(--tone-ok-bg)' }}>取り消す</button>}
           </div>
         ))}
       </div>

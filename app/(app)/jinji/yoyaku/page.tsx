@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { AlertTriangle, ArrowRight, CalendarClock, Check, X } from 'lucide-react';
 import { PEOPLE } from '@/lib/sample';
 import { MODULES } from '@/lib/theme';
@@ -20,6 +21,20 @@ const SHORT = Object.fromEntries(MODULES.map((m) => [m.key, m.short]));
 const STATE_TONE: Record<YState, string> = { 承認待ち: 'bad', 予約中: 'info', 適用済み: 'ok', 取り消し: 'mute' };
 const FIELDS = Object.keys(FIELD_RULES) as Field[];
 type Filter = 'これから' | '承認待ち' | '適用済み';
+
+// 変更後は選ぶだけ（自由に書かせない＝表記揺れを作らない）。見本の選択肢
+const SITES = Array.from(new Set(['B社（大崎）', 'H社（渋谷）', 'I社（大宮）', 'J社（赤羽）', ...PEOPLE.map((x) => x.site).filter((x) => x !== '—')]));
+const PRICES = Array.from({ length: 31 }, (_, i) => `${25 + i}万`);
+const CITIES = ['東京都23区内', '川口市', 'さいたま市', '川崎市', '横浜市', '千葉市', '船橋市', '町田市'];
+const STATIONS = Array.from(new Set(SITES.map((x) => x.match(/（(.+)）/)?.[1]).filter(Boolean) as string[]));
+function optionsFor(field: Field, p: { site: string; price: string; station: string; status: string }): string[] {
+  if (field === '現場') return [...SITES.filter((x) => x !== p.site), '待機'];
+  if (field === '単価') return PRICES.filter((x) => x !== p.price);
+  if (field === '住所') return CITIES;
+  if (field === '通勤') return STATIONS.map((st) => `${p.station}→${st} 定期`);
+  // 状態：休職・産休・育休から戻すときの「稼働中」も選べる
+  return [...(FIELD_RULES.状態.options ?? []), '稼働中'].filter((x) => x !== p.status);
+}
 
 function StateChip({ s }: { s: YState }) {
   const t = STATE_TONE[s];
@@ -65,20 +80,23 @@ export default function YoyakuPage() {
   };
   const cancel = (r: Yoyaku) => {
     const ids = [r.id, ...linked(rows, r.id)];
-    const before = rows;
+    // 取り消した予約だけ、元の状態（承認待ち／予約中）に戻す
+    const prev = Object.fromEntries(rows.filter((x) => ids.includes(x.id)).map((x) => [x.id, x.state]));
     setRows((rs) => rs.map((x) => (ids.includes(x.id) ? { ...x, state: '取り消し' } : x)));
+    pulse(r.id);
     hit();
-    toast({ text: `${r.person} の${r.field}の予約を取り消しました`, sub: ids.length > 1 ? '→ 合わせて作った通勤の予約も取り消しました' : '→ 一緒に変わる予定だったものも元のままです', undo: () => setRows(() => before) });
+    toast({ text: `${r.person} の${r.field}の予約を取り消しました`, sub: ids.length > 1 ? '→ 合わせて作った通勤の予約も取り消しました' : '→ 一緒に変わる予定だったものも元のままです', undo: () => setRows((rs) => rs.map((x) => (prev[x.id] ? { ...x, state: prev[x.id] } : x))) });
   };
   const add = (y: Yoyaku, replace?: string) => {
-    const before = rows;
     const off = replace ? [replace, ...linked(rows, replace)] : [];
+    const prev = Object.fromEntries(rows.filter((x) => off.includes(x.id)).map((x) => [x.id, x.state]));
     setRows((rs) => [y, ...rs.map((x) => (off.includes(x.id) ? { ...x, state: '取り消し' as YState } : x))]);
     setForm(false); setFilter('これから'); setDay(null); pulse(y.id); hit();
     toast({
       text: `${y.person} の${y.field}を ${fmtDate(y.date)} から「${y.to}」に予約しました`,
       sub: y.state === '承認待ち' ? `→ ${SHORT[approverOf(y.field)]}の承認待ちに載りました` : `→ ${FIELD_RULES[y.field].with.join('・')} も同じ日に変わります${off.length > 1 ? '（前の現場に合わせた通勤の予約は取り消し）' : ''}`,
-      undo: () => setRows(() => before),
+      // この予約を消し、上書きで取り消した前の予約だけ元に戻す
+      undo: () => setRows((rs) => rs.filter((x) => x.id !== y.id).map((x) => (prev[x.id] ? { ...x, state: prev[x.id] } : x))),
     });
   };
 
@@ -118,7 +136,7 @@ export default function YoyakuPage() {
         {(['これから', '承認待ち', '適用済み'] as Filter[]).map((f) => {
           const n = f === 'これから' ? upcoming.length : rows.filter((r) => r.state === f).length;
           return (
-            <button key={f} onClick={() => setFilter(f)} className="min-h-9 rounded-full border px-3.5 text-[13px]"
+            <button key={f} onClick={() => setFilter(f)} className="min-h-9 whitespace-nowrap rounded-full border px-3.5 text-[13px]"
               style={filter === f ? { borderColor: 'var(--a)', background: 'var(--as)', color: 'var(--ad)', fontWeight: 700 } : { borderColor: 'var(--color-field)', background: 'var(--color-surface)' }}>
               {f} <span className="num">{n}</span>
             </button>
@@ -140,8 +158,8 @@ export default function YoyakuPage() {
                 const canApprove = can(rule.module, 'approve');
                 return (
                   <tr key={r.id} className={`mo-fade-in border-t border-line-soft align-top ${flash === r.id ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
-                    <td className="px-4 py-2.5"><b className="num">{fmtDate(r.date)}</b><div className="text-[11.5px]" style={{ color: left >= 0 && left <= 3 && r.state !== '適用済み' ? 'var(--color-bad)' : 'var(--color-faint)' }}>{r.state === '適用済み' ? `${-left}日前に切り替え` : left === 0 ? '今日の朝に切り替え' : `あと${left}日`}</div></td>
-                    <td className="px-2 py-2.5 font-semibold">{r.person}<div className="text-[11.5px] font-normal text-faint">登録 {r.by}</div></td>
+                    <td className="whitespace-nowrap px-4 py-2.5"><b className="num">{fmtDate(r.date)}</b><div className="text-[11.5px]" style={{ color: left >= 0 && left <= 3 && r.state !== '適用済み' ? 'var(--color-bad)' : 'var(--color-faint)' }}>{r.state === '適用済み' ? `${-left}日前に切り替え` : left === 0 ? '今日の朝に切り替え' : `あと${left}日`}</div></td>
+                    <td className="whitespace-nowrap px-2 py-2.5 font-semibold"><Link href={`/jinji/staff/${r.personId}`} className="hover:underline">{r.person}</Link><div className="text-[11.5px] font-normal text-faint">登録 {r.by}</div></td>
                     <td className="px-2 py-2.5"><span className="inline-flex items-center gap-1.5 font-semibold"><i className="size-[7px] rounded-full" style={{ background: `var(--c-${rule.module})` }} />{r.field}</span><div className="text-[11.5px] text-faint">{SHORT[rule.module]}</div></td>
                     <td className="px-2 py-2.5"><span className="text-faint line-through">{r.from}</span> <ArrowRight size={13} className="inline text-faint" /> <b>{r.to}</b>{r.note && <div className="mt-0.5 text-[11.5px] text-muted">{r.note}</div>}</td>
                     <td className="max-w-[280px] px-2 py-2.5"><div className="flex flex-wrap gap-1">{rule.with.map((w) => <span key={w} className="rounded-md bg-soft px-1.5 py-0.5 text-[11.5px] text-muted">{w}</span>)}</div></td>
@@ -173,6 +191,7 @@ function YoyakuForm({ initial, rows, onClose, onSave }: { initial: string; rows:
   const [replace, setReplace] = useState(false);
   const p = people.find((x) => x.id === pid)!;
   const rule = FIELD_RULES[field];
+  const opts = optionsFor(field, p);
   const from = field === '現場' ? p.site : field === '単価' ? p.price : field === '住所' ? `${p.station} 付近` : field === '通勤' ? `${p.station} から 定期` : p.status;
   const clash = rows.find((r) => r.personId === pid && r.field === field && (r.state === '予約中' || r.state === '承認待ち'));
   const past = date < TODAY;
@@ -189,7 +208,7 @@ function YoyakuForm({ initial, rows, onClose, onSave }: { initial: string; rows:
         </div>
         <div className="flex flex-1 flex-col gap-3.5 overflow-y-auto px-5 pb-4 text-[13px]">
           <label className="flex flex-col gap-1 text-[12px] text-muted">社員
-            <select value={pid} onChange={(e) => { setPid(e.target.value); setReplace(false); }} className="min-h-10 rounded-[10px] border border-field bg-surface px-2.5 text-[13.5px] text-ink">
+            <select value={pid} onChange={(e) => { setPid(e.target.value); setTo(''); setReplace(false); }} className="min-h-10 rounded-[10px] border border-field bg-surface px-2.5 text-[13.5px] text-ink">
               {people.map((x) => <option key={x.id} value={x.id}>{x.name}（{x.site === '—' ? x.status : x.site}）</option>)}
             </select>
           </label>
@@ -211,9 +230,7 @@ function YoyakuForm({ initial, rows, onClose, onSave }: { initial: string; rows:
             <div className="flex flex-col gap-1 text-[12px] text-muted">いま<div className="flex min-h-10 items-center rounded-[10px] bg-soft px-2.5 text-[13.5px] text-ink">{from}</div></div>
             <ArrowRight size={16} className="mb-3 text-faint" />
             <label className="flex flex-col gap-1 text-[12px] text-muted">変更後
-              {rule.options
-                ? <select value={to} onChange={(e) => setTo(e.target.value)} className="min-h-10 rounded-[10px] border border-field bg-surface px-2.5 text-[13.5px] text-ink"><option value="">選ぶ</option>{rule.options.map((o) => <option key={o}>{o}</option>)}</select>
-                : <input value={to} onChange={(e) => setTo(e.target.value)} placeholder={field === '単価' ? '例：48万' : field === '現場' ? '例：B社（大崎）' : field === '通勤' ? '例：川口→大崎 定期' : '例：川崎市'} className="min-h-10 rounded-[10px] border border-field bg-surface px-2.5 text-[13.5px] text-ink" />}
+              <select value={to} onChange={(e) => setTo(e.target.value)} className="min-h-10 min-w-0 rounded-[10px] border border-field bg-surface px-2.5 text-[13.5px] text-ink"><option value="">選ぶ</option>{opts.map((o) => <option key={o}>{o}</option>)}</select>
             </label>
           </div>
 
@@ -235,7 +252,7 @@ function YoyakuForm({ initial, rows, onClose, onSave }: { initial: string; rows:
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
           <button onClick={onClose} className="min-h-10 rounded-[10px] border border-field bg-surface px-3.5 text-[13.5px] font-semibold">やめる</button>
-          <PrimaryButton onClick={save} disabled={!ready} title={!canMake ? needText('edit') : clash && !replace ? '前の予約をどうするか選んでください' : !to.trim() ? '変更後を入れてください' : undefined}>
+          <PrimaryButton onClick={save} disabled={!ready} title={!canMake ? needText('edit') : clash && !replace ? '前の予約をどうするか選んでください' : !to.trim() ? '変更後を選んでください' : past ? '今日より前の日は選べません' : undefined}>
             {rule.approve ? '予約して承認に回す' : '予約する'}
           </PrimaryButton>
         </div>

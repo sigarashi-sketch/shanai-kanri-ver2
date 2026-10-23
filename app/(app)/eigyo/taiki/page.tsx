@@ -47,11 +47,12 @@ export default function TaikiPage() {
   const decided = rows.filter((r) => r.state === '参画決定');
 
   const change = (r: Row, patch: Partial<Row>, text: string, sub: string) => {
-    const before = rows;
+    // 取り消しは「この行の、この回に変えた項目」だけを戻す（ほかの行・あとの変更を巻き込まない）
+    const prev = Object.fromEntries(Object.keys(patch).map((k) => [k, r[k as keyof Row]])) as Partial<Row>;
     setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, ...patch } : x)));
     setFlash(r.id); setTimeout(() => setFlash(null), 1300);
     hit();
-    toast({ text, sub, undo: () => setRows(before) });
+    toast({ text, sub, undo: () => setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, ...prev } : x))) });
   };
 
   return (
@@ -64,9 +65,9 @@ export default function TaikiPage() {
           <span className="ml-2 text-muted">待機30日以上 {open.filter((r) => r.kind === '待機中' && taikiDays(r) >= 30).length}人・案件を探す {open.filter((r) => r.state === '案件を探す').length}人</span>
           {!canEdit && <div className="text-[12px] text-bad">{needText('edit')}</div>}
         </div>
-        <div className="ml-auto flex gap-1.5">
+        <div className="ml-auto flex flex-wrap gap-1.5">
           {(['すべて', '待機中', 'もうすぐ待機'] as Filter[]).map((k) => (
-            <button key={k} onClick={() => setFilter(k)} className={`min-h-8 rounded-full border px-3 text-[12.5px] ${filter === k ? 'font-semibold' : 'text-muted'}`} style={filter === k ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>
+            <button key={k} onClick={() => setFilter(k)} className={`min-h-8 whitespace-nowrap rounded-full border px-3 text-[12.5px] ${filter === k ? 'font-semibold' : 'text-muted'}`} style={filter === k ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>
               {k} {k === 'すべて' ? open.length : open.filter((r) => r.kind === k).length}
             </button>
           ))}
@@ -78,6 +79,10 @@ export default function TaikiPage() {
           <Check className="mx-auto text-ok" size={26} /><div className="mt-2 text-[15px] font-bold">待機の人は、全員つぎの現場が決まりました</div>
           <div className="mt-1 text-[12.5px] text-muted">今日は {decided.length}人 が参画決定。契約終了が近づいた人が出たら、ここにまた並びます。</div>
         </div>
+      )}
+
+      {open.length > 0 && shown.length === 0 && (
+        <div className="rounded-xl border border-line bg-surface px-6 py-8 text-center text-[13px] text-muted">「{filter}」の人はいま居ません。<button onClick={() => setFilter('すべて')} className="ml-1 font-semibold underline">すべてを見る</button></div>
       )}
 
       {shown.length > 0 && (
@@ -96,7 +101,7 @@ export default function TaikiPage() {
                       <div className="flex items-center gap-1 text-[11.5px] text-faint"><MapPin size={11} />{r.station}・{r.want}・希望 {r.price}万〜</div>
                     </td>
                     <td className="px-2 py-2.5">
-                      <span className="chip" style={{ background: `var(--tone-${tone}-bg)`, color: `var(--tone-${tone}-fg)` }}><Hourglass size={11} />{r.kind === '待機中' ? `待機 ${d}日目` : `あと${d}日で待機`}</span>
+                      <span className="chip whitespace-nowrap" style={{ background: `var(--tone-${tone}-bg)`, color: `var(--tone-${tone}-fg)` }}><Hourglass size={11} />{r.kind === '待機中' ? `待機 ${d}日目` : `あと${d}日で待機`}</span>
                       <div className="mt-0.5 text-[11.5px] text-faint">{r.kind === '待機中' ? `${r.since!.slice(5).replace('-', '/')} から` : `${r.site}・${r.contractEnd!.slice(5).replace('-', '/')} 契約終了`}</div>
                     </td>
                     <td className="px-2 py-2.5">
@@ -130,7 +135,7 @@ export default function TaikiPage() {
           <ul className="mt-2 flex flex-col gap-1 text-[12.5px]">
             {decided.map((r) => (
               <li key={r.id} className="flex items-center gap-2"><span className="text-ok">参画決定</span><span>{r.name} → {STOCK.find((c) => c.no === r.next)?.name ?? '—'}（担当営業 {r.sales}）</span>
-                <button disabled={!canEdit} onClick={() => setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, state: '面談調整中' } : x)))} className="ml-auto text-[12px] text-muted disabled:opacity-40">戻す</button></li>
+                <button disabled={!canEdit} title={!canEdit ? needText('edit') : '面談調整中に戻して、一覧に出し直します'} onClick={() => change(r, { state: '面談調整中' }, `${r.name} を「面談調整中」に戻しました`, '→ 待機の一覧に戻しました')} className="ml-auto shrink-0 text-[12px] text-muted underline disabled:opacity-40">戻す</button></li>
             ))}
           </ul>
         </div>

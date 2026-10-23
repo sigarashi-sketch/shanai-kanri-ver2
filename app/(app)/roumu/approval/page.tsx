@@ -42,20 +42,22 @@ export default function ApprovalPage() {
   const [kind, setKind] = useState<ReqKind | 'すべて'>('すべて');
   const [sel, setSel] = useState<Record<string, boolean>>({});
   const [flash, setFlash] = useState<string | null>(null);
+  const [front, setFront] = useState<string | null>(null); // 一覧から「1件ずつ見る」で開いた申請を先頭に
 
   useEffect(() => { if (new URLSearchParams(window.location.search).get('view') === 'list') setView('list'); }, []);
 
   const pending = sortReqs(REQUESTS.filter((r) => !done[r.id]));
   // あとで に回したものは列の最後へ
-  const queue = [...pending.filter((r) => !skipped.includes(r.id)), ...pending.filter((r) => skipped.includes(r.id))];
+  const rest = [...pending.filter((r) => !skipped.includes(r.id)), ...pending.filter((r) => skipped.includes(r.id))];
+  const queue = [...rest.filter((r) => r.id === front), ...rest.filter((r) => r.id !== front)];
   const cur = queue[0];
   const total = REQUESTS.length;
   const curTone = cur ? TONE_OF(cur.checks) : 'ok';
   const canGo = canApprove && cur && (curTone !== 'bad' || confirmed[cur.id]);
 
   const settle = (rs: Req[], d: Done) => {
-    const before = done;
-    setDone((x) => ({ ...x, ...Object.fromEntries(rs.map((r) => [r.id, d])) }));
+    const ids = rs.map((r) => r.id);
+    setDone((x) => ({ ...x, ...Object.fromEntries(ids.map((id) => [id, d])) }));
     setRejecting(false); setSel({});
     if (rs.length === 1) { setFlash(rs[0].id); setTimeout(() => setFlash(null), 1300); }
     hit(rs.length);
@@ -63,14 +65,16 @@ export default function ApprovalPage() {
     toast({
       text: rs.length > 1 ? `${rs.length}件をまとめて承認しました` : `${r.person} の${r.kind}を${d.result}しました`,
       sub: d.result === '差し戻し' ? `→ 本人に「${d.reason}」で戻しました（あおい）` : rs.length > 1 ? '→ freee の勤怠と、勤怠の締めに反映しました' : sub(r),
-      undo: () => setDone(before),
+      // 取り消しはこの操作で片づけた分だけ戻す（続けて処理した別の申請は戻さない）
+      undo: () => setDone((x) => { const n = { ...x }; ids.forEach((id) => delete n[id]); return n; }),
     });
   };
   const sub = (r: Req) => r.kind === '残業' ? '→ freee の勤怠と、残業・36協定の見込みに反映しました' : r.kind === '有給' ? '→ freee の休暇と、有給の年5日の進み具合に反映しました' : r.kind === '欠勤' ? '→ 欠勤管理と、離職リスクの材料に反映しました' : '→ freee の勤怠と、勤怠の締めに反映しました';
 
   const approve = () => { if (cur && canGo) settle([cur], { result: '承認' }); };
   const reject = () => { if (cur && canApprove) settle([cur], { result: '差し戻し', reason }); };
-  const skip = () => { if (cur) { setSkipped((s) => [...s.filter((x) => x !== cur.id), cur.id]); setRejecting(false); } };
+  const skip = () => { if (cur && queue.length > 1) { setSkipped((s) => [...s.filter((x) => x !== cur.id), cur.id]); if (front === cur.id) setFront(null); setRejecting(false); } };
+  const openOne = (r: Req) => { setFront(r.id); setView('focus'); setRejecting(false); };
 
   // キーボード：A=承認・R=差し戻し・S=あとで（入力中・選択中は効かない）
   useEffect(() => {
@@ -81,7 +85,7 @@ export default function ApprovalPage() {
       if (e.metaKey || e.ctrlKey || e.altKey || typing) return;
       const k = e.key.toLowerCase();
       if (k === 'a') approve();
-      else if (k === 'r') { if (rejecting) reject(); else setRejecting(true); }
+      else if (k === 'r' && canApprove) { if (rejecting) reject(); else setRejecting(true); }
       else if (k === 's') skip();
       else if (k === 'escape') setRejecting(false);
     };
@@ -159,15 +163,15 @@ export default function ApprovalPage() {
               <select aria-label="差し戻す理由" value={reason} onChange={(e) => setReason(e.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-[13px]">
                 {REJECT_REASONS.map((x) => <option key={x}>{x}</option>)}
               </select>
-              <button onClick={reject} disabled={!canApprove} className="min-h-9 rounded-[10px] px-3 text-[13px] font-semibold text-white disabled:opacity-40" style={{ background: 'var(--color-bad)' }}>この理由で差し戻す</button>
+              <button onClick={reject} disabled={!canApprove} title={!canApprove ? needText('approve') : undefined} className="min-h-9 rounded-[10px] px-3 text-[13px] font-semibold text-white disabled:opacity-40" style={{ background: 'var(--color-bad)' }}>この理由で差し戻す</button>
               <button onClick={() => setRejecting(false)} className="text-[12.5px] text-muted">やめる</button>
             </div>
           )}
 
           <div className="flex flex-wrap items-center gap-2 border-t border-line-soft px-5 py-3">
             <button onClick={approve} disabled={!canGo} title={!canApprove ? needText('approve') : curTone === 'bad' && !confirmed[cur.id] ? '要注意の点を確かめてから' : undefined} className="btn-primary inline-flex min-h-10 items-center gap-1.5 rounded-[10px] px-4 text-[13.5px] font-bold disabled:opacity-40"><Check size={16} />承認<kbd className="ml-1 rounded bg-white/20 px-1 text-[11px]">A</kbd></button>
-            <button onClick={() => setRejecting(true)} disabled={!canApprove} className="inline-flex min-h-10 items-center gap-1.5 rounded-[10px] border border-field bg-surface px-3.5 text-[13px] font-semibold disabled:opacity-40"><CornerUpLeft size={15} />差し戻し<kbd className="ml-1 rounded bg-soft px-1 text-[11px] text-muted">R</kbd></button>
-            <button onClick={skip} className="inline-flex min-h-10 items-center gap-1.5 rounded-[10px] px-3 text-[13px] text-muted"><SkipForward size={15} />あとで<kbd className="ml-1 rounded bg-soft px-1 text-[11px]">S</kbd></button>
+            <button onClick={() => setRejecting(true)} disabled={!canApprove} title={!canApprove ? needText('approve') : undefined} className="inline-flex min-h-10 items-center gap-1.5 rounded-[10px] border border-field bg-surface px-3.5 text-[13px] font-semibold disabled:opacity-40"><CornerUpLeft size={15} />差し戻し<kbd className="ml-1 rounded bg-soft px-1 text-[11px] text-muted">R</kbd></button>
+            <button onClick={skip} disabled={queue.length <= 1} title={queue.length <= 1 ? 'ほかに残っている申請がありません' : undefined} className="inline-flex min-h-10 items-center gap-1.5 rounded-[10px] px-3 text-[13px] text-muted"><SkipForward size={15} />あとで<kbd className="ml-1 rounded bg-soft px-1 text-[11px]">S</kbd></button>
             {queue[1] && <span className="ml-auto text-[12px] text-faint">次：{queue[1].person} の{queue[1].kind}</span>}
           </div>
         </article>
@@ -181,16 +185,17 @@ export default function ApprovalPage() {
               return <button key={k} onClick={() => setKind(k)} className={`min-h-8 rounded-full border px-3 text-[12.5px] ${kind === k ? 'font-semibold' : 'text-muted'}`} style={kind === k ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>{k} {n}</button>;
             })}
             <div className="ml-auto flex items-center gap-2">
-              {picked.length > 0 && <button onClick={() => settle(picked, { result: '承認' })} disabled={!canApprove || picked.some((r) => TONE_OF(r.checks) === 'bad')} title={picked.some((r) => TONE_OF(r.checks) === 'bad') ? '要注意の申請は1件ずつ確かめてください' : undefined} className="btn-primary min-h-8 rounded-lg px-3 text-[12.5px] font-bold disabled:opacity-40">選んだ {picked.length}件を承認</button>}
-              <button onClick={() => okRows.length && settle(okRows, { result: '承認' })} disabled={!canApprove || okRows.length === 0} className="min-h-8 rounded-lg border px-3 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>問題なし {okRows.length}件をまとめて承認</button>
+              {picked.length > 0 && <button onClick={() => settle(picked, { result: '承認' })} disabled={!canApprove || picked.some((r) => TONE_OF(r.checks) === 'bad')} title={!canApprove ? needText('approve') : picked.some((r) => TONE_OF(r.checks) === 'bad') ? '要注意の申請は1件ずつ確かめてください' : undefined} className="btn-primary min-h-8 rounded-lg px-3 text-[12.5px] font-bold disabled:opacity-40">選んだ {picked.length}件を承認</button>}
+              <button onClick={() => okRows.length && settle(okRows, { result: '承認' })} disabled={!canApprove || okRows.length === 0} title={!canApprove ? needText('approve') : undefined} className="min-h-8 rounded-lg border px-3 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>問題なし {okRows.length}件をまとめて承認</button>
             </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[820px] border-collapse text-[13px]">
               <thead><tr className="th-row text-left">
-                <th className="w-10 px-4 py-2.5" /><th className="px-2 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">種類</th><th className="px-2 py-2.5 font-semibold">日・中身</th><th className="px-2 py-2.5 font-semibold">先に確かめたこと</th><th className="px-4 py-2.5 font-semibold">申請</th>
+                <th className="w-10 px-4 py-2.5" /><th className="px-2 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">種類</th><th className="px-2 py-2.5 font-semibold">日・中身</th><th className="px-2 py-2.5 font-semibold">先に確かめたこと</th><th className="px-2 py-2.5 font-semibold">申請</th><th className="px-4 py-2.5" />
               </tr></thead>
               <tbody>
+                {listRows.length === 0 && <tr><td colSpan={7} className="px-4 py-8 text-center text-[13px] text-muted">「{kind}」の申請は残っていません。</td></tr>}
                 {listRows.map((r, i) => {
                   const t = TONE_OF(r.checks);
                   return (
@@ -200,7 +205,8 @@ export default function ApprovalPage() {
                       <td className="px-2 py-2.5"><span className="chip" style={{ background: CHIP[t].bg, color: CHIP[t].fg }}>{r.kind}</span></td>
                       <td className="num px-2 py-2.5">{r.day}<div className="text-[12px] text-muted">{r.detail}・{r.reason}</div></td>
                       <td className="px-2 py-2.5"><ul className="flex flex-col gap-1">{r.checks.filter((c) => c.tone !== 'ok').concat(t === 'ok' ? r.checks.slice(0, 1) : []).map((c) => <CheckLine key={c.text} c={c} />)}</ul></td>
-                      <td className="num px-4 py-2.5 text-[12px] text-faint">{r.filedAt}</td>
+                      <td className="num whitespace-nowrap px-2 py-2.5 text-[12px] text-faint">{r.filedAt}</td>
+                      <td className="px-4 py-2.5 text-right"><button onClick={() => openOne(r)} className="min-h-8 whitespace-nowrap rounded-lg border border-field bg-surface px-2.5 text-[12px] font-semibold">1件ずつ見る</button></td>
                     </tr>
                   );
                 })}
@@ -219,7 +225,7 @@ export default function ApprovalPage() {
                 <span className={done[r.id].result === '承認' ? 'text-ok' : 'text-bad'}>{done[r.id].result}</span>
                 <span>{r.person} の{r.kind}（{r.day} {r.detail}）</span>
                 {done[r.id].reason && <span className="text-faint">理由：{done[r.id].reason}</span>}
-                <button onClick={() => setDone((d) => { const n = { ...d }; delete n[r.id]; return n; })} className="ml-auto text-[12px] text-muted">戻す</button>
+                <button onClick={() => setDone((d) => { const n = { ...d }; delete n[r.id]; return n; })} disabled={!canApprove} title={!canApprove ? needText('approve') : '未処理に戻します'} className="ml-auto text-[12px] text-muted disabled:opacity-40">戻す</button>
               </li>
             ))}
           </ul>

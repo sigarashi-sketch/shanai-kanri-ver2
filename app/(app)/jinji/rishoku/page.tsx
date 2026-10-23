@@ -37,29 +37,38 @@ const ORDER: Lv[] = ['high', 'mid', 'low'];
 export default function RishokuPage() {
   const [tab, setTab] = useState<'risk' | 'rate'>('risk');
   useEffect(() => { if (new URLSearchParams(window.location.search).get('tab') === 'rate') setTab('rate'); }, []);
+  // 面談の予約・担当・時期はタブを行き来しても消えないよう、ここで持つ
+  const booked = useState<Record<string, string>>({});
+  const by = useState<Record<string, string>>({});
+  const when = useState<Record<string, string>>({});
+  const showLow = useState(false);
   const go = (t: 'risk' | 'rate') => { setTab(t); window.history.replaceState(null, '', t === 'rate' ? '?tab=rate' : window.location.pathname); };
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="離職リスク・離職率" sub="点数ではなく「なぜ気になるか」を並べます。勤怠・日報・面談メモから・見本データ" />
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 1 }}>
         {([['risk', '1人ずつのリスク'], ['rate', '離職率（入社月ごと）']] as const).map(([k, l]) => (
-          <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="px-3.5 py-2.5 text-[14px]" style={tab === k ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>{l}</button>
+          <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="whitespace-nowrap px-3.5 py-2.5 text-[14px]" style={tab === k ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>{l}</button>
         ))}
       </div>
-      <div key={tab} className="mo-axis">{tab === 'risk' ? <RiskTab /> : <RateTab />}</div>
+      <div key={tab} className="mo-axis">{tab === 'risk' ? <RiskTab st={{ booked, by, when, showLow }} /> : <RateTab />}</div>
       <p className="text-[11.5px] text-faint">年齢・性別・健康の申告は材料に入れていません。退職の扱い・面談での聞き方に迷ったら、最終判断は社労士・法務に確認してください。</p>
     </main>
   );
 }
 
-function RiskTab() {
+type Pair<T> = [T, React.Dispatch<React.SetStateAction<T>>];
+type RiskState = { booked: Pair<Record<string, string>>; by: Pair<Record<string, string>>; when: Pair<Record<string, string>>; showLow: Pair<boolean> };
+
+function RiskTab({ st }: { st: RiskState }) {
   const canEdit = usePerms().can('jinji', 'edit');
   const { hit, toast } = useMotivation();
-  const [booked, setBooked] = useState<Record<string, string>>({});
-  const [by, setBy] = useState<Record<string, string>>({});
-  const [when, setWhen] = useState<Record<string, string>>({});
+  const [booked, setBooked] = st.booked;
+  const [by, setBy] = st.by;
+  const [when, setWhen] = st.when;
+  const [showLow, setShowLow] = st.showLow;
   const [flash, setFlash] = useState<string | null>(null);
-  const [showLow, setShowLow] = useState(false);
+  const unbook = (id: string) => setBooked((b) => { const n = { ...b }; delete n[id]; return n; });
 
   const rows = RISK_PEOPLE.map((p) => { const s = signals(p); return { p, s, lv: levelOf(s) }; }).sort((a, b) => ORDER.indexOf(a.lv) - ORDER.indexOf(b.lv) || b.s.length - a.s.length);
   const need = rows.filter((r) => r.lv !== 'low');
@@ -70,15 +79,15 @@ function RiskTab() {
     const who = by[p.id] ?? MENDAN_BY[0]; const w = when[p.id] ?? MENDAN_WHEN[0];
     setBooked((b) => ({ ...b, [p.id]: `${who}・${w}` }));
     setFlash(p.id); setTimeout(() => setFlash(null), 1300); hit();
-    toast({ text: `${p.name} の面談を入れました（${who}・${w}）`, sub: `→ ${who.split('（')[0]} のやることと、予約・面談の一覧に載りました`, undo: () => setBooked((b) => { const n = { ...b }; delete n[p.id]; return n; }) });
+    toast({ text: `${p.name} の面談を入れました（${who}・${w}）`, sub: `→ ${who.split('（')[0]} のやることと、予約・面談の一覧に載りました`, undo: () => unbook(p.id) });
   };
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
         <RemainRing remain={remain} total={need.length} />
         <div className="text-[13px]"><b>面談を入れていない人 {remain}人</b><span className="ml-2 text-muted">早めに面談 {need.filter((r) => r.lv === 'high').length}・気にかける {need.filter((r) => r.lv === 'mid').length}</span>{!canEdit && <div className="text-[12px] text-bad">{needText('edit')}</div>}</div>
-        <label className="ml-auto flex items-center gap-1.5 text-[12.5px] text-muted"><input type="checkbox" checked={showLow} onChange={(e) => setShowLow(e.target.checked)} />落ち着いている人も出す</label>
+        <label className="ml-auto flex items-center gap-1.5 whitespace-nowrap text-[12.5px] text-muted"><input type="checkbox" checked={showLow} onChange={(e) => setShowLow(e.target.checked)} />落ち着いている人も出す</label>
       </div>
 
       {remain === 0 && (
@@ -100,12 +109,12 @@ function RiskTab() {
                 </td>
                 <td className="px-4 py-2.5">
                   {booked[p.id] ? (
-                    <div className="flex items-center gap-2 text-[12.5px]"><Check size={14} className="text-ok" />面談 {booked[p.id]}<button onClick={() => setBooked((b) => { const n = { ...b }; delete n[p.id]; return n; })} className="text-[12px] text-muted">戻す</button></div>
+                    <div className="flex flex-wrap items-center gap-2 text-[12.5px]"><Check size={14} className="text-ok" />面談 {booked[p.id]}<button onClick={() => { unbook(p.id); toast({ text: `${p.name} の面談の予定を外しました`, sub: '→ 担当のやることと、予約・面談の一覧から外しました', undo: () => setBooked((b) => ({ ...b, [p.id]: booked[p.id] })) }); }} disabled={!canEdit} title={canEdit ? '面談の予定を外す' : needText('edit')} className="text-[12px] text-muted disabled:cursor-not-allowed disabled:opacity-40">戻す</button></div>
                   ) : lv !== 'low' ? (
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <select aria-label="面談の担当" value={by[p.id] ?? MENDAN_BY[0]} onChange={(e) => setBy((x) => ({ ...x, [p.id]: e.target.value }))} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-[12.5px]">{MENDAN_BY.map((m) => <option key={m}>{m}</option>)}</select>
-                      <select aria-label="面談の時期" value={when[p.id] ?? MENDAN_WHEN[0]} onChange={(e) => setWhen((x) => ({ ...x, [p.id]: e.target.value }))} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-[12.5px]">{MENDAN_WHEN.map((m) => <option key={m}>{m}</option>)}</select>
-                      <button onClick={() => book(p)} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} className="btn-primary inline-flex min-h-8 items-center gap-1 rounded-lg px-2.5 text-[12.5px] font-bold disabled:opacity-40"><CalendarPlus size={14} />面談を入れる</button>
+                      <select aria-label="面談の担当" value={by[p.id] ?? MENDAN_BY[0]} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(e) => setBy((x) => ({ ...x, [p.id]: e.target.value }))} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-[12.5px] disabled:opacity-50">{MENDAN_BY.map((m) => <option key={m}>{m}</option>)}</select>
+                      <select aria-label="面談の時期" value={when[p.id] ?? MENDAN_WHEN[0]} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(e) => setWhen((x) => ({ ...x, [p.id]: e.target.value }))} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-[12.5px] disabled:opacity-50">{MENDAN_WHEN.map((m) => <option key={m}>{m}</option>)}</select>
+                      <button onClick={() => book(p)} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} className="btn-primary inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg px-2.5 text-[12.5px] font-bold disabled:cursor-not-allowed disabled:opacity-40"><CalendarPlus size={14} />面談を入れる</button>
                     </div>
                   ) : <span className="text-[12px] text-faint">—</span>}
                 </td>
@@ -143,8 +152,8 @@ function RateTab() {
                     <td key={j} className="px-2 py-2.5">
                       {p === null ? <span className="text-[12px] text-faint">まだ届いていない</span> : (
                         <div className="flex items-center gap-2">
-                          <div className="h-2.5 w-28 overflow-hidden rounded-full bg-sunken"><div className="mo-bar h-full rounded-full" style={{ width: `${p}%`, background: p >= 85 ? 'var(--tone-ok-bar)' : p >= 75 ? 'var(--tone-caution-bar)' : 'var(--tone-bad-bar)', ['--i' as string]: i }} /></div>
-                          <span className="num text-[12.5px]">{p}%<span className="ml-1 text-faint">（{v}人）</span></span>
+                          <div className="h-2.5 w-28 shrink-0 overflow-hidden rounded-full bg-sunken"><div className="mo-bar h-full rounded-full" style={{ width: `${p}%`, background: p >= 85 ? 'var(--tone-ok-bar)' : p >= 75 ? 'var(--tone-caution-bar)' : 'var(--tone-bad-bar)', ['--i' as string]: i }} /></div>
+                          <span className="num whitespace-nowrap text-[12.5px]">{p}%<span className="ml-1 text-faint">（{v}人）</span></span>
                         </div>
                       )}
                     </td>

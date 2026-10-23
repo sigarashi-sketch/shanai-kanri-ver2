@@ -39,10 +39,10 @@ export default function PlPage() {
 
   const close = () => {
     if (!canApprove || closed[month]) return;
-    const before = closed;
-    setClosed((c) => ({ ...c, [month]: true })); setFlash(true); setTimeout(() => setFlash(false), 1300);
+    const m = month;
+    setClosed((c) => ({ ...c, [m]: true })); setFlash(true); setTimeout(() => setFlash(false), 1300);
     hit();
-    toast({ text: `${monthLabel(month)}の営業別の数字を締めました`, sub: '→ 損益シミュレーションの「営業別」と、月次の損益に反映しました', undo: () => setClosed(before) });
+    toast({ text: `${monthLabel(month)}の営業別の数字を締めました`, sub: '→ 損益シミュレーションの「営業別」と、月次の損益に反映しました', undo: () => setClosed((c) => ({ ...c, [m]: false })) });
   };
 
   return (
@@ -57,12 +57,12 @@ export default function PlPage() {
             {monthLabel(m)}{closed[m] && <Lock size={10} className="ml-1 inline" />}
           </button>
         ))}
-        <label className="ml-auto flex items-center gap-2 text-[12.5px] text-muted"><input type="checkbox" checked={cut} onChange={(e) => setCut(e.target.checked)} />請求の無い退場を差し引く{cutTotal > 0 && <span className="text-faint">（この月 {man(cutTotal)}）</span>}</label>
+        <label className="ml-auto flex flex-wrap items-center gap-2 text-[12.5px] text-muted"><input type="checkbox" checked={cut} onChange={(e) => setCut(e.target.checked)} />請求の無い退場を差し引く{cutTotal > 0 && <span className="text-faint">（この月 {man(cutTotal)}）</span>}</label>
       </div>
 
       <div className={`grid gap-3 sm:grid-cols-4 ${flash ? 'mo-flash' : ''}`}>
         {[
-          { k: '売上', v: sum.uri, unit: '万', sub: prev ? `先月 ${prevUri >= sum.uri ? '' : '+'}${sum.uri - prevUri}万` : '' },
+          { k: '売上', v: sum.uri, unit: '万', sub: prev ? `先月より ${sum.uri >= prevUri ? '+' : '−'}${Math.abs(sum.uri - prevUri)}万` : '' },
           { k: '粗利', v: sum.arari, unit: '万', sub: `粗利率 ${((sum.arari / sum.uri) * 100).toFixed(1)}%` },
           { k: '成約数', v: sum.n, unit: '件', sub: `面談からの成約 ${Math.round((sum.n / sum.mendan) * 100)}%` },
           { k: '送った案件', v: sum.sent, unit: '件', sub: `面談 ${sum.mendan}件` },
@@ -89,7 +89,7 @@ export default function PlPage() {
                     <div className="mo-bar absolute inset-y-0 left-0 rounded-md" style={{ width: `${(r.uri / maxUri) * 100}%`, background: 'var(--al)', ['--i' as string]: i }} />
                     <div className="mo-bar absolute inset-y-0 left-0 rounded-md" style={{ width: `${(r.arari / maxUri) * 100}%`, background: 'var(--a)', ['--i' as string]: i }} />
                   </div>
-                  <div className="num mt-0.5 text-[11.5px] text-muted">売上 {man(r.uri)}・粗利 {man(r.arari)}</div>
+                  <div className="num mt-0.5 whitespace-nowrap text-[11.5px] text-muted">売上 {man(r.uri)}・粗利 {man(r.arari)}</div>
                 </td>
                 <td className="num px-2 py-2.5 text-right">{((r.arari / r.uri) * 100).toFixed(1)}%</td>
                 <td className="num px-2 py-2.5 text-right font-semibold">{r.n}件</td>
@@ -100,7 +100,7 @@ export default function PlPage() {
             ))}
           </tbody>
         </table>
-        <div className="flex gap-4 border-t border-line-soft px-4 py-2 text-[11.5px] text-muted">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-line-soft px-4 py-2 text-[11.5px] text-muted">
           <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-4 rounded-sm" style={{ background: 'var(--al)' }} />売上</span>
           <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-4 rounded-sm" style={{ background: 'var(--a)' }} />粗利</span>
           <span>粗利＝単価−額面−額面×19%（社保）−交通費</span>
