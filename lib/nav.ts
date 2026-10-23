@@ -49,7 +49,7 @@ export const NAV: NavGroup[] = [
   },
   {
     module: 'keiri', label: '経理管理', items: [
-      { href: '/keiri/keihi', label: '交通費・経費', badge: 9 },
+      { href: '/keiri/keihi', label: '交通費・経費', built: true, badge: 9 },
       { href: '/keiri/check', label: '交通費チェック' },
       { href: '/keiri/seikyu', label: '請求書', badge: 18 },
       { href: '/keiri/chingin', label: '想定賃金・粗利' },
