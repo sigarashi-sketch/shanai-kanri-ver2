@@ -39,7 +39,7 @@ export const NAV: NavGroup[] = [
   {
     module: 'eigyo', label: '営業', items: [
       { href: '/eigyo/cases', label: '案件' },
-      { href: '/eigyo/progress', label: '案件進捗' }, // 単独のまま。作り込み（カスタム）はあとで詰める（10-23 shoya）
+      { href: '/eigyo/progress', label: '案件進捗', built: true, badge: 4 }, // 単独のまま。作り込み（カスタム）はあとで詰める（10-23 shoya）
       { href: '/eigyo/proper', label: '要員リスト（プロパー・スキシ）', built: true },
       { href: '/eigyo/taiki', label: '待機・再アサイン' },
       { href: '/eigyo/nippo', label: '成約日報' },
