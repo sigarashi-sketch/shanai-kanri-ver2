@@ -53,7 +53,7 @@ export default function HomePage() {
           </h1>
         </div>
         <div className="flex gap-2">
-          <Link href="/jinji/yoyaku" className="btn inline-flex min-h-10 items-center rounded-[10px] border border-field bg-surface px-3.5 text-[13.5px] font-semibold">変更を予約</Link>
+          <Link href="/jinji/yoyaku?new=1" className="btn inline-flex min-h-10 items-center rounded-[10px] border border-field bg-surface px-3.5 text-[13.5px] font-semibold">変更を予約</Link>
           <Link href="/roumu/approval" className="btn inline-flex min-h-10 items-center rounded-[10px] bg-sumi px-4 text-[13.5px] font-semibold text-white">上から順に片づける</Link>
         </div>
       </div>

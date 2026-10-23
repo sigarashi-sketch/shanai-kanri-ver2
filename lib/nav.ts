@@ -9,7 +9,7 @@ export const NAV: NavGroup[] = [
   {
     module: 'jinji', label: '人事管理', items: [
       { href: '/jinji/staff', label: '社員一覧', built: true },
-      { href: '/jinji/yoyaku', label: '変更の予約', badge: 5 },
+      { href: '/jinji/yoyaku', label: '変更の予約', built: true, badge: 2 },
       { href: '/jinji/nyusha', label: '入社手続き', badge: 17 },
       { href: '/jinji/kihon', label: '基本情報' },
       { href: '/jinji/jimu', label: '参画決定者の手続き' },
