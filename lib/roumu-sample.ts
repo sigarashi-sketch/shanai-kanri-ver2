@@ -43,14 +43,15 @@ export const projection = (o: Overtime) => Math.round((o.actual / MONTH.passed) 
 
 export type Level = 'ok' | 'caution' | 'warn' | 'danger';
 // 段階つきアラート（注意→警告→上限）。理由も一緒に返す（画面で「なぜ色が付いたか」を出す）。
-export function otLevel(o: Overtime): { level: Level; reason: string } {
+// 段階の線はアラート設定で選べる（caution＝月45hの何割から・danger＝特別条項の月上限の何割から）
+export function otLevel(o: Overtime, caution = 0.8, danger = 0.9): { level: Level; reason: string } {
   const p = projection(o);
   // 特別条項の月上限の9割（81h）から「上限間近」。上限そのものに届いてからでは遅い
-  if (p >= KYOTEI.spMonthly * 0.9) return { level: 'danger', reason: `見込み ${p}h が特別条項の月上限 ${KYOTEI.spMonthly}h の9割を超える` };
+  if (p >= KYOTEI.spMonthly * danger) return { level: 'danger', reason: `見込み ${p}h が特別条項の月上限 ${KYOTEI.spMonthly}h の${Math.round(danger * 10)}割を超える` };
   if (o.avg26 >= KYOTEI.avgLimit * 0.9) return { level: 'danger', reason: `2〜6か月平均 ${o.avg26}h が ${KYOTEI.avgLimit}h に近い` };
   if (p > KYOTEI.monthly && o.over45 >= KYOTEI.overCount) return { level: 'danger', reason: `45h超えが今年もう ${o.over45}回。今月超えると ${KYOTEI.overCount}回の枠を超える` };
   if (p > KYOTEI.monthly) return { level: 'warn', reason: `見込み ${p}h が月 ${KYOTEI.monthly}h を超える（今年 ${o.over45 + 1}回目）` };
-  if (p >= KYOTEI.monthly * 0.8) return { level: 'caution', reason: `見込み ${p}h が月 ${KYOTEI.monthly}h の8割に届く` };
+  if (p >= KYOTEI.monthly * caution) return { level: 'caution', reason: `見込み ${p}h が月 ${KYOTEI.monthly}h の${Math.round(caution * 10)}割に届く` };
   return { level: 'ok', reason: '' };
 }
 
@@ -64,12 +65,12 @@ export const LEAVES: Leave[] = [
   { personId: 's0399', name: '高橋 健', site: 'G社（品川）', grantedOn: '2026/05/01', granted: 10, taken: 5, deadline: '2027/04/30', daysLeft: 189 },
 ];
 // 進み具合：期限までに残り日数で取りきれそうか。義務の残りが多いのに期限が近いほど赤。
-export function leaveLevel(l: Leave): Level {
+export function leaveLevel(l: Leave, dangerDays = 60, warnGap = 0.25): Level {
   const need = Math.max(0, 5 - l.taken);
   if (need === 0) return 'ok';
-  if (l.daysLeft <= 60) return 'danger';
+  if (l.daysLeft <= dangerDays) return 'danger';
   const elapsed = 1 - l.daysLeft / 365;
-  if (l.taken / 5 < elapsed - 0.25) return 'warn';
+  if (l.taken / 5 < elapsed - warnGap) return 'warn';
   if (l.taken / 5 < elapsed) return 'caution';
   return 'ok';
 }
@@ -88,18 +89,18 @@ export const CONTRACTS: DispatchContract[] = [
   { personId: 's0455', name: '加藤 葵', site: 'E社（川崎）', sales: '田中', start: '2026/11/01', end: '2027/01/31', daysLeft: 100, conflictOn: '2029/11/01', conflictDays: 1105, intent: '更新' },
   { personId: 's0470', name: '林 さくら', site: 'J社（池袋）', sales: '田中', start: '2023/12/01', end: '2026/11/30', daysLeft: 38, conflictOn: '2026/12/01', conflictDays: 39, intent: '未確認' },
 ];
-// 何日前に知らせるか（段階）。宛先は段階ごとに選べる（アラート設定の画面で変える想定）。
+// 何日前に知らせるか（段階）の既定。実際の日数と宛先はアラート設定（lib/alert-rules.ts）を読む。
 export const CONTRACT_STEPS = [
   { days: 60, level: 'caution' as Level, label: '60日前', to: ['担当営業'] },
   { days: 30, level: 'warn' as Level, label: '30日前', to: ['担当営業', '労務'] },
   { days: 14, level: 'danger' as Level, label: '14日前', to: ['担当営業', '労務', '全体管理者'] },
 ];
-export function contractLevel(c: DispatchContract): Level {
+export function contractLevel(c: DispatchContract, days: [number, number, number] = [60, 30, 14]): Level {
   if (c.intent === '更新' || c.intent === '終了') return 'ok';
   const d = Math.min(c.daysLeft, c.conflictDays);
-  if (d <= 14) return 'danger';
-  if (d <= 45) return 'warn';
-  if (d <= 60) return 'caution';
+  if (d <= days[2]) return 'danger';
+  if (d <= days[1]) return 'warn';
+  if (d <= days[0]) return 'caution';
   return 'ok';
 }
 

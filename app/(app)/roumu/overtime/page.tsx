@@ -7,13 +7,16 @@ import { KYOTEI, LEAVES, LEVEL_STYLE, MONTH, OVERTIME, leaveLevel, otLevel, proj
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
+import { stageTo, useRule } from '@/components/AlertStore';
+import { numOf } from '@/lib/alert-rules';
 
 // 残業・36協定・有給（労務/営業管理）。
 //   ・残業：締め日時点の見込み（実績÷経過した所定日×今月の所定日）で、36協定の上限に近い人を色分けする
 //     段階は 注意（月45hの8割）→ 警告（45h超え）→ 上限間近（特別条項の上限・6回の枠・2〜6か月平均80h）
 //   ・有給：年10日以上付いた人の「1年のうちに5日」の進み具合と期限
-//   段階ごとに知らせる宛先が増える（注意＝担当営業／警告＝＋労務／上限間近＝＋全体管理者）。宛先はアラート設定で変える想定
-const TO: Record<Level, string[]> = { ok: [], caution: ['担当営業'], warn: ['担当営業', '労務'], danger: ['担当営業', '労務', '全体管理者'] };
+//   段階の線と宛先はアラート設定（/roumu/alerts）で選んだものを読む（既定：注意＝担当営業／警告＝＋労務／上限間近＝＋全体管理者）
+// 「月45hの8割（36h）」→ 0.8
+const ratioOf = (s: string) => Number((s.match(/(\d)割/) || [])[1] || 8) / 10;
 const ORDER: Level[] = ['danger', 'warn', 'caution', 'ok'];
 
 function LevelChip({ level }: { level: Level }) {
@@ -98,8 +101,10 @@ function Filters({ counts, value, onChange }: { counts: Record<string, number>; 
 
 function OtTab() {
   const { canEdit, sent, flash, send } = useNotify();
+  const rule = useRule('overtime');
+  const TO = (lv: Level) => stageTo(rule, lv);
   const [f, setF] = useState<Level | 'all'>('all');
-  const rows = OVERTIME.map((o) => ({ o, p: projection(o), ...otLevel(o) })).sort((a, b) => ORDER.indexOf(a.level) - ORDER.indexOf(b.level) || b.p - a.p);
+  const rows = OVERTIME.map((o) => ({ o, p: projection(o), ...otLevel(o, ratioOf(rule.stages[0].when), ratioOf(rule.stages[2].when)) })).sort((a, b) => ORDER.indexOf(a.level) - ORDER.indexOf(b.level) || b.p - a.p);
   const counts: Record<string, number> = { all: rows.length };
   rows.forEach((r) => { counts[r.level] = (counts[r.level] ?? 0) + 1; });
   const yearCap = KYOTEI.special ? KYOTEI.spYearly : KYOTEI.yearly;
@@ -148,8 +153,8 @@ function OtTab() {
                     <td className="px-4 py-2.5 text-right">
                       {level === 'ok' ? <span className="text-[12px] text-faint">—</span>
                         : sent[key] ? <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-ok"><Check size={14} />{sent[key]}</span>
-                        : <button onClick={() => send(key, o.name, TO[level], '残業の見込み')} disabled={!canEdit} title={!canEdit ? needText('edit') : `${TO[level].join('・')}に知らせる`} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Bell size={14} />知らせる</button>}
-                      {level !== 'ok' && !sent[key] && <div className="mt-1 text-[11px] text-faint">{TO[level].join('・')}</div>}
+                        : <button onClick={() => send(key, o.name, TO(level), '残業の見込み')} disabled={!canEdit} title={!canEdit ? needText('edit') : `${TO(level).join('・')}に知らせる`} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Bell size={14} />知らせる</button>}
+                      {level !== 'ok' && !sent[key] && <div className="mt-1 text-[11px] text-faint">{TO(level).join('・') || '知らせを止めています'}</div>}
                     </td>
                   </tr>
                 );
@@ -165,7 +170,9 @@ function OtTab() {
 function LeaveTab() {
   const { canEdit, sent, flash, send } = useNotify();
   const [f, setF] = useState<Level | 'all'>('all');
-  const rows = LEAVES.map((l) => ({ l, level: leaveLevel(l) })).sort((a, b) => ORDER.indexOf(a.level) - ORDER.indexOf(b.level) || a.l.daysLeft - b.l.daysLeft);
+  const rule = useRule('leave');
+  const TO = (lv: Level) => stageTo(rule, lv);
+  const rows = LEAVES.map((l) => ({ l, level: leaveLevel(l, numOf(rule.stages[2].when), numOf(rule.stages[1].when) / 100) })).sort((a, b) => ORDER.indexOf(a.level) - ORDER.indexOf(b.level) || a.l.daysLeft - b.l.daysLeft);
   const counts: Record<string, number> = { all: rows.length };
   rows.forEach((r) => { counts[r.level] = (counts[r.level] ?? 0) + 1; });
   return (
@@ -197,7 +204,7 @@ function LeaveTab() {
                     <td className="px-4 py-2.5 text-right">
                       {level === 'ok' ? <span className="text-[12px] text-faint">{need === 0 ? '達成' : '—'}</span>
                         : sent[key] ? <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-ok"><Check size={14} />{sent[key]}</span>
-                        : <button onClick={() => send(key, l.name, ['本人（あおい）', ...TO[level]], '有給の取得のおすすめ')} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Bell size={14} />取得をすすめる</button>}
+                        : <button onClick={() => send(key, l.name, TO(level), '有給の取得のおすすめ')} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Bell size={14} />取得をすすめる</button>}
                     </td>
                   </tr>
                 );

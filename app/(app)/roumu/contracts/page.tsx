@@ -2,21 +2,26 @@
 
 import { useState } from 'react';
 import { AlertTriangle, Bell, Check } from 'lucide-react';
-import { CONTRACTS, CONTRACT_STEPS, LEVEL_STYLE, contractLevel, type DispatchContract, type Intent, type Level } from '@/lib/roumu-sample';
+import { CONTRACTS, LEVEL_STYLE, contractLevel as levelOf, type DispatchContract, type Intent, type Level } from '@/lib/roumu-sample';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
+import { stageTo, useRule } from '@/components/AlertStore';
+import { numOf } from '@/lib/alert-rules';
 
 // 現場・契約（労務/営業管理）＝派遣契約の終了が近い人の通知。準委任は対象外。
 //   ・契約の終わり と 抵触日（同じ派遣先の同じ組織で働ける3年の期限・個人単位）の近いほうで段階を付ける
-//   ・60日前＝注意（担当営業）→ 30日前＝警告（＋労務）→ 14日前＝上限間近（＋全体管理者）。宛先はアラート設定で変える想定
+//   ・既定は 60日前＝注意（担当営業）→ 30日前＝警告（＋労務）→ 14日前＝上限間近（＋全体管理者）。日数と宛先はアラート設定で選んだものを読む
 //   ・更新の意向は選ぶだけ（自由入力にしない）。「更新」「終了」が決まれば通知は止まる
 const ORDER: Level[] = ['danger', 'warn', 'caution', 'ok'];
 const INTENTS: Intent[] = ['未確認', '派遣先と調整中', '更新', '終了'];
-const STEP_TO: Record<Level, string[]> = { ok: [], caution: CONTRACT_STEPS[0].to, warn: CONTRACT_STEPS[1].to, danger: CONTRACT_STEPS[2].to };
 
 export default function ContractsPage() {
   const canEdit = usePerms().can('roumu', 'edit');
+  const rule = useRule('contract');
+  const days = rule.stages.map((s) => numOf(s.when)) as [number, number, number];
+  const contractLevel = (c: DispatchContract) => levelOf(c, days);
+  const STEP_TO = (lv: Level) => stageTo(rule, lv);
   const { hit, toast } = useMotivation();
   const [rows, setRows] = useState<DispatchContract[]>(CONTRACTS);
   const [asked, setAsked] = useState<Record<string, boolean>>({});
@@ -52,10 +57,10 @@ export default function ContractsPage() {
         </div>
         <div className="flex flex-1 flex-wrap items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3">
           <span className="mr-1 text-[12px] text-muted">知らせる段階</span>
-          {CONTRACT_STEPS.map((s, i) => (
-            <span key={s.label} className="flex items-center gap-2">
+          {rule.stages.map((s, i) => (
+            <span key={s.level} className="flex items-center gap-2">
               {i > 0 && <span className="text-faint">→</span>}
-              <span className="rounded-[10px] px-3 py-1.5 text-[12.5px]" style={{ background: LEVEL_STYLE[s.level].bg, color: LEVEL_STYLE[s.level].fg }}><b>{s.label}・{LEVEL_STYLE[s.level].label}</b><span className="ml-1.5">{s.to.join('・')}</span></span>
+              <span className="rounded-[10px] px-3 py-1.5 text-[12.5px]" style={{ background: LEVEL_STYLE[s.level].bg, color: LEVEL_STYLE[s.level].fg }}><b>{s.when}・{LEVEL_STYLE[s.level].label}</b><span className="ml-1.5">{s.to.join('・')}</span></span>
             </span>
           ))}
           <a href="/roumu/alerts" className="ml-auto text-[12px] font-semibold" style={{ color: 'var(--ad)' }}>宛先を変える</a>
@@ -90,9 +95,9 @@ export default function ContractsPage() {
                       {c.asked && <div className="mt-1 text-[11.5px] text-faint">{c.asked}</div>}
                     </td>
                     <td className="px-4 py-2.5 text-right">
-                      {lv === 'ok' ? <span className="text-[12px] text-faint">{c.intent === '更新' || c.intent === '終了' ? '通知は止まりました' : '60日前から知らせます'}</span>
+                      {lv === 'ok' ? <span className="text-[12px] text-faint">{c.intent === '更新' || c.intent === '終了' ? '通知は止まりました' : `${days[0]}日前から知らせます`}</span>
                         : asked[c.personId] ? <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-ok"><Check size={14} />今日 頼みました</span>
-                        : <><button onClick={() => ask(c, STEP_TO[lv])} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Bell size={14} />意向確認を頼む</button><div className="mt-1 text-[11px] text-faint">{STEP_TO[lv].join('・')}</div></>}
+                        : <><button onClick={() => ask(c, STEP_TO(lv))} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Bell size={14} />意向確認を頼む</button><div className="mt-1 text-[11px] text-faint">{STEP_TO(lv).join('・') || '知らせを止めています'}</div></>}
                     </td>
                   </tr>
                 );
