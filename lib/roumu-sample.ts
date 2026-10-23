@@ -87,7 +87,7 @@ export const CONTRACTS: DispatchContract[] = [
   { personId: 's0410', name: '渡辺 涼', site: 'F社（横浜）', sales: '小林', start: '2025/03/01', end: '2026/11/30', daysLeft: 38, conflictOn: '2028/03/01', conflictDays: 495, intent: '派遣先と調整中', asked: '10/20 営業が確認中' },
   { personId: 's0399', name: '高橋 健', site: 'G社（品川）', sales: '田中', start: '2024/11/01', end: '2026/12/31', daysLeft: 69, conflictOn: '2027/11/01', conflictDays: 374, intent: '未確認' },
   { personId: 's0455', name: '加藤 葵', site: 'E社（川崎）', sales: '田中', start: '2026/11/01', end: '2027/01/31', daysLeft: 100, conflictOn: '2029/11/01', conflictDays: 1105, intent: '更新' },
-  { personId: 's0470', name: '林 さくら', site: 'J社（池袋）', sales: '田中', start: '2023/12/01', end: '2026/11/30', daysLeft: 38, conflictOn: '2026/12/01', conflictDays: 39, intent: '未確認' },
+  { personId: 's0474', name: '林 さくら', site: 'J社（池袋）', sales: '田中', start: '2023/12/01', end: '2026/11/30', daysLeft: 38, conflictOn: '2026/12/01', conflictDays: 39, intent: '未確認' },
 ];
 // 何日前に知らせるか（段階）の既定。実際の日数と宛先はアラート設定（lib/alert-rules.ts）を読む。
 export const CONTRACT_STEPS = [

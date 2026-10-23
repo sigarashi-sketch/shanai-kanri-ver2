@@ -62,7 +62,7 @@ export type TodayRow = {
 };
 export const TODAY_ROWS: TodayRow[] = [
   { personId: 's0410', person: '渡辺 涼', site: 'F社（横浜）', sales: '小林', shift: '9:00〜18:00', state: '未打刻', late: 40, memo: '先週も 1 回あり（本人は打ち忘れ）' },
-  { personId: 's0470', person: '林 さくら', site: 'J社（池袋）', sales: '田中', shift: '9:00〜18:00', state: '未打刻', late: 40 },
+  { personId: 's0474', person: '林 さくら', site: 'J社（池袋）', sales: '田中', shift: '9:00〜18:00', state: '未打刻', late: 40 },
   { personId: 's0480', person: '森 拓海', site: 'K社（品川）', sales: '小林', shift: '9:30〜18:30', state: '未打刻', late: 10 },
   { personId: 's0399', person: '高橋 健', site: 'G社（品川）', sales: '田中', shift: '10:00〜19:00', state: '出発コール未着', memo: '出発コールは 9:00 まで' },
   { personId: 's0461', person: '佐藤 光', site: 'H社（渋谷）', sales: '田中', shift: '9:00〜18:00', state: '欠勤の連絡', contact: '7:10 体調不良（LINE）' },

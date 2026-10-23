@@ -209,7 +209,7 @@ export default function ProgressPage() {
                   <div key={m.id} className={`mo-fade-up flex flex-col ${mine ? 'items-end' : 'items-start'}`} style={{ ['--i' as string]: i }}>
                     <div className="mb-0.5 text-[11px] text-faint">{m.name}・{m.at}</div>
                     <div className={`max-w-[85%] whitespace-pre-line rounded-2xl px-3 py-2 text-[13px] leading-relaxed ${focus ? 'mo-scale-in shadow-[0_0_0_3px_var(--al)]' : ''}`}
-                      style={mine ? { background: focus ? 'var(--a)' : 'var(--color-surface)', color: focus ? 'var(--ao)' : 'var(--color-ink)', border: '1px solid var(--color-line)' } : { background: '#E9F7EE', color: 'var(--color-ink)' }}>
+                      style={mine ? { background: focus ? 'var(--a)' : 'var(--color-surface)', color: focus ? 'var(--ao)' : 'var(--color-ink)', border: '1px solid var(--color-line)' } : { background: 'var(--tone-ok-bg)', color: 'var(--color-ink)' }}>
                       {m.text}
                     </div>
                     {focus && <div className="mt-1 text-[11px] font-semibold" style={{ color: 'var(--ad)' }}>↑ 案件として拾った発言</div>}

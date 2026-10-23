@@ -1,0 +1,205 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { Check, ChevronRight, CornerUpLeft, FileText, Send, UserSearch } from 'lucide-react';
+import { calc, CLIENTS, FMT_LABEL, SHEET_REJECT, STAGES, type Client, type SPerson } from '@/lib/seikyu-sample';
+import { PageTitle } from '@/components/ui';
+import { needText, usePerms } from '@/components/Perms';
+import { RemainRing, useMotivation } from '@/components/Motivation';
+
+// 請求書（経理管理）。今月の請求書づくりを 取引先ごと・人ごとに、1社ずつ片づける。
+//   勤務表が届いた → 時間を読んだ → 精算幅で金額 → 請求書の下書き → 送付
+//   ・精算幅を外れたら控除／超過を自動で出す（単価は 月額÷下限・月額÷上限）
+//   ・勤務表に不備がある人は理由を選んで差し戻す。格納の請求書PDFで名前が読めないものは「人を選ぶ」
+//   ・その会社の全員が下書きまで来て、止まりが無ければ「送付」→ 次の会社へ
+const yen = (n: number) => `¥${n.toLocaleString('ja-JP')}`;
+const clone = () => CLIENTS.map((c) => ({ ...c, people: c.people.map((p) => ({ ...p })), files: c.files.map((f) => ({ ...f })) }));
+const sentAll = (c: Client) => c.people.every((p) => p.stage >= 5);
+const blockers = (c: Client) => c.people.filter((p) => p.issue).length + c.files.filter((f) => !f.who).length;
+
+function Steps({ stage }: { stage: number }) {
+  return (
+    <div className="flex items-center gap-1" aria-label={stage ? `${STAGES[stage - 1]}まで` : '勤務表まだ'}>
+      {STAGES.map((s, i) => (
+        <span key={s} title={s} className="h-1.5 w-6 rounded-full" style={{ background: i < stage ? 'var(--a)' : 'var(--color-track)' }} />
+      ))}
+      <span className="ml-1.5 text-[11.5px] text-muted">{stage ? STAGES[stage - 1] : '勤務表まだ'}</span>
+    </div>
+  );
+}
+
+export default function SeikyuPage() {
+  const canEdit = usePerms().can('keiri', 'edit');
+  const { hit, toast } = useMotivation();
+  const [clients, setClients] = useState<Client[]>(clone);
+  const [curId, setCurId] = useState(CLIENTS[0].id);
+  const [reasons, setReasons] = useState<Record<string, string>>({});
+  const [flash, setFlash] = useState<string | null>(null);
+
+  useEffect(() => { const c = new URLSearchParams(window.location.search).get('client'); if (c && CLIENTS.some((x) => x.id === c)) setCurId(c); }, []);
+
+  const cur = clients.find((c) => c.id === curId)!;
+  const remainClients = clients.filter((c) => !sentAll(c));
+  const remainPeople = clients.reduce((n, c) => n + c.people.filter((p) => p.stage < 5).length, 0);
+  const lock = canEdit ? undefined : needText('edit');
+
+  const edit = (fn: (c: Client) => void) => {
+    const before = clients.map((c) => ({ ...c, people: c.people.map((p) => ({ ...p })), files: c.files.map((f) => ({ ...f })) }));
+    setClients((cs) => cs.map((c) => { if (c.id !== curId) return c; const n = { ...c, people: c.people.map((p) => ({ ...p })), files: c.files.map((f) => ({ ...f })) }; fn(n); return n; }));
+    return () => setClients(before);
+  };
+  const pulse = (id: string) => { setFlash(id); setTimeout(() => setFlash(null), 1300); };
+
+  const next = (p: SPerson) => {
+    const to = p.stage + 1;
+    const undo = edit((c) => { c.people.find((x) => x.id === p.id)!.stage = to; });
+    pulse(p.id); hit();
+    const sub = to === 1 ? '→ 見本では勤務表が届いた扱い（本人にはあおいで催促しました）'
+      : to === 2 ? `→ 勤務表から ${p.hours}h を読みました` : to === 3 ? `→ ${yen(calc(p).amount)}（${calc(p).note}）を請求額にしました` : '→ 請求書の下書きを作りました' + (cur.fmt === 'own' ? '' : '（先方の様式に転記）');
+    toast({ text: `${p.name}：${STAGES[to - 1]}`, sub, undo });
+  };
+  const reject = (p: SPerson) => {
+    const r = reasons[p.id] || SHEET_REJECT[0];
+    const undo = edit((c) => { const x = c.people.find((y) => y.id === p.id)!; x.issue = undefined; x.stage = 1; });
+    pulse(p.id); hit();
+    toast({ text: `${p.name} の勤務表を差し戻しました`, sub: `→ 本人に「${r}」で出し直しを頼みました（あおい）・見本では出し直しが届いた扱い`, undo });
+  };
+  const okAnyway = (p: SPerson) => {
+    const undo = edit((c) => { c.people.find((y) => y.id === p.id)!.issue = undefined; });
+    pulse(p.id); hit();
+    toast({ text: `${p.name}：確かめて問題なしにしました`, sub: '→ このまま金額を出せます', undo });
+  };
+  const pickWho = (fid: string, who: string) => {
+    const name = cur.people.find((p) => p.personId === who)?.name;
+    const undo = edit((c) => { c.files.find((f) => f.id === fid)!.who = who; });
+    hit(); toast({ text: `格納のファイルを ${name} の分にしました`, sub: '→ 格納の「誰の分」に入れました（次から自動で上書きしません）', undo });
+  };
+  const bulk = () => {
+    const ps = cur.people.filter((p) => !p.issue && p.stage >= 1 && p.stage < 4);
+    if (!ps.length) return;
+    const undo = edit((c) => { c.people.forEach((p) => { if (!p.issue && p.stage >= 1 && p.stage < 4) p.stage = 4; }); });
+    hit(ps.length); toast({ text: `${ps.length}人を下書きまで進めました`, sub: '→ 時間を読んで精算幅で金額を出し、請求書の下書きに入れました', undo });
+  };
+  const ready = cur.people.every((p) => p.stage === 4) && blockers(cur) === 0;
+  const send = () => {
+    if (!ready || !canEdit) return;
+    const total = cur.people.reduce((n, p) => n + calc(p).amount, 0);
+    const undo = edit((c) => { c.people.forEach((p) => { p.stage = 5; }); });
+    hit(); toast({ text: `${cur.name} に請求書を送付しました（${yen(total)}・税抜）`, sub: '→ 送付の記録と、格納（請求書PDFの置き場）に入れました・粗利の一覧に反映', undo });
+    const nxt = clients.find((c) => c.id !== cur.id && !sentAll(c));
+    if (nxt) setTimeout(() => setCurId(nxt.id), 600);
+  };
+
+  return (
+    <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
+      <PageTitle title="請求書" sub="10月分。取引先ごとに、勤務表 → 時間 → 金額 → 下書き → 送付 を1社ずつ片づけます・見本データ">
+        <Link href="/keiri/chingin" className="inline-flex min-h-10 items-center rounded-[10px] border border-field bg-surface px-3.5 text-[13px] font-semibold">想定賃金・粗利へ</Link>
+      </PageTitle>
+
+      <div className="mo-fade-up flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
+        <RemainRing remain={remainClients.length} total={clients.length} />
+        <div className="text-[13px]"><b>残り {remainClients.length}社・{remainPeople}人</b><span className="ml-2 text-muted">止まっている行 {clients.reduce((n, c) => n + blockers(c), 0)}件（差し戻し・人を選ぶ）</span>
+          {!canEdit && <div className="text-[12px] text-bad">{needText('edit')}</div>}
+        </div>
+      </div>
+
+      {remainClients.length === 0 ? (
+        <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-10 text-center">
+          <Check className="mx-auto text-ok" size={26} />
+          <div className="mt-2 text-[15px] font-bold">10月分の請求書はぜんぶ送付しました</div>
+          <div className="mt-1 text-[12.5px] text-muted">{clients.length}社・{clients.reduce((n, c) => n + c.people.length, 0)}人。入金の確認は来月の締めで並びます。</div>
+        </div>
+      ) : (
+        <div className="grid gap-3.5 md:grid-cols-[220px_1fr]">
+          <ul className="mo-fade-up flex flex-col gap-1 self-start rounded-xl border border-line bg-surface p-2" style={{ ['--i' as string]: 2 }}>
+            {clients.map((c) => {
+              const done = c.people.filter((p) => p.stage >= 5).length, b = blockers(c);
+              return (
+                <li key={c.id}><button onClick={() => setCurId(c.id)} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px]" style={c.id === curId ? { background: 'var(--al)', color: 'var(--ad)' } : undefined}>
+                  {sentAll(c) ? <Check size={14} className="text-ok" /> : <span className="num w-[14px] text-center text-[11px] text-faint">{c.people.length}</span>}
+                  <span className={`flex-1 ${c.id === curId ? 'font-bold' : ''}`}>{c.name}</span>
+                  {b > 0 && !sentAll(c) && <span className="chip" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>止まり {b}</span>}
+                  {!sentAll(c) && <span className="num text-[11px] text-faint">{done}/{c.people.length}</span>}
+                </button></li>
+              );
+            })}
+          </ul>
+
+          <article key={cur.id} className="mo-spring-in min-w-0 rounded-xl border border-line bg-surface" style={{ boxShadow: 'var(--card-shadow)' }}>
+            <div className="flex flex-wrap items-center gap-2 border-b border-line-soft px-5 py-3">
+              <span className="text-[18px] font-bold">{cur.name}</span>
+              <span className="text-[12px] text-muted">{cur.close}・送付 {cur.send}</span>
+              <span className="chip" style={{ background: `var(--tone-${FMT_LABEL[cur.fmt].tone}-bg)`, color: `var(--tone-${FMT_LABEL[cur.fmt].tone}-fg)` }}>{FMT_LABEL[cur.fmt].label}</span>
+              {sentAll(cur) && <span className="chip ml-auto" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}>送付済み</span>}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] border-collapse text-[13px]">
+                <thead><tr className="th-row text-left"><th className="px-5 py-2 font-semibold">社員</th><th className="px-2 py-2 font-semibold">進み</th><th className="px-2 py-2 font-semibold">精算幅・時間</th><th className="px-2 py-2 text-right font-semibold">請求額（税抜）</th><th className="px-5 py-2" /></tr></thead>
+                <tbody>
+                  {cur.people.map((p) => {
+                    const c = calc(p);
+                    return (
+                      <tr key={p.id} className={`border-t border-line-soft align-top ${flash === p.id ? 'mo-flash' : 'row'}`}>
+                        <td className="px-5 py-2.5"><Link href={`/jinji/staff/${p.personId}`} className="font-semibold hover:underline">{p.name}</Link><div className="num text-[11.5px] text-faint">月額 {yen(p.price)}</div></td>
+                        <td className="px-2 py-2.5"><Steps stage={p.stage} />{p.issue && <div className="mt-1 text-[12px] font-semibold text-bad">{p.issue}</div>}</td>
+                        <td className="num px-2 py-2.5 text-[12.5px]">{p.fixed ? '固定' : `${p.lower}〜${p.upper}h`}<div className="text-muted">{p.stage >= 2 ? `${p.hours}h` : '—'}</div></td>
+                        <td className="num px-2 py-2.5 text-right">{p.stage >= 3 ? <><b>{yen(c.amount)}</b><div className={`text-[11.5px] ${c.diff < 0 ? 'text-bad' : c.diff > 0 ? 'text-ok' : 'text-faint'}`}>{c.note}</div></> : <span className="text-faint">—</span>}</td>
+                        <td className="px-5 py-2.5 text-right">
+                          {p.issue ? (
+                            <div className="flex flex-col items-end gap-1.5">
+                              <select aria-label="差し戻す理由" value={reasons[p.id] || p.issue} onChange={(e) => setReasons((r) => ({ ...r, [p.id]: e.target.value }))} className="min-h-8 max-w-[220px] rounded-lg border border-field bg-surface px-2 text-[12px]">
+                                {SHEET_REJECT.map((r) => <option key={r}>{r}</option>)}
+                              </select>
+                              <div className="flex gap-1.5">
+                                <button onClick={() => reject(p)} disabled={!canEdit} title={lock} className="inline-flex min-h-8 items-center gap-1 rounded-lg px-2.5 text-[12px] font-bold text-white disabled:opacity-40" style={{ background: 'var(--color-bad)' }}><CornerUpLeft size={13} />差し戻す</button>
+                                <button onClick={() => okAnyway(p)} disabled={!canEdit} title={lock} className="min-h-8 rounded-lg border border-field px-2.5 text-[12px] disabled:opacity-40">確かめた・進める</button>
+                              </div>
+                            </div>
+                          ) : p.stage < 4 ? (
+                            <button onClick={() => next(p)} disabled={!canEdit} title={lock} className="inline-flex min-h-8 items-center gap-1 rounded-lg border px-2.5 text-[12px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>{p.stage === 0 ? '本人に催促' : STAGES[p.stage]}<ChevronRight size={13} /></button>
+                          ) : <span className="text-[12px] text-faint">{p.stage === 4 ? '送付を待つ' : '済み'}</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="border-t border-line-soft px-5 py-3">
+              <div className="text-[12px] font-semibold text-muted">格納（請求書PDF・勤務表の置き場）</div>
+              {cur.files.length === 0 ? <div className="mt-1 text-[12.5px] text-faint">まだ何も入っていません。送付すると下書きのPDFがここに入ります。</div> : (
+                <ul className="mt-1.5 flex flex-col gap-1.5">
+                  {cur.files.map((f) => (
+                    <li key={f.id} className="flex flex-wrap items-center gap-2 text-[12.5px]">
+                      <FileText size={14} className="text-faint" /><span className="num">{f.name}</span>
+                      {f.who ? <span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}>{cur.people.find((p) => p.personId === f.who)?.name} の分</span> : (
+                        <>
+                          <span className="chip inline-flex items-center gap-1" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}><UserSearch size={11} />人を選ぶ（中身に名前が読めません）</span>
+                          <select aria-label="誰の分か選ぶ" defaultValue="" disabled={!canEdit} title={lock} onChange={(e) => e.target.value && pickWho(f.id, e.target.value)} className="min-h-8 rounded-lg border border-field bg-surface px-2 text-[12px]">
+                            <option value="" disabled>誰の分？</option>
+                            {cur.people.map((p) => <option key={p.id} value={p.personId}>{p.name}</option>)}
+                          </select>
+                        </>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {!sentAll(cur) && (
+              <div className="flex flex-wrap items-center gap-2 border-t border-line-soft px-5 py-3">
+                <button onClick={send} disabled={!ready || !canEdit} title={lock ?? (!ready ? '全員が下書きまで来て、差し戻し・人を選ぶ が残っていないと送れません' : undefined)} className="btn-primary inline-flex min-h-10 items-center gap-1.5 rounded-[10px] px-4 text-[13.5px] font-bold disabled:opacity-40"><Send size={15} />{cur.name} に送付する</button>
+                <button onClick={bulk} disabled={!canEdit} title={lock} className="min-h-10 rounded-[10px] border border-field bg-surface px-3.5 text-[13px] font-semibold disabled:opacity-40">止まっていない人を下書きまで進める</button>
+                <span className="ml-auto text-[12px] text-faint">合計 {yen(cur.people.filter((p) => p.stage >= 3).reduce((n, p) => n + calc(p).amount, 0))}（金額を出した分）</span>
+              </div>
+            )}
+          </article>
+        </div>
+      )}
+      <p className="text-[11.5px] text-faint">控除・超過の単価は 月額÷下限・月額÷上限（10円未満切り捨て）で見本を出しています。契約ごとの精算の決め方・消費税の扱いの最終判断は税理士・法務に確認してください。</p>
+    </main>
+  );
+}

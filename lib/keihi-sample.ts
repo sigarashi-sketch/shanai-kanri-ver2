@@ -51,7 +51,7 @@ export const CLAIMS: Claim[] = [
     checks: [{ tone: 'bad', text: '10/26 から現場が B社（大崎）に変わる予約がある。経路が古い' }] },
   { id: 'c5', personId: 's0399', person: '高橋 健', site: 'G社（品川）', kind: 'バス', month: '10月', amount: 1760, detail: '8日・片道 220円（路線：東急バス 渋41）', source: '手入力', filedAt: '10/22 18:40',
     checks: [{ tone: 'ok', text: 'バスは誰でも申請できる（運賃は本人の手入力）' }, { tone: 'ok', text: '申請した日は全部 出勤の打刻あり' }] },
-  { id: 'c6', personId: 's0470', person: '林 さくら', site: 'J社（池袋）', kind: '出張・面談', month: '10月', amount: 1160, detail: '10/17 池袋→大崎 往復（次の現場の面談）', source: 'ICカードから', filedAt: '10/18 8:15',
+  { id: 'c6', personId: 's0474', person: '林 さくら', site: 'J社（池袋）', kind: '出張・面談', month: '10月', amount: 1160, detail: '10/17 池袋→大崎 往復（次の現場の面談）', source: 'ICカードから', filedAt: '10/18 8:15',
     checks: [{ tone: 'ok', text: 'ICカードの利用履歴どおり' }, { tone: 'ok', text: '案件進捗に 10/17 の面談あり' }] },
   { id: 'c7', personId: 's0455', person: '加藤 葵', site: 'E社（川崎）', kind: '通勤（日ごと）', month: '10月', amount: 3360, detail: '12日・往復 280円', source: 'ICカードから', filedAt: '10/22 21:00',
     checks: [{ tone: 'ok', text: 'ICカードの利用履歴どおり' }, { tone: 'ok', text: '申請した日は全部 出勤の打刻あり' }] },
