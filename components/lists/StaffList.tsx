@@ -8,10 +8,16 @@ import { GhostButton, PageTitle, Pill, PrimaryButton, TONE } from '@/components/
 import { useMotivation } from '@/components/Motivation';
 import { needText, usePerms } from '@/components/Perms';
 import { isPending, useYoyaku, yoyakuLine } from '@/components/YoyakuStore';
+import { DeptTable, ShiftTable, VIEWS, type ViewKey } from '@/components/lists/MeiboViews';
 
 export function StaffList({ embedded = false }: { embedded?: boolean }) {
   const { hit, toast } = useMotivation();
-  const canEdit = usePerms().can('jinji', 'edit');
+  const { can } = usePerms();
+  const canEdit = can('jinji', 'edit');
+  // 部門ごとの表示（基本／労務／法務／経理／シフト）。見る権限のある部門だけタブに出す。
+  const views = VIEWS.filter((v) => can(v.module, 'view'));
+  const [viewKey, setView] = useState<ViewKey>('kihon');
+  const view = views.find((v) => v.key === viewKey) ?? views[0];
   const { rows: yoyaku } = useYoyaku();
   // 現場の列の下に、いちばん近い予約を1行（変更の予約と同じデータ）
   const nextOf = (id: string) => yoyaku.filter((r) => r.personId === id && isPending(r)).sort((a, b) => a.date.localeCompare(b.date))[0];
@@ -29,6 +35,16 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
           <GhostButton>CSV</GhostButton><PrimaryButton disabled={!canEdit} title={canEdit ? undefined : needText('edit')}>＋ 社員を追加</PrimaryButton>
         </PageTitle>
       )}
+
+      <div role="tablist" aria-label="部門ごとの表示" className="mo-fade-up flex flex-wrap items-center gap-1 rounded-xl border border-line bg-surface p-1" style={{ ['--i' as string]: 1 }}>
+        {views.map((v) => (
+          <button key={v.key} role="tab" aria-selected={view?.key === v.key} onClick={() => setView(v.key)} className="min-h-9 rounded-[9px] px-3.5 text-[13.5px]"
+            style={view?.key === v.key ? { background: 'var(--a)', color: 'var(--ao)', fontWeight: 700 } : { color: 'var(--color-muted)' }}>
+            {v.label}版
+          </button>
+        ))}
+        {view && <span className="ml-2 text-[12px] text-muted">{view.hint}</span>}
+      </div>
 
       <div className="mo-fade-up flex flex-wrap gap-2" style={{ ['--i' as string]: 1 }} role="tablist">
         {STATUS_COUNTS.map((s) => {
@@ -51,10 +67,12 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
           {['採用担当', '担当営業', '契約の形', '都道府県'].map((f) => (
             <button key={f} className="min-h-9 rounded-[10px] border border-field bg-surface px-3 text-[13px]">{f} ⌄</button>
           ))}
-          <span className="ml-auto text-[12.5px] text-muted">表示：営業向け ⌄　<span className="num">{rows.length}</span>人</span>
+          <span className="ml-auto text-[12.5px] text-muted"><span className="num">{rows.length}</span>人</span>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1000px] border-collapse text-[13px]">
+        <div key={view?.key} className="mo-axis overflow-x-auto">
+          {view?.key === 'roumu' || view?.key === 'houmu' || view?.key === 'keiri' ? <DeptTable view={view.key} rows={rows} />
+          : view?.key === 'shift' ? <ShiftTable rows={rows} />
+          : <table className="w-full min-w-[1000px] border-collapse text-[13px]">
             <thead><tr className="th-row text-left">
               <th className="w-[26px] px-3.5 py-2.5"><input type="checkbox" aria-label="すべて選ぶ" checked={rows.length > 0 && rows.every((r) => sel.has(r.id))} onChange={(e) => setSel(e.target.checked ? new Set(rows.map((r) => r.id)) : new Set())} /></th>
               <th className="px-2 py-2.5 font-semibold">社員 ⌄</th><th className="px-2 py-2.5 font-semibold">状態</th><th className="px-2 py-2.5 font-semibold">現場</th><th className="px-2 py-2.5 font-semibold">契約</th><th className="px-2 py-2.5 font-semibold">最寄駅</th><th className="px-2 py-2.5 text-right font-semibold">単価</th><th className="px-2 py-2.5 font-semibold">今月の勤怠</th><th className="px-3.5" />
@@ -77,7 +95,7 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table>}
         </div>
         <div className="flex items-center justify-between border-t border-line-soft px-3.5 py-2.5 text-[12.5px] text-muted"><span>全{rows.length}件</span><span>表示 50件</span></div>
       </div>
