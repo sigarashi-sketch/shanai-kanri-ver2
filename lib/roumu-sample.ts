@@ -1,15 +1,21 @@
 // 労務/営業管理の見本データ（本物の名前・数字ではない）。
 //   残業見込み＝今月の実績 ÷ 経過した所定日 × 今月の所定日（締め日時点で何時間になりそうか）。
-//   36協定の数字は見本の協定（特別条項あり）。実際の上限は会社の協定届に合わせる。最終判断は社労士へ。
+//   36協定の数字は新宿事業所の協定届（令和7年11月1日〜令和8年10月31日・特別条項あり）のもの（10-23 shoya のPDFから）。
+//   事業所ごとに協定が違うことがあるので、実データにつなぐときは事業所ごとに持つ。最終判断は社労士へ。
 
 export const KYOTEI = {
+  office: '新宿事業所',
+  validFrom: '2025/11/01', validUntil: '2026/10/31',
+  yearStart: '11/1',    // 1年の起算日
+  daily: 5,             // 1日の上限（法定労働時間を超える時間）
   monthly: 45,          // 原則の上限（月）
   yearly: 360,          // 原則の上限（年）
   special: true,        // 特別条項あり
-  spMonthly: 75,        // 特別条項の月上限（見本。法の上限は休日労働込みで月100時間未満）
-  spYearly: 720,        // 特別条項の年上限
-  avgLimit: 80,         // 2〜6か月平均（休日労働込み）
+  spMonthly: 90,        // 特別条項の月上限（時間外＋休日労働。法の上限は100時間未満）
+  spYearly: 720,        // 特別条項の年上限（時間外のみ）
+  avgLimit: 80,         // 2〜6か月平均（休日労働込み・法の上限）
   overCount: 6,         // 月45時間を超えてよい回数（年）
+  holidayPerMonth: 4,   // 法定休日に働かせてよい日数（1か月）
 };
 
 export const MONTH = { label: '10月度', closeOn: '10/31', workdays: 22, passed: 16 };
@@ -39,7 +45,9 @@ export type Level = 'ok' | 'caution' | 'warn' | 'danger';
 // 段階つきアラート（注意→警告→上限）。理由も一緒に返す（画面で「なぜ色が付いたか」を出す）。
 export function otLevel(o: Overtime): { level: Level; reason: string } {
   const p = projection(o);
-  if (p >= KYOTEI.spMonthly || o.avg26 >= KYOTEI.avgLimit) return { level: 'danger', reason: `見込み ${p}h が特別条項の月上限 ${KYOTEI.spMonthly}h に届く` };
+  // 特別条項の月上限の9割（81h）から「上限間近」。上限そのものに届いてからでは遅い
+  if (p >= KYOTEI.spMonthly * 0.9) return { level: 'danger', reason: `見込み ${p}h が特別条項の月上限 ${KYOTEI.spMonthly}h の9割を超える` };
+  if (o.avg26 >= KYOTEI.avgLimit * 0.9) return { level: 'danger', reason: `2〜6か月平均 ${o.avg26}h が ${KYOTEI.avgLimit}h に近い` };
   if (p > KYOTEI.monthly && o.over45 >= KYOTEI.overCount) return { level: 'danger', reason: `45h超えが今年もう ${o.over45}回。今月超えると ${KYOTEI.overCount}回の枠を超える` };
   if (p > KYOTEI.monthly) return { level: 'warn', reason: `見込み ${p}h が月 ${KYOTEI.monthly}h を超える（今年 ${o.over45 + 1}回目）` };
   if (p >= KYOTEI.monthly * 0.8) return { level: 'caution', reason: `見込み ${p}h が月 ${KYOTEI.monthly}h の8割に届く` };

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Bell, Check } from 'lucide-react';
+import { AlertTriangle, Bell, Check } from 'lucide-react';
 import { KYOTEI, LEAVES, LEVEL_STYLE, MONTH, OVERTIME, leaveLevel, otLevel, projection, type Level } from '@/lib/roumu-sample';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
@@ -64,7 +64,7 @@ export default function OvertimePage() {
         ))}
       </div>
       <div key={tab} className="mo-axis">{tab === 'ot' ? <OtTab /> : <LeaveTab />}</div>
-      <p className="text-[11.5px] text-faint">36協定の上限・有給の義務の数字は見本です。会社の協定届と就業規則に合わせて設定し、扱いに迷うものは社労士に確認してください。</p>
+      <p className="text-[11.5px] text-faint">36協定の数字は新宿事業所の協定届（令和7年11月1日〜令和8年10月31日）のものです。社員の数字は見本です。扱いに迷うものは社労士に確認してください。</p>
     </main>
   );
 }
@@ -106,12 +106,17 @@ function OtTab() {
 
   return (
     <div className="flex flex-col gap-3">
+      <div role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-[#FBC4CF] bg-[#FFF1F3] px-4 py-2.5 text-[12.5px] text-[#881337]">
+        <AlertTriangle size={16} className="shrink-0 text-[#E11D48]" />
+        <span><b>{KYOTEI.office}の36協定は {KYOTEI.validUntil} で期限です。</b>11/1 からの新しい協定を届け出たか確かめてください（届け出るまで残業はさせられません）。</span>
+        <span className="text-[#9F1239]">いまの協定：1日{KYOTEI.daily}h・月{KYOTEI.monthly}h・年{KYOTEI.yearly}h／特別条項 月{KYOTEI.spMonthly}h・年{KYOTEI.spYearly}h・年{KYOTEI.overCount}回／休日労働 月{KYOTEI.holidayPerMonth}回</span>
+      </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
-          ['協定の上限（月）', `${KYOTEI.monthly}h`, `特別条項 ${KYOTEI.spMonthly}h・年${KYOTEI.overCount}回まで`],
-          ['協定の上限（年）', `${KYOTEI.yearly}h`, `特別条項 ${KYOTEI.spYearly}h`],
+          ['協定の上限（月）', `${KYOTEI.monthly}h`, `特別条項 ${KYOTEI.spMonthly}h（休日込み）・年${KYOTEI.overCount}回まで`],
+          ['協定の上限（年）', `${KYOTEI.yearly}h`, `特別条項 ${KYOTEI.spYearly}h・${KYOTEI.yearStart}起算`],
           ['45h を超えそう', `${rows.filter((r) => r.p > KYOTEI.monthly).length}人`, '締め日時点の見込み'],
-          ['上限間近', `${counts.danger ?? 0}人`, '特別条項・6回の枠・平均80h'],
+          ['上限間近', `${counts.danger ?? 0}人`, `月${Math.round(KYOTEI.spMonthly * 0.9)}h超え見込み・6回の枠・平均80h`],
         ].map(([l, n, s], i) => (
           <div key={l} className="mo-fade-up rounded-xl border border-line bg-white px-4 py-3" style={{ ['--i' as string]: i }}>
             <div className="text-[12px] text-muted">{l}</div><div className="num text-[22px] font-bold">{n}</div><div className="text-[11.5px] text-faint">{s}</div>
