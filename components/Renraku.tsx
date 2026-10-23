@@ -77,9 +77,9 @@ export function RenrakuButton({ module }: { module: ModuleKey | 'home' }) {
   const unread = THREADS[account].filter((x) => x.ball).length;
   return (
     <>
-      <button onClick={() => setOpen((v) => !v)} aria-expanded={open} className="relative flex min-h-10 items-center gap-2 rounded-[10px] border border-line px-3 text-[13px] font-semibold text-[#3F4257]">
-        <MessageSquare size={17} strokeWidth={1.8} />連絡<span className="rounded-full bg-[#F0F1F5] px-2 py-0.5 text-[11px] font-medium text-muted">{account}</span>
-        {unread > 0 && <span className="num absolute -right-1.5 -top-1.5 rounded-full bg-[#E11D48] px-1.5 text-[11px] font-bold text-white">{unread}</span>}
+      <button onClick={() => setOpen((v) => !v)} aria-expanded={open} className="relative flex min-h-10 items-center gap-2 rounded-[10px] border border-line px-3 text-[13px] font-semibold text-muted">
+        <MessageSquare size={17} strokeWidth={1.8} />連絡<span className="rounded-full bg-sunken px-2 py-0.5 text-[11px] font-medium text-muted">{account}</span>
+        {unread > 0 && <span className="num absolute -right-1.5 -top-1.5 rounded-full bg-bad px-1.5 text-[11px] font-bold text-white">{unread}</span>}
       </button>
       {open && <DrawerPortal><RenrakuPanel account={account} module={module} onClose={() => setOpen(false)} /></DrawerPortal>}
     </>
@@ -92,7 +92,7 @@ function RenrakuPanel({ account, module, onClose }: { account: Account; module: 
   const [tab, setTab] = useState<'chat' | 'broadcast' | 'manual'>('chat');
   useEffect(() => { const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
   return (
-    <aside aria-label={`連絡（${account}）`} className="mo-drawer fixed bottom-0 right-0 top-[var(--hdr,58px)] z-40 flex w-[min(460px,100vw)] flex-col border-l border-line bg-white shadow-[-12px_0_28px_rgba(25,27,46,.14)]">
+    <aside aria-label={`連絡（${account}）`} className="mo-drawer fixed bottom-0 right-0 top-[var(--hdr,58px)] z-40 flex w-[min(460px,100vw)] flex-col border-l border-line bg-surface shadow-[-12px_0_28px_rgba(25,27,46,.14)]">
       <div className="flex items-center justify-between px-5 pb-2 pt-4">
         <div><div className="text-[12px] text-faint">この画面の LINE 公式アカウント</div><div className="text-[17px] font-bold">{account}</div></div>
         <button aria-label="閉じる" onClick={onClose} className="flex size-[34px] items-center justify-center rounded-[10px] border border-line"><X size={16} /></button>
@@ -100,7 +100,7 @@ function RenrakuPanel({ account, module, onClose }: { account: Account; module: 
       <div role="tablist" className="flex gap-1 border-b border-line px-4 text-[13.5px]">
         {([['chat', 'チャット'], ['broadcast', '配信'], ['manual', '手動配信']] as const).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className="px-3 py-2.5"
-            style={tab === k ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: '#5A5E75' }}>{l}</button>
+            style={tab === k ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>{l}</button>
         ))}
       </div>
       <div key={tab} className="mo-axis flex min-h-0 flex-1 flex-col">
@@ -126,12 +126,12 @@ function ChatTab({ account, canSend }: { account: Account; canSend: boolean }) {
   if (!th) {
     return (
       <div className="flex flex-col overflow-y-auto">
-        <label className="mx-4 my-3 flex min-h-9 items-center gap-2 rounded-[10px] border border-[#DCDDE6] px-3 text-faint"><Search size={15} /><input aria-label="トークを検索" placeholder="名前・内容" className="flex-1 bg-transparent text-[13px] text-ink outline-none" /></label>
+        <label className="mx-4 my-3 flex min-h-9 items-center gap-2 rounded-[10px] border border-field px-3 text-faint"><Search size={15} /><input aria-label="トークを検索" placeholder="名前・内容" className="flex-1 bg-transparent text-[13px] text-ink outline-none" /></label>
         {threads.map((x, i) => (
-          <button key={x.id} onClick={() => setOpenId(x.id)} className="mo-fade-up flex items-center gap-3 border-t border-line-soft px-4 py-3 text-left hover:bg-[#F7F8FC]" style={{ ['--i' as string]: i }}>
+          <button key={x.id} onClick={() => setOpenId(x.id)} className="mo-fade-up flex items-center gap-3 border-t border-line-soft px-4 py-3 text-left hover:bg-soft" style={{ ['--i' as string]: i }}>
             <div aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-full text-[13px] font-bold" style={{ background: 'var(--as)', color: 'var(--ad)' }}>{x.name.slice(-2, -1)}</div>
             <div className="min-w-0 flex-1"><div className="flex justify-between text-[13.5px] font-semibold">{x.name}<span className="text-[11.5px] font-normal text-faint">{x.at}</span></div><div className="truncate text-[12.5px] text-muted">{x.last}</div></div>
-            {x.ball && <span className="rounded-full bg-[#FFE4E9] px-2 py-0.5 text-[11px] font-bold text-[#BE123C]">要対応</span>}
+            {x.ball && <span className="rounded-full bg-[var(--tone-bad-bg)] px-2 py-0.5 text-[11px] font-bold text-bad">要対応</span>}
           </button>
         ))}
       </div>
@@ -140,7 +140,7 @@ function ChatTab({ account, canSend }: { account: Account; canSend: boolean }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <button onClick={() => setOpenId(null)} className="border-b border-line-soft px-4 py-2 text-left text-[12.5px] text-muted">← トーク一覧 ／ <b className="text-ink">{th.name}</b></button>
-      <div className="flex flex-1 flex-col gap-2 overflow-y-auto bg-[#F6F6FB] px-4 py-3">
+      <div className="flex flex-1 flex-col gap-2 overflow-y-auto bg-soft px-4 py-3">
         {th.msgs.map((m, i) => (
           <div key={i} className={`mo-fade-up max-w-[80%] rounded-2xl px-3 py-2 text-[13.5px] ${m.from === 'me' ? 'self-end rounded-br-md' : 'self-start rounded-bl-md bg-white'}`}
             style={m.from === 'me' ? { background: 'var(--a)', color: 'var(--ao)' } : undefined}>{m.text}<div className="mt-0.5 text-right text-[10.5px] opacity-70">{m.at}</div></div>
@@ -149,7 +149,7 @@ function ChatTab({ account, canSend }: { account: Account; canSend: boolean }) {
       <div className="flex flex-wrap gap-1.5 px-4 pt-2">{['確認します', 'ありがとうございます！', '日程を送ります'].map((q) => <button key={q} onClick={() => setText(q)} className="rounded-full border border-line px-2.5 py-1 text-[12px]">{q}</button>)}</div>
       <div className="flex items-end gap-2 px-4 py-3">
         <textarea value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send(); }} rows={2} placeholder={canSend ? 'メッセージ（⌘+Enterで送信）' : needText('edit')} disabled={!canSend}
-          className="flex-1 resize-none rounded-[10px] border border-[#DCDDE6] px-3 py-2 text-[13.5px] outline-none disabled:bg-[#F6F6FB]" />
+          className="flex-1 resize-none rounded-[10px] border border-field px-3 py-2 text-[13.5px] outline-none disabled:bg-soft" />
         <button onClick={send} disabled={!canSend || !text.trim()} aria-label="送信" className="flex size-10 items-center justify-center rounded-[10px] disabled:opacity-40" style={{ background: 'var(--a)', color: 'var(--ao)' }}><Send size={16} /></button>
       </div>
     </div>
@@ -166,18 +166,18 @@ function BroadcastTab({ account, canSend }: { account: Account; canSend: boolean
     <div className="flex flex-col gap-3 overflow-y-auto px-4 py-3">
       {items.map((b, i) => (
         <div key={b.id} className="mo-fade-up rounded-xl border border-line px-3.5 py-3" style={{ ['--i' as string]: i }}>
-          <div className="flex items-center justify-between"><b className="text-[13.5px]">{b.title}</b><span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${b.state === '予約' ? 'bg-[#FFF4E0] text-[#8A4B00]' : 'bg-[#E9F7EE] text-[#116B34]'}`}>{b.state}</span></div>
+          <div className="flex items-center justify-between"><b className="text-[13.5px]">{b.title}</b><span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${b.state === '予約' ? 'bg-warn-soft text-warn' : 'bg-ok-soft text-ok'}`}>{b.state}</span></div>
           <div className="mt-0.5 text-[12px] text-muted">{b.to}・{b.when}</div>
-          {b.read !== undefined && <div className="mt-2 flex items-center gap-2 text-[11.5px] text-muted"><div className="h-1.5 flex-1 overflow-hidden rounded bg-[#F0F1F5]"><div className="mo-bar h-1.5" style={{ width: `${b.read * 100}%`, background: 'var(--a)' }} /></div>既読 {Math.round(b.read * 100)}%</div>}
+          {b.read !== undefined && <div className="mt-2 flex items-center gap-2 text-[11.5px] text-muted"><div className="h-1.5 flex-1 overflow-hidden rounded bg-sunken"><div className="mo-bar h-1.5" style={{ width: `${b.read * 100}%`, background: 'var(--a)' }} /></div>既読 {Math.round(b.read * 100)}%</div>}
         </div>
       ))}
-      <div className="rounded-xl border border-dashed border-[#C9CBDA] px-3.5 py-3">
+      <div className="rounded-xl border border-dashed border-field px-3.5 py-3">
         <div className="mb-2 text-[13px] font-bold">新しい配信</div>
         <div className="flex flex-col gap-2 text-[12.5px]">
-          <label className="flex flex-col gap-1 text-muted">宛先（タグ・グループ）<select value={to} onChange={(e) => setTo(e.target.value)} className="rounded-lg border border-[#DCDDE6] px-2 py-1.5 text-[13px] text-ink">
+          <label className="flex flex-col gap-1 text-muted">宛先（タグ・グループ）<select value={to} onChange={(e) => setTo(e.target.value)} className="rounded-lg border border-field px-2 py-1.5 text-[13px] text-ink">
             {(account === 'あおい' ? ['稼働中 251人', '待機中 26人', 'シフト勤務 38人', 'C社 常駐グループ'] : ['応募者（面談前）212人', '入社予定 14人', '承諾者 31人']).map((o) => <option key={o}>{o}</option>)}</select></label>
-          <label className="flex flex-col gap-1 text-muted">本文<input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="例：11月の勤怠の締めのお知らせ" className="rounded-lg border border-[#DCDDE6] px-2 py-1.5 text-[13px] text-ink" /></label>
-          <label className="flex flex-col gap-1 text-muted">送る日時<input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className="rounded-lg border border-[#DCDDE6] px-2 py-1.5 text-[13px] text-ink" /></label>
+          <label className="flex flex-col gap-1 text-muted">本文<input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="例：11月の勤怠の締めのお知らせ" className="rounded-lg border border-field px-2 py-1.5 text-[13px] text-ink" /></label>
+          <label className="flex flex-col gap-1 text-muted">送る日時<input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className="rounded-lg border border-field px-2 py-1.5 text-[13px] text-ink" /></label>
           <div className="flex justify-end"><HoldButton label="長押しで予約" disabled={!canSend || !title.trim()} title={!canSend ? needText('edit') : undefined}
             onDone={() => { setItems((xs) => [{ id: String(Date.now()), title, to, when: when.replace('T', ' ').slice(5), state: '予約' }, ...xs]); setTitle(''); hit(); toast({ text: '配信を予約しました', sub: `→ ${to} に ${when.replace('T', ' ').slice(5)} に届きます` }); }} /></div>
         </div>
@@ -201,15 +201,15 @@ function ManualTab({ account, canSend }: { account: Account; canSend: boolean })
       <div className="flex-1 overflow-y-auto px-4 py-3">
         <div className="mb-1.5 flex items-center justify-between text-[12.5px] text-muted">送る人を選ぶ<button onClick={() => setSel(sel.size === all.length ? new Set() : new Set(all))} className="font-semibold" style={{ color: 'var(--ad)' }}>{sel.size === all.length ? 'すべて外す' : 'すべて選ぶ'}</button></div>
         {all.map((n, i) => (
-          <label key={n} className="mo-fade-in flex items-center gap-2.5 rounded-lg px-2 py-2 text-[13.5px] hover:bg-[#F7F8FC]" style={{ ['--i' as string]: i }}>
+          <label key={n} className="mo-fade-in flex items-center gap-2.5 rounded-lg px-2 py-2 text-[13.5px] hover:bg-soft" style={{ ['--i' as string]: i }}>
             <input type="checkbox" checked={sel.has(n)} onChange={() => setSel((s) => { const x = new Set(s); if (x.has(n)) x.delete(n); else x.add(n); return x; })} />{n}
           </label>
         ))}
-        <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} placeholder="本文（{名前} で一人ずつ名前が入ります）" className="mt-3 w-full resize-none rounded-[10px] border border-[#DCDDE6] px-3 py-2 text-[13.5px] outline-none" />
+        <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} placeholder="本文（{名前} で一人ずつ名前が入ります）" className="mt-3 w-full resize-none rounded-[10px] border border-field px-3 py-2 text-[13.5px] outline-none" />
       </div>
       <div className="flex items-center gap-3 border-t border-line px-4 py-3">
         {sent !== null ? (
-          <div className="flex flex-1 items-center gap-2 text-[12.5px]"><div className="h-2 flex-1 overflow-hidden rounded bg-[#F0F1F5]"><div className="h-2 transition-[width] duration-200" style={{ width: `${(sent / Math.max(sel.size, 1)) * 100}%`, background: 'var(--a)' }} /></div><span className="num">{sent} / {sel.size}</span></div>
+          <div className="flex flex-1 items-center gap-2 text-[12.5px]"><div className="h-2 flex-1 overflow-hidden rounded bg-sunken"><div className="h-2 transition-[width] duration-200" style={{ width: `${(sent / Math.max(sel.size, 1)) * 100}%`, background: 'var(--a)' }} /></div><span className="num">{sent} / {sel.size}</span></div>
         ) : (
           <span className="flex-1 text-[12.5px] text-muted">{sel.size}人を選択中</span>
         )}

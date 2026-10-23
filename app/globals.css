@@ -3,25 +3,195 @@
 /* ver2 の土台。字体はミンミカと同じ（Inter＋ヒラギノ角ゴ）。分類の色は ColorProvider が --c-<分類> などで入れる。 */
 @theme {
   --font-sans: var(--font-inter), "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+  /* 面と文字（着せ替えで入れ替わる。画面には色を直に書かず、ここの名前で塗る） */
+  --color-base: #F5F6FA;
+  --color-surface: #FFFFFF;
+  --color-soft: #F6F6FB;
+  --color-sunken: #F0F1F5;
+  --color-track: #ECEDF3;
   --color-ink: #171717;
   --color-sumi: #191B2E;
-  --color-base: #F5F6FA;
-  --color-line: #E8E9F0;
-  --color-line-soft: #F0F1F5;
   --color-muted: #6B6F85;
   --color-faint: #8B8FA3;
+  --color-line: #E8E9F0;
+  --color-line-soft: #F0F1F5;
+  --color-field: #DCDDE6;
+  /* 状態の文字・面・線 */
+  --color-ok: #116B34; --color-ok-soft: #E9F7EE; --color-ok-line: #B5E3C4;
+  --color-warn: #B45309; --color-warn-soft: #FFF4E0; --color-warn-line: #F5D49A;
+  --color-bad: #BE123C; --color-bad-soft: #FFF1F3; --color-bad-line: #FBC4CF;
+  --color-info: #134A9C;
 }
+
+/* ===== 着せ替え（設定 → 見た目）。html の data-theme で切り替える。shoya「全部着せ替えできるように」10-23 =====
+   ここで決めるのは 面・文字・メニュー・上のバー・表の見出し・札（chip）の形・主ボタン・影 と、分類色の深さ。
+   分類ごとの色（重複なし）はどの着せ替えでも残る。 */
+:root {
+  --tone-ok-bg: #E9F7EE; --tone-ok-fg: #116B34; --tone-ok-bar: #16A34A;
+  --tone-caution-bg: #FFF8D6; --tone-caution-fg: #6B5300; --tone-caution-bar: #E0B100;
+  --tone-warn-bg: #FFF4E0; --tone-warn-fg: #8A4B00; --tone-warn-bar: #EA8A00;
+  --tone-bad-bg: #FFE4E9; --tone-bad-fg: #BE123C; --tone-bad-bar: #E11D48;
+  --tone-info-bg: #EAF2FE; --tone-info-fg: #134A9C;
+  --tone-purple-bg: #F3EEFE; --tone-purple-fg: #5B21B6;
+  --tone-mute-bg: #F0F1F5; --tone-mute-fg: #5A5E75;
+  --side-bg: #191B2E; --side-fg: #C9CBE0; --side-strong: #FFFFFF; --side-muted: #8B8FA3;
+  --side-hover: rgba(255,255,255,.07); --side-on-bg: rgba(255,255,255,.12); --side-on-fg: #FFFFFF; --side-line: rgba(255,255,255,.10);
+  --side-logo-bg: #FFFFFF; --side-logo-fg: #191B2E;
+  --top-bg: rgba(255,255,255,.9);
+  --card-shadow: none; --row-hover: #F7F8FC; --flash: #D5F2E0;
+  --mix-to: #000; --mix-p: 100%;
+}
+
+/* 1 墨と金 */
+[data-theme="kin"] {
+  --color-base: #FBFAF7; --color-surface: #FFFFFF; --color-soft: #F7F4EC; --color-sunken: #F2EEE5; --color-track: #EEE9DE;
+  --color-ink: #0F1426; --color-muted: #6E6756; --color-faint: #9A927F; --color-line: #ECE7DC; --color-line-soft: #F3EFE7; --color-field: #DCD3BF;
+  --color-ok: #3E6B52; --color-warn: #9A6416; --color-bad: #9B2C3C; --color-info: #2F4A7A;
+  --tone-ok-fg: #3E6B52; --tone-ok-bar: linear-gradient(90deg,#A88A57,#C8A96E);
+  --tone-caution-fg: #7C6A2E; --tone-caution-bar: linear-gradient(90deg,#A88A57,#C8A96E);
+  --tone-warn-fg: #9A6416; --tone-warn-bar: linear-gradient(90deg,#8E3B46,#B5525E);
+  --tone-bad-fg: #9B2C3C; --tone-bad-bar: linear-gradient(90deg,#8E3B46,#B5525E);
+  --tone-info-fg: #2F4A7A; --tone-purple-fg: #5B3F7A; --tone-mute-fg: #6E6756;
+  --side-bg: linear-gradient(180deg,#121830,#0B1020); --side-fg: #CFC8B6; --side-strong: #F3E7C9; --side-muted: #8D8573;
+  --side-on-bg: rgba(200,169,110,.14); --side-on-fg: #F3E7C9; --side-bar: #C8A96E; --side-logo-bg: #C8A96E; --side-logo-fg: #0F1426;
+  --top-bg: rgba(251,250,247,.92); --th-bg: #F5F1E8; --th-fg: #5C5340; --row-hover: #FAF7F0; --flash: #F3E9D2;
+  --card-shadow: 0 1px 0 rgba(15,20,38,.03); --btn-bg: #0F1426; --btn-fg: #F3E7C9;
+  --mix-to: #0F1426; --mix-p: 78%;
+}
+[data-theme="kin"] .chip { background: transparent !important; box-shadow: inset 0 0 0 1px currentColor; font-weight: 600 }
+
+/* 2 深い宝石色 */
+[data-theme="houseki"] {
+  --color-base: #F4F5F9; --color-soft: #F7F8FB; --color-line: #E3E6EE; --color-field: #D5D9E4;
+  --tone-ok-bg: #EAF5F1; --tone-ok-fg: #0F6B5E; --tone-ok-bar: linear-gradient(90deg,#0F766E,#14A08F);
+  --tone-caution-bg: #F7F4E4; --tone-caution-fg: #6F5D12; --tone-caution-bar: linear-gradient(90deg,#A88A0F,#CDA716);
+  --tone-warn-bg: #FBF3E6; --tone-warn-fg: #93570B; --tone-warn-bar: linear-gradient(90deg,#B45309,#E08A1E);
+  --tone-bad-bg: #FBEFF2; --tone-bad-fg: #A1173D; --tone-bad-bar: linear-gradient(90deg,#9F1239,#E11D48);
+  --tone-info-bg: #EDF2FB; --tone-info-fg: #1E3A8A; --tone-purple-bg: #F3EFFA; --tone-purple-fg: #5B2C9C; --tone-mute-bg: #F1F2F6; --tone-mute-fg: #4B5068;
+  --side-bg: #10131F; --side-fg: #B9BED3; --side-on-bg: linear-gradient(90deg, color-mix(in srgb, var(--a) 34%, transparent), color-mix(in srgb, var(--a) 6%, transparent));
+  --th-bg: #F7F8FB; --th-fg: #4B5068; --row-hover: #F7F9FC;
+  --card-shadow: 0 1px 2px rgba(16,19,31,.04), 0 6px 16px rgba(16,19,31,.05);
+  --btn-shadow: 0 4px 12px color-mix(in srgb, var(--a) 28%, transparent);
+  --mix-to: #0B1020; --mix-p: 82%;
+}
+[data-theme="houseki"] .chip::before, [data-theme="ai"] .chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor }
+[data-theme="houseki"] th, [data-theme="mono"] th, [data-theme="ai"] th { border-bottom: 1px solid var(--color-line) }
+
+/* 3 白黒＋色は点だけ */
+[data-theme="mono"] {
+  --color-base: #FCFCFD; --color-soft: #F7F7F9; --color-sunken: #F3F3F6; --color-track: #EFEFF3; --color-ink: #111111; --color-muted: #6B6E7C; --color-faint: #8F92A0;
+  --color-line: #ECECF0; --color-line-soft: #F3F3F6; --color-field: #DEDEE5;
+  --tone-ok-bar: #2A2D3A; --tone-caution-bar: #2A2D3A; --tone-warn-bar: #C2263F; --tone-bad-bar: #C2263F;
+  --side-bg: #F7F7F9; --side-fg: #3F4254; --side-strong: #111111; --side-muted: #8F92A0; --side-hover: rgba(0,0,0,.04);
+  --side-on-bg: #FFFFFF; --side-on-fg: #111111; --side-line: #ECECF0; --side-logo-bg: #111111; --side-logo-fg: #FFFFFF; --side-bar: transparent;
+  --top-bg: rgba(255,255,255,.92); --th-bg: transparent; --th-fg: #7A7D8C; --row-hover: #FAFAFB; --flash: #EEF0F3;
+  --btn-bg: #111111; --btn-fg: #FFFFFF;
+}
+[data-theme="mono"] nav.side { border-right: 1px solid #ECECF0 }
+[data-theme="mono"] .side-on { box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 0 0 1px #ECECF0 !important }
+[data-theme="mono"] .chip { background: transparent !important; padding-left: 0 }
+[data-theme="mono"] .chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor }
+
+/* 4 夜のダーク */
+[data-theme="yoru"] {
+  color-scheme: dark;
+  --color-base: #0E1018; --color-surface: #141824; --color-soft: #191D2B; --color-sunken: #1C2030; --color-track: #232838;
+  --color-ink: #E6E8F0; --color-muted: #9AA0B8; --color-faint: #747A93; --color-line: #232838; --color-line-soft: #1C2030; --color-field: #2C3246;
+  --color-ok: #6EE7B7; --color-ok-soft: rgba(110,231,183,.08); --color-ok-line: rgba(110,231,183,.3);
+  --color-warn: #FDBA74; --color-warn-soft: rgba(253,186,116,.08); --color-warn-line: rgba(253,186,116,.3);
+  --color-bad: #FB7185; --color-bad-soft: rgba(251,113,133,.08); --color-bad-line: rgba(251,113,133,.3); --color-info: #93C5FD;
+  --tone-ok-bg: rgba(255,255,255,.04); --tone-ok-fg: #6EE7B7; --tone-ok-bar: linear-gradient(90deg,#14B8A6,#5EEAD4);
+  --tone-caution-bg: rgba(255,255,255,.04); --tone-caution-fg: #FDE68A; --tone-caution-bar: linear-gradient(90deg,#CA8A04,#FDE047);
+  --tone-warn-bg: rgba(255,255,255,.04); --tone-warn-fg: #FDBA74; --tone-warn-bar: linear-gradient(90deg,#EA580C,#FDBA74);
+  --tone-bad-bg: rgba(255,255,255,.04); --tone-bad-fg: #FB7185; --tone-bad-bar: linear-gradient(90deg,#E11D48,#FB7185);
+  --tone-info-bg: rgba(255,255,255,.04); --tone-info-fg: #93C5FD; --tone-purple-bg: rgba(255,255,255,.04); --tone-purple-fg: #C4B5FD;
+  --tone-mute-bg: rgba(255,255,255,.04); --tone-mute-fg: #9AA0B8;
+  --side-bg: #0A0C12; --side-fg: #9AA0B8; --side-on-bg: #171B28; --side-line: #1A1E2B;
+  --top-bg: rgba(14,16,24,.85); --th-bg: #171B28; --th-fg: #9AA0B8; --row-hover: #181C29; --flash: rgba(94,234,212,.12);
+  --card-shadow: 0 0 0 1px rgba(255,255,255,.02), 0 10px 24px rgba(0,0,0,.35);
+  --btn-shadow: 0 0 14px color-mix(in srgb, var(--a) 45%, transparent);
+  --mix-to: #FFFFFF; --mix-p: 78%;
+}
+[data-theme="yoru"] .chip { box-shadow: inset 0 0 0 1px rgba(255,255,255,.08) }
+[data-theme="yoru"] .chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 6px currentColor }
+[data-theme="yoru"] [data-module] { --as: color-mix(in srgb, var(--a) 14%, #141824); --al: color-mix(in srgb, var(--a) 40%, #141824); --ad: color-mix(in oklch, var(--a) 70%, #FFFFFF) }
+[data-theme="yoru"] .mo-bar[style*="--tone"], [data-theme="yoru"] .mo-bar { filter: drop-shadow(0 0 4px rgba(255,255,255,.12)) }
+
+/* 5 黄×黒を上品に */
+[data-theme="kiguro"] {
+  --color-base: #F7F6F2; --color-soft: #F4F2EC; --color-sunken: #EFEDE6; --color-track: #EAE7DE; --color-ink: #111111; --color-muted: #6F6A5A; --color-faint: #95907F;
+  --color-line: #E7E4DA; --color-line-soft: #F0EEE7; --color-field: #D6D2C4;
+  --tone-ok-bg: #ECEAE2; --tone-ok-fg: #4A4739; --tone-ok-bar: #2B2B2B;
+  --tone-caution-bg: #F5C400; --tone-caution-fg: #111111; --tone-caution-bar: #2B2B2B;
+  --tone-warn-bg: #111111; --tone-warn-fg: #F5C400; --tone-warn-bar: #D9381E;
+  --tone-bad-bg: #D9381E; --tone-bad-fg: #FFFFFF; --tone-bad-bar: #D9381E;
+  --tone-info-bg: #ECEAE2; --tone-info-fg: #111111; --tone-purple-bg: #ECEAE2; --tone-purple-fg: #111111; --tone-mute-bg: #ECEAE2; --tone-mute-fg: #6F6A5A;
+  --side-bg: #111111; --side-fg: #B5B2A6; --side-on-bg: #F5C400; --side-on-fg: #111111; --side-bar: transparent; --side-logo-bg: #F5C400; --side-logo-fg: #111111;
+  --top-bg: rgba(247,246,242,.92); --th-bg: #111111; --th-fg: #EDEAE0; --row-hover: #FAF9F5; --flash: #FFF3B8;
+  --btn-bg: #F5C400; --btn-fg: #111111; --btn-border: #111111;
+  --mix-to: #111111; --mix-p: 85%;
+}
+[data-theme="kiguro"] .chip { border-radius: 4px }
+[data-theme="kiguro"] .side-on .num { background: #111 !important; color: #F5C400 !important }
+
+/* 6 紺と生成りの紙 */
+[data-theme="kami"] {
+  --color-base: #F3EFE6; --color-surface: #FBF9F4; --color-soft: #F6F2E9; --color-sunken: #EEE8DB; --color-track: #E8E1D2;
+  --color-ink: #1B2A4A; --color-muted: #6E6656; --color-faint: #958C7A; --color-line: #DDD5C4; --color-line-soft: #E8E1D2; --color-field: #CFC5B0;
+  --color-ok: #3F6B4E; --color-warn: #B0672A; --color-bad: #A4343A; --color-info: #1B2A4A;
+  --tone-ok-fg: #3F6B4E; --tone-ok-bar: #1B2A4A; --tone-caution-fg: #8C7A2E; --tone-caution-bar: #1B2A4A;
+  --tone-warn-fg: #B0672A; --tone-warn-bar: #A4343A; --tone-bad-fg: #A4343A; --tone-bad-bar: #A4343A;
+  --tone-info-fg: #1B2A4A; --tone-purple-fg: #5A3E6E; --tone-mute-fg: #6E6656;
+  --side-bg: #1B2A4A; --side-fg: #C9CFDD; --side-on-bg: #F3EFE6; --side-on-fg: #1B2A4A; --side-bar: transparent; --side-logo-bg: #E2C79A; --side-logo-fg: #1B2A4A;
+  --top-bg: rgba(243,239,230,.94); --th-bg: transparent; --th-fg: #1B2A4A; --row-hover: #F6F2E9; --flash: #EADFC6;
+  --btn-bg: #1B2A4A; --btn-fg: #F3EFE6;
+  --mix-to: #1B2A4A; --mix-p: 70%;
+}
+[data-theme="kami"] .chip { background: transparent !important; border-radius: 0; border-bottom: 2px solid currentColor; padding: 1px 2px; font-weight: 600 }
+[data-theme="kami"] th { border-bottom: 2px solid #1B2A4A }
+[data-theme="kami"] h1, [data-theme="kami"] h2 { font-family: "Hiragino Mincho ProN", "Yu Mincho", serif; font-weight: 600 }
+[data-theme="kami"] .rounded-xl { border-radius: 6px }
+
+/* 7 藍のグラデーション */
+[data-theme="ai"] {
+  --color-base: #F6F7FB; --color-line: #E6E7F2; --color-line-soft: #F0F0F8; --color-field: #D9DAEA; --color-soft: #FAFAFE;
+  --tone-ok-bg: #EAF6F0; --tone-ok-fg: #0F6B4A; --tone-ok-bar: linear-gradient(90deg,#6366F1,#A78BFA);
+  --tone-caution-bg: #FBF6E3; --tone-caution-fg: #7A6410; --tone-caution-bar: linear-gradient(90deg,#6366F1,#A78BFA);
+  --tone-warn-bg: #FEF3E8; --tone-warn-fg: #A3540C; --tone-warn-bar: linear-gradient(90deg,#F97316,#FB923C);
+  --tone-bad-bg: #FDEEF3; --tone-bad-fg: #BE185D; --tone-bad-bar: linear-gradient(90deg,#E11D48,#F472B6);
+  --tone-info-bg: #EEF0FE; --tone-info-fg: #4338CA; --tone-purple-bg: #F3EEFE; --tone-purple-fg: #6D28D9;
+  --side-bg: linear-gradient(180deg,#1E1B4B,#151236); --side-fg: #B9B5E6; --side-muted: #8C88C0; --side-on-bg: rgba(255,255,255,.10);
+  --th-bg: #FAFAFE; --th-fg: #4C4F7A; --row-hover: #F8F8FE; --flash: #E4E2FF;
+  --card-shadow: 0 1px 2px rgba(30,27,75,.04), 0 8px 20px rgba(79,70,229,.06);
+  --btn-bg: linear-gradient(135deg, var(--a), color-mix(in oklch, var(--a) 60%, #7C3AED)); --btn-shadow: 0 4px 12px color-mix(in srgb, var(--a) 30%, transparent);
+}
+[data-theme="ai"] header.topbar { box-shadow: inset 0 3px 0 0 transparent; background-image: linear-gradient(90deg, rgba(79,70,229,.06), rgba(124,58,237,.05)) }
+
+/* 部品（着せ替えの変数だけで塗る） */
+nav.side { background: var(--side-bg); color: var(--side-fg) }
+.side-strong { color: var(--side-strong) } .side-muted { color: var(--side-muted) }
+.side-hover:hover { background: var(--side-hover) }
+.side-on { background: var(--side-on-bg); color: var(--side-on-fg) }
+.side-line { border-color: var(--side-line) } .side-ring { --tw-ring-color: var(--side-line) }
+.side-logo { background: var(--side-logo-bg); color: var(--side-logo-fg) }
+header.topbar { background-color: var(--top-bg) }
+tr.th-row { background: var(--th-bg, var(--as)); color: var(--th-fg, var(--ad)) }
+.chip { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; border-radius: 999px; padding: 2px 8px; font-size: 11.5px; font-weight: 700; line-height: 1.5 }
+.btn-primary { background: var(--btn-bg, var(--a)); color: var(--btn-fg, var(--ao)); box-shadow: var(--btn-shadow, none); border: 1px solid var(--btn-border, transparent) }
+.rounded-xl.border.bg-surface { box-shadow: var(--card-shadow) }
 
 html, body { background: var(--color-base); color: var(--color-ink); }
 body { font-family: var(--font-sans); font-feature-settings: "palt" 0; }
 .num { font-variant-numeric: tabular-nums; }
 
-/* いまの画面の分類色（--a 系）。ページの外枠で data-module を見て切り替える。ホームは墨色。 */
+/* いまの画面の分類色（--a 系）。ページの外枠で data-module を見て切り替える。ホームは墨色。
+   着せ替えは --mix-to / --mix-p で分類色の深さだけ変える（色そのものは分類ごとの設定のまま）。 */
 [data-module] { --a: var(--color-sumi); --ad: var(--color-sumi); --as: #F1F2F7; --al: #D9DBE8; --ao: #FFFFFF; }
-[data-module="jinji"] { --a: var(--c-jinji); --ad: var(--d-jinji); --as: var(--s-jinji); --al: var(--l-jinji); --ao: var(--o-jinji); }
-[data-module="roumu"] { --a: var(--c-roumu); --ad: var(--d-roumu); --as: var(--s-roumu); --al: var(--l-roumu); --ao: var(--o-roumu); }
-[data-module="eigyo"] { --a: var(--c-eigyo); --ad: var(--d-eigyo); --as: var(--s-eigyo); --al: var(--l-eigyo); --ao: var(--o-eigyo); }
-[data-module="keiri"] { --a: var(--c-keiri); --ad: var(--d-keiri); --as: var(--s-keiri); --al: var(--l-keiri); --ao: var(--o-keiri); }
+[data-theme="yoru"] [data-module="home"] { --a: #5EEAD4; --ad: #A7F3E4; --ao: #0E1018 }
+[data-module="jinji"] { --a: color-mix(in oklch, var(--c-jinji) var(--mix-p), var(--mix-to)); --ad: var(--d-jinji); --as: var(--s-jinji); --al: var(--l-jinji); --ao: var(--o-jinji); }
+[data-module="roumu"] { --a: color-mix(in oklch, var(--c-roumu) var(--mix-p), var(--mix-to)); --ad: var(--d-roumu); --as: var(--s-roumu); --al: var(--l-roumu); --ao: var(--o-roumu); }
+[data-module="eigyo"] { --a: color-mix(in oklch, var(--c-eigyo) var(--mix-p), var(--mix-to)); --ad: var(--d-eigyo); --as: var(--s-eigyo); --al: var(--l-eigyo); --ao: var(--o-eigyo); }
+[data-module="keiri"] { --a: color-mix(in oklch, var(--c-keiri) var(--mix-p), var(--mix-to)); --ad: var(--d-keiri); --as: var(--s-keiri); --al: var(--l-keiri); --ao: var(--o-keiri); }
 
 /* ===== モーション図鑑の語彙だけ（legacy/api/_assets/docs/motion-catalog.html） =====
    入場 (.22,1,.36,1)・退場 (.4,0,1,1)・弾み (.34,1.56,.64,1)
@@ -32,7 +202,7 @@ body { font-family: var(--font-sans); font-feature-settings: "palt" 0; }
 @keyframes mo-spring-in { 0% { opacity: 0; transform: scale(.85) } 60% { opacity: 1; transform: scale(1.04) } 100% { transform: none } }
 @keyframes mo-drawer { from { opacity: 0; transform: translateX(28px) } to { opacity: 1; transform: none } }
 @keyframes mo-axis { from { opacity: 0; transform: translateX(12px) } to { opacity: 1; transform: none } }
-@keyframes mo-flash { from { background: #D5F2E0 } to { background: transparent } }
+@keyframes mo-flash { from { background: var(--flash) } to { background: transparent } }
 @keyframes mo-shake { 0%, 100% { transform: none } 20%, 60% { transform: translateX(-4px) } 40%, 80% { transform: translateX(4px) } }
 @keyframes mo-bar { from { transform: scaleX(0) } to { transform: scaleX(1) } }
 @keyframes mo-check { from { stroke-dashoffset: 24 } to { stroke-dashoffset: 0 } }
@@ -55,7 +225,7 @@ body { font-family: var(--font-sans); font-feature-settings: "palt" 0; }
 /* 押した感：全ボタンに一括（DOM を増やさない） */
 button, a.btn { transition: transform 120ms, background-color 140ms, color 140ms, border-color 140ms }
 button:active:not(:disabled), a.btn:active { transform: scale(.96) }
-tr.row:hover, a.row:hover { background: #F7F8FC }
+tr.row:hover, a.row:hover { background: var(--row-hover) }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; animation-delay: 0ms !important; transition-duration: 1ms !important }

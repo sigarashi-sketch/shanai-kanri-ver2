@@ -59,10 +59,10 @@ export function TodayPill() {
   return (
     <div className="flex items-center gap-2 rounded-full border border-line py-1 pl-1 pr-3 text-[12.5px]" title="比べるのは先週のあなたの平均だけ">
       <svg aria-hidden width="28" height="28" viewBox="0 0 36 36">
-        <circle cx="18" cy="18" r="14" fill="none" stroke="#ECEDF3" strokeWidth="5" />
-        <circle cx="18" cy="18" r="14" fill="none" stroke="#16A34A" strokeWidth="5" strokeLinecap="round" strokeDasharray={`${88 * ratio} 88`} transform="rotate(-90 18 18)" style={{ transition: 'stroke-dasharray 600ms cubic-bezier(.22,1,.36,1)' }} />
+        <circle cx="18" cy="18" r="14" fill="none" stroke="var(--color-track)" strokeWidth="5" />
+        <circle cx="18" cy="18" r="14" fill="none" stroke="var(--color-ok)" strokeWidth="5" strokeLinecap="round" strokeDasharray={`${88 * ratio} 88`} transform="rotate(-90 18 18)" style={{ transition: 'stroke-dasharray 600ms cubic-bezier(.22,1,.36,1)' }} />
       </svg>
-      <span>今日の処理 <b key={bump} className={`num text-[14px] ${bump ? 'mo-spring-in inline-block' : ''}`}>{today}</b>件 <span className={diff >= 0 ? 'text-[#16A34A]' : 'text-muted'}>先週平均 {diff >= 0 ? '+' : ''}{diff}</span></span>
+      <span>今日の処理 <b key={bump} className={`num text-[14px] ${bump ? 'mo-spring-in inline-block' : ''}`}>{today}</b>件 <span className={diff >= 0 ? 'text-ok' : 'text-muted'}>先週平均 {diff >= 0 ? '+' : ''}{diff}</span></span>
     </div>
   );
 }
@@ -73,9 +73,9 @@ export function RemainRing({ remain, total }: { remain: number; total: number })
   const r = total ? done / total : 1;
   return (
     <svg aria-label={`残り${remain}件`} width="44" height="44" viewBox="0 0 44 44" role="img">
-      <circle cx="22" cy="22" r="18" fill="none" stroke="#ECEDF3" strokeWidth="5" />
+      <circle cx="22" cy="22" r="18" fill="none" stroke="var(--color-track)" strokeWidth="5" />
       <circle cx="22" cy="22" r="18" fill="none" stroke="var(--a)" strokeWidth="5" strokeLinecap="round" strokeDasharray={`${113 * r} 113`} transform="rotate(-90 22 22)" style={{ transition: 'stroke-dasharray 600ms cubic-bezier(.22,1,.36,1)' }} />
-      <text x="22" y="26" textAnchor="middle" fontSize="12" fontWeight="700" fill="#171717">{remain}</text>
+      <text x="22" y="26" textAnchor="middle" fontSize="12" fontWeight="700" fill="var(--color-ink)">{remain}</text>
     </svg>
   );
 }

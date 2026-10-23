@@ -32,26 +32,26 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
           return (
             <button key={s.label} role="tab" aria-selected={on} onClick={() => setTab(s.label)}
               className="min-h-9 rounded-full border px-3.5 text-[13px]"
-              style={on ? { borderColor: 'var(--a)', background: 'var(--as)', color: 'var(--ad)', fontWeight: 700 } : { borderColor: '#DCDDE6', background: '#fff' }}>
+              style={on ? { borderColor: 'var(--a)', background: 'var(--as)', color: 'var(--ad)', fontWeight: 700 } : { borderColor: 'var(--color-field)', background: 'var(--color-surface)' }}>
               {s.label} <span className="num">{s.n}</span>
             </button>
           );
         })}
       </div>
 
-      <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-white" style={{ ['--i' as string]: 2 }}>
+      <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
         <div className="flex flex-wrap items-center gap-2 px-3.5 py-3">
-          <label className="flex min-h-9 min-w-[240px] items-center gap-2 rounded-[10px] border border-[#DCDDE6] px-3 text-faint">
+          <label className="flex min-h-9 min-w-[240px] items-center gap-2 rounded-[10px] border border-field px-3 text-faint">
             <Search size={15} /><input value={q} onChange={(e) => setQ(e.target.value)} aria-label="この一覧を検索" placeholder="名前・カナ・現場・最寄駅" className="flex-1 bg-transparent text-[13px] text-ink outline-none" />
           </label>
           {['採用担当', '担当営業', '契約の形', '都道府県'].map((f) => (
-            <button key={f} className="min-h-9 rounded-[10px] border border-[#DCDDE6] bg-white px-3 text-[13px]">{f} ⌄</button>
+            <button key={f} className="min-h-9 rounded-[10px] border border-field bg-surface px-3 text-[13px]">{f} ⌄</button>
           ))}
           <span className="ml-auto text-[12.5px] text-muted">表示：営業向け ⌄　<span className="num">{rows.length}</span>人</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1000px] border-collapse text-[13px]">
-            <thead><tr className="text-left" style={{ background: 'var(--as)', color: 'var(--ad)' }}>
+            <thead><tr className="th-row text-left">
               <th className="w-[26px] px-3.5 py-2.5"><input type="checkbox" aria-label="すべて選ぶ" checked={rows.length > 0 && rows.every((r) => sel.has(r.id))} onChange={(e) => setSel(e.target.checked ? new Set(rows.map((r) => r.id)) : new Set())} /></th>
               <th className="px-2 py-2.5 font-semibold">社員 ⌄</th><th className="px-2 py-2.5 font-semibold">状態</th><th className="px-2 py-2.5 font-semibold">現場</th><th className="px-2 py-2.5 font-semibold">契約</th><th className="px-2 py-2.5 font-semibold">最寄駅</th><th className="px-2 py-2.5 text-right font-semibold">単価</th><th className="px-2 py-2.5 font-semibold">今月の勤怠</th><th className="px-3.5" />
             </tr></thead>
@@ -65,11 +65,11 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
                   </div></td>
                   <td className="px-2 py-2"><Pill>{p.status}</Pill></td>
                   <td className="px-2 py-2">{p.site}{p.reserve && <div className="text-[11.5px] font-semibold" style={{ color: 'var(--ad)' }}>{p.reserve}</div>}</td>
-                  <td className="px-2 py-2">{p.contract}{p.contractEnd && <div className="text-[11.5px] font-semibold text-[#B45309]">{p.contractEnd}</div>}</td>
+                  <td className="px-2 py-2">{p.contract}{p.contractEnd && <div className="text-[11.5px] font-semibold text-warn">{p.contractEnd}</div>}</td>
                   <td className="px-2 py-2">{p.station}</td>
                   <td className="num px-2 py-2 text-right">{p.price}</td>
                   <td className="px-2 py-2 font-medium" style={{ color: TONE[p.kintai.tone] }}>{p.kintai.text}</td>
-                  <td className="px-3.5 py-2"><Link href={`/jinji/staff/${p.id}`} aria-label={`${p.name}の社員ページ`}><ChevronRight size={16} className="text-[#A3A6B8]" /></Link></td>
+                  <td className="px-3.5 py-2"><Link href={`/jinji/staff/${p.id}`} aria-label={`${p.name}の社員ページ`}><ChevronRight size={16} className="text-faint" /></Link></td>
                 </tr>
               ))}
             </tbody>

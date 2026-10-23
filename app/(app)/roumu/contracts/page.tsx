@@ -46,11 +46,11 @@ export default function ContractsPage() {
       <PageTitle title="現場・契約" sub="派遣契約の終わりと抵触日が近い人。更新するか決まるまで、段階ごとに知らせます（準委任は対象外）・見本データ" />
 
       <div className="mo-fade-up flex flex-wrap items-stretch gap-3" style={{ ['--i' as string]: 1 }}>
-        <div className="flex min-w-[220px] flex-col justify-center rounded-xl border border-line bg-white px-4 py-3">
+        <div className="flex min-w-[220px] flex-col justify-center rounded-xl border border-line bg-surface px-4 py-3">
           <div className="text-[12px] text-muted">意向が決まっていない</div>
           <div className="num text-[24px] font-bold">{open}<span className="ml-0.5 text-[13px] font-semibold text-muted">人</span></div>
         </div>
-        <div className="flex flex-1 flex-wrap items-center gap-2 rounded-xl border border-line bg-white px-4 py-3">
+        <div className="flex flex-1 flex-wrap items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3">
           <span className="mr-1 text-[12px] text-muted">知らせる段階</span>
           {CONTRACT_STEPS.map((s, i) => (
             <span key={s.label} className="flex items-center gap-2">
@@ -62,10 +62,10 @@ export default function ContractsPage() {
         </div>
       </div>
 
-      <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-white" style={{ ['--i' as string]: 2 }}>
+      <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1040px] border-collapse text-[13px]">
-            <thead><tr className="text-left" style={{ background: 'var(--as)', color: 'var(--ad)' }}>
+            <thead><tr className="th-row text-left">
               <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">派遣先</th><th className="px-2 py-2.5 font-semibold">契約の終わり</th><th className="px-2 py-2.5 font-semibold">抵触日（個人単位）</th><th className="px-2 py-2.5 font-semibold">段階</th><th className="px-2 py-2.5 font-semibold">更新の意向</th><th className="px-4 py-2.5" />
             </tr></thead>
             <tbody>
@@ -77,21 +77,21 @@ export default function ContractsPage() {
                   <tr key={c.personId} className={`mo-fade-in border-t border-line-soft align-top ${flash === c.personId ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
                     <td className="px-4 py-2.5"><div className="font-semibold">{c.name}</div><div className="text-[11.5px] text-faint">営業 {c.sales}</div></td>
                     <td className="px-2 py-2.5">{c.site}<div className="text-[11.5px] text-faint">{c.start}〜</div></td>
-                    <td className="num px-2 py-2.5">{c.end}<span className="ml-1 text-[11.5px]" style={{ color: c.daysLeft <= 45 ? '#BE123C' : '#8B8FA3' }}>あと{c.daysLeft}日</span></td>
+                    <td className="num px-2 py-2.5">{c.end}<span className="ml-1 text-[11.5px]" style={{ color: c.daysLeft <= 45 ? 'var(--color-bad)' : 'var(--color-faint)' }}>あと{c.daysLeft}日</span></td>
                     <td className="num px-2 py-2.5">
-                      {c.conflictOn}<span className="ml-1 text-[11.5px]" style={{ color: conflictFirst ? '#BE123C' : '#8B8FA3' }}>あと{c.conflictDays}日</span>
-                      {conflictFirst && <div className="mo-shake mt-1 flex items-start gap-1 text-[11.5px] text-[#881337]"><AlertTriangle size={13} className="mt-0.5 shrink-0 text-[#E11D48]" />次の更新で抵触日を超えます。同じ組織では続けられません</div>}
+                      {c.conflictOn}<span className="ml-1 text-[11.5px]" style={{ color: conflictFirst ? 'var(--color-bad)' : 'var(--color-faint)' }}>あと{c.conflictDays}日</span>
+                      {conflictFirst && <div className="mo-shake mt-1 flex items-start gap-1 text-[11.5px] text-bad"><AlertTriangle size={13} className="mt-0.5 shrink-0 text-bad" />次の更新で抵触日を超えます。同じ組織では続けられません</div>}
                     </td>
-                    <td className="px-2 py-2.5"><span className="inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[11.5px] font-bold" style={{ background: s.bg, color: s.fg }}>{lv !== 'ok' ? s.label : c.intent === '更新' || c.intent === '終了' ? '決まり' : 'まだ先'}</span></td>
+                    <td className="px-2 py-2.5"><span className="chip" style={{ background: s.bg, color: s.fg }}>{lv !== 'ok' ? s.label : c.intent === '更新' || c.intent === '終了' ? '決まり' : 'まだ先'}</span></td>
                     <td className="px-2 py-2.5">
-                      <select aria-label={`${c.name} の更新の意向`} value={c.intent} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} onChange={(e) => setIntent(c, e.target.value as Intent)} className="min-h-8 rounded-lg border border-[#DCDDE6] bg-white px-2 text-[12.5px] disabled:opacity-50">
+                      <select aria-label={`${c.name} の更新の意向`} value={c.intent} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} onChange={(e) => setIntent(c, e.target.value as Intent)} className="min-h-8 rounded-lg border border-field bg-surface px-2 text-[12.5px] disabled:opacity-50">
                         {INTENTS.map((x) => <option key={x} value={x}>{x}</option>)}
                       </select>
                       {c.asked && <div className="mt-1 text-[11.5px] text-faint">{c.asked}</div>}
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       {lv === 'ok' ? <span className="text-[12px] text-faint">{c.intent === '更新' || c.intent === '終了' ? '通知は止まりました' : '60日前から知らせます'}</span>
-                        : asked[c.personId] ? <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#116B34]"><Check size={14} />今日 頼みました</span>
+                        : asked[c.personId] ? <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-ok"><Check size={14} />今日 頼みました</span>
                         : <><button onClick={() => ask(c, STEP_TO[lv])} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Bell size={14} />意向確認を頼む</button><div className="mt-1 text-[11px] text-faint">{STEP_TO[lv].join('・')}</div></>}
                     </td>
                   </tr>

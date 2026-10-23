@@ -18,7 +18,7 @@ const ORDER: Level[] = ['danger', 'warn', 'caution', 'ok'];
 
 function LevelChip({ level }: { level: Level }) {
   const s = LEVEL_STYLE[level];
-  return <span className="inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[11.5px] font-bold" style={{ background: s.bg, color: s.fg }}>{s.label}</span>;
+  return <span className="chip" style={{ background: s.bg, color: s.fg }}>{s.label}</span>;
 }
 
 /** 今月の実績（濃い）と見込み（薄い）を、45h と特別条項の上限の線つきで描く。 */
@@ -27,11 +27,11 @@ function OtBar({ actual, proj }: { actual: number; proj: number }) {
   const pct = (v: number) => `${Math.min(100, (v / max) * 100)}%`;
   const lv = proj >= KYOTEI.spMonthly ? 'danger' : proj > KYOTEI.monthly ? 'warn' : proj >= KYOTEI.monthly * 0.8 ? 'caution' : 'ok';
   return (
-    <div className="relative h-2.5 w-[180px] rounded-full bg-[#F0F1F5]" aria-hidden>
+    <div className="relative h-2.5 w-[180px] rounded-full bg-sunken" aria-hidden>
       <div className="mo-bar absolute inset-y-0 left-0 rounded-full opacity-30" style={{ width: pct(proj), background: LEVEL_STYLE[lv].bar }} />
       <div className="mo-bar absolute inset-y-0 left-0 rounded-full" style={{ width: pct(actual), background: LEVEL_STYLE[lv].bar }} />
-      <div className="absolute -inset-y-1 w-px bg-[#5A5E75]" style={{ left: pct(KYOTEI.monthly) }} />
-      <div className="absolute -inset-y-1 w-px bg-[#BE123C]" style={{ left: pct(KYOTEI.spMonthly) }} />
+      <div className="absolute -inset-y-1 w-px bg-muted" style={{ left: pct(KYOTEI.monthly) }} />
+      <div className="absolute -inset-y-1 w-px bg-bad" style={{ left: pct(KYOTEI.spMonthly) }} />
     </div>
   );
 }
@@ -42,7 +42,7 @@ function Spark({ xs }: { xs: number[] }) {
   const y45 = h - (KYOTEI.monthly / max) * h;
   return (
     <svg width={w} height={h} aria-label={`直近6か月 ${xs.join('・')}時間`} role="img">
-      <line x1="0" x2={w} y1={y45} y2={y45} stroke="#DCDDE6" strokeDasharray="2 2" />
+      <line x1="0" x2={w} y1={y45} y2={y45} stroke="var(--color-field)" strokeDasharray="2 2" />
       <polyline points={pts} fill="none" stroke="var(--a)" strokeWidth="1.6" strokeLinejoin="round" />
     </svg>
   );
@@ -60,7 +60,7 @@ export default function OvertimePage() {
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 1 }}>
         {[['ot', '残業・36協定'], ['leave', '有給の年5日']].map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="px-3.5 py-2.5 text-[14px]"
-            style={tab === k ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: '#5A5E75' }}>{l}</button>
+            style={tab === k ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>{l}</button>
         ))}
       </div>
       <div key={tab} className="mo-axis">{tab === 'ot' ? <OtTab /> : <LeaveTab />}</div>
@@ -88,7 +88,7 @@ function Filters({ counts, value, onChange }: { counts: Record<string, number>; 
     <div className="flex flex-wrap gap-2">
       {(['all', ...ORDER] as const).map((k) => (
         <button key={k} onClick={() => onChange(k)} className="min-h-9 rounded-full border px-3.5 text-[13px]"
-          style={value === k ? { borderColor: 'var(--a)', background: 'var(--as)', color: 'var(--ad)', fontWeight: 700 } : { borderColor: '#DCDDE6', background: '#fff' }}>
+          style={value === k ? { borderColor: 'var(--a)', background: 'var(--as)', color: 'var(--ad)', fontWeight: 700 } : { borderColor: 'var(--color-field)', background: 'var(--color-surface)' }}>
           {k === 'all' ? 'すべて' : LEVEL_STYLE[k].label} <span className="num">{counts[k] ?? 0}</span>
         </button>
       ))}
@@ -106,10 +106,10 @@ function OtTab() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-[#FBC4CF] bg-[#FFF1F3] px-4 py-2.5 text-[12.5px] text-[#881337]">
-        <AlertTriangle size={16} className="shrink-0 text-[#E11D48]" />
+      <div role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-bad-line bg-bad-soft px-4 py-2.5 text-[12.5px] text-bad">
+        <AlertTriangle size={16} className="shrink-0 text-bad" />
         <span><b>{KYOTEI.office}の36協定は {KYOTEI.validUntil} で期限です。</b>11/1 からの新しい協定を届け出たか確かめてください（届け出るまで残業はさせられません）。</span>
-        <span className="text-[#9F1239]">いまの協定：1日{KYOTEI.daily}h・月{KYOTEI.monthly}h・年{KYOTEI.yearly}h／特別条項 月{KYOTEI.spMonthly}h・年{KYOTEI.spYearly}h・年{KYOTEI.overCount}回／休日労働 月{KYOTEI.holidayPerMonth}回</span>
+        <span className="text-bad">いまの協定：1日{KYOTEI.daily}h・月{KYOTEI.monthly}h・年{KYOTEI.yearly}h／特別条項 月{KYOTEI.spMonthly}h・年{KYOTEI.spYearly}h・年{KYOTEI.overCount}回／休日労働 月{KYOTEI.holidayPerMonth}回</span>
       </div>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
@@ -118,16 +118,16 @@ function OtTab() {
           ['45h を超えそう', `${rows.filter((r) => r.p > KYOTEI.monthly).length}人`, '締め日時点の見込み'],
           ['上限間近', `${counts.danger ?? 0}人`, `月${Math.round(KYOTEI.spMonthly * 0.9)}h超え見込み・6回の枠・平均80h`],
         ].map(([l, n, s], i) => (
-          <div key={l} className="mo-fade-up rounded-xl border border-line bg-white px-4 py-3" style={{ ['--i' as string]: i }}>
+          <div key={l} className="mo-fade-up rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: i }}>
             <div className="text-[12px] text-muted">{l}</div><div className="num text-[22px] font-bold">{n}</div><div className="text-[11.5px] text-faint">{s}</div>
           </div>
         ))}
       </div>
       <Filters counts={counts} value={f} onChange={setF} />
-      <div className="overflow-hidden rounded-xl border border-line bg-white">
+      <div className="overflow-hidden rounded-xl border border-line bg-surface">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1080px] border-collapse text-[13px]">
-            <thead><tr className="text-left" style={{ background: 'var(--as)', color: 'var(--ad)' }}>
+            <thead><tr className="th-row text-left">
               <th className="px-4 py-2.5 font-semibold">社員</th>
               <th className="px-2 py-2.5 font-semibold">今月（実績／見込み）<span className="ml-1 font-normal text-faint">線＝{KYOTEI.monthly}h・{KYOTEI.spMonthly}h</span></th>
               <th className="px-2 py-2.5 font-semibold">年の累計</th><th className="px-2 py-2.5 font-semibold">45h超え</th><th className="px-2 py-2.5 font-semibold">2〜6か月平均</th><th className="px-2 py-2.5 font-semibold">6か月</th>
@@ -141,13 +141,13 @@ function OtTab() {
                     <td className="px-4 py-2.5"><div className="font-semibold">{o.name}</div><div className="text-[11.5px] text-faint">{o.site}・営業 {o.sales}</div></td>
                     <td className="px-2 py-2.5"><div className="flex items-center gap-2.5"><OtBar actual={o.actual} proj={p} /><span className="num whitespace-nowrap"><b>{o.actual}h</b><span className="text-muted"> → {p}h</span></span></div>{o.holiday > 0 && <div className="mt-1 text-[11.5px] text-faint">休日労働 {o.holiday}h を含む</div>}</td>
                     <td className="num px-2 py-2.5">{o.yearTotal}<span className="text-faint">／{yearCap}h</span></td>
-                    <td className="num px-2 py-2.5" style={{ color: o.over45 >= KYOTEI.overCount - 1 ? '#BE123C' : undefined }}>{o.over45}<span className="text-faint">／{KYOTEI.overCount}回</span></td>
-                    <td className="num px-2 py-2.5" style={{ color: o.avg26 >= KYOTEI.avgLimit * 0.9 ? '#BE123C' : undefined }}>{o.avg26}h</td>
+                    <td className="num px-2 py-2.5" style={{ color: o.over45 >= KYOTEI.overCount - 1 ? 'var(--color-bad)' : undefined }}>{o.over45}<span className="text-faint">／{KYOTEI.overCount}回</span></td>
+                    <td className="num px-2 py-2.5" style={{ color: o.avg26 >= KYOTEI.avgLimit * 0.9 ? 'var(--color-bad)' : undefined }}>{o.avg26}h</td>
                     <td className="px-2 py-2.5"><Spark xs={o.trend} /></td>
                     <td className="max-w-[260px] px-2 py-2.5"><LevelChip level={level} />{reason && <div className="mt-1 text-[11.5px] text-muted">{reason}</div>}</td>
                     <td className="px-4 py-2.5 text-right">
                       {level === 'ok' ? <span className="text-[12px] text-faint">—</span>
-                        : sent[key] ? <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#116B34]"><Check size={14} />{sent[key]}</span>
+                        : sent[key] ? <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-ok"><Check size={14} />{sent[key]}</span>
                         : <button onClick={() => send(key, o.name, TO[level], '残業の見込み')} disabled={!canEdit} title={!canEdit ? needText('edit') : `${TO[level].join('・')}に知らせる`} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Bell size={14} />知らせる</button>}
                       {level !== 'ok' && !sent[key] && <div className="mt-1 text-[11px] text-faint">{TO[level].join('・')}</div>}
                     </td>
@@ -170,12 +170,12 @@ function LeaveTab() {
   rows.forEach((r) => { counts[r.level] = (counts[r.level] ?? 0) + 1; });
   return (
     <div className="flex flex-col gap-3">
-      <div className="rounded-xl border border-line bg-white px-4 py-3 text-[12.5px] text-muted">年10日以上の有給が付いた人は、<b className="text-ink">付いた日から1年のうちに5日</b>取ってもらう義務があります。期限までの残りと、取った日数の進み具合で色を付けています。</div>
+      <div className="rounded-xl border border-line bg-surface px-4 py-3 text-[12.5px] text-muted">年10日以上の有給が付いた人は、<b className="text-ink">付いた日から1年のうちに5日</b>取ってもらう義務があります。期限までの残りと、取った日数の進み具合で色を付けています。</div>
       <Filters counts={counts} value={f} onChange={setF} />
-      <div className="overflow-hidden rounded-xl border border-line bg-white">
+      <div className="overflow-hidden rounded-xl border border-line bg-surface">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] border-collapse text-[13px]">
-            <thead><tr className="text-left" style={{ background: 'var(--as)', color: 'var(--ad)' }}>
+            <thead><tr className="th-row text-left">
               <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">付いた日・日数</th><th className="px-2 py-2.5 font-semibold">取った日数（5日のうち）</th><th className="px-2 py-2.5 font-semibold">期限</th><th className="px-2 py-2.5 font-semibold">段階</th><th className="px-4 py-2.5" />
             </tr></thead>
             <tbody>
@@ -188,15 +188,15 @@ function LeaveTab() {
                     <td className="num px-2 py-2.5">{l.grantedOn}<span className="text-faint">・{l.granted}日</span></td>
                     <td className="px-2 py-2.5">
                       <div className="flex items-center gap-1" aria-label={`5日のうち${l.taken}日`}>
-                        {Array.from({ length: 5 }, (_, d) => <span key={d} className="size-3.5 rounded-[4px]" style={{ background: d < l.taken ? 'var(--a)' : '#ECEDF3' }} />)}
-                        <span className="num ml-1.5">{l.taken}日</span>{need > 0 && <span className="ml-1 text-[11.5px] text-muted">あと{need}日</span>}{l.planned && <span className="ml-1.5 text-[11.5px] text-[#134A9C]">{l.planned}</span>}
+                        {Array.from({ length: 5 }, (_, d) => <span key={d} className="size-3.5 rounded-[4px]" style={{ background: d < l.taken ? 'var(--a)' : 'var(--color-track)' }} />)}
+                        <span className="num ml-1.5">{l.taken}日</span>{need > 0 && <span className="ml-1 text-[11.5px] text-muted">あと{need}日</span>}{l.planned && <span className="ml-1.5 text-[11.5px] text-info">{l.planned}</span>}
                       </div>
                     </td>
-                    <td className="num px-2 py-2.5">{l.deadline}<span className="ml-1 text-[11.5px]" style={{ color: l.daysLeft <= 60 ? '#BE123C' : '#8B8FA3' }}>あと{l.daysLeft}日</span></td>
+                    <td className="num px-2 py-2.5">{l.deadline}<span className="ml-1 text-[11.5px]" style={{ color: l.daysLeft <= 60 ? 'var(--color-bad)' : 'var(--color-faint)' }}>あと{l.daysLeft}日</span></td>
                     <td className="px-2 py-2.5"><LevelChip level={level} /></td>
                     <td className="px-4 py-2.5 text-right">
                       {level === 'ok' ? <span className="text-[12px] text-faint">{need === 0 ? '達成' : '—'}</span>
-                        : sent[key] ? <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#116B34]"><Check size={14} />{sent[key]}</span>
+                        : sent[key] ? <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-ok"><Check size={14} />{sent[key]}</span>
                         : <button onClick={() => send(key, l.name, ['本人（あおい）', ...TO[level]], '有給の取得のおすすめ')} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Bell size={14} />取得をすすめる</button>}
                     </td>
                   </tr>

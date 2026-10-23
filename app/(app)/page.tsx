@@ -24,10 +24,10 @@ export default function HomePage() {
   const myApprovals = APPROVALS.filter((a) => can(a.module, 'approve'));
   const myReservations = RESERVATIONS.filter((r) => can(r.module, 'view'));
   const kpis = [
-    { m: 'jinji', label: '稼働中', n: 251, unit: '人', sub: '先月より +6', subC: '#16A34A' },
-    { m: 'eigyo', label: '待機', n: 26, unit: '人', sub: '平均 18日', subC: '#B45309' },
-    { m: 'roumu', label: '今月の打刻漏れ', n: 41, unit: '件', sub: '未修正 12', subC: '#6B6F85' },
-    { m: 'keiri', label: '請求の下書き', n: 18, unit: '社', sub: '締め 11/5', subC: '#6B6F85' },
+    { m: 'jinji', label: '稼働中', n: 251, unit: '人', sub: '先月より +6', subC: 'var(--color-ok)' },
+    { m: 'eigyo', label: '待機', n: 26, unit: '人', sub: '平均 18日', subC: 'var(--color-warn)' },
+    { m: 'roumu', label: '今月の打刻漏れ', n: 41, unit: '件', sub: '未修正 12', subC: 'var(--color-muted)' },
+    { m: 'keiri', label: '請求の下書き', n: 18, unit: '社', sub: '締め 11/5', subC: 'var(--color-muted)' },
   ].filter((k) => perms[k.m as keyof typeof perms] !== 'none');
   const [todos, setTodos] = useState<Todo[]>(mine);
   const [flashing, setFlashing] = useState<string | null>(null);
@@ -49,18 +49,18 @@ export default function HomePage() {
         <div>
           <div className="text-[12.5px] text-muted">10月22日（木）・見本データ</div>
           <h1 className="mt-0.5 text-[22px] font-bold tracking-tight">
-            おはようございます。今日の対応は <span className="text-[#E11D48]">{todos.length + myApprovals.length}件</span>
+            おはようございます。今日の対応は <span className="text-bad">{todos.length + myApprovals.length}件</span>
           </h1>
         </div>
         <div className="flex gap-2">
-          <Link href="/jinji/yoyaku" className="btn inline-flex min-h-10 items-center rounded-[10px] border border-[#DCDDE6] bg-white px-3.5 text-[13.5px] font-semibold">変更を予約</Link>
+          <Link href="/jinji/yoyaku" className="btn inline-flex min-h-10 items-center rounded-[10px] border border-field bg-surface px-3.5 text-[13.5px] font-semibold">変更を予約</Link>
           <Link href="/roumu/approval" className="btn inline-flex min-h-10 items-center rounded-[10px] bg-sumi px-4 text-[13.5px] font-semibold text-white">上から順に片づける</Link>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
         {kpis.map((k, i) => (
-          <div key={k.label} className="mo-fade-up rounded-xl border border-line bg-white px-[18px] py-4" style={{ ['--i' as string]: i + 1, borderTop: `3px solid var(--c-${k.m})` }}>
+          <div key={k.label} className="mo-fade-up rounded-xl border border-line bg-surface px-[18px] py-4" style={{ ['--i' as string]: i + 1, borderTop: `3px solid var(--c-${k.m})` }}>
             <div className="text-[12.5px] text-muted">{k.label}</div>
             <div className="text-[30px] font-bold tracking-tight"><CountUp to={k.n} /><small className="ml-1 text-[13px] font-medium">{k.unit}</small></div>
             <div className="text-[12px]" style={{ color: k.subC }}>{k.sub}</div>
@@ -69,15 +69,15 @@ export default function HomePage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <section className="mo-fade-up overflow-hidden rounded-xl border border-line bg-white" style={{ ['--i' as string]: 5 }}>
+        <section className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 5 }}>
           <div className="flex items-center justify-between px-[18px] py-3">
             <div><h2 className="text-[15px] font-bold">対応が要るもの</h2><div className="text-[12px] text-muted">件数を押すと処理画面へ・✓で片づけ</div></div>
             <RemainRing remain={todos.length} total={total} />
           </div>
           {todos.length === 0 ? (
-            <div className="mo-scale-in m-4 rounded-xl border border-[#B5E3C4] bg-[#E9F7EE] px-5 py-6 text-center">
-              <div className="text-[15px] font-bold text-[#116B34]">今日の対応はぜんぶ片づきました</div>
-              <div className="mt-1 text-[13px] text-[#3F6B4E]">次は「7日以内に切り替わる予約」の確認がおすすめです</div>
+            <div className="mo-scale-in m-4 rounded-xl border border-ok-line bg-ok-soft px-5 py-6 text-center">
+              <div className="text-[15px] font-bold text-ok">今日の対応はぜんぶ片づきました</div>
+              <div className="mt-1 text-[13px] text-ok">次は「7日以内に切り替わる予約」の確認がおすすめです</div>
             </div>
           ) : (
             <div className="flex flex-col">
@@ -86,38 +86,38 @@ export default function HomePage() {
                   <i className="size-2 rounded-full" style={{ background: `var(--c-${t.module})` }} />
                   <span className="w-8 text-[11.5px] font-semibold text-muted">{SHORT[t.module]}</span>
                   <span className="flex-1 text-[13.5px]">{t.text}</span>
-                  <Link href={t.href} className={`num font-bold ${t.tone === 'bad' ? 'text-[#E11D48]' : t.tone === 'warn' ? 'text-[#B45309]' : ''}`}>{t.n}</Link>
-                  <button onClick={() => done(t)} aria-label={`${t.text}を片づけた`} className="flex size-8 items-center justify-center rounded-lg border border-line text-muted hover:border-[#16A34A] hover:text-[#16A34A]"><Check size={16} /></button>
+                  <Link href={t.href} className={`num font-bold ${t.tone === 'bad' ? 'text-bad' : t.tone === 'warn' ? 'text-warn' : ''}`}>{t.n}</Link>
+                  <button onClick={() => done(t)} aria-label={`${t.text}を片づけた`} className="flex size-8 items-center justify-center rounded-lg border border-line text-muted hover:border-ok hover:text-ok"><Check size={16} /></button>
                 </div>
               ))}
             </div>
           )}
         </section>
 
-        <section className="mo-fade-up overflow-hidden rounded-xl border border-line bg-white" style={{ ['--i' as string]: 6 }}>
+        <section className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 6 }}>
           <div className="flex items-center justify-between px-[18px] py-3.5">
             <h2 className="text-[15px] font-bold">あなたが承認する分</h2>
-            <span className="rounded-full bg-[#F3EEFE] px-2.5 py-0.5 text-[12px] text-[#6D28D9]">✦ AIが先に確認済み・要注意 2</span>
+            <span className="rounded-full bg-[var(--tone-purple-bg)] px-2.5 py-0.5 text-[12px] text-info">✦ AIが先に確認済み・要注意 2</span>
           </div>
           {myApprovals.length === 0 && <div className="border-t border-line-soft px-[18px] py-6 text-center text-[13px] text-muted">承認の権限がある分類はありません</div>}
           {myApprovals.map((a) => (
             <Link key={a.text} href={a.href} className="row flex items-center gap-3 border-t border-line-soft px-[18px] py-2.5">
               <i className="size-2 rounded-full" style={{ background: `var(--c-${a.module})` }} />
               <span className="flex-1 text-[13.5px]">{a.text}</span>
-              <b className="num">{a.n}</b><ChevronRight size={16} className="text-[#A3A6B8]" />
+              <b className="num">{a.n}</b><ChevronRight size={16} className="text-faint" />
             </Link>
           ))}
         </section>
       </div>
 
-      <section className="mo-fade-up overflow-hidden rounded-xl border border-line bg-white" style={{ ['--i' as string]: 7 }}>
+      <section className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 7 }}>
         <div className="flex items-center justify-between px-[18px] py-3.5">
           <h2 className="text-[15px] font-bold">7日以内に切り替わる予約</h2>
-          <span className="flex items-center gap-1.5 text-[12px] text-muted"><i className="mo-pulse size-[7px] rounded-full bg-[#16A34A]" />毎朝6:00に自動で切り替え</span>
+          <span className="flex items-center gap-1.5 text-[12px] text-muted"><i className="mo-pulse size-[7px] rounded-full bg-ok" />毎朝6:00に自動で切り替え</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] border-collapse text-[13px]">
-            <thead><tr className="bg-[#F6F6FB] text-left text-[#5A5E75]">
+            <thead><tr className="bg-soft text-left text-muted">
               <th className="px-[18px] py-2.5 font-semibold">適用日</th><th className="px-2 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">分類</th><th className="px-2 py-2.5 font-semibold">変更前 → 変更後</th><th className="px-[18px] py-2.5 font-semibold">一緒に変わるもの</th>
             </tr></thead>
             <tbody>
@@ -126,8 +126,8 @@ export default function HomePage() {
                   <td className="px-[18px] py-2.5 font-semibold">{r.date}</td>
                   <td className="px-2 py-2.5">{r.person}</td>
                   <td className="px-2 py-2.5"><span className="font-bold"><span style={{ color: `var(--c-${r.module})` }}>●</span> {SHORT[r.module]}</span> {r.field}</td>
-                  <td className="px-2 py-2.5"><s className="text-[#9A9DB0]">{r.from}</s> → <b>{r.to}</b></td>
-                  <td className="px-[18px] py-2.5 text-[#5A5E75]">{r.with}</td>
+                  <td className="px-2 py-2.5"><s className="text-faint">{r.from}</s> → <b>{r.to}</b></td>
+                  <td className="px-[18px] py-2.5 text-muted">{r.with}</td>
                 </tr>
               ))}
             </tbody>

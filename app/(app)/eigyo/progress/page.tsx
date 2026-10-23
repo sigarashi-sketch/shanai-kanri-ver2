@@ -15,17 +15,17 @@ import { DrawerPortal } from '@/components/DrawerPortal';
 //     どの案件か迷うものは「チャットで前後を見る」でグループのやりとりを確かめてから決める
 //   列・並び・タブを自分で変える「カスタム」はあとで決める（10-23 shoya）
 const VIA_STYLE: Record<Via, { bg: string; fg: string }> = {
-  あおい: { bg: '#EAF2FE', fg: '#134A9C' },
-  グループ直接: { bg: '#FFF4E0', fg: '#8A4B00' },
-  手動配信: { bg: '#F3EEFE', fg: '#5B21B6' },
+  あおい: { bg: 'var(--tone-info-bg)', fg: 'var(--tone-info-fg)' },
+  グループ直接: { bg: 'var(--tone-warn-bg)', fg: 'var(--tone-warn-fg)' },
+  手動配信: { bg: 'var(--tone-purple-bg)', fg: 'var(--tone-purple-fg)' },
 };
 const DEC_STYLE: Record<string, { bg: string; fg: string }> = {
-  OK: { bg: '#E9F7EE', fg: '#116B34' }, NG: { bg: '#F0F1F5', fg: '#5A5E75' }, 未判断: { bg: '#FFE4E9', fg: '#BE123C' },
+  OK: { bg: 'var(--tone-ok-bg)', fg: 'var(--tone-ok-fg)' }, NG: { bg: 'var(--tone-mute-bg)', fg: 'var(--tone-mute-fg)' }, 未判断: { bg: 'var(--tone-bad-bg)', fg: 'var(--tone-bad-fg)' },
 };
 const Chip = ({ s, children }: { s: { bg: string; fg: string }; children: React.ReactNode }) => (
-  <span className="inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[11.5px] font-bold" style={{ background: s.bg, color: s.fg }}>{children}</span>
+  <span className="chip" style={{ background: s.bg, color: s.fg }}>{children}</span>
 );
-const scoreTone = (n: number) => (n >= 85 ? '#116B34' : n >= 70 ? '#B45309' : '#BE123C');
+const scoreTone = (n: number) => (n >= 85 ? 'var(--color-ok)' : n >= 70 ? 'var(--color-warn)' : 'var(--color-bad)');
 
 type TabKey = 'sent' | 'collect';
 type ChatOpen = { group: string; thread: ChatMsg[]; focus?: string; cand?: Candidate };
@@ -83,7 +83,7 @@ export default function ProgressPage() {
 
       <div className="mo-fade-up grid grid-cols-2 gap-3 lg:grid-cols-4" style={{ ['--i' as string]: 1 }}>
         {kpi.map((k) => (
-          <div key={k.label} className="rounded-xl border border-line bg-white px-4 py-3">
+          <div key={k.label} className="rounded-xl border border-line bg-surface px-4 py-3">
             <div className="text-[12px] text-muted">{k.label}</div>
             <div className="num text-[24px] font-bold">{k.n}<span className="ml-0.5 text-[13px] font-semibold text-muted">件</span></div>
             <div className="text-[11.5px] text-faint">{k.sub}</div>
@@ -94,8 +94,8 @@ export default function ProgressPage() {
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 2 }}>
         {([['sent', '送った案件'], ['collect', '回収候補']] as [TabKey, string][]).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="px-3.5 py-2.5 text-[14px]"
-            style={tab === k ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: '#5A5E75' }}>
-            {l}{k === 'collect' && cands.length > 0 && <span className="num ml-1.5 rounded-full bg-[#E11D48] px-1.5 text-[11px] font-bold text-white">{cands.length}</span>}
+            style={tab === k ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>
+            {l}{k === 'collect' && cands.length > 0 && <span className="num ml-1.5 rounded-full bg-bad px-1.5 text-[11px] font-bold text-white">{cands.length}</span>}
           </button>
         ))}
         <span className="ml-auto self-center text-[11.5px] text-faint">列・並び・タブを自分で変えるのは、あとで決めます</span>
@@ -107,15 +107,15 @@ export default function ProgressPage() {
             <div className="flex flex-wrap gap-2">
               {(['すべて', 'あおい', 'グループ直接', '手動配信'] as const).map((v) => (
                 <button key={v} onClick={() => setVia(v)} className="min-h-9 rounded-full border px-3.5 text-[13px]"
-                  style={via === v ? { borderColor: 'var(--a)', background: 'var(--as)', color: 'var(--ad)', fontWeight: 700 } : { borderColor: '#DCDDE6', background: '#fff' }}>
+                  style={via === v ? { borderColor: 'var(--a)', background: 'var(--as)', color: 'var(--ad)', fontWeight: 700 } : { borderColor: 'var(--color-field)', background: 'var(--color-surface)' }}>
                   {v} <span className="num">{v === 'すべて' ? rows.length : rows.filter((r) => r.via === v).length}</span>
                 </button>
               ))}
             </div>
-            <div className="overflow-hidden rounded-xl border border-line bg-white">
+            <div className="overflow-hidden rounded-xl border border-line bg-surface">
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[980px] border-collapse text-[13px]">
-                  <thead><tr className="text-left" style={{ background: 'var(--as)', color: 'var(--ad)' }}>
+                  <thead><tr className="th-row text-left">
                     <th className="px-4 py-2.5 font-semibold">案件</th><th className="px-2 py-2.5 font-semibold">要員</th><th className="px-2 py-2.5 font-semibold">送った経路</th><th className="px-2 py-2.5 font-semibold">送った日時</th><th className="px-2 py-2.5 font-semibold">返信</th><th className="px-2 py-2.5 font-semibold">判断</th><th className="px-4 py-2.5" />
                   </tr></thead>
                   <tbody>
@@ -127,7 +127,7 @@ export default function ProgressPage() {
                           <td className="px-2 py-2.5">{r.person}</td>
                           <td className="px-2 py-2.5"><Chip s={VIA_STYLE[r.via]}>{r.via}</Chip>{r.via !== 'あおい' && <span className="ml-1.5 text-[11.5px] text-muted">{r.sender}</span>}</td>
                           <td className="num px-2 py-2.5">{r.sentAt}</td>
-                          <td className="max-w-[240px] px-2 py-2.5">{r.reply ? <><span className="line-clamp-1">{r.reply}</span><span className="text-[11.5px] text-faint">{r.replyAt}</span></> : <span className="text-[12px] font-semibold text-[#BE123C]">返信待ち</span>}</td>
+                          <td className="max-w-[240px] px-2 py-2.5">{r.reply ? <><span className="line-clamp-1">{r.reply}</span><span className="text-[11.5px] text-faint">{r.replyAt}</span></> : <span className="text-[12px] font-semibold text-bad">返信待ち</span>}</td>
                           <td className="px-2 py-2.5"><Chip s={DEC_STYLE[r.decision]}>{r.decision}</Chip>{r.slack && <span className="ml-1.5 text-[11.5px] text-muted">📮営業へ</span>}</td>
                           <td className="px-4 py-2.5 text-right">
                             <button onClick={() => setChat({ group: r.group, thread: threadFor(r) })} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><MessageSquareText size={14} />チャット</button>
@@ -142,14 +142,14 @@ export default function ProgressPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-3 rounded-xl border border-line bg-white px-4 py-3">
+            <div className="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
               <RemainRing remain={cands.length} total={total} />
               <div className="text-[13px]"><b>グループに直接書いた案件の回収</b><div className="text-[12px] text-muted">内勤の発言から案件らしいものを拾い、一番近い案件を当てています。✓で確定したものだけ「送った案件」に載ります。8月6日より前の発言は本文が無いので拾いません。</div></div>
             </div>
 
             {cands.length === 0 && (
-              <div className="mo-scale-in rounded-xl border border-line bg-white px-6 py-10 text-center">
-                <Check className="mx-auto text-[#16A34A]" size={26} />
+              <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-10 text-center">
+                <Check className="mx-auto text-ok" size={26} />
                 <div className="mt-2 text-[15px] font-bold">回収候補はぜんぶ片づきました</div>
                 <div className="mt-1 text-[12.5px] text-muted">新しくグループに書かれた案件は、ここにまた出ます。</div>
               </div>
@@ -159,30 +159,30 @@ export default function ProgressPage() {
               const msg = c.thread.find((m) => m.id === c.msgId)!;
               const no = caseFor(c);
               return (
-                <article key={c.id} className={`mo-fade-up rounded-xl border border-line bg-white ${flash === c.id ? 'mo-flash' : ''}`} style={{ ['--i' as string]: i }}>
+                <article key={c.id} className={`mo-fade-up rounded-xl border border-line bg-surface ${flash === c.id ? 'mo-flash' : ''}`} style={{ ['--i' as string]: i }}>
                   <div className="flex flex-wrap items-start gap-4 px-4 py-3.5">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2 text-[12px] text-muted"><b className="text-[13.5px] text-ink">{c.person}</b><span>{c.group}</span><span>・{c.poster} が {c.postedAt} に書き込み</span></div>
-                      <p className="mt-2 whitespace-pre-line rounded-[10px] bg-[#F6F6FB] px-3 py-2 text-[13px] leading-relaxed">{msg.text}</p>
+                      <p className="mt-2 whitespace-pre-line rounded-[10px] bg-soft px-3 py-2 text-[13px] leading-relaxed">{msg.text}</p>
                       {c.hint && <div className="mt-1.5 text-[11.5px] text-faint">拾った理由：{c.hint}</div>}
                     </div>
                     <div className="flex w-full flex-col gap-2 sm:w-[300px]">
                       <label className="text-[11.5px] text-faint">どの案件か
-                        <select aria-label="どの案件か" value={no} onChange={(e) => setPick((p) => ({ ...p, [c.id]: e.target.value }))} className="mt-1 block min-h-9 w-full rounded-[10px] border border-[#DCDDE6] bg-white px-2 text-[13px] text-ink">
+                        <select aria-label="どの案件か" value={no} onChange={(e) => setPick((p) => ({ ...p, [c.id]: e.target.value }))} className="mt-1 block min-h-9 w-full rounded-[10px] border border-field bg-surface px-2 text-[13px] text-ink">
                           <option value="">新しい案件として登録</option>
                           {CASES.map((x) => <option key={x.no} value={x.no}>{x.no} {x.name}</option>)}
                         </select>
                       </label>
                       <div className="text-[11.5px]">
                         {c.match && !pick[c.id] ? <span style={{ color: scoreTone(c.match.score) }}>本文の近さ <b className="num">{c.match.score}%</b>{c.match.score < 70 && '・案件の紹介かどうか確かめてください'}</span>
-                          : !no ? <span className="text-[#B45309]">近い案件がありません。確定すると案件ストックに新しく登録します</span>
+                          : !no ? <span className="text-warn">近い案件がありません。確定すると案件ストックに新しく登録します</span>
                           : <span className="text-muted">選び直しました</span>}
                       </div>
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line-soft px-4 py-2.5">
                     <button onClick={() => setChat({ group: c.group, thread: c.thread, focus: c.msgId, cand: c })} className="mr-auto inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border px-3 text-[13px] font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><MessageSquareText size={15} />チャットで前後を見る</button>
-                    <button onClick={() => settle(c, false)} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="min-h-9 rounded-[10px] border border-[#DCDDE6] bg-white px-3 text-[13px] font-semibold disabled:opacity-40">案件ではない</button>
+                    <button onClick={() => settle(c, false)} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="min-h-9 rounded-[10px] border border-field bg-surface px-3 text-[13px] font-semibold disabled:opacity-40">案件ではない</button>
                     <PrimaryButton onClick={() => settle(c, true)} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined}>
                       <span className="inline-flex items-center gap-1.5">{no ? <Check size={15} /> : <Plus size={15} />}{no ? '案件進捗に載せる' : '登録して載せる'}</span>
                     </PrimaryButton>
@@ -196,12 +196,12 @@ export default function ProgressPage() {
 
       {chat && (
         <DrawerPortal>
-          <aside key={chat.group + (chat.focus ?? '')} aria-label="グループのやりとり" className="mo-drawer fixed bottom-0 right-0 top-[var(--hdr,58px)] z-20 flex w-[min(420px,100vw)] flex-col border-l border-line bg-white shadow-[-12px_0_28px_rgba(25,27,46,.10)]">
+          <aside key={chat.group + (chat.focus ?? '')} aria-label="グループのやりとり" className="mo-drawer fixed bottom-0 right-0 top-[var(--hdr,58px)] z-20 flex w-[min(420px,100vw)] flex-col border-l border-line bg-surface shadow-[-12px_0_28px_rgba(25,27,46,.10)]">
             <div className="flex items-start justify-between px-5 py-4">
               <div><div className="text-[12px] text-faint">LINEグループのやりとり</div><div className="text-[17px] font-bold">{chat.group}</div></div>
               <button aria-label="閉じる" onClick={() => setChat(null)} className="flex size-[34px] items-center justify-center rounded-[10px] border border-line"><X size={16} /></button>
             </div>
-            <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto bg-[#F6F6FB] px-4 py-4">
+            <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto bg-soft px-4 py-4">
               {chat.thread.map((m, i) => {
                 const mine = m.who !== 'person';
                 const focus = m.id === chat.focus;
@@ -209,7 +209,7 @@ export default function ProgressPage() {
                   <div key={m.id} className={`mo-fade-up flex flex-col ${mine ? 'items-end' : 'items-start'}`} style={{ ['--i' as string]: i }}>
                     <div className="mb-0.5 text-[11px] text-faint">{m.name}・{m.at}</div>
                     <div className={`max-w-[85%] whitespace-pre-line rounded-2xl px-3 py-2 text-[13px] leading-relaxed ${focus ? 'mo-scale-in shadow-[0_0_0_3px_var(--al)]' : ''}`}
-                      style={mine ? { background: focus ? 'var(--a)' : '#fff', color: focus ? 'var(--ao)' : '#171717', border: '1px solid #E8E9F0' } : { background: '#E9F7EE', color: '#171717' }}>
+                      style={mine ? { background: focus ? 'var(--a)' : 'var(--color-surface)', color: focus ? 'var(--ao)' : 'var(--color-ink)', border: '1px solid var(--color-line)' } : { background: '#E9F7EE', color: 'var(--color-ink)' }}>
                       {m.text}
                     </div>
                     {focus && <div className="mt-1 text-[11px] font-semibold" style={{ color: 'var(--ad)' }}>↑ 案件として拾った発言</div>}
@@ -219,7 +219,7 @@ export default function ProgressPage() {
             </div>
             {chat.cand && (
               <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
-                <button onClick={() => settle(chat.cand!, false)} disabled={!canEdit} className="min-h-10 rounded-[10px] border border-[#DCDDE6] bg-white px-3.5 text-[13.5px] font-semibold disabled:opacity-40">案件ではない</button>
+                <button onClick={() => settle(chat.cand!, false)} disabled={!canEdit} className="min-h-10 rounded-[10px] border border-field bg-surface px-3.5 text-[13.5px] font-semibold disabled:opacity-40">案件ではない</button>
                 <PrimaryButton onClick={() => settle(chat.cand!, true)} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined}>{caseFor(chat.cand) ? '案件進捗に載せる' : '登録して載せる'}</PrimaryButton>
               </div>
             )}

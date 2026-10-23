@@ -67,3 +67,19 @@ export function cssVars(keys: Record<ModuleKey, ColorKey>): Record<string, strin
 }
 
 export const COLOR_STORAGE_KEY = 'v2_module_colors';
+
+// ---- 着せ替え（画面全体の見た目）。10-23 shoya「全部着せ替えできるようにして」。色の見本 /iro-mihon.html の8つ ----
+//   分類ごとの色（上）はどれを選んでも残る。着せ替えが変えるのは 面・メニュー・表の見出し・札の形・ボタン・影・分類色の深さ。
+export type ThemeKey = 'now' | 'kin' | 'houseki' | 'mono' | 'yoru' | 'kiguro' | 'kami' | 'ai';
+export const THEMES: { key: ThemeKey; no: string; name: string; desc: string; sw: [string, string, string, string] }[] = [
+  { key: 'houseki', no: '2', name: '深い宝石色', desc: '分類の色を1段深く。大事なところだけ影とグラデーション', sw: ['#10131F', '#F4F5F9', '#0F766E', '#A1173D'] },
+  { key: 'kin', no: '1', name: '墨と金', desc: '墨色に、くすんだ金を差し色に。札は細い線で囲む', sw: ['#0F1426', '#FBFAF7', '#C8A96E', '#9B2C3C'] },
+  { key: 'mono', no: '3', name: '白黒＋色は点だけ', desc: 'ほぼ白黒。色は状態の点と危ない棒だけ', sw: ['#F7F7F9', '#FFFFFF', '#111111', '#C2263F'] },
+  { key: 'yoru', no: '4', name: '夜のダーク', desc: '暗い画面に、状態の色だけがほのかに光る', sw: ['#0A0C12', '#141824', '#5EEAD4', '#FB7185'] },
+  { key: 'kiguro', no: '5', name: '黄×黒を上品に', desc: '黄と黒の面積をしぼって大人っぽく。危ないものは朱色', sw: ['#111111', '#F7F6F2', '#F5C400', '#D9381E'] },
+  { key: 'kami', no: '6', name: '紺と生成りの紙', desc: '紙の色に紺。見出しは明朝、札は下線', sw: ['#1B2A4A', '#F3EFE6', '#E2C79A', '#A4343A'] },
+  { key: 'ai', no: '7', name: '藍のグラデーション', desc: '今どきのSaaS。上の帯・ボタンに藍→紫', sw: ['#1E1B4B', '#F6F7FB', '#6366F1', '#BE185D'] },
+  { key: 'now', no: '0', name: 'はじめの色', desc: '最初に作った明るい色（パステルの札）', sw: ['#191B2E', '#F5F6FA', '#0E9384', '#E11D48'] },
+];
+export const THEME_STORAGE_KEY = 'v2_theme';
+export const DEFAULT_THEME: ThemeKey = 'houseki';

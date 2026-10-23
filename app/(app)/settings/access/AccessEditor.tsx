@@ -37,17 +37,17 @@ export function AccessEditor({ initial, meId }: { initial: Member[]; meId: strin
 
       <section className="mo-fade-up grid gap-3 md:grid-cols-4" style={{ ['--i' as string]: 1 }}>
         {(Object.keys(ROLES) as RoleKey[]).map((k) => (
-          <div key={k} className="rounded-xl border border-line bg-white px-4 py-3">
+          <div key={k} className="rounded-xl border border-line bg-surface px-4 py-3">
             <div className="text-[13.5px] font-bold">{ROLES[k].label}</div>
             <div className="text-[12px] text-muted">{ROLES[k].hint}</div>
           </div>
         ))}
       </section>
 
-      <section className="mo-fade-up overflow-hidden rounded-xl border border-line bg-white" style={{ ['--i' as string]: 2 }}>
+      <section className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1100px] border-collapse text-[13px]">
-            <thead><tr className="bg-[#F6F6FB] text-left text-[#5A5E75]">
+            <thead><tr className="bg-soft text-left text-muted">
               <th className="px-4 py-2.5 font-semibold">人</th>
               <th className="px-2 py-2.5 font-semibold">ロール</th>
               {MODULES.map((m) => <th key={m.key} className="px-2 py-2.5 font-semibold"><span style={{ color: `var(--c-${m.key})` }}>●</span> {m.label}</th>)}
@@ -67,13 +67,13 @@ export function AccessEditor({ initial, meId }: { initial: Member[]; meId: strin
                       <>
                         <td className="px-2 py-3">
                           <select aria-label={`${m.name}のロール`} value={m.role} onChange={(e) => put(m.id, { role: e.target.value as RoleKey }, `${m.name}を「${ROLES[e.target.value as RoleKey].label}」にしました`)}
-                            className="rounded-lg border border-[#DCDDE6] bg-white px-2 py-1.5 text-[13px]">
+                            className="rounded-lg border border-field bg-surface px-2 py-1.5 text-[13px]">
                             {(Object.keys(ROLES) as RoleKey[]).map((k) => <option key={k} value={k}>{ROLES[k].label}</option>)}
                           </select>
                         </td>
                         {MODULES.map((mod) => (
                           <td key={mod.key} className="px-2 py-3">
-                            <div role="radiogroup" aria-label={`${m.name}の${mod.label}`} className="inline-flex overflow-hidden rounded-lg border border-[#DCDDE6]">
+                            <div role="radiogroup" aria-label={`${m.name}の${mod.label}`} className="inline-flex overflow-hidden rounded-lg border border-field">
                               {LEVELS.map((lv) => {
                                 const on = eff[mod.key] === lv.key;
                                 const belowRole = !atLeast(lv.key, floor[mod.key]) ;
@@ -82,7 +82,7 @@ export function AccessEditor({ initial, meId }: { initial: Member[]; meId: strin
                                     title={belowRole ? `ロール「${ROLES[m.role].label}」で${LEVELS.find((x) => x.key === floor[mod.key])!.label}まで持っています` : lv.hint}
                                     onClick={() => put(m.id, { own: { [mod.key]: lv.key as Level } }, `${m.name}の${mod.label}を「${lv.label}」にしました`)}
                                     className="px-2 py-1.5 text-[12px] disabled:cursor-not-allowed disabled:opacity-35"
-                                    style={on ? { background: `var(--c-${mod.key})`, color: `var(--o-${mod.key})`, fontWeight: 700 } : { background: '#fff' }}>
+                                    style={on ? { background: `var(--c-${mod.key})`, color: `var(--o-${mod.key})`, fontWeight: 700 } : { background: 'var(--color-surface)' }}>
                                     {lv.label}
                                   </button>
                                 );

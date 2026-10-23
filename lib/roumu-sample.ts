@@ -104,8 +104,8 @@ export function contractLevel(c: DispatchContract): Level {
 }
 
 export const LEVEL_STYLE: Record<Level, { bg: string; fg: string; label: string; bar: string }> = {
-  ok: { bg: '#E9F7EE', fg: '#116B34', label: '問題なし', bar: '#16A34A' },
-  caution: { bg: '#FFF8D6', fg: '#6B5300', label: '注意', bar: '#E0B100' },
-  warn: { bg: '#FFF4E0', fg: '#8A4B00', label: '警告', bar: '#EA8A00' },
-  danger: { bg: '#FFE4E9', fg: '#BE123C', label: '上限間近', bar: '#E11D48' },
+  ok: { bg: 'var(--tone-ok-bg)', fg: 'var(--tone-ok-fg)', label: '問題なし', bar: 'var(--tone-ok-bar)' },
+  caution: { bg: 'var(--tone-caution-bg)', fg: 'var(--tone-caution-fg)', label: '注意', bar: 'var(--tone-caution-bar)' },
+  warn: { bg: 'var(--tone-warn-bg)', fg: 'var(--tone-warn-fg)', label: '警告', bar: 'var(--tone-warn-bar)' },
+  danger: { bg: 'var(--tone-bad-bg)', fg: 'var(--tone-bad-fg)', label: '上限間近', bar: 'var(--tone-bad-bar)' },
 };

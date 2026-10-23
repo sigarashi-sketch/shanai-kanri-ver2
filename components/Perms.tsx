@@ -32,7 +32,7 @@ export function needText(need: Level) {
 export function NoAccess({ label }: { label: string }) {
   return (
     <main className="px-6 pb-12 pt-[22px]">
-      <div className="mo-fade-up rounded-xl border border-line bg-white px-8 py-14 text-center">
+      <div className="mo-fade-up rounded-xl border border-line bg-surface px-8 py-14 text-center">
         <Lock className="mx-auto text-faint" size={28} />
         <h1 className="mt-3 text-[20px] font-bold">{label}を見る権限がありません</h1>
         <p className="mt-2 text-[13.5px] text-muted">必要なときは、全体管理者に「権限管理」で付けてもらってください。</p>
