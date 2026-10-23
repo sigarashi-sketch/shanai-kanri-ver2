@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   const b = (await req.json().catch(() => ({}))) as { access_token?: string; expires_in?: number };
   const t = String(b.access_token || '');
   if (!t) return NextResponse.json({ ok: false, error: 'ログインの情報がありません' }, { status: 400 });
-  const r = await fetch(`${ORIGIN}/api/auth?action=me`, { headers: { Authorization: `Bearer ${t}` }, cache: 'no-store' });
+  const r = await fetch(`${ORIGIN}/api/auth?action=me`, { headers: { Authorization: `Bearer ${t}`, Cookie: `sb_access=${t}` }, cache: 'no-store' });
   const me = (await r.json().catch(() => ({}))) as { authenticated?: boolean; allowed?: boolean; email?: string; error?: string };
   if (!r.ok || !me.authenticated || me.allowed === false) return NextResponse.json({ ok: false, error: me.error || '会社のアカウントでないか、入れない人です' }, { status: 403 });
   if (!ALLOWED.includes(String(me.email || '').toLowerCase())) return NextResponse.json({ ok: false, error: 'この画面はまだ決まった人だけが入れます' }, { status: 403 });
