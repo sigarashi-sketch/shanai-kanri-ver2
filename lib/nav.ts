@@ -26,11 +26,11 @@ export const NAV: NavGroup[] = [
     module: 'roumu', label: '労務/営業管理', items: [
       { href: '/roumu/today', label: '当日の出勤状況', badge: 12 },
       { href: '/roumu/approval', label: '申請の承認', badge: 8 },
-      { href: '/roumu/overtime', label: '残業・36協定・有給' },
+      { href: '/roumu/overtime', label: '残業・36協定・有給', built: true },
       { href: '/roumu/shime', label: '勤怠の締め' },
       { href: '/roumu/shift', label: 'シフト表' },
       { href: '/roumu/kekkin', label: '欠勤管理' },
-      { href: '/roumu/contracts', label: '現場・契約', badge: 4 },
+      { href: '/roumu/contracts', label: '現場・契約', built: true, badge: 4 },
       { href: '/roumu/timesheet', label: '勤務表の届き具合' },
       { href: '/roumu/alerts', label: 'アラート設定' },
       { href: '/roumu/kb', label: '労務法務ナレッジ' },
