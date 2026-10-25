@@ -79,9 +79,9 @@ export function RenrakuButton({ module }: { module: ModuleKey | 'home' }) {
   const ball = info ? SAMPLE_CHAT.info.filter((x) => x.ball).length : live ? contactRows(bd.data).filter((x) => x.ball).length : SAMPLE_CHAT.aoi.filter((x) => x.ball).length;
   return (
     <>
-      <button onClick={() => setOpen((v) => !v)} aria-expanded={open} title={ball ? `要対応 ${ball}件` : undefined} className="relative flex min-h-10 items-center gap-2 rounded-[10px] border border-line px-3 text-[13px] font-semibold text-muted">
-        <MessageSquare size={17} strokeWidth={1.8} />連絡<span className="rounded-full bg-sunken px-2 py-0.5 text-[11px] font-medium text-muted">{account}</span>
-        {ball > 0 && <span className="num absolute -right-1.5 -top-1.5 rounded-full bg-bad px-1.5 text-[11px] font-bold" style={{ color: 'var(--color-surface)' }}>{ball > 99 ? '99+' : ball}</span>}
+      <button onClick={() => setOpen((v) => !v)} aria-expanded={open} title={ball ? `要対応 ${ball}件` : undefined} className="relative flex min-h-10 items-center gap-2 rounded-[10px] border border-line px-3 text-body font-semibold text-muted">
+        <MessageSquare size={17} strokeWidth={1.8} />連絡<span className="rounded-full bg-sunken px-2 py-0.5 text-xs font-medium text-muted">{account}</span>
+        {ball > 0 && <span className="num absolute -right-1.5 -top-1.5 rounded-full bg-bad px-1.5 text-xs font-bold" style={{ color: 'var(--color-surface)' }}>{ball > 99 ? '99+' : ball}</span>}
       </button>
       {open && <DrawerPortal><RenrakuPanel account={account} module={module} badge={bd} onClose={() => setOpen(false)} /></DrawerPortal>}
     </>
@@ -104,11 +104,11 @@ function RenrakuPanel({ account, module, badge: bd, onClose }: { account: Accoun
   useEffect(() => { const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
   return (
     <aside aria-label={`連絡（${account}）`}
-      className={`mo-drawer fixed bottom-0 right-0 top-[var(--hdr,58px)] z-40 flex flex-col border-l border-line bg-surface shadow-[-12px_0_28px_rgba(25,27,46,.14)] ${wide ? 'w-[min(1180px,100vw)]' : 'w-[min(460px,100vw)]'}`}>
+      className={`mo-drawer drawer ${wide ? 'w-[min(1180px,100vw)]' : ''}`}>
       <div className="flex items-center justify-between gap-2 px-5 pb-2 pt-4">
-        <div><div className="text-[12px] text-faint">この画面の LINE 公式アカウント</div><div className="text-[17px] font-bold">{account}</div></div>
+        <div><div className="text-sm text-faint">この画面の LINE 公式アカウント</div><div className="text-lg font-bold">{account}</div></div>
         <div className="flex items-center gap-1.5">
-          <button aria-label={wide ? '元の幅に戻す' : '大きく開く'} title={wide ? '元の幅に戻す' : '大きく開く'} onClick={() => setWide((v) => !v)} className="flex h-[34px] items-center gap-1 rounded-[10px] border border-line px-2.5 text-[12px] text-muted">
+          <button aria-label={wide ? '元の幅に戻す' : '大きく開く'} title={wide ? '元の幅に戻す' : '大きく開く'} onClick={() => setWide((v) => !v)} className="flex h-[34px] items-center gap-1 rounded-[10px] border border-line px-2.5 text-sm text-muted">
             {wide ? <Minimize2 size={14} /> : <Maximize2 size={14} />}{wide ? '戻す' : '大きく開く'}
           </button>
           <button aria-label="閉じる" onClick={onClose} className="flex size-[34px] items-center justify-center rounded-[10px] border border-line"><X size={16} /></button>
@@ -118,10 +118,9 @@ function RenrakuPanel({ account, module, badge: bd, onClose }: { account: Accoun
         {info ? <NotInLegacy what="公式LINE「インフォメーション」のトーク・配信" />
           : <LiveBanner state={contacts.state} error={contacts.error} onReload={contacts.reload} note="本物の LINE です。送ると相手に届きます（長押しで送る）" />}
       </div>
-      <div role="tablist" className="flex gap-1 border-b border-line px-4 text-[13.5px]">
+      <div role="tablist" className="flex gap-1 border-b border-line px-4 text-body">
         {TABS.map(([k, l]) => (
-          <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className="px-3 py-2.5"
-            style={tab === k ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>{l}</button>
+          <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className="tab">{l}</button>
         ))}
       </div>
       <div key={tab} className="mo-axis flex min-h-0 flex-1 flex-col">

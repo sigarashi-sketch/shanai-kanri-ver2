@@ -51,13 +51,13 @@ export default function FreeeInvoicesPage() {
         <button className={btnCls} onClick={() => setYm(shiftYm(ym, -1))}>前の月</button>
         <input type="month" value={ym} onChange={(e) => e.target.value && setYm(e.target.value)} aria-label="請求月" className={inputCls} />
         <button className={btnCls} onClick={() => setYm(shiftYm(ym, 1))}>次の月</button>
-        <label className="flex items-center gap-1.5 text-[12.5px] text-muted">事業所
+        <label className="flex items-center gap-1.5 text-sm text-muted">事業所
           <select value={company} onChange={(e) => setCompany(e.target.value)} className={inputCls}>
             <option value="">すべて</option>
             {companies.map((c) => <option key={c.company_id} value={c.company_id}>{cLabel(c.company_id)}</option>)}
           </select>
         </label>
-        <span className="num ml-auto text-[13px]">合計（税込）<b className="ml-1 text-[16px]">{yen(total)}</b></span>
+        <span className="num ml-auto text-body">合計（税込）<b className="ml-1 text-md">{yen(total)}</b></span>
       </div>
       <Tabs<TabKey> value={tab} onChange={setTab} tabs={[{ key: 'summary', label: '上位会社ごと' }, { key: 'list', label: '請求書の一覧' }, { key: 'partners', label: '取引先の紐づけ' }]} />
       {tab === 'summary' && <SummaryTab groups={groups} cLabel={cLabel} />}
@@ -71,13 +71,13 @@ function SummaryTab({ groups, cLabel }: { groups: Group[]; cLabel: (id: string) 
   return (
     <Card>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] border-collapse text-[13px]">
+        <table className="w-full min-w-[640px] border-collapse text-body">
           <thead><tr className="th-row"><th className={thCls}>事業所</th><th className={thCls}>上位会社（freee 取引先）</th><th className={`${thCls} text-right`}>件数</th><th className={`${thCls} text-right`}>税込合計</th><th className={thCls}>送付</th></tr></thead>
           <tbody>
             {groups.map((g, i) => (
               <tr key={`${g.company_id}-${g.label}-${i}`} className="row border-t border-line-soft">
                 <td className={tdCls}>{cLabel(g.company_id)}</td>
-                <td className={tdCls}><b>{g.label}</b>{!g.mapped && <span className="chip ml-1.5" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>未紐づけ</span>}{g.canceled ? <span className="ml-1.5 text-[11.5px] text-faint">取消 {g.canceled}</span> : null}</td>
+                <td className={tdCls}><b>{g.label}</b>{!g.mapped && <span className="chip ml-1.5" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>未紐づけ</span>}{g.canceled ? <span className="ml-1.5 text-xs text-faint">取消 {g.canceled}</span> : null}</td>
                 <td className={`${tdCls} num text-right`}>{g.count}</td>
                 <td className={`${tdCls} num text-right font-semibold`}>{yen(g.total_including_tax)}</td>
                 <td className={tdCls}>{g.unsent ? <span className="text-warn">未送付 {g.unsent}</span> : <span className="text-faint">すべて送付</span>}</td>
@@ -96,7 +96,7 @@ function ListTab({ live, invoices, loading, cLabel }: { live: boolean; invoices:
   return (
     <Card>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[760px] border-collapse text-[13px]">
+        <table className="w-full min-w-[760px] border-collapse text-body">
           <thead><tr className="th-row"><th className={thCls} /><th className={thCls}>請求日</th><th className={thCls}>番号・件名</th><th className={thCls}>取引先</th><th className={thCls}>事業所</th><th className={`${thCls} text-right`}>税込</th><th className={thCls}>送付</th></tr></thead>
           <tbody>
             {loading && <tr><td colSpan={7} className="px-4 py-8 text-center text-muted">読んでいます…</td></tr>}
@@ -107,7 +107,7 @@ function ListTab({ live, invoices, loading, cLabel }: { live: boolean; invoices:
                   <tr className="row border-t border-line-soft" style={v.canceled ? { opacity: 0.5 } : undefined}>
                     <td className="pl-3"><button aria-label="明細を開く" aria-expanded={open === k} onClick={() => setOpen(open === k ? '' : k)} className="rounded p-1 text-muted">{open === k ? <ChevronDown size={15} /> : <ChevronRight size={15} />}</button></td>
                     <td className={`${tdCls} num whitespace-nowrap`}>{v.billing_date}</td>
-                    <td className={tdCls}><div className="font-semibold">{v.subject || '—'}</div><div className="text-[11.5px] text-faint">{v.invoice_number}{v.canceled ? '・取消' : ''}</div></td>
+                    <td className={tdCls}><div className="font-semibold">{v.subject || '—'}</div><div className="text-xs text-faint">{v.invoice_number}{v.canceled ? '・取消' : ''}</div></td>
                     <td className={tdCls}>{v.joi || v.partner_label}</td>
                     <td className={tdCls}>{cLabel(v.company_id)}</td>
                     <td className={`${tdCls} num text-right font-semibold`}>{yen(v.amount_including_tax)}</td>
@@ -128,10 +128,10 @@ function ListTab({ live, invoices, loading, cLabel }: { live: boolean; invoices:
 function Lines({ live, companyId, invoiceId }: { live: boolean; companyId: string; invoiceId: number }) {
   const r = useHoryu<{ lines: Line[] }>(live ? 'freee-lines' : null, { company_id: companyId, invoice_id: invoiceId });
   const lines: Line[] = live ? r.data?.lines ?? [] : [{ position: 0, description: '10月分 業務委託（見本）', quantity: 1, unit: '式', unit_price: 450000, amount_excluding_tax: 450000 }];
-  if (live && r.state === 'loading') return <span className="text-[12.5px] text-muted">読んでいます…</span>;
-  if (!lines.length) return <span className="text-[12.5px] text-muted">明細はまだ取り込まれていません</span>;
+  if (live && r.state === 'loading') return <span className="text-sm text-muted">読んでいます…</span>;
+  if (!lines.length) return <span className="text-sm text-muted">明細はまだ取り込まれていません</span>;
   return (
-    <table className="w-full text-[12.5px]">
+    <table className="w-full text-sm">
       <thead><tr className="text-left text-muted"><th className="py-1 pr-2">品名</th><th className="py-1 pr-2 text-right">数量</th><th className="py-1 pr-2 text-right">単価</th><th className="py-1 text-right">税抜</th></tr></thead>
       <tbody>{lines.map((l) => <tr key={l.position}><td className="py-1 pr-2">{l.description}</td><td className="num py-1 pr-2 text-right">{l.quantity}{l.unit}</td><td className="num py-1 pr-2 text-right">{yen(l.unit_price)}</td><td className="num py-1 text-right">{yen(l.amount_excluding_tax)}</td></tr>)}</tbody>
     </table>
@@ -157,7 +157,7 @@ function PartnersTab({ live, company, cLabel }: { live: boolean; company: string
     <Card title="freee 取引先 → 上位会社" note="上位会社の選択肢は直近3か月の名簿から">
       <div className="px-4 pb-2"><Msg text={msg.text} bad={msg.bad} /></div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[680px] border-collapse text-[13px]">
+        <table className="w-full min-w-[680px] border-collapse text-body">
           <thead><tr className="th-row"><th className={thCls}>事業所</th><th className={thCls}>freee 取引先</th><th className={`${thCls} text-right`}>請求書</th><th className={thCls}>最後の請求日</th><th className={thCls}>上位会社</th></tr></thead>
           <tbody>
             {live && r.state === 'loading' && <tr><td colSpan={5} className="px-4 py-8 text-center text-muted">読んでいます…</td></tr>}

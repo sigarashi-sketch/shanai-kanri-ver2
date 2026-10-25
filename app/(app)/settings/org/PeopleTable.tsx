@@ -8,7 +8,7 @@ import { MODULES } from '@/lib/theme';
 import { legacyRoleLabel, roleOf, unitAndChildren, type Assign, type OrgPerson } from '@/lib/org';
 import { PermChips, type Ctl } from './shared';
 
-const SC = 'rounded-md border border-field bg-surface px-1.5 py-1 text-[12.5px]';
+const SC = 'rounded-md border border-field bg-surface px-1.5 py-1 text-sm';
 type SetFn = (uid: string, patch: Partial<Assign>, text: string, sub?: string) => void;
 type RowProps = { links?: Map<string, { kind: string; name: string }>; p: OrgPerson; ctl: Ctl; set: SetFn; sel: Set<string>; toggle: (id: string, on: boolean) => void; known: Set<string>; unitOpts: React.ReactNode };
 
@@ -53,7 +53,7 @@ export function PeopleTable({ ctl, list, retired, links }: { ctl: Ctl; list: Org
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2 text-[12.5px]">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
         <select aria-label="部署で絞る" className={sc} value={fUnit} onChange={(e) => setFUnit(e.target.value)}>
           <option value="">部署：すべて</option><option value="__none">未所属だけ</option>{unitOpts}
         </select>
@@ -68,7 +68,7 @@ export function PeopleTable({ ctl, list, retired, links }: { ctl: Ctl; list: Org
       </div>
 
       {sel.size > 0 && (
-        <div className="mo-fade-up flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 text-[12.5px]" style={{ borderColor: 'var(--a)', background: 'var(--as)' }}>
+        <div className="mo-fade-up flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 text-sm" style={{ borderColor: 'var(--a)', background: 'var(--as)' }}>
           <b>{sel.size}人を選択中</b>
           <select aria-label="まとめてロールを付ける" className={sc} value="" onChange={(e) => e.target.value && bulk({ role: e.target.value }, `「${org.roles.find((r) => r.id === e.target.value)?.label}」`)}>
             <option value="">まとめてロールを付ける…</option>{org.roles.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
@@ -82,7 +82,7 @@ export function PeopleTable({ ctl, list, retired, links }: { ctl: Ctl; list: Org
 
       <section className="overflow-hidden rounded-xl border border-line bg-surface">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1280px] border-collapse text-[13px]">
+          <table className="w-full min-w-[1280px] border-collapse text-body">
             <thead><tr className="th-row text-left">
               <th className="px-3 py-2.5"><input type="checkbox" aria-label="表示中の全員を選ぶ" checked={allOn} onChange={(e) => setSel(e.target.checked ? new Set(rows.map((p) => p.userId)) : new Set())} /></th>
               <th className="px-2 py-2.5 font-semibold">人</th>
@@ -98,7 +98,7 @@ export function PeopleTable({ ctl, list, retired, links }: { ctl: Ctl; list: Org
               {!rows.length && <tr><td colSpan={11} className="px-4 py-8 text-center text-muted">この絞り込みに当てはまる人はいません</td></tr>}
               {oldRows.length > 0 && (
                 <tr className="border-t border-line"><td colSpan={11} className="px-3 py-2">
-                  <button onClick={() => setOpenRetired((v) => !v)} className="flex items-center gap-1 text-[12.5px] font-semibold text-muted">
+                  <button onClick={() => setOpenRetired((v) => !v)} className="flex items-center gap-1 text-sm font-semibold text-muted">
                     <ChevronRight size={14} style={{ transform: openRetired ? 'rotate(90deg)' : undefined, transition: 'transform 200ms' }} />退職（{oldRows.length}人）
                   </button>
                 </td></tr>
@@ -108,7 +108,7 @@ export function PeopleTable({ ctl, list, retired, links }: { ctl: Ctl; list: Org
           </table>
         </div>
       </section>
-      <p className="text-[12px] text-faint">結果の段階＝ロールの段階と個別の段階の高いほう。ロールで持っている段階より下は選べません。</p>
+      <p className="text-sm text-faint">結果の段階＝ロールの段階と個別の段階の高いほう。ロールで持っている段階より下は選べません。</p>
     </div>
   );
 }
@@ -122,11 +122,11 @@ function Row({ p, ctl, set, sel, toggle, known, unitOpts, links }: RowProps) {
       <tr className={`row border-t border-line-soft align-middle ${flash === p.userId ? 'mo-flash' : ''}`}>
         <td className="px-3 py-2"><input type="checkbox" aria-label={`${p.name}を選ぶ`} checked={sel.has(p.userId)} onChange={(e) => toggle(p.userId, e.target.checked)} /></td>
         <td className="px-2 py-2">
-          <PersonName name={p.name} />{p.isSelf && <span className="ml-1 text-[11px] text-muted">（あなた）</span>}
+          <PersonName name={p.name} />{p.isSelf && <span className="ml-1 text-xs text-muted">（あなた）</span>}
           {p.mikeiken && <span className="chip ml-1.5" style={{ background: 'var(--tone-info-bg)', color: 'var(--tone-info-fg)' }}>未経験事業部</span>}
           {links && (() => { const l = links.get(p.email.trim().toLowerCase()); return l
-            ? <div className="text-[11.5px] text-muted">紐づけ：{l.name ? <><PersonName name={l.name} />（{l.kind}）</> : l.kind}</div>
-            : <div className="text-[11.5px] text-faint">教育の紐づけなし</div>; })()}
+            ? <div className="text-xs text-muted">紐づけ：{l.name ? <><PersonName name={l.name} />（{l.kind}）</> : l.kind}</div>
+            : <div className="text-xs text-faint">教育の紐づけなし</div>; })()}
         </td>
         <td className="px-2 py-2"><span className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }} title="今のシステムのロール（参考・ここでは変わりません）">{legacyRoleLabel(p.legacyRole)}</span></td>
         <td className="px-2 py-2">

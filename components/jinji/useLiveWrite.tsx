@@ -67,7 +67,7 @@ export function useLiveWrite(live: boolean, onDone?: () => void) {
 export function WriteError({ error, onClose }: { error: string; onClose: () => void }) {
   if (!error) return null;
   return (
-    <div role="alert" className="flex items-start gap-2 rounded-xl border px-4 py-2.5 text-[12.5px]" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)', borderColor: 'var(--tone-bad-bar)' }}>
+    <div role="alert" className="flex items-start gap-2 rounded-xl border px-4 py-2.5 text-sm" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)', borderColor: 'var(--tone-bad-bar)' }}>
       <TriangleAlert size={14} className="mt-0.5 shrink-0" /><span className="flex-1">{error}</span>
       <button onClick={onClose} aria-label="閉じる"><X size={14} /></button>
     </div>

@@ -84,20 +84,20 @@ export default function HomeJinjiPage() {
       <PageTitle title="ホーム人事" sub={scope === 'mine' ? `${live?.me || sampleSales || 'あなた'}さんが担当営業の人だけ・直近7日` : '未経験の人の動き・直近7日'} />
       <LiveBanner state={lv.state} error={lv.error} onReload={lv.reload}
         note={`本物のデータ（承諾・参画決定・辞退・現場デビュー・現場面談・退社）。${scope === 'mine' ? '担当営業があなたの人だけ。' : ''}反応は画面の中だけです`} />
-      {live?.warnings.map((w) => <div key={w} className="rounded-xl border border-line bg-soft px-4 py-2 text-[12.5px] text-muted">{w}</div>)}
+      {live?.warnings.map((w) => <div key={w} className="rounded-xl border border-line bg-soft px-4 py-2 text-sm text-muted">{w}</div>)}
 
       {/* ストーリー */}
       <div className="mo-fade-up flex gap-3.5 overflow-x-auto rounded-2xl border border-line bg-surface px-4 py-3.5">
-        {stories.length === 0 && <div className="py-3 text-[12.5px] text-faint">いまは新しい動きはありません</div>}
+        {stories.length === 0 && <div className="py-3 text-sm text-faint">いまは新しい動きはありません</div>}
         {stories.map((s, k) => {
           const Icon = ICON[s.type]; const done = seen.has(s.key);
           return (
             <button key={s.key} onClick={() => { setOpen({ s: k, i: 0 }); setSeen((x) => new Set(x).add(s.key)); }} className="mo-spring-in flex w-[72px] shrink-0 flex-col items-center gap-1.5" style={{ ['--i' as string]: k }}>
               <span className="relative flex size-[62px] items-center justify-center rounded-full p-[3px]" style={{ background: done ? 'var(--color-line)' : 'conic-gradient(var(--a), var(--tone-bad-fg), var(--tone-warn-fg), var(--a))' }}>
                 <span className="flex size-full items-center justify-center rounded-full border-2 border-surface" style={{ background: `var(--tone-${TONE[s.type]}-bg)`, color: `var(--tone-${TONE[s.type]}-fg)` }}><Icon size={24} strokeWidth={1.8} /></span>
-                <span className="num absolute -bottom-0.5 -right-0.5 rounded-full border-2 border-surface px-1.5 text-[10.5px] font-bold" style={{ background: 'var(--a)', color: 'var(--ao)' }}>{s.slides.length}</span>
+                <span className="num absolute -bottom-0.5 -right-0.5 rounded-full border-2 border-surface px-1.5 text-xs font-bold" style={{ background: 'var(--a)', color: 'var(--ao)' }}>{s.slides.length}</span>
               </span>
-              <span className={`truncate text-[11.5px] ${done ? 'text-faint' : 'font-semibold'}`}>{s.label}</span>
+              <span className={`truncate text-xs ${done ? 'text-faint' : 'font-semibold'}`}>{s.label}</span>
             </button>
           );
         })}
@@ -114,7 +114,7 @@ export default function HomeJinjiPage() {
 
       {/* フィード */}
       {lv.state !== 'loading' && shown.length === 0 && (
-        <div className="rounded-2xl border border-line bg-surface px-5 py-10 text-center text-[13px] text-muted">直近7日に{scope === 'mine' ? 'あなたが担当の人の' : ''}動きはありませんでした。静かな1週間です。</div>
+        <div className="rounded-2xl border border-line bg-surface px-5 py-10 text-center text-body text-muted">直近7日に{scope === 'mine' ? 'あなたが担当の人の' : ''}動きはありませんでした。静かな1週間です。</div>
       )}
       {shown.map((p, k) => <PostCard key={p.id} p={p} k={k} now={now} liked={!!likes[p.id]} pop={pop === p.id} cheer={cheer[p.id]} onLike={() => like(p.id)} onCheer={(c) => { setCheer((m) => ({ ...m, [p.id]: m[p.id] === c ? '' : c })); if (!told) { setTold(true); toast({ text: '反応しました', sub: '→ この画面の中だけ（誰にも届かず、どこにも残りません）' }); } }} />)}
 
@@ -135,10 +135,10 @@ function PostCard({ p, k, now, liked, pop, cheer, onLike, onCheer, sampleTag }: 
   return (
     <article className="mo-fade-up overflow-hidden rounded-2xl border border-line bg-surface" style={{ ['--i' as string]: k }}>
       <header className="flex items-center gap-2.5 px-4 py-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-full text-[13px] font-bold" style={{ background: clothOf(lead), color: 'var(--color-surface)' }}>{p.people.length > 1 ? p.people.length : lead.slice(0, 1)}</span>
-        <div className="min-w-0 flex-1 text-[13.5px] leading-tight">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full text-body font-bold" style={{ background: clothOf(lead), color: 'var(--color-surface)' }}>{p.people.length > 1 ? p.people.length : lead.slice(0, 1)}</span>
+        <div className="min-w-0 flex-1 text-body leading-tight">
           <div className="truncate">{p.people.length === 1 ? <PersonName name={lead} /> : <b>{p.people.length}人</b>}</div>
-          <div className="text-[11.5px] text-faint">{p.sub || TYPE_LABEL[p.type]}{now ? ` ・ ${ago(p.at, now)}` : ''}</div>
+          <div className="text-xs text-faint">{p.sub || TYPE_LABEL[p.type]}{now ? ` ・ ${ago(p.at, now)}` : ''}</div>
         </div>
         {sampleTag && <span className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>見本</span>}
         <span className="chip" style={{ background: `var(--tone-${TONE[p.type]}-bg)`, color: `var(--tone-${TONE[p.type]}-fg)` }}><Icon size={12} />{TYPE_LABEL[p.type]}</span>
@@ -151,12 +151,12 @@ function PostCard({ p, k, now, liked, pop, cheer, onLike, onCheer, sampleTag }: 
         <div className="flex items-center gap-3">
           <button onClick={onLike} aria-label="いいね" title="反応は画面の中だけ"><Heart size={22} strokeWidth={1.8} fill={liked ? 'var(--tone-bad-fg)' : 'none'} style={{ color: liked ? 'var(--tone-bad-fg)' : 'var(--color-ink)' }} /></button>
           <div className="flex flex-wrap gap-1">
-            {CHEERS.map((c) => <button key={c} onClick={() => onCheer(c)} className="chip text-[11.5px]" style={cheer === c ? { background: 'var(--as)', color: 'var(--ad)' } : undefined}>{c}</button>)}
+            {CHEERS.map((c) => <button key={c} onClick={() => onCheer(c)} className="chip text-xs" style={cheer === c ? { background: 'var(--as)', color: 'var(--ad)' } : undefined}>{c}</button>)}
           </div>
         </div>
-        <div className="text-[13.5px]">{p.text}</div>
-        {p.people.length > 1 && <div className="flex flex-wrap gap-x-2.5 gap-y-1 text-[12.5px]">{p.people.map((x) => <PersonName key={x.name} name={x.name} />)}</div>}
-        {p.details?.map((d) => <div key={d.k} className="text-[12.5px] text-muted"><b className="text-ink">{d.k}</b>　{d.v}</div>)}
+        <div className="text-body">{p.text}</div>
+        {p.people.length > 1 && <div className="flex flex-wrap gap-x-2.5 gap-y-1 text-sm">{p.people.map((x) => <PersonName key={x.name} name={x.name} />)}</div>}
+        {p.details?.map((d) => <div key={d.k} className="text-sm text-muted"><b className="text-ink">{d.k}</b>　{d.v}</div>)}
       </div>
     </article>
   );
@@ -185,7 +185,7 @@ function StoryViewer({ stories, at, now, onMove, onClose }: { stories: Story[]; 
             </span>
           ))}
         </div>
-        <div className="flex items-center gap-2 px-4 py-2.5 text-[13px]">
+        <div className="flex items-center gap-2 px-4 py-2.5 text-body">
           <span className="flex size-7 items-center justify-center rounded-full" style={{ background: `var(--tone-${TONE[st.type]}-bg)`, color: `var(--tone-${TONE[st.type]}-fg)` }}><Icon size={15} /></span>
           <b>{st.label}</b><span className="num text-faint">{at.i + 1}/{st.slides.length}</span>
           <button onClick={onClose} className="ml-auto rounded-md p-1 text-muted" aria-label="閉じる"><X size={18} /></button>
@@ -196,9 +196,9 @@ function StoryViewer({ stories, at, now, onMove, onClose }: { stories: Story[]; 
           <button aria-label="次へ" onClick={next} className="absolute inset-y-0 right-0 flex w-2/3 items-center justify-end pr-1 text-muted opacity-0 hover:opacity-100"><ChevronRight size={26} /></button>
         </div>
         <div className="flex flex-col gap-1 px-5 py-4">
-          <div className="text-[17px]"><PersonName name={sl.name} /></div>
-          <div className="text-[13.5px]">{sl.post.text}</div>
-          <div className="text-[12px] text-faint">{sl.post.sub}{now ? `${sl.post.sub ? ' ・ ' : ''}${ago(sl.post.at, now)}` : ''}</div>
+          <div className="text-lg"><PersonName name={sl.name} /></div>
+          <div className="text-body">{sl.post.text}</div>
+          <div className="text-sm text-faint">{sl.post.sub}{now ? `${sl.post.sub ? ' ・ ' : ''}${ago(sl.post.at, now)}` : ''}</div>
         </div>
       </div>
     </div>

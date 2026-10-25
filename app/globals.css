@@ -2,6 +2,16 @@
 
 /* ver2 の土台。字体はミンミカと同じ（Inter＋ヒラギノ角ゴ）。分類の色は ColorProvider が --c-<分類> などで入れる。 */
 @theme {
+  /* 字の大きさは この8段だけ（10-25 見た目の整理。text-[12.5px] などの直書きはやめる）。行の高さはここでは決めない＝今の並びのまま */
+  --text-*: initial;
+  --text-xs: 11.5px;   /* 札・補足・表の小さな字 */
+  --text-sm: 12.5px;   /* 表の本文・説明 */
+  --text-body: 13.5px; /* ふつうの本文・ボタン */
+  --text-md: 15px;     /* 小見出し・カードの題 */
+  --text-lg: 18px;     /* 区切りの見出し */
+  --text-xl: 22px;     /* ページの題・KPI の数 */
+  --text-2xl: 28px;    /* 大きな数 */
+  --text-3xl: 34px;    /* いちばん大きな数 */
   --font-sans: var(--font-inter), "Hiragino Sans", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
   /* 面と文字（着せ替えで入れ替わる。画面には色を直に書かず、ここの名前で塗る） */
   --color-base: #F5F6FA;
@@ -12,7 +22,7 @@
   --color-ink: #171717;
   --color-sumi: #191B2E;
   --color-muted: #6B6F85;
-  --color-faint: #8B8FA3;
+  --color-faint: #6E7287; /* 白地で 4.5:1 以上（10-25 見た目の整理） */
   --color-line: #E8E9F0;
   --color-line-soft: #F0F1F5;
   --color-field: #DCDDE6;
@@ -45,7 +55,7 @@
 /* 1 墨と金 */
 [data-theme="kin"] {
   --color-base: #FBFAF7; --color-surface: #FFFFFF; --color-soft: #F7F4EC; --color-sunken: #F2EEE5; --color-track: #EEE9DE;
-  --color-ink: #0F1426; --color-muted: #6E6756; --color-faint: #9A927F; --color-line: #ECE7DC; --color-line-soft: #F3EFE7; --color-field: #DCD3BF;
+  --color-ink: #0F1426; --color-muted: #6E6756; --color-faint: #736B59; --color-line: #ECE7DC; --color-line-soft: #F3EFE7; --color-field: #DCD3BF;
   --color-ok: #3E6B52; --color-warn: #9A6416; --color-bad: #9B2C3C; --color-info: #2F4A7A;
   --tone-ok-fg: #3E6B52; --tone-ok-bar: linear-gradient(90deg,#A88A57,#C8A96E);
   --tone-caution-fg: #7C6A2E; --tone-caution-bar: linear-gradient(90deg,#A88A57,#C8A96E);
@@ -79,7 +89,7 @@
 
 /* 3 白黒＋色は点だけ */
 [data-theme="mono"] {
-  --color-base: #FCFCFD; --color-soft: #F7F7F9; --color-sunken: #F3F3F6; --color-track: #EFEFF3; --color-ink: #111111; --color-muted: #6B6E7C; --color-faint: #8F92A0;
+  --color-base: #FCFCFD; --color-soft: #F7F7F9; --color-sunken: #F3F3F6; --color-track: #EFEFF3; --color-ink: #111111; --color-muted: #6B6E7C; --color-faint: #6D707E;
   --color-line: #ECECF0; --color-line-soft: #F3F3F6; --color-field: #DEDEE5;
   --tone-ok-bar: #2A2D3A; --tone-caution-bar: #2A2D3A; --tone-warn-bar: #C2263F; --tone-bad-bar: #C2263F;
   --side-bg: #F7F7F9; --side-fg: #3F4254; --side-strong: #111111; --side-muted: #8F92A0; --side-hover: rgba(0,0,0,.04);
@@ -96,7 +106,7 @@
 [data-theme="yoru"] {
   color-scheme: dark;
   --color-base: #0E1018; --color-surface: #141824; --color-soft: #191D2B; --color-sunken: #1C2030; --color-track: #232838;
-  --color-ink: #E6E8F0; --color-muted: #9AA0B8; --color-faint: #747A93; --color-line: #232838; --color-line-soft: #1C2030; --color-field: #2C3246;
+  --color-ink: #E6E8F0; --color-muted: #9AA0B8; --color-faint: #8A90A8; --color-line: #232838; --color-line-soft: #1C2030; --color-field: #2C3246;
   --color-ok: #6EE7B7; --color-ok-soft: rgba(110,231,183,.08); --color-ok-line: rgba(110,231,183,.3);
   --color-warn: #FDBA74; --color-warn-soft: rgba(253,186,116,.08); --color-warn-line: rgba(253,186,116,.3);
   --color-bad: #FB7185; --color-bad-soft: rgba(251,113,133,.08); --color-bad-line: rgba(251,113,133,.3); --color-info: #93C5FD;
@@ -109,8 +119,8 @@
   --side-bg: #0A0C12; --side-fg: #9AA0B8; --side-on-bg: #171B28; --side-line: #1A1E2B;
   --top-bg: rgba(14,16,24,.85); --th-bg: #171B28; --th-fg: #9AA0B8; --row-hover: #181C29; --flash: rgba(94,234,212,.12);
   --card-shadow: 0 0 0 1px rgba(255,255,255,.02), 0 10px 24px rgba(0,0,0,.35);
-  --btn-shadow: 0 0 14px color-mix(in srgb, var(--a) 45%, transparent);
-  --mix-to: #FFFFFF; --mix-p: 78%;
+  --btn-shadow: 0 0 10px color-mix(in srgb, var(--a) 35%, transparent);
+  --mix-to: #FFFFFF; --mix-p: 100%; /* 白を混ぜて明るくすると上の白い字が読めなくなるので、分類色はそのまま（10-25） */
 }
 [data-theme="yoru"] .chip { box-shadow: inset 0 0 0 1px rgba(255,255,255,.08) }
 [data-theme="yoru"] .chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 6px currentColor }
@@ -119,7 +129,7 @@
 
 /* 5 黄×黒を上品に */
 [data-theme="kiguro"] {
-  --color-base: #F7F6F2; --color-soft: #F4F2EC; --color-sunken: #EFEDE6; --color-track: #EAE7DE; --color-ink: #111111; --color-muted: #6F6A5A; --color-faint: #95907F;
+  --color-base: #F7F6F2; --color-soft: #F4F2EC; --color-sunken: #EFEDE6; --color-track: #EAE7DE; --color-ink: #111111; --color-muted: #6F6A5A; --color-faint: #6E695A;
   --color-line: #E7E4DA; --color-line-soft: #F0EEE7; --color-field: #D6D2C4;
   --tone-ok-bg: #ECEAE2; --tone-ok-fg: #4A4739; --tone-ok-bar: #2B2B2B;
   --tone-caution-bg: #F5C400; --tone-caution-fg: #111111; --tone-caution-bar: #2B2B2B;
@@ -137,7 +147,7 @@
 /* 6 紺と生成りの紙 */
 [data-theme="kami"] {
   --color-base: #F3EFE6; --color-surface: #FBF9F4; --color-soft: #F6F2E9; --color-sunken: #EEE8DB; --color-track: #E8E1D2;
-  --color-ink: #1B2A4A; --color-muted: #6E6656; --color-faint: #958C7A; --color-line: #DDD5C4; --color-line-soft: #E8E1D2; --color-field: #CFC5B0;
+  --color-ink: #1B2A4A; --color-muted: #6E6656; --color-faint: #6A6252; --color-line: #DDD5C4; --color-line-soft: #E8E1D2; --color-field: #CFC5B0;
   --color-ok: #3F6B4E; --color-warn: #B0672A; --color-bad: #A4343A; --color-info: #1B2A4A;
   --tone-ok-fg: #3F6B4E; --tone-ok-bar: #1B2A4A; --tone-caution-fg: #8C7A2E; --tone-caution-bar: #1B2A4A;
   --tone-warn-fg: #B0672A; --tone-warn-bar: #A4343A; --tone-bad-fg: #A4343A; --tone-bad-bar: #A4343A;
@@ -178,6 +188,49 @@ header.topbar { background-color: var(--top-bg) }
 tr.th-row { background: var(--th-bg, var(--as)); color: var(--th-fg, var(--ad)) }
 .chip { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; border-radius: 999px; padding: 2px 8px; font-size: 11.5px; font-weight: 700; line-height: 1.5 }
 .btn-primary { background: var(--btn-bg, var(--a)); color: var(--btn-fg, var(--ao)); box-shadow: var(--btn-shadow, none); border: 1px solid var(--btn-border, transparent) }
+
+/* ===== 共通の部品の形（10-25 見た目の整理）。@layer components なので、画面ごとの w-full・ml-auto などは上書きできる =====
+   ボタン：.btn ＋ .btn-primary（主）／.btn-secondary（白地・枠）／.btn-danger（取り消せない操作）。高さ 40px・角 10px・字 13.5px 太め
+          表の行の中など詰めたいところだけ .btn-sm（32px）
+   タブ：ページの区切り＝.tab（下線）。絞り込み＝.fchip（丸い札・aria-pressed か aria-selected で選択中）
+   引き出し（右から）：.drawer（幅 440px・上のバーの下から・z は lib/layers.ts の drawer=50。広いものは w-[…] で上書き）
+   小窓：.panel（影・角・面）／.panel-head（見出しの帯）
+   読み込み中：.skel（灰色の帯がゆっくり明滅） */
+@layer components {
+  .btn, .btn-primary, .btn-secondary, .btn-danger {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    min-height: 40px; padding: 0 16px; border-radius: 10px;
+    font-size: var(--text-body); font-weight: 600; line-height: 1.3; white-space: nowrap;
+  }
+  .btn-secondary { background: var(--color-surface); color: var(--color-ink); border: 1px solid var(--color-field) }
+  .btn-secondary:hover:not(:disabled) { background: var(--color-soft) }
+  .btn-danger { background: var(--color-surface); color: var(--color-bad); border: 1px solid var(--color-bad-line) }
+  .btn-danger:hover:not(:disabled) { background: var(--color-bad-soft) }
+  .btn-danger.solid { background: #B4123A; color: #FFFFFF; border-color: transparent }
+  .btn-sm { min-height: 32px; padding: 0 12px; border-radius: 8px; font-size: var(--text-sm) }
+  .btn:disabled, .btn-primary:disabled, .btn-secondary:disabled, .btn-danger:disabled { cursor: not-allowed; opacity: .4 }
+
+  .tab { position: relative; white-space: nowrap; min-height: 40px; padding: 10px 14px; font-size: var(--text-body); color: var(--color-muted) }
+  .tab:hover { color: var(--color-ink) }
+  .tab[aria-selected="true"], .tab[aria-pressed="true"] { color: var(--ad); font-weight: 700; box-shadow: inset 0 -2px 0 var(--a) }
+
+  .fchip { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--color-field); background: var(--color-surface); font-size: var(--text-body); white-space: nowrap }
+  .fchip:hover { border-color: var(--al) }
+  .fchip[aria-pressed="true"], .fchip[aria-selected="true"], .fchip[aria-checked="true"] { border-color: var(--a); background: var(--as); color: var(--ad); font-weight: 700 }
+
+  .drawer { position: fixed; right: 0; bottom: 0; top: var(--hdr, 58px); z-index: 50; display: flex; flex-direction: column; width: min(440px, 100vw); background: var(--color-surface); border-left: 1px solid var(--color-line); box-shadow: -12px 0 28px rgba(25,27,46,.12) }
+  .drawer-shadow { box-shadow: -12px 0 28px rgba(25,27,46,.12) }
+  .panel { background: var(--color-surface); border: 1px solid var(--color-line); border-radius: 16px; box-shadow: 0 12px 32px rgba(16,19,31,.16), 0 2px 6px rgba(16,19,31,.06) }
+  .panel-head { display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 10px 16px; border-bottom: 1px solid var(--color-line); font-size: var(--text-md); font-weight: 700 }
+
+  .skel { display: block; border-radius: 6px; background: var(--color-track); animation: mo-pulse 1.6s ease-in-out infinite }
+}
+
+/* キーボードで動かしたときだけ、どこにいるかをはっきり出す（10-25）。マウスで押したときは出ない */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible { outline: 2px solid var(--a, #4F46E5); outline-offset: 2px; border-radius: 6px }
+:where(input, select, textarea):focus-visible { outline-offset: 0 }
+/* 閉じるボタンは小さな × でも押せる広さ（40px）にする（10-25・携帯でも押しやすく） */
+:where([data-dialog-close], button[aria-label="閉じる"]) { min-width: 40px; min-height: 40px; display: inline-flex; align-items: center; justify-content: center }
 .rounded-xl.border.bg-surface { box-shadow: var(--card-shadow) }
 
 html, body { background: var(--color-base); color: var(--color-ink); }
@@ -197,7 +250,7 @@ body { font-family: var(--font-sans); font-feature-settings: "palt" 0; }
    入場 (.22,1,.36,1)・退場 (.4,0,1,1)・弾み (.34,1.56,.64,1)
    ホバー140ms・小さな反応220ms・ドロワー260ms・タブ240ms・Stagger 45ms×最大12 */
 @keyframes mo-fade-in { from { opacity: 0 } to { opacity: 1 } }
-@keyframes mo-fade-up { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
+@keyframes mo-fade-up { from { opacity: 0; transform: translateY(4px) } to { opacity: 1; transform: none } }
 @keyframes mo-scale-in { from { opacity: 0; transform: scale(.96) } to { opacity: 1; transform: none } }
 @keyframes mo-spring-in { 0% { opacity: 0; transform: scale(.85) } 60% { opacity: 1; transform: scale(1.04) } 100% { transform: none } }
 @keyframes mo-drawer { from { opacity: 0; transform: translateX(28px) } to { opacity: 1; transform: none } }
@@ -206,25 +259,25 @@ body { font-family: var(--font-sans); font-feature-settings: "palt" 0; }
 @keyframes mo-shake { 0%, 100% { transform: none } 20%, 60% { transform: translateX(-4px) } 40%, 80% { transform: translateX(4px) } }
 @keyframes mo-bar { from { transform: scaleX(0) } to { transform: scaleX(1) } }
 @keyframes mo-check { from { stroke-dashoffset: 24 } to { stroke-dashoffset: 0 } }
-@keyframes mo-pulse { 0%, 100% { opacity: 1 } 50% { opacity: .35 } }
+@keyframes mo-pulse { 0%, 100% { opacity: 1 } 50% { opacity: .55 } }
 @keyframes mo-ring { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--a) 45%, transparent) } to { box-shadow: 0 0 0 14px transparent } }
 
-.mo-fade-in { animation: mo-fade-in 240ms ease-out both; animation-delay: calc(min(var(--i, 0), 12) * 45ms) }
-.mo-fade-up { animation: mo-fade-up 320ms cubic-bezier(.22,1,.36,1) both; animation-delay: calc(min(var(--i, 0), 12) * 45ms) }
+.mo-fade-in { animation: mo-fade-in 200ms ease-out both; animation-delay: calc(min(var(--i, 0), 6) * 30ms) }
+.mo-fade-up { animation: mo-fade-up 240ms cubic-bezier(.22,1,.36,1) both; animation-delay: calc(min(var(--i, 0), 6) * 30ms) }
 .mo-scale-in { animation: mo-scale-in 240ms cubic-bezier(.22,1,.36,1) both }
 .mo-spring-in { animation: mo-spring-in 520ms cubic-bezier(.34,1.56,.64,1) both }
 .mo-drawer { animation: mo-drawer 260ms cubic-bezier(.22,1,.36,1) both }
 .mo-axis { animation: mo-axis 240ms cubic-bezier(.22,1,.36,1) both }
 .mo-flash > td, .mo-flash { animation: mo-flash 1.2s ease-out both }
 .mo-shake { animation: mo-shake 320ms ease-in-out both }
-.mo-bar { transform-origin: left; animation: mo-bar 600ms cubic-bezier(.22,1,.36,1) both; animation-delay: calc(200ms + min(var(--i, 0), 12) * 45ms) }
+.mo-bar { transform-origin: left; animation: mo-bar 480ms cubic-bezier(.22,1,.36,1) both; animation-delay: calc(120ms + min(var(--i, 0), 6) * 30ms) }
 .mo-check { stroke-dasharray: 24; animation: mo-check 360ms ease-out both }
 .mo-pulse { animation: mo-pulse 1.4s ease-in-out infinite }
 .mo-celebrate { animation: mo-spring-in 520ms cubic-bezier(.34,1.56,.64,1) both, mo-ring 900ms ease-out 200ms both }
 
 /* 押した感：全ボタンに一括（DOM を増やさない） */
 button, a.btn { transition: transform 120ms, background-color 140ms, color 140ms, border-color 140ms }
-button:active:not(:disabled), a.btn:active { transform: scale(.96) }
+button:active:not(:disabled), a.btn:active { transform: scale(.98) }
 tr.row:hover, a.row:hover { background: var(--row-hover) }
 
 @media (prefers-reduced-motion: reduce) {

@@ -41,14 +41,14 @@ export function ShikakuLiveActions({ row, onDone }: { row: IkeShikakuRow; onDone
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex flex-wrap items-center gap-1.5">
-        <select aria-label={`${label} の段階`} value={row.status} disabled={statusOff || busy} title={statusOff ? needText('edit') : undefined} onChange={(e) => setStatus(e.target.value)} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-[12.5px] disabled:opacity-50">
+        <select aria-label={`${label} の段階`} value={row.status} disabled={statusOff || busy} title={statusOff ? needText('edit') : undefined} onChange={(e) => setStatus(e.target.value)} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-sm disabled:opacity-50">
           <option value="未確認">未確認（確認待ち）</option>
           <option value="承認" disabled={!canApprove}>承認</option>
           <option value="却下" disabled={!canApprove}>却下</option>
         </select>
         <input key={String(row.allowance_amount)} defaultValue={row.allowance_amount ?? ''} inputMode="numeric" disabled={!canEdit || busy} placeholder={row.master_amount != null ? `マスタ ${row.master_amount.toLocaleString()}円` : '確定手当額'} aria-label={`${label} の確定手当額`}
-          onBlur={(e) => setAmount(e.target.value.trim())} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} className="min-h-8 w-[120px] rounded-lg border border-field bg-surface px-2 text-[12.5px] disabled:opacity-50" />
-        <button onClick={del} disabled={!canEdit || busy} title={canEdit ? '誤送信・テスト行を消す（添付も消えます）' : needText('edit')} className="inline-flex min-h-8 items-center gap-1 rounded-lg px-2 text-[12px] text-muted hover:text-bad disabled:opacity-40"><Trash2 size={13} />消す</button>
+          onBlur={(e) => setAmount(e.target.value.trim())} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} className="min-h-8 w-[120px] rounded-lg border border-field bg-surface px-2 text-sm disabled:opacity-50" />
+        <button onClick={del} disabled={!canEdit || busy} title={canEdit ? '誤送信・テスト行を消す（添付も消えます）' : needText('edit')} className="inline-flex min-h-8 items-center gap-1 rounded-lg px-2 text-sm text-muted hover:text-bad disabled:opacity-40"><Trash2 size={13} />消す</button>
       </div>
       <WriteError error={error} onClose={() => setError('')} />
     </div>

@@ -98,20 +98,20 @@ export default function SankyuPage() {
         {cases.map((c) => (
           <button key={c.id} onClick={() => setCurId(c.id)} className="flex min-h-12 items-center gap-2 rounded-xl border bg-surface px-3.5 text-left" style={c.id === cur.id ? { borderColor: 'var(--a)', background: 'var(--al)' } : { borderColor: 'var(--color-line)' }}>
             <Baby size={16} style={{ color: 'var(--ad)' }} />
-            <span><span className="block text-[13.5px] font-bold">{c.person}<span className="num ml-1.5 text-[11.5px] font-semibold" style={{ color: remainOf(c) ? 'var(--ad)' : 'var(--color-ok)' }}>{remainOf(c) ? `残り${remainOf(c)}` : '✓ 済み'}</span></span><span className="text-[11.5px] text-muted">{c.kind}・予定日 {fmt(c.due)}</span></span>
+            <span><span className="block text-body font-bold">{c.person}<span className="num ml-1.5 text-xs font-semibold" style={{ color: remainOf(c) ? 'var(--ad)' : 'var(--color-ok)' }}>{remainOf(c) ? `残り${remainOf(c)}` : '✓ 済み'}</span></span><span className="text-xs text-muted">{c.kind}・予定日 {fmt(c.due)}</span></span>
           </button>
         ))}
       </div>
 
       <section key={cur.id} className="mo-spring-in rounded-xl border border-line bg-surface" style={{ boxShadow: 'var(--card-shadow)' }}>
         <div className="flex flex-wrap items-center gap-3 border-b border-line-soft px-5 py-3">
-          <PersonName name={cur.person} className="text-[17px] font-bold hover:underline underline-offset-2" />
-          <span className="text-[12.5px] text-muted">{cur.site}・担当営業 {cur.sales}</span>
-          <label className="ml-auto flex items-center gap-1.5 text-[12.5px] text-muted">予定日
-            <input type="date" value={cur.due} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(ev) => setDue(ev.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-[13px] text-ink" />
+          <PersonName name={cur.person} className="text-lg font-bold hover:underline underline-offset-2" />
+          <span className="text-sm text-muted">{cur.site}・担当営業 {cur.sales}</span>
+          <label className="ml-auto flex items-center gap-1.5 text-sm text-muted">予定日
+            <input type="date" value={cur.due} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(ev) => setDue(ev.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-body text-ink" />
           </label>
-          {p.self && <label title={canEdit ? undefined : needText('edit')} className="flex items-center gap-1.5 whitespace-nowrap text-[12.5px]"><input type="checkbox" checked={cur.multi} disabled={!canEdit} onChange={(ev) => setMulti(ev.target.checked)} />多胎（双子など）</label>}
-          <select aria-label="育休の終わり" value={e} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(ev) => setExtend(ev.target.value as ExtendKey)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-[13px]">
+          {p.self && <label title={canEdit ? undefined : needText('edit')} className="flex items-center gap-1.5 whitespace-nowrap text-sm"><input type="checkbox" checked={cur.multi} disabled={!canEdit} onChange={(ev) => setMulti(ev.target.checked)} />多胎（双子など）</label>}
+          <select aria-label="育休の終わり" value={e} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(ev) => setExtend(ev.target.value as ExtendKey)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-body">
             {EXTEND.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
           </select>
         </div>
@@ -125,20 +125,20 @@ export default function SankyuPage() {
           <div className="relative h-6 overflow-hidden rounded-full bg-sunken">
             {bars.map((b, i) => {
               const l = ((D(b.from).getTime() - span0) / span) * 100; const w = ((D(b.to).getTime() - D(b.from).getTime()) / span) * 100;
-              return <div key={b.label} className="mo-bar absolute inset-y-0 flex items-center justify-center text-[11px] font-bold" style={{ left: `${l}%`, width: `${Math.max(w, 4)}%`, background: `var(--tone-${b.tone}-bg)`, color: `var(--tone-${b.tone}-fg)`, ['--i' as string]: i }}>{b.label}</div>;
+              return <div key={b.label} className="mo-bar absolute inset-y-0 flex items-center justify-center text-xs font-bold" style={{ left: `${l}%`, width: `${Math.max(w, 4)}%`, background: `var(--tone-${b.tone}-bg)`, color: `var(--tone-${b.tone}-fg)`, ['--i' as string]: i }}>{b.label}</div>;
             })}
           </div>
-          <p className="mt-1.5 text-[11.5px] text-faint">産後の8週は実際に生まれた日から数えます。生まれたら予定日を生まれた日に選び直してください。{!p.self && '配偶者の出産は、生まれてから8週の間に最大4週の「産後パパ育休」も取れます。'}</p>
+          <p className="mt-1.5 text-xs text-faint">産後の8週は実際に生まれた日から数えます。生まれたら予定日を生まれた日に選び直してください。{!p.self && '配偶者の出産は、生まれてから8週の間に最大4週の「産後パパ育休」も取れます。'}</p>
         </div>
       </section>
 
       <section className="mo-fade-up rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
         <div className="flex items-center gap-3 border-b border-line-soft px-5 py-3">
           <RemainRing remain={remain} total={todos.length} />
-          <div className="text-[13px]"><b>やること 残り {remain}件</b><span className="ml-2 text-muted">時期の早い順</span>{!canEdit && <div className="text-[12px] text-bad">{needText('edit')}</div>}</div>
+          <div className="text-body"><b>やること 残り {remain}件</b><span className="ml-2 text-muted">時期の早い順</span>{!canEdit && <div className="text-sm text-bad">{needText('edit')}</div>}</div>
         </div>
         {remain === 0 ? (
-          <div className="mo-scale-in px-6 py-8 text-center"><Check className="mx-auto text-ok" size={24} /><div className="mt-2 text-[14px] font-bold">{cur.person} の手続きはぜんぶ済みました</div><div className="mt-1 text-[12.5px] text-muted">復帰したら、社員ページの状態が「稼働中」に戻っているか確かめてください。</div></div>
+          <div className="mo-scale-in px-6 py-8 text-center"><Check className="mx-auto text-ok" size={24} /><div className="mt-2 text-body font-bold">{cur.person} の手続きはぜんぶ済みました</div><div className="mt-1 text-sm text-muted">復帰したら、社員ページの状態が「稼働中」に戻っているか確かめてください。</div></div>
         ) : (
           <ul>
             {todos.map((t) => {
@@ -146,9 +146,9 @@ export default function SankyuPage() {
               return (
                 <li key={t.id} className={`flex flex-wrap items-center gap-3 border-t border-line-soft px-5 py-2.5 first:border-t-0 ${flash === k ? 'mo-flash' : ''}`}>
                   <input type="checkbox" aria-label={t.text} checked={!!done[k]} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={() => toggle(t)} />
-                  <span className="num w-[112px] text-[12.5px]" style={{ color: late ? 'var(--color-bad)' : undefined }}>{fmt(t.date)}{late && <span className="block text-[11px]">過ぎています</span>}</span>
-                  <span className={`min-w-[200px] flex-1 text-[13px] ${done[k] ? 'text-faint line-through' : ''}`}>{t.text}</span>
-                  {t.link && <Link href={t.link.href} className="text-[12px] font-semibold" style={{ color: 'var(--ad)' }}>{t.link.label}</Link>}
+                  <span className="num w-[112px] text-sm" style={{ color: late ? 'var(--color-bad)' : undefined }}>{fmt(t.date)}{late && <span className="block text-xs">過ぎています</span>}</span>
+                  <span className={`min-w-[200px] flex-1 text-body ${done[k] ? 'text-faint line-through' : ''}`}>{t.text}</span>
+                  {t.link && <Link href={t.link.href} className="text-sm font-semibold" style={{ color: 'var(--ad)' }}>{t.link.label}</Link>}
                   <span className="chip whitespace-nowrap" style={{ background: `var(--tone-${WHO_TONE[t.who]}-bg)`, color: `var(--tone-${WHO_TONE[t.who]}-fg)` }}>{t.who === '労務担当（freee）へ渡す' && <Send size={11} />}{t.who}</span>
                 </li>
               );
@@ -157,7 +157,7 @@ export default function SankyuPage() {
         )}
       </section>
 
-      <p className="text-[11.5px] leading-relaxed text-faint">
+      <p className="text-xs leading-relaxed text-faint">
         法令のめやす：産前は出産予定日の6週間前（多胎は14週間前）から本人が求めれば休め、産後8週間は働かせられません（6週間を過ぎて本人が望み、医師が認めた仕事は可）（労働基準法 第65条）。育休は原則子が1歳になるまで、保育所に入れない等の事情があれば1歳6か月、さらに2歳まで延ばせます（育児・介護休業法）。
         社会保険・給付金の手続きは労務担当が freee で行います。最終判断は社労士・税理士・法務に確認してください。
       </p>
@@ -168,8 +168,8 @@ export default function SankyuPage() {
 function Period({ label, from, to }: { label: string; from: string; to: string }) {
   return (
     <div className="rounded-[10px] bg-soft px-3.5 py-3">
-      <div className="text-[12px] text-muted">{label}</div>
-      <div className="num mt-0.5 text-[14px] font-bold">{fmt(from)} 〜 {fmt(to)}</div>
+      <div className="text-sm text-muted">{label}</div>
+      <div className="num mt-0.5 text-body font-bold">{fmt(from)} 〜 {fmt(to)}</div>
     </div>
   );
 }

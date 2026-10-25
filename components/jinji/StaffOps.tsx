@@ -57,18 +57,18 @@ export function StaffOps({ staff, live, recruiters, onDone }: { staff: LiveStaff
   };
 
   const ck = (on: boolean, onChange: (b: boolean) => void, label: string, tip?: string) => (
-    <label className="flex min-h-9 items-center gap-2 text-[13px]" title={offTitle ?? tip}>
+    <label className="flex min-h-9 items-center gap-2 text-body" title={offTitle ?? tip}>
       <input type="checkbox" checked={on} disabled={off} onChange={(e) => onChange(e.target.checked)} className="size-4" />{label}
     </label>
   );
   const dt = (label: string, val: string, onChange: (s: string) => void, tip?: string) => (
-    <label className="flex flex-col gap-1 text-[12px] text-muted" title={offTitle ?? tip}>{label}
-      <input type="date" value={val} disabled={off} onChange={(e) => onChange(e.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-[13px] text-ink disabled:opacity-50" />
+    <label className="flex flex-col gap-1 text-sm text-muted" title={offTitle ?? tip}>{label}
+      <input type="date" value={val} disabled={off} onChange={(e) => onChange(e.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-body text-ink disabled:opacity-50" />
     </label>
   );
   const sec = (title: string, sub: string, children: React.ReactNode) => (
     <section className="rounded-xl border border-line bg-surface px-[18px] py-3.5">
-      <h3 className="text-[14px] font-bold">{title}</h3><div className="mb-2.5 text-[11.5px] text-faint">{sub}</div>{children}
+      <h3 className="text-body font-bold">{title}</h3><div className="mb-2.5 text-xs text-faint">{sub}</div>{children}
     </section>
   );
   const rec = Array.from(new Set([...recruiters.filter((x) => x && x !== '—'), ...(v.tantou ? [v.tantou] : [])])).sort((a, b) => a.localeCompare(b, 'ja'));
@@ -76,11 +76,11 @@ export function StaffOps({ staff, live, recruiters, onDone }: { staff: LiveStaff
   return (
     <div className="flex flex-col gap-3">
       <WriteError error={error} onClose={() => setError('')} />
-      {busy && <div className="text-[12px] text-muted">保存しています…</div>}
+      {busy && <div className="text-sm text-muted">保存しています…</div>}
       {sec('状態・退社・待機', '退社チェック ＞ 手で選んだ状態 ＞ 自動の判定。待機は当日の出勤状況・未打刻アラートの対象から外れます', (
         <div className="flex flex-wrap items-end gap-x-5 gap-y-2">
-          <label className="flex flex-col gap-1 text-[12px] text-muted" title={offTitle}>状態
-            <select value={statusVal} disabled={off} onChange={(e) => setStatus(e.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-[13px] text-ink disabled:opacity-50">
+          <label className="flex flex-col gap-1 text-sm text-muted" title={offTitle}>状態
+            <select value={statusVal} disabled={off} onChange={(e) => setStatus(e.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-body text-ink disabled:opacity-50">
               {OVERRIDE_CHOICES.map((c) => <option key={c.v} value={c.v}>{c.label}</option>)}
             </select>
           </label>
@@ -110,14 +110,14 @@ export function StaffOps({ staff, live, recruiters, onDone }: { staff: LiveStaff
       {sec('最寄駅・採用担当・LINEグループ', '最寄駅は手で入れた駅が一番優先（空にすると自動の判定に戻ります）', (
         <div className="flex flex-wrap items-end gap-x-5 gap-y-2">
           {(['homeEki', 'siteEki'] as const).map((k) => (
-            <label key={k} className="flex flex-col gap-1 text-[12px] text-muted" title={offTitle}>{k === 'homeEki' ? `最寄駅（今 ${staff.station}）` : `現場の最寄駅（今 ${staff.siteEki || '—'}）`}
+            <label key={k} className="flex flex-col gap-1 text-sm text-muted" title={offTitle}>{k === 'homeEki' ? `最寄駅（今 ${staff.station}）` : `現場の最寄駅（今 ${staff.siteEki || '—'}）`}
               <input defaultValue="" disabled={off} placeholder="駅名を入れて Enter" onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                 onBlur={(e) => { const val = e.target.value.trim(); if (!val) return; put({ [k]: val }, { kind: 'eki', name, field: k === 'homeEki' ? 'home_eki' : 'site_eki', value: val }, `${name} さんの${k === 'homeEki' ? '最寄駅' : '現場の最寄駅'}を「${val}」にしました`, '→ 名簿・交通費の駅に効きます', { kind: 'eki', name, field: k === 'homeEki' ? 'home_eki' : 'site_eki', value: '' }); e.target.value = ''; }}
-                className="min-h-9 w-[180px] rounded-[10px] border border-field bg-surface px-2 text-[13px] text-ink disabled:opacity-50" />
+                className="min-h-9 w-[180px] rounded-[10px] border border-field bg-surface px-2 text-body text-ink disabled:opacity-50" />
             </label>
           ))}
-          <label className="flex flex-col gap-1 text-[12px] text-muted" title={offTitle}>採用担当
-            <select value={v.tantou} disabled={off} onChange={(e) => { const val = e.target.value; put({ tantou: val }, { kind: 'tantou', name, value: val }, `${name} さんの採用担当を「${val || '未設定'}」にしました`, '→ 名簿・営業リストの採用担当', { kind: 'tantou', name, value: v.tantou }); }} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-[13px] text-ink disabled:opacity-50">
+          <label className="flex flex-col gap-1 text-sm text-muted" title={offTitle}>採用担当
+            <select value={v.tantou} disabled={off} onChange={(e) => { const val = e.target.value; put({ tantou: val }, { kind: 'tantou', name, value: val }, `${name} さんの採用担当を「${val || '未設定'}」にしました`, '→ 名簿・営業リストの採用担当', { kind: 'tantou', name, value: v.tantou }); }} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-body text-ink disabled:opacity-50">
               <option value="">未設定</option>
               {rec.map((x) => <option key={x} value={x}>{x}</option>)}
             </select>
@@ -132,9 +132,9 @@ export function StaffOps({ staff, live, recruiters, onDone }: { staff: LiveStaff
 // LINEグループは見るだけ（今のシステムに紐付けを保存する口が無いため・10-25 決定）。紐付けは今の従業員名簿の画面で
 function LineGroupView({ cur }: { cur: { name: string; has: boolean } }) {
   return (
-    <div className="flex flex-col gap-1 text-[12px] text-muted" title="ここでは変えられません（今の従業員名簿の画面で紐付けます）">
+    <div className="flex flex-col gap-1 text-sm text-muted" title="ここでは変えられません（今の従業員名簿の画面で紐付けます）">
       LINEグループ
-      <span className="min-h-9 max-w-[320px] rounded-[10px] border border-line bg-soft px-2 py-2 text-[13px] text-ink">{cur.has ? cur.name || '（名前なし）' : 'なし'}</span>
+      <span className="min-h-9 max-w-[320px] rounded-[10px] border border-line bg-soft px-2 py-2 text-body text-ink">{cur.has ? cur.name || '（名前なし）' : 'なし'}</span>
     </div>
   );
 }
@@ -150,7 +150,7 @@ export function PersonActions({ name, live, rule, onTaiou }: { name: string; liv
       .catch((e) => setTelErr((e as Error).message));
   };
   const ph = rule?.ok && rule.n != null ? rulePhaseOf(rule.n) : null;
-  const btn = 'inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border border-field bg-surface px-3 text-[13px] font-semibold';
+  const btn = 'inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border border-field bg-surface px-3 text-body font-semibold';
   return (
     <div className="flex flex-wrap items-center gap-2">
       {tel ? <a href={`tel:${tel}`} className={btn} style={{ color: 'var(--ad)' }}><Phone size={14} />{tel} に電話</a>
@@ -161,7 +161,7 @@ export function PersonActions({ name, live, rule, onTaiou }: { name: string; liv
         ? <span className="chip" title="2026-10-05 以降の欠勤・遅刻・早退の連絡の回数（数えないにした日は除く）。1回=①営業面談／2回=②来社面談／3回=③書面注意・改善計画書／4回以上=④けん責を検討" style={ph ? { background: `var(--tone-${ph.tone}-bg)`, color: `var(--tone-${ph.tone}-fg)` } : { background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}>
           ルール欠勤 {rule.n ?? 0}回{ph ? `・${ph.mark} ${ph.label}` : ''}</span>
         : <span className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }} title="勤怠連絡を読めませんでした（0回ではなく不明）">ルール欠勤 不明</span>)}
-      {telErr && <span className="text-[12px] text-bad">{telErr}</span>}
+      {telErr && <span className="text-sm text-bad">{telErr}</span>}
     </div>
   );
 }

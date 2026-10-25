@@ -32,7 +32,7 @@ export default function CustomPagesPage() {
   return (
     <HoryuFrame title="カスタムページ" sub="今のシステムで作ったページを見る（作る・直すのは今の画面から）" state={tree.state} error={tree.error} onReload={tree.reload}>
       <div className="grid gap-3.5 md:grid-cols-[220px_minmax(0,1fr)]">
-        <nav aria-label="カスタムページの一覧" className="flex flex-col gap-2 rounded-xl border border-line bg-surface p-2.5 text-[13px]">
+        <nav aria-label="カスタムページの一覧" className="flex flex-col gap-2 rounded-xl border border-line bg-surface p-2.5 text-body">
           {folders.map((f) => (
             <div key={f.id}>
               <div className="flex items-center gap-1.5 px-1.5 py-1 font-semibold text-muted"><Folder size={14} />{f.title}</div>
@@ -53,8 +53,8 @@ export default function CustomPagesPage() {
 
 function PageView({ id, sample }: { id: string; sample: boolean }) {
   const p = useHoryu<{ page: { title: string; doc: { blocks?: Block[] } } }>(sample ? null : 'cp-page', { id });
-  if (!sample && p.state === 'loading') return <div className="py-10 text-center text-[13px] text-muted">読んでいます…</div>;
-  if (!sample && p.state !== 'live') return <div className="rounded-xl border border-line bg-surface px-4 py-8 text-center text-[13px] text-muted">{p.state === 'forbidden' ? 'このページは共有されていません' : p.error}</div>;
+  if (!sample && p.state === 'loading') return <div className="py-10 text-center text-body text-muted">読んでいます…</div>;
+  if (!sample && p.state !== 'live') return <div className="rounded-xl border border-line bg-surface px-4 py-8 text-center text-body text-muted">{p.state === 'forbidden' ? 'このページは共有されていません' : p.error}</div>;
   const blocks = sample ? S_BLOCKS : p.data?.page.doc.blocks ?? [];
   return (
     <div className="grid grid-cols-12 gap-3">
@@ -62,12 +62,12 @@ function PageView({ id, sample }: { id: string; sample: boolean }) {
         const span = Math.min(12, Math.max(3, b.w ?? 12));
         const style = { gridColumn: `span ${span} / span ${span}` };
         if (b.type === 'divider') return <hr key={b.id} className="col-span-12 border-line" />;
-        if (b.type === 'heading') return <h2 key={b.id} className="col-span-12 text-[17px] font-bold">{b.title}</h2>;
-        if (b.type === 'text') return <div key={b.id} className="col-span-12 whitespace-pre-wrap rounded-xl border border-line bg-surface px-4 py-3 text-[13.5px] max-md:!col-span-12" style={style}>{b.view?.md ?? ''}</div>;
+        if (b.type === 'heading') return <h2 key={b.id} className="col-span-12 text-lg font-bold">{b.title}</h2>;
+        if (b.type === 'text') return <div key={b.id} className="col-span-12 whitespace-pre-wrap rounded-xl border border-line bg-surface px-4 py-3 text-body max-md:!col-span-12" style={style}>{b.view?.md ?? ''}</div>;
         if (b.type === 'kpi' || b.type === 'table' || b.type === 'chart') return <div key={b.id} className="max-md:!col-span-12" style={style}><DataBlock pageId={id} block={b} sample={sample} /></div>;
         return null;
       })}
-      {!blocks.length && <p className="col-span-12 text-[13px] text-muted">このページにはまだ何もありません</p>}
+      {!blocks.length && <p className="col-span-12 text-body text-muted">このページにはまだ何もありません</p>}
     </div>
   );
 }
@@ -85,17 +85,17 @@ function DataBlock({ pageId, block, sample }: { pageId: string; block: Block; sa
   return (
     <Card title={block.title}>
       <div className="px-4 pb-3">
-        {err && <p className="text-[12.5px]" style={{ color: 'var(--tone-bad-fg)' }}>{err}</p>}
-        {!err && !res && <p className="text-[12.5px] text-muted">読んでいます…</p>}
-        {res && block.type === 'kpi' && (() => { const c = res.columns.find((x) => x.kind === 'num') ?? res.columns[0]; return <div className="num text-[28px] font-bold">{c ? fmt(res.rows[0]?.[c.name], c.kind) : '—'}</div>; })()}
+        {err && <p className="text-sm" style={{ color: 'var(--tone-bad-fg)' }}>{err}</p>}
+        {!err && !res && <p className="text-sm text-muted">読んでいます…</p>}
+        {res && block.type === 'kpi' && (() => { const c = res.columns.find((x) => x.kind === 'num') ?? res.columns[0]; return <div className="num text-2xl font-bold">{c ? fmt(res.rows[0]?.[c.name], c.kind) : '—'}</div>; })()}
         {res && block.type !== 'kpi' && (
           <div className="max-h-[420px] overflow-auto">
-            <table className="w-full border-collapse text-[12.5px]">
+            <table className="w-full border-collapse text-sm">
               <thead><tr className="th-row">{res.columns.map((c) => <th key={c.name} className={`${thCls} ${c.kind === 'num' ? 'text-right' : ''}`}>{c.label}</th>)}</tr></thead>
               <tbody>{res.rows.slice(0, 500).map((row, i) => <tr key={i} className="border-t border-line-soft">{res.columns.map((c) => <td key={c.name} className={`${tdCls} ${c.kind === 'num' ? 'num text-right' : ''}`}>{fmt(row[c.name], c.kind)}</td>)}</tr>)}</tbody>
             </table>
-            {block.type === 'chart' && <p className="pt-1 text-[11.5px] text-faint">グラフは表で出しています</p>}
-            {res.dropped > 0 && <p className="pt-1 text-[11.5px] text-faint">要配慮の列（{res.dropped}）は出していません</p>}
+            {block.type === 'chart' && <p className="pt-1 text-xs text-faint">グラフは表で出しています</p>}
+            {res.dropped > 0 && <p className="pt-1 text-xs text-faint">要配慮の列（{res.dropped}）は出していません</p>}
           </div>
         )}
       </div>

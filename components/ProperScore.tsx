@@ -41,13 +41,13 @@ const f2 = (v: number | null | undefined) => (v == null ? '-' : Number(v).toFixe
 export function ScoreNote({ scores }: { scores: Scores }) {
   const m = scores.meta;
   if (scores.state === 'off') return null;
-  if (scores.state === 'loading') return <p className="text-[12px] text-faint">スコアを読み込み中…（はじめは数十秒かかることがあります）</p>;
-  if (scores.state === 'error') return <p className="text-[12px] text-bad">スコアを読めませんでした：{scores.error}</p>;
+  if (scores.state === 'loading') return <p className="text-sm text-faint">スコアを読み込み中…（はじめは数十秒かかることがあります）</p>;
+  if (scores.state === 'error') return <p className="text-sm text-bad">スコアを読めませんでした：{scores.error}</p>;
   if (!m) return null;
   const a = m.cvAuc;
   return (
-    <p className="text-[12px] leading-relaxed text-muted">
-      {scores.sample && <span className="mr-1 rounded bg-sunken px-1.5 text-[11px]">見本</span>}
+    <p className="text-sm leading-relaxed text-muted">
+      {scores.sample && <span className="mr-1 rounded bg-sunken px-1.5 text-xs">見本</span>}
       <b>スコアの精度</b>：参画見込・辞退リスクは {m.trainFrom} 以降に承諾して決着した {m.trained}名（参画 {m.counts.join}・辞退 {m.counts.decline}・営業止め {m.counts.poa}）から学習。
       見分ける力（AUC・0.5＝当てずっぽう／1.0＝完璧）は承諾7日目以降で 参画 <b>{f2(a.joinLate)}</b>・辞退 <b>{f2(a.declineLate)}</b>。
       確率としては概ね当たりますが、1人ずつの断定には使わないでください。数字を押すと内訳。
@@ -68,7 +68,7 @@ export function ScoreBadge({ s, kind, meta, name }: { s: ScoreRow | null | undef
   return (
     <>
       <button ref={btn} type="button" onClick={(e) => { e.stopPropagation(); if (at) setAt(null); else open(); }} title={`${SCORE_LABEL[kind]}：${SCORE_HINT[kind]}（押すと内訳）`}
-        className="num inline-block min-w-[40px] rounded-full px-2 py-0.5 text-center text-[12.5px] font-bold" style={BAND_STYLE[scoreBand(kind, v, s.skillThin, meta)]}>
+        className="num inline-block min-w-[40px] rounded-full px-2 py-0.5 text-center text-sm font-bold" style={BAND_STYLE[scoreBand(kind, v, s.skillThin, meta)]}>
         {scoreText(s, kind)}
       </button>
       {at && <ScorePop s={s} kind={kind} meta={meta} name={name} at={at} onClose={() => setAt(null)} />}
@@ -93,7 +93,7 @@ function ScorePop({ s, kind, meta, name, at, onClose }: { s: ScoreRow; kind: Sco
   return (
     <DrawerPortal>
       <div ref={ref} role="dialog" aria-label={`${name} の${SCORE_LABEL[kind]}の内訳`} onClick={(e) => e.stopPropagation()}
-        className="fixed w-[min(340px,calc(100vw-16px))] rounded-xl border border-line bg-surface px-3.5 py-3 text-[12.5px] leading-relaxed shadow-[0_8px_24px_rgba(0,0,0,.15)]"
+        className="fixed w-[min(340px,calc(100vw-16px))] rounded-xl border border-line bg-surface px-3.5 py-3 text-sm leading-relaxed shadow-[0_8px_24px_rgba(0,0,0,.15)]"
         style={{ left: at.x, top: at.top, bottom: at.bottom, maxHeight: 'calc(100vh - 16px)', overflowY: 'auto', zIndex: Z.modal + 1 }}>
         <div className="mb-1 font-bold">{name}</div>
         {kind === 'skill' ? (
@@ -106,8 +106,8 @@ function ScorePop({ s, kind, meta, name, at, onClose }: { s: ScoreRow; kind: Sco
                 ))}
               </tbody>
             </table>
-            {s.skillThin && <p className="mt-1.5 text-[11.5px] text-faint">材料不足：フォーム・基本情報・前職欄のどれも無いので低く出ています</p>}
-            <p className="mt-1.5 text-[11.5px] text-faint">職歴・資格・PCは本人フォーム/基本情報/前職欄のキーワードから自動判定</p>
+            {s.skillThin && <p className="mt-1.5 text-xs text-faint">材料不足：フォーム・基本情報・前職欄のどれも無いので低く出ています</p>}
+            <p className="mt-1.5 text-xs text-faint">職歴・資格・PCは本人フォーム/基本情報/前職欄のキーワードから自動判定</p>
           </>
         ) : (
           <>
@@ -127,8 +127,8 @@ function ScorePop({ s, kind, meta, name, at, onClose }: { s: ScoreRow; kind: Sco
                 <div className="mt-1.5 text-muted">効いている要素（平均的な人との差）</div>
                 <ul>{why.map((w) => <li key={w.label} className="flex justify-between gap-2 border-b border-line-soft py-0.5"><span>{w.label}</span><span className="whitespace-nowrap font-semibold" style={{ color: (w.v > 0) === isJoin ? 'var(--tone-ok-fg)' : 'var(--tone-bad-fg)' }}>{w.v > 0 ? '↑ 上げる' : '↓ 下げる'}</span></li>)}</ul>
               </>
-            ) : kind !== 'poa' && <p className="mt-1.5 text-[11.5px] text-faint">平均から大きく動かす要素なし</p>}
-            <p className="mt-1.5 text-[11.5px] text-faint">{s.days != null && `承諾から ${s.days}日目の時点。`}過去の決着者の同じ時点の行動・属性からの推定{auc != null && `（AUC ${auc}）`}。参考値</p>
+            ) : kind !== 'poa' && <p className="mt-1.5 text-xs text-faint">平均から大きく動かす要素なし</p>}
+            <p className="mt-1.5 text-xs text-faint">{s.days != null && `承諾から ${s.days}日目の時点。`}過去の決着者の同じ時点の行動・属性からの推定{auc != null && `（AUC ${auc}）`}。参考値</p>
           </>
         )}
       </div>
@@ -142,8 +142,8 @@ export function ScoreLine({ id, name, live, compact }: { id: string; name: strin
   const s = sc.map.get(id);
   if (sc.state === 'off' || sc.state === 'error' || !s) return null;
   return (
-    <div className={`${compact ? '' : 'mt-2 '}flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted`}>
-      {sc.sample && <span className="rounded bg-sunken px-1.5 text-[11px]">見本</span>}
+    <div className={`${compact ? '' : 'mt-2 '}flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted`}>
+      {sc.sample && <span className="rounded bg-sunken px-1.5 text-xs">見本</span>}
       {(['skill', 'join', 'decline', 'poa'] as ScoreKind[]).map((k) => <span key={k} className="inline-flex items-center gap-1">{SCORE_LABEL[k]} <ScoreBadge s={s} kind={k} meta={sc.meta} name={name} /></span>)}
     </div>
   );

@@ -82,52 +82,52 @@ export default function ShiftPage() {
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="シフト表" sub={live ? `${M.year}年${M.label}・本人が入れたシフト（20日を過ぎたら翌月を集める）` : `${SHIFT_MONTH.year}年${SHIFT_MONTH.label}・シフト勤務の人だけ・提出の締切は ${SHIFT_MONTH.deadline}・見本データ`}>
-        <Link href="/roumu/today" className="inline-flex min-h-9 items-center rounded-[10px] border border-field bg-surface px-3 text-[12.5px] font-semibold">当日の出勤状況へ</Link>
+        <Link href="/roumu/today" className="btn-secondary">当日の出勤状況へ</Link>
       </PageTitle>
       <LiveBanner state={mq.live ? lq.state : mq.state} error={mq.error || lq.error} onReload={() => { mq.reload(); lq.reload(); }} note="見るだけです。シフトは本人がスマホで入れます（ここからは直せません）。提出のお願いは今の社内システムの配信から" />
       <MikeikenNote mk={mk} live={live} />
       {live && <NotInLegacy what="早番・遅番などの名前" />}
-      {live && tq.state === 'loading' && <div className="text-[12px] text-faint">まだ出していない人（未提出）を探しています…</div>}
+      {live && tq.state === 'loading' && <div className="text-sm text-faint">まだ出していない人（未提出）を探しています…</div>}
 
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <RemainRing remain={waiting.length} total={notSubmitted.length || 1} />
-        <div className="text-[13px]"><b>まだ出していない人 {notSubmitted.length}人</b>{live && <span className="ml-2 text-muted">未提出 {rowsP.filter((p) => p.state === '未提出').length}・下書き {rowsP.filter((p) => p.state === '下書き').length}</span>}<span className="ml-2 text-muted">お願いを送っていない人 {waiting.length}人</span>
-          {!canEdit && <div className="text-[12px] text-bad">{needText('edit')}</div>}
+        <div className="text-body"><b>まだ出していない人 {notSubmitted.length}人</b>{live && <span className="ml-2 text-muted">未提出 {rowsP.filter((p) => p.state === '未提出').length}・下書き {rowsP.filter((p) => p.state === '下書き').length}</span>}<span className="ml-2 text-muted">お願いを送っていない人 {waiting.length}人</span>
+          {!canEdit && <div className="text-sm text-bad">{needText('edit')}</div>}
         </div>
-        <button onClick={() => waiting.length && ask(waiting)} disabled={!okEdit || waiting.length === 0} title={block} className="btn-primary ml-auto inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-[10px] px-4 text-[13px] font-bold disabled:opacity-40"><Send size={15} />{waiting.length}人にまとめてお願い（あおい）</button>
+        <button onClick={() => waiting.length && ask(waiting)} disabled={!okEdit || waiting.length === 0} title={block} className="btn-primary ml-auto"><Send size={15} />{waiting.length}人にまとめてお願い（あおい）</button>
       </div>
 
       {notSubmitted.length > 0 && waiting.length === 0 && (
-        <div className="mo-scale-in flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-[13px]"><Check size={18} className="text-ok" />まだ出していない人には、全員お願いを送りました。届いたら、ここが「提出済み」に変わります。</div>
+        <div className="mo-scale-in flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-body"><Check size={18} className="text-ok" />まだ出していない人には、全員お願いを送りました。届いたら、ここが「提出済み」に変わります。</div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2 text-[12px] text-muted">
+      <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
         {SHIFT_KINDS.filter((k) => k.k && (live ? k.k === '出勤' || k.k === '休み' : k.k !== '出勤')).map((k) => <span key={k.k} className="chip" style={{ background: `var(--tone-${k.tone}-bg)`, color: `var(--tone-${k.tone}-fg)` }}>{k.short} {k.k}{k.time && ` ${k.time}`}</span>)}
         <span>提出済みの月の空欄は休みとみなします（薄い「休」）{live && '・「出」のマスに指を置くと時間が出ます'}</span>
       </div>
 
       <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
         <div className="overflow-x-auto">
-          <table className="border-collapse text-[12px]">
+          <table className="border-collapse text-sm">
             <thead><tr className="th-row">
               <th className="sticky left-0 z-10 min-w-[200px] bg-soft px-3 py-2 text-left font-semibold">社員</th>
-              {days.map(({ d, dow }) => <th key={d} className={`w-8 px-0 py-1.5 text-center font-semibold ${dow === 0 ? 'text-bad' : dow === 6 ? 'text-ok' : ''}`}><div className="num">{d}</div><div className="text-[10px] font-normal text-faint">{DOW[dow]}</div></th>)}
+              {days.map(({ d, dow }) => <th key={d} className={`w-8 px-0 py-1.5 text-center font-semibold ${dow === 0 ? 'text-bad' : dow === 6 ? 'text-ok' : ''}`}><div className="num">{d}</div><div className="text-xs font-normal text-faint">{DOW[dow]}</div></th>)}
               <th className="px-3 py-2 text-left font-semibold">出勤</th>
             </tr></thead>
             <tbody>
-              {live && rowsP.length === 0 && <tr><td colSpan={M.days + 2} className="px-4 py-6 text-center text-[13px] text-muted">{M.label}のシフトを入れた人はまだいません</td></tr>}
+              {live && rowsP.length === 0 && <tr><td colSpan={M.days + 2} className="px-4 py-6 text-center text-body text-muted">{M.label}のシフトを入れた人はまだいません</td></tr>}
               {rowsP.map((p, pi) => {
                 const work = p.days.filter((k) => k && k !== '休み').length;
                 return (
                   <tr key={p.personId} className="mo-fade-in row border-t border-line-soft" style={{ ['--i' as string]: pi }}>
                     <td className="sticky left-0 z-10 bg-surface px-3 py-2 align-top">
                       <PersonName name={p.name} />
-                      <div className="text-[11px] text-faint">{p.site}</div>
+                      <div className="text-xs text-faint">{p.site}</div>
                       <div className="mt-1 flex items-center gap-1.5">
                         <span className="chip" style={{ background: STATE_STYLE[p.state].bg, color: STATE_STYLE[p.state].fg }}>{p.state}</span>
                         {p.state !== '提出済み' && (asked[p.personId]
-                          ? <span className="text-[11px] text-ok">お願い済み</span>
-                          : <button onClick={() => ask([p])} disabled={!okEdit} title={block} className="text-[11px] font-semibold disabled:opacity-40" style={{ color: 'var(--ad)' }}>お願いする</button>)}
+                          ? <span className="text-xs text-ok">お願い済み</span>
+                          : <button onClick={() => ask([p])} disabled={!okEdit} title={block} className="text-xs font-semibold disabled:opacity-40" style={{ color: 'var(--ad)' }}>お願いする</button>)}
                       </div>
                     </td>
                     {p.days.map((k, i) => {
@@ -138,7 +138,7 @@ export default function ShiftPage() {
                         <td key={i} className={`p-0.5 ${flash === `${p.personId}-${i}` ? 'mo-flash' : ''}`}>
                           <select aria-label={`${p.name} ${M.month}/${i + 1}`} value={k} disabled={!okEdit} title={live ? (p.times?.[i] ? `${p.times[i]}（${LIVE_WRITE_BLOCKED}）` : LIVE_WRITE_BLOCKED) : !canEdit ? needText('edit') : meta.time || undefined}
                             onChange={(e) => setCell(p, i, e.target.value as ShiftKind)}
-                            className="h-8 w-8 cursor-pointer appearance-none rounded-md text-center text-[12px] font-semibold disabled:cursor-not-allowed"
+                            className="h-8 w-8 cursor-pointer appearance-none rounded-md text-center text-sm font-semibold disabled:cursor-not-allowed"
                             style={{ background: k || implied ? `var(--tone-${tone}-bg)` : 'transparent', color: `var(--tone-${tone}-fg)`, opacity: implied ? 0.55 : 1, border: k || implied ? 'none' : '1px dashed var(--color-line)' }}>
                             <option value="">{implied ? '休' : ''}</option>
                             {SHIFT_KINDS.filter((x) => x.k && (live ? x.k === '出勤' || x.k === '休み' : x.k !== '出勤')).map((x) => <option key={x.k} value={x.k}>{x.short}</option>)}
@@ -154,7 +154,7 @@ export default function ShiftPage() {
           </table>
         </div>
       </div>
-      <p className="text-[11.5px] text-faint">本人はスマホのシフト画面から1日ずつ入れて提出します。ここで直したものも本人の画面に出ます（見本の中だけで動きます）。</p>
+      <p className="text-xs text-faint">本人はスマホのシフト画面から1日ずつ入れて提出します。ここで直したものも本人の画面に出ます（見本の中だけで動きます）。</p>
     </main>
   );
 }

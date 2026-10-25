@@ -103,36 +103,36 @@ export function KeihiCheckLive({ mk }: { mk: Mikeiken }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="mo-fade-up flex flex-col gap-2.5 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
-        <div className="text-[13px]">MF経費の<b>明細CSV</b>（1行＝1明細）を入れると、明細の日付ごとに freee の出勤の打刻と照らします。<b>承認一覧CSV</b>（1行＝1申請）は、申請の月の出勤日数と照らします。</div>
+        <div className="text-body">MF経費の<b>明細CSV</b>（1行＝1明細）を入れると、明細の日付ごとに freee の出勤の打刻と照らします。<b>承認一覧CSV</b>（1行＝1申請）は、申請の月の出勤日数と照らします。</div>
         <div className="flex flex-wrap items-center gap-2">
-          <button onClick={() => fileRef.current?.click()} className="btn-primary inline-flex min-h-10 items-center gap-1.5 rounded-[10px] px-4 text-[13px] font-bold"><FileUp size={15} />CSV を選ぶ（いくつでも）</button>
+          <button onClick={() => fileRef.current?.click()} className="btn-primary"><FileUp size={15} />CSV を選ぶ（いくつでも）</button>
           <input ref={fileRef} type="file" accept=".csv,text/csv" multiple hidden onChange={(e) => { load(e.target.files); e.target.value = ''; }} />
-          {(rows.length > 0 || apps.length > 0) && <span className="text-[12.5px] text-muted">{[rows.length ? `明細 ${rows.length}行` : '', apps.length ? `承認一覧 ${apps.length}申請` : ''].filter(Boolean).join(' ＋ ')} を読み込みました</span>}
-          {(rows.length > 0 || apps.length > 0) && <button onClick={() => { setRows([]); setApps([]); setPeople([]); setSts({}); setMsg(''); }} disabled={running} className="text-[12px] text-muted underline disabled:opacity-40">読み込んだものを捨てる</button>}
+          {(rows.length > 0 || apps.length > 0) && <span className="text-sm text-muted">{[rows.length ? `明細 ${rows.length}行` : '', apps.length ? `承認一覧 ${apps.length}申請` : ''].filter(Boolean).join(' ＋ ')} を読み込みました</span>}
+          {(rows.length > 0 || apps.length > 0) && <button onClick={() => { setRows([]); setApps([]); setPeople([]); setSts({}); setMsg(''); }} disabled={running} className="text-sm text-muted underline disabled:opacity-40">読み込んだものを捨てる</button>}
         </div>
         {Object.keys(statusCount).length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 text-[12.5px]">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="text-muted">照らすステータス：</span>
             {Object.keys(statusCount).sort().map((k) => (
               <label key={k} className="inline-flex items-center gap-1"><input type="checkbox" checked={!!sts[k]} onChange={(e) => setSts((s) => ({ ...s, [k]: e.target.checked }))} />{k}（{statusCount[k]}）</label>
             ))}
-            <button onClick={run} disabled={running} className="btn-primary ml-auto min-h-9 rounded-[10px] px-4 text-[13px] font-bold disabled:opacity-40">{running ? `照らしています… ${doneN}/${people.length}` : '照らし合わせる'}</button>
+            <button onClick={run} disabled={running} className="btn-primary ml-auto">{running ? `照らしています… ${doneN}/${people.length}` : '照らし合わせる'}</button>
           </div>
         )}
-        {msg && <div className="text-[12.5px] text-warn">{msg}</div>}
-        <div className="text-[11.5px] text-faint">ファイルはこのタブの中で読むだけで、どこにも保存しません。freee は読み取りだけです。</div>
+        {msg && <div className="text-sm text-warn">{msg}</div>}
+        <div className="text-xs text-faint">ファイルはこのタブの中で読むだけで、どこにも保存しません。freee は読み取りだけです。</div>
       </div>
 
       {people.length > 0 && <>
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
           <RemainRing remain={flagN} total={Math.max(doneN, 1)} />
-          <div className="text-[13px]"><b>要確認・注意 {flagN}人</b><span className="ml-2 text-muted">照らした {doneN}/{people.length}人</span></div>
-          {months.length > 1 && <select aria-label="対象の月" value={month} onChange={(e) => setMonth(e.target.value)} className="ml-auto min-h-9 rounded-[10px] border border-field bg-surface px-2 text-[13px]"><option value="">すべての月</option>{months.map((m) => <option key={m} value={m}>{m.slice(0, 4)}年{Number(m.slice(5))}月</option>)}</select>}
+          <div className="text-body"><b>要確認・注意 {flagN}人</b><span className="ml-2 text-muted">照らした {doneN}/{people.length}人</span></div>
+          {months.length > 1 && <select aria-label="対象の月" value={month} onChange={(e) => setMonth(e.target.value)} className="ml-auto min-h-9 rounded-[10px] border border-field bg-surface px-2 text-body"><option value="">すべての月</option>{months.map((m) => <option key={m} value={m}>{m.slice(0, 4)}年{Number(m.slice(5))}月</option>)}</select>}
         </div>
         <div className="overflow-hidden rounded-xl border border-line bg-surface">
           <div className="flex flex-wrap gap-1.5 border-b border-line-soft px-4 py-2.5">
             {([['flag', '要確認・注意'], ['ok', '問題なし'], ['all', 'すべて']] as const).map(([k, l]) => (
-              <button key={k} onClick={() => setTab(k)} className={`min-h-8 rounded-full border px-3 text-[12.5px] ${tab === k ? 'font-semibold' : 'text-muted'}`} style={tab === k ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>{l}</button>
+              <button key={k} onClick={() => setTab(k)} className={`min-h-8 rounded-full border px-3 text-sm ${tab === k ? 'font-semibold' : 'text-muted'}`} style={tab === k ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>{l}</button>
             ))}
           </div>
           <ul>
@@ -144,25 +144,25 @@ export function KeihiCheckLive({ mk }: { mk: Mikeiken }) {
               const match = p.res?.match || p.mres?.match;
               return (
                 <li key={p.name} className="border-t border-line-soft first:border-t-0">
-                  <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 text-[13px]">
+                  <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 text-body">
                     <PersonName name={p.name} className="font-semibold underline-offset-2 hover:underline" />
-                    {p.state === 'wait' || p.state === 'run' ? <span className="text-[12px] text-faint">{p.state === 'run' ? '照らしています…' : '待っています'}</span>
-                      : p.state === 'error' ? <span className="text-[12px] text-bad">{p.error}</span>
+                    {p.state === 'wait' || p.state === 'run' ? <span className="text-sm text-faint">{p.state === 'run' ? '照らしています…' : '待っています'}</span>
+                      : p.state === 'error' ? <span className="text-sm text-bad">{p.error}</span>
                         : flagged(p) ? <span className="chip" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>{sb.length ? `差し戻し ${sb.length}件` : '要確認・注意'}</span>
-                          : <span className="inline-flex items-center gap-1 text-[12px] text-ok"><Check size={13} />問題なし</span>}
-                    {s && <span className="text-[12px] text-muted">明細 {s.total}・要確認 {s.ng}{s.ngAmount ? `（${yen(s.ngAmount)}）` : ''}・注意 {s.warn}・OK {s.ok}{s.na ? `・判定できない ${s.na}` : ''}</span>}
-                    {match && match.status !== 'unique' && <span className="text-[12px] text-warn">{match.status === 'none' ? 'freee に同じ氏名の人がいない' : `freee に同じ氏名が ${match.candidates.length}人（今の交通費チェックの画面で選んでください）`}</span>}
-                    {p.res?.merged && <span className="text-[11.5px] text-faint">複数の事業所の打刻を合わせて見ています</span>}
-                    <span className="num ml-auto text-[12.5px]">{yen(amount)}</span>
-                    {(vs.length > 0 || sb.length > 0 || (p.mres?.verdicts || []).length > 0) && <button onClick={() => setOpen(isOpen ? null : p.name)} aria-expanded={isOpen} className="inline-flex items-center gap-0.5 text-[12px] font-semibold" style={{ color: 'var(--ad)' }}>中身<ChevronDown size={14} className={isOpen ? '' : '-rotate-90'} /></button>}
+                          : <span className="inline-flex items-center gap-1 text-sm text-ok"><Check size={13} />問題なし</span>}
+                    {s && <span className="text-sm text-muted">明細 {s.total}・要確認 {s.ng}{s.ngAmount ? `（${yen(s.ngAmount)}）` : ''}・注意 {s.warn}・OK {s.ok}{s.na ? `・判定できない ${s.na}` : ''}</span>}
+                    {match && match.status !== 'unique' && <span className="text-sm text-warn">{match.status === 'none' ? 'freee に同じ氏名の人がいない' : `freee に同じ氏名が ${match.candidates.length}人（今の交通費チェックの画面で選んでください）`}</span>}
+                    {p.res?.merged && <span className="text-xs text-faint">複数の事業所の打刻を合わせて見ています</span>}
+                    <span className="num ml-auto text-sm">{yen(amount)}</span>
+                    {(vs.length > 0 || sb.length > 0 || (p.mres?.verdicts || []).length > 0) && <button onClick={() => setOpen(isOpen ? null : p.name)} aria-expanded={isOpen} className="inline-flex items-center gap-0.5 text-sm font-semibold" style={{ color: 'var(--ad)' }}>中身<ChevronDown size={14} className={isOpen ? '' : '-rotate-90'} /></button>}
                   </div>
                   {isOpen && (
-                    <div className="mo-fade-in flex flex-col gap-2 border-t border-line-soft bg-soft px-4 py-2.5 text-[12.5px]">
+                    <div className="mo-fade-in flex flex-col gap-2 border-t border-line-soft bg-soft px-4 py-2.5 text-sm">
                       {sb.map((x) => (
                         <div key={x.key} className="rounded-lg border border-line bg-surface px-3 py-2">
                           <div className="font-semibold text-bad">差し戻し：{x.title}</div>
-                          {x.miss.length > 0 && <div className="num text-[12px] text-muted">{x.miss.slice(0, 12).map((m) => `${Number(m.date.slice(5, 7))}/${Number(m.date.slice(8))} ${MISS_LABEL[m.kind]}`).join('・')}{x.miss.length > 12 ? ` ほか${x.miss.length - 12}日` : ''}</div>}
-                          {x.comment && <div className="mt-1 flex items-start gap-2"><div className="whitespace-pre-wrap text-[12px]">{x.comment}</div><button onClick={() => copy(x.comment)} className="ml-auto inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold" style={{ color: 'var(--ad)' }}><Copy size={12} />コピー</button></div>}
+                          {x.miss.length > 0 && <div className="num text-sm text-muted">{x.miss.slice(0, 12).map((m) => `${Number(m.date.slice(5, 7))}/${Number(m.date.slice(8))} ${MISS_LABEL[m.kind]}`).join('・')}{x.miss.length > 12 ? ` ほか${x.miss.length - 12}日` : ''}</div>}
+                          {x.comment && <div className="mt-1 flex items-start gap-2"><div className="whitespace-pre-wrap text-sm">{x.comment}</div><button onClick={() => copy(x.comment)} className="ml-auto inline-flex shrink-0 items-center gap-1 text-sm font-semibold" style={{ color: 'var(--ad)' }}><Copy size={12} />コピー</button></div>}
                         </div>
                       ))}
                       {vs.map((v) => { const r = rowOf(v.rowNo); const t = LEVEL_LABEL[v.level]; return (
@@ -181,7 +181,7 @@ export function KeihiCheckLive({ mk }: { mk: Mikeiken }) {
                 </li>
               );
             })}
-            {shown.length === 0 && <li className="px-4 py-8 text-center text-[12.5px] text-muted">ここに出す人はいません</li>}
+            {shown.length === 0 && <li className="px-4 py-8 text-center text-sm text-muted">ここに出す人はいません</li>}
           </ul>
         </div>
       </>}

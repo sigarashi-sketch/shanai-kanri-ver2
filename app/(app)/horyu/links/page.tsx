@@ -55,7 +55,7 @@ export default function LinksPage() {
     else setMsg({ ok: true, text: `同期しました：貼った ${r.linked ?? 0}名・外した ${r.unlinked ?? 0}名${r.failed ? `・失敗 ${r.failed}名` : ''}` });
     h.reload();
   };
-  const sel = 'min-h-9 rounded-lg border border-field bg-surface px-2 text-[12.5px]';
+  const sel = 'min-h-9 rounded-lg border border-field bg-surface px-2 text-sm';
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
@@ -64,15 +64,15 @@ export default function LinksPage() {
       </PageTitle>
       <HoryuNote>紐付ける人はプロパーリストの名前から選ぶだけです。</HoryuNote>
       <LiveBanner state={h.state} error={h.error} onReload={h.reload} note="本物のデータです。紐付けの変更と同期は、ここから今の社内システムに保存されます" />
-      {d?.note && <div className="text-[12px] text-muted">{d.note}</div>}
-      {d && !d.menuKnown && <div className="text-[11.5px] text-faint">メニューの列は「?」になります（いま貼られているメニューの記録は、同期が有効になってから埋まります）。</div>}
-      {msg && <div className="rounded-xl border px-4 py-2 text-[12.5px]" style={{ background: `var(--tone-${msg.ok ? 'ok' : 'bad'}-bg)`, color: `var(--tone-${msg.ok ? 'ok' : 'bad'}-fg)`, borderColor: `var(--tone-${msg.ok ? 'ok' : 'bad'}-bar)` }}>{msg.text}</div>}
+      {d?.note && <div className="text-sm text-muted">{d.note}</div>}
+      {d && !d.menuKnown && <div className="text-xs text-faint">メニューの列は「?」になります（いま貼られているメニューの記録は、同期が有効になってから埋まります）。</div>}
+      {msg && <div className="rounded-xl border px-4 py-2 text-sm" style={{ background: `var(--tone-${msg.ok ? 'ok' : 'bad'}-bg)`, color: `var(--tone-${msg.ok ? 'ok' : 'bad'}-fg)`, borderColor: `var(--tone-${msg.ok ? 'ok' : 'bad'}-bar)` }}>{msg.text}</div>}
       {d && <Panel title="連絡先" sub={`${rows.length}件を表示${d.hidden ? `（未経験でない人に紐付いた ${d.hidden}件は出していません）` : ''}`} right={<>
         <select aria-label="状態" value={f} onChange={(e) => setF(e.target.value as F)} className={sel}><option value="all">すべて</option><option value="unmatched">未紐付け</option><option value="linked">紐付け済み</option></select>
         <select aria-label="ブロック" value={b} onChange={(e) => setB(e.target.value as B)} className={sel}><option value="all">ブロックも</option><option value="no">ブロック以外</option><option value="yes">ブロック中だけ</option></select>
         <input aria-label="さがす" value={q} onChange={(e) => setQ(e.target.value)} placeholder="名前でさがす" className={`${sel} w-[140px]`} />
       </>}>
-        <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-[12.5px]"><thead><tr className="text-left text-faint"><th className="py-1 pr-2">LINE の表示名</th><th className="pr-2">紐付ける人</th><th className="pr-2">状態</th><th className="pr-2">メニュー</th><th className="pr-2">参画決定</th><th className="pr-2">稼働中</th><th>最後のメッセージ</th></tr></thead>
+        <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-sm"><thead><tr className="text-left text-faint"><th className="py-1 pr-2">LINE の表示名</th><th className="pr-2">紐付ける人</th><th className="pr-2">状態</th><th className="pr-2">メニュー</th><th className="pr-2">参画決定</th><th className="pr-2">稼働中</th><th>最後のメッセージ</th></tr></thead>
           <tbody>{rows.slice(0, 300).map((r) => {
             const nm = nameOf(r);
             const opts = nm && !d.names.includes(nm) ? [nm, ...d.names] : d.names;
@@ -91,8 +91,8 @@ export default function LinksPage() {
               </tr>
             );
           })}</tbody></table></div>
-        {rows.length > 300 && <div className="mt-1 text-[11.5px] text-faint">ほか {rows.length - 300}件（さがすで絞ってください）</div>}
-        {!rows.length && <div className="py-3 text-center text-[12.5px] text-faint">当てはまる連絡先はありません</div>}
+        {rows.length > 300 && <div className="mt-1 text-xs text-faint">ほか {rows.length - 300}件（さがすで絞ってください）</div>}
+        {!rows.length && <div className="py-3 text-center text-sm text-faint">当てはまる連絡先はありません</div>}
       </Panel>}
     </main>
   );

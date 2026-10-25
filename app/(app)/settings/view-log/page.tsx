@@ -65,8 +65,8 @@ export default function ViewLogPage() {
     <main className="px-6 pb-12 pt-[22px]">
       <div className="mo-fade-up rounded-xl border border-line bg-surface px-8 py-14 text-center">
         <Lock className="mx-auto text-faint" size={28} />
-        <h1 className="mt-3 text-[20px] font-bold">閲覧ログは全体管理者（super_admin）だけが見られます</h1>
-        <p className="mt-2 text-[13.5px] text-muted">今の社内システムのロールで判定しています。</p>
+        <h1 className="mt-3 text-xl font-bold">閲覧ログは全体管理者（super_admin）だけが見られます</h1>
+        <p className="mt-2 text-body text-muted">今の社内システムのロールで判定しています。</p>
       </div>
     </main>
   );
@@ -83,27 +83,27 @@ export default function ViewLogPage() {
       <LiveBanner state={state} error={error} onReload={load} note="今の社内システムの記録を読んでいます（全体管理者だけ・見るだけ）" />
 
       <section className="mo-fade-up flex flex-wrap items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
-        <label className="flex items-center gap-1.5 text-[12.5px] text-muted">見たもの
-          <select value={kind} onChange={(e) => setKind(e.target.value)} className="rounded-lg border border-field bg-surface px-2 py-1.5 text-[13px] text-ink">
+        <label className="flex items-center gap-1.5 text-sm text-muted">見たもの
+          <select value={kind} onChange={(e) => setKind(e.target.value)} className="rounded-lg border border-field bg-surface px-2 py-1.5 text-body text-ink">
             <option value="">すべて</option>
             {(['chat', 'basic', 'memo', 'summary'] as const).map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
           </select>
         </label>
-        <label className="flex items-center gap-1.5 text-[12.5px] text-muted">期間
-          <select value={days} onChange={(e) => setDays(Number(e.target.value))} className="rounded-lg border border-field bg-surface px-2 py-1.5 text-[13px] text-ink">
+        <label className="flex items-center gap-1.5 text-sm text-muted">期間
+          <select value={days} onChange={(e) => setDays(Number(e.target.value))} className="rounded-lg border border-field bg-surface px-2 py-1.5 text-body text-ink">
             {DAYS.map((d) => <option key={d.v} value={d.v}>{d.label}</option>)}
           </select>
         </label>
-        <label className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg border border-field bg-surface px-2 py-1.5 text-[13px] sm:max-w-[260px]">
+        <label className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg border border-field bg-surface px-2 py-1.5 text-body sm:max-w-[260px]">
           <Search size={14} className="shrink-0 text-faint" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="見られた人・見た人で探す" aria-label="見られた人・見た人で探す" className="min-w-0 flex-1 bg-transparent outline-none" />
         </label>
-        <span className="ml-auto text-[12px] text-faint">{state === 'loading' ? '読んでいます…' : `${shown.length}件`}</span>
+        <span className="ml-auto text-sm text-faint">{state === 'loading' ? '読んでいます…' : `${shown.length}件`}</span>
       </section>
 
       <section className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] border-collapse text-[13px]">
+          <table className="w-full min-w-[720px] border-collapse text-body">
             <thead><tr className="th-row text-left">
               <th className="px-4 py-2.5 font-semibold">いつ</th><th className="px-2 py-2.5 font-semibold">見た人</th><th className="px-2 py-2.5 font-semibold">見たもの</th><th className="px-2 py-2.5 font-semibold">だれの</th><th className="px-4 py-2.5 font-semibold">画面</th>
             </tr></thead>
@@ -113,19 +113,19 @@ export default function ViewLogPage() {
                 return (
                   <tr key={`${r.at}-${r.email}-${i}`} className="row mo-fade-in border-t border-line-soft" style={{ ['--i' as string]: Math.min(i, 12) }}>
                     <td className="num whitespace-nowrap px-4 py-2.5">{fmtAt(r.at)}</td>
-                    <td className="px-2 py-2.5"><div className="font-semibold">{r.email.split('@')[0] || '—'}</div><div className="text-[11.5px] text-faint">{r.email}{r.role ? `・${legacyRoleLabel(r.role)}` : ''}</div></td>
+                    <td className="px-2 py-2.5"><div className="font-semibold">{r.email.split('@')[0] || '—'}</div><div className="text-xs text-faint">{r.email}{r.role ? `・${legacyRoleLabel(r.role)}` : ''}</div></td>
                     <td className="px-2 py-2.5"><span className="chip" style={{ background: `var(--tone-${tone}-bg)`, color: `var(--tone-${tone}-fg)` }}><Eye size={11} />{KIND_LABEL[r.kind] ?? r.kind}</span></td>
                     <td className="px-2 py-2.5 font-semibold">{r.target || '—'}</td>
-                    <td className="px-4 py-2.5 text-[12px] text-muted">{r.page || '—'}</td>
+                    <td className="px-4 py-2.5 text-sm text-muted">{r.page || '—'}</td>
                   </tr>
                 );
               })}
-              {state !== 'loading' && shown.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-[13px] text-muted">この条件の記録はありません</td></tr>}
+              {state !== 'loading' && shown.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-body text-muted">この条件の記録はありません</td></tr>}
             </tbody>
           </table>
         </div>
       </section>
-      <p className="text-[11.5px] text-faint">新しい順に最大200件。もっと前は期間を広げてください。{state === 'sample' && '（見本）'}</p>
+      <p className="text-xs text-faint">新しい順に最大200件。もっと前は期間を広げてください。{state === 'sample' && '（見本）'}</p>
     </main>
   );
 }

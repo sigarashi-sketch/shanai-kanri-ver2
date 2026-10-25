@@ -31,9 +31,9 @@ export function MotivationProvider({ children }: { children: React.ReactNode }) 
       {children}
       <div aria-live="polite" className="pointer-events-none fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 flex-col items-center gap-2">
         {toasts.map((t) => (
-          <div key={t.id} className="mo-fade-up pointer-events-auto flex min-w-[340px] items-center gap-3 rounded-xl bg-sumi px-4 py-3 text-[13.5px] text-white shadow-[0_10px_28px_rgba(25,27,46,.28)]">
+          <div key={t.id} className="mo-fade-up pointer-events-auto flex min-w-[340px] items-center gap-3 rounded-xl bg-sumi px-4 py-3 text-body text-white shadow-[0_10px_28px_rgba(25,27,46,.28)]">
             <svg aria-hidden width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="var(--color-ok)" /><path className="mo-check" d="M7.5 12.5 10.5 15.5 16.5 9" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            <span className="flex-1">{t.text}{t.sub && <span className="block text-[12px] text-white/70">{t.sub}</span>}</span>
+            <span className="flex-1">{t.text}{t.sub && <span className="block text-sm text-white/70">{t.sub}</span>}</span>
             {t.undo && <button onClick={() => { t.undo!(); setToasts((xs) => xs.filter((x) => x.id !== t.id)); }} className="font-bold" style={{ color: 'var(--tone-ok-bg)' }}>取り消す</button>}
           </div>
         ))}
@@ -57,12 +57,12 @@ export function TodayPill() {
   const ratio = Math.min(1, today / Math.max(weekAvg * 1.5, 1));
   const diff = today - weekAvg;
   return (
-    <div className="flex items-center gap-2 rounded-full border border-line py-1 pl-1 pr-3 text-[12.5px]" title="比べるのは先週のあなたの平均だけ">
+    <div className="flex items-center gap-2 rounded-full border border-line py-1 pl-1 pr-3 text-sm" title="比べるのは先週のあなたの平均だけ">
       <svg aria-hidden width="28" height="28" viewBox="0 0 36 36">
         <circle cx="18" cy="18" r="14" fill="none" stroke="var(--color-track)" strokeWidth="5" />
         <circle cx="18" cy="18" r="14" fill="none" stroke="var(--color-ok)" strokeWidth="5" strokeLinecap="round" strokeDasharray={`${88 * ratio} 88`} transform="rotate(-90 18 18)" style={{ transition: 'stroke-dasharray 600ms cubic-bezier(.22,1,.36,1)' }} />
       </svg>
-      <span>今日の処理 <b key={bump} className={`num text-[14px] ${bump ? 'mo-spring-in inline-block' : ''}`}>{today}</b>件 <span className={diff >= 0 ? 'text-ok' : 'text-muted'}>先週平均 {diff >= 0 ? '+' : ''}{diff}</span></span>
+      <span>今日の処理 <b key={bump} className={`num text-body ${bump ? 'mo-spring-in inline-block' : ''}`}>{today}</b>件 <span className={diff >= 0 ? 'text-ok' : 'text-muted'}>先週平均 {diff >= 0 ? '+' : ''}{diff}</span></span>
     </div>
   );
 }

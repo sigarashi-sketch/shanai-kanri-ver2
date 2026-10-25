@@ -49,26 +49,26 @@ export default function IppassPage() {
 
   return (
     <HoryuFrame title="アイパス管理" sub="社内で使うサービスの ID・パスワード（中身は押したときだけ・操作ログに残ります）" state={r.state} error={r.error} onReload={r.reload}
-      actions={<button onClick={() => setEdit({ id: 'new', f: { category: '', title: '' } })} className="btn-primary inline-flex min-h-10 items-center gap-1 rounded-[10px] px-4 text-[13.5px] font-semibold"><Plus size={15} />足す</button>}>
+      actions={<button onClick={() => setEdit({ id: 'new', f: { category: '', title: '' } })} className="btn-primary"><Plus size={15} />足す</button>}>
       {r.data && r.data.keyReady === false && <Msg text="今のシステムに暗号化の鍵が設定されていないので、足す・直すはできません" bad />}
       <Msg text={msg.text} bad={msg.bad} />
       {edit && (
         <Card title={edit.id === 'new' ? '足す' : '直す'} note={edit.id === 'new' ? undefined : '空のままの欄は変えません'}>
-          <div className="flex flex-wrap items-end gap-2 px-4 pb-4 text-[12.5px] text-muted">
+          <div className="flex flex-wrap items-end gap-2 px-4 pb-4 text-sm text-muted">
             <label className="flex flex-col gap-1">分類<input value={edit.f.category ?? ''} onChange={(e) => setEdit({ ...edit, f: { ...edit.f, category: e.target.value } })} className={`${inputCls} w-[120px]`} /></label>
             <label className="flex flex-col gap-1">名前<input value={edit.f.title ?? ''} onChange={(e) => setEdit({ ...edit, f: { ...edit.f, title: e.target.value } })} className={`${inputCls} w-[180px]`} /></label>
             {FIELDS.map(([k, label]) => (
               <label key={k} className="flex flex-col gap-1">{label}<input type={k === 'password' ? 'password' : 'text'} autoComplete="off" value={edit.f[k] ?? ''} onChange={(e) => setEdit({ ...edit, f: { ...edit.f, [k]: e.target.value } })} className={`${inputCls} w-[160px]`} /></label>
             ))}
-            <button className="btn-primary min-h-9 rounded-[10px] px-4 text-[13px] font-semibold" onClick={saveEdit}>保存</button>
+            <button className="btn-primary" onClick={saveEdit}>保存</button>
             <button className={btnCls} onClick={() => setEdit(null)}>やめる</button>
           </div>
         </Card>
       )}
-      <div className="flex items-center gap-2 text-[12.5px]"><label className="flex items-center gap-1.5"><input type="checkbox" checked={deleted} onChange={(e) => setDeleted(e.target.checked)} />削除の印がついたものを見る</label></div>
+      <div className="flex items-center gap-2 text-sm"><label className="flex items-center gap-1.5"><input type="checkbox" checked={deleted} onChange={(e) => setDeleted(e.target.checked)} />削除の印がついたものを見る</label></div>
       <Card>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[680px] border-collapse text-[13px]">
+          <table className="w-full min-w-[680px] border-collapse text-body">
             <thead><tr className="th-row"><th className={thCls}>分類</th><th className={thCls}>名前</th><th className={thCls}>中身</th><th className={thCls}>更新</th><th className={thCls} /></tr></thead>
             <tbody>
               {rows.map((it) => (
@@ -77,12 +77,12 @@ export default function IppassPage() {
                   <td className={`${tdCls} font-semibold`}>{it.title}</td>
                   <td className={tdCls}>
                     {shown?.id === it.id ? (
-                      <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-[12.5px]">
+                      <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 text-sm">
                         {FIELDS.map(([k, label]) => <Fragment2 key={k} label={label} value={shown.s[k]} />)}
                       </dl>
                     ) : <span className="text-faint">（隠しています）</span>}
                   </td>
-                  <td className={`${tdCls} text-[12px] text-muted`}>{fmtAt(it.updated_at)}<div>{it.updated_by.split('@')[0]}</div></td>
+                  <td className={`${tdCls} text-sm text-muted`}>{fmtAt(it.updated_at)}<div>{it.updated_by.split('@')[0]}</div></td>
                   <td className={`${tdCls} whitespace-nowrap`}>
                     {!it.deleted_at && <>
                       <button className={btnCls} onClick={() => reveal(it)}>{shown?.id === it.id ? <><EyeOff size={13} className="mr-1 inline" />隠す</> : <><Eye size={13} className="mr-1 inline" />見る</>}</button>

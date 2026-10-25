@@ -62,18 +62,18 @@ export default function ArariPage() {
         <Card title="1. 案件">
           <div className="flex flex-col gap-2.5 px-4 pb-4">
             <textarea value={text} onChange={(e) => setText(e.target.value)} rows={8} aria-label="案件の文" placeholder="案件の文（単価・最寄駅・精算など）をそのまま貼る" className={inputCls} />
-            <button onClick={parse} disabled={busy !== ''} className="min-h-9 self-start rounded-[10px] border border-field bg-surface px-3 text-[13px] font-semibold disabled:opacity-40">{busy === 'parse' ? '読んでいます…' : '単価と駅を読む'}</button>
-            {parsed && <p className="text-[12.5px] text-muted">{parsed.title && <b className="text-ink">{parsed.title}</b>} 単価：{parsed.tanka.snippet || '読めませんでした'}・交通費：{parsed.commute.label}</p>}
+            <button onClick={parse} disabled={busy !== ''} className="btn-secondary self-start">{busy === 'parse' ? '読んでいます…' : '単価と駅を読む'}</button>
+            {parsed && <p className="text-sm text-muted">{parsed.title && <b className="text-ink">{parsed.title}</b>} 単価：{parsed.tanka.snippet || '読めませんでした'}・交通費：{parsed.commute.label}</p>}
             <div className="flex flex-wrap gap-2">
-              <label className="flex items-center gap-1.5 text-[12.5px] text-muted">現場の最寄駅<input value={station} onChange={(e) => setStation(e.target.value)} className={`${inputCls} w-[120px]`} list="arari-stations" /></label>
+              <label className="flex items-center gap-1.5 text-sm text-muted">現場の最寄駅<input value={station} onChange={(e) => setStation(e.target.value)} className={`${inputCls} w-[120px]`} list="arari-stations" /></label>
               <datalist id="arari-stations">{parsed?.stations.map((s) => <option key={s} value={s} />)}</datalist>
-              <label className="flex items-center gap-1.5 text-[12.5px] text-muted">売上（月額）<input value={sales} onChange={(e) => setSales(e.target.value.replace(/[^\d]/g, ''))} inputMode="numeric" className={`${inputCls} num w-[120px]`} /></label>
+              <label className="flex items-center gap-1.5 text-sm text-muted">売上（月額）<input value={sales} onChange={(e) => setSales(e.target.value.replace(/[^\d]/g, ''))} inputMode="numeric" className={`${inputCls} num w-[120px]`} /></label>
             </div>
           </div>
         </Card>
         <Card title="2. 要員（最大15名）">
           <div className="flex flex-col gap-2.5 px-4 pb-4">
-            <label className="flex items-center gap-1.5 rounded-lg border border-field bg-surface px-2 py-1.5 text-[13px]">
+            <label className="flex items-center gap-1.5 rounded-lg border border-field bg-surface px-2 py-1.5 text-body">
               <Search size={14} className="shrink-0 text-faint" />
               <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="氏名の一部で探す" aria-label="要員を探す" className="min-w-0 flex-1 bg-transparent outline-none" />
             </label>
@@ -82,11 +82,11 @@ export default function ArariPage() {
                 {list.map((p) => {
                   const on = picked.some((x) => x.id === p.id);
                   return (
-                    <li key={p.id} className="flex items-center gap-2 border-b border-line-soft px-3 py-1.5 text-[13px] last:border-0">
+                    <li key={p.id} className="flex items-center gap-2 border-b border-line-soft px-3 py-1.5 text-body last:border-0">
                       <input type="checkbox" checked={on} disabled={!on && picked.length >= 15} onChange={() => setPicked(on ? picked.filter((x) => x.id !== p.id) : [...picked, p])} aria-label={`${p.name} を選ぶ`} />
                       <PersonName name={p.name} />
-                      <span className="text-[11.5px] text-faint">{p.status}・{p.eki || '駅なし'}</span>
-                      <span className="num ml-auto text-[12px]">{p.gakumen ? yen(p.gakumen) : '額面なし'}</span>
+                      <span className="text-xs text-faint">{p.status}・{p.eki || '駅なし'}</span>
+                      <span className="num ml-auto text-sm">{p.gakumen ? yen(p.gakumen) : '額面なし'}</span>
                     </li>
                   );
                 })}
@@ -95,7 +95,7 @@ export default function ArariPage() {
             <div className="flex flex-wrap gap-1.5">
               {picked.map((p) => <span key={p.id} className="chip">{p.name}<button aria-label={`${p.name} を外す`} onClick={() => setPicked(picked.filter((x) => x.id !== p.id))}><X size={11} /></button></span>)}
             </div>
-            <button onClick={calc} disabled={busy !== '' || !picked.length} className="btn-primary min-h-10 rounded-[10px] px-4 text-[13.5px] font-semibold disabled:opacity-40">{busy === 'calc' ? '計算しています…' : '粗利を出す'}</button>
+            <button onClick={calc} disabled={busy !== '' || !picked.length} className="btn-primary">{busy === 'calc' ? '計算しています…' : '粗利を出す'}</button>
             <Msg text={msg.text} bad={msg.bad} />
           </div>
         </Card>
@@ -103,18 +103,18 @@ export default function ArariPage() {
       {rows && (
         <Card title="3. 結果">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[820px] border-collapse text-[13px]">
+            <table className="w-full min-w-[820px] border-collapse text-body">
               <thead><tr className="th-row"><th className={thCls}>要員</th><th className={`${thCls} text-right`}>売上</th><th className={`${thCls} text-right`}>額面</th><th className={`${thCls} text-right`}>社保</th><th className={`${thCls} text-right`}>交通費</th><th className={`${thCls} text-right`}>粗利</th><th className={`${thCls} text-right`}>粗利率</th><th className={thCls}>経路・メモ</th></tr></thead>
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.id} className="border-t border-line-soft">
-                    <td className={tdCls}><PersonName name={r.name} /><div className="text-[11.5px] text-faint">{r.status}・{r.home || '駅なし'}</div></td>
+                    <td className={tdCls}><PersonName name={r.name} /><div className="text-xs text-faint">{r.status}・{r.home || '駅なし'}</div></td>
                     {r.ok ? <>
                       <td className={`${tdCls} num text-right`}>{yen(r.sales)}</td><td className={`${tdCls} num text-right`}>{yen(r.gakumen)}</td><td className={`${tdCls} num text-right`}>{yen(r.shaho)}</td><td className={`${tdCls} num text-right`}>{yen(r.fare)}</td>
                       <td className={`${tdCls} num text-right font-bold`} style={{ color: (r.gross ?? 0) < 0 ? 'var(--tone-bad-fg)' : undefined }}>{yen(r.gross)}</td>
                       <td className={`${tdCls} num text-right`}>{r.rate == null ? '—' : `${Math.round(r.rate * 1000) / 10}%`}</td>
-                      <td className={`${tdCls} text-[12px] text-muted`}>{[r.route, r.minutes ? `${r.minutes}分` : '', r.fareNote].filter(Boolean).join('・')}</td>
-                    </> : <td colSpan={7} className={`${tdCls} text-[12.5px]`} style={{ color: 'var(--tone-bad-fg)' }}>{r.error}</td>}
+                      <td className={`${tdCls} text-sm text-muted`}>{[r.route, r.minutes ? `${r.minutes}分` : '', r.fareNote].filter(Boolean).join('・')}</td>
+                    </> : <td colSpan={7} className={`${tdCls} text-sm`} style={{ color: 'var(--tone-bad-fg)' }}>{r.error}</td>}
                   </tr>
                 ))}
               </tbody>
@@ -124,13 +124,13 @@ export default function ArariPage() {
       )}
       <Card title="最近の試算" note="全員ぶん・新しい順">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] border-collapse text-[13px]">
+          <table className="w-full min-w-[760px] border-collapse text-body">
             <thead><tr className="th-row"><th className={thCls}>いつ</th><th className={thCls}>だれが</th><th className={thCls}>案件・現場駅</th><th className={thCls}>要員</th><th className={`${thCls} text-right`}>売上</th><th className={`${thCls} text-right`}>粗利</th><th className={`${thCls} text-right`}>率</th></tr></thead>
             <tbody>
               {(live ? hist.data?.rows ?? [] : S_HIST).map((h) => (
                 <tr key={h.id} className="border-t border-line-soft">
                   <td className={`${tdCls} num whitespace-nowrap`}>{fmtAt(h.updated_at)}</td><td className={tdCls}>{h.created_name || '—'}</td>
-                  <td className={tdCls}>{h.case_title || '—'}<div className="text-[11.5px] text-faint">{h.site_station}</div></td>
+                  <td className={tdCls}>{h.case_title || '—'}<div className="text-xs text-faint">{h.site_station}</div></td>
                   <td className={tdCls}><PersonName name={h.name} /></td>
                   <td className={`${tdCls} num text-right`}>{yen(h.sales_monthly)}</td><td className={`${tdCls} num text-right font-semibold`}>{yen(h.gross)}</td>
                   <td className={`${tdCls} num text-right`}>{h.margin_rate == null ? '—' : `${Math.round(h.margin_rate * 1000) / 10}%`}</td>
@@ -138,7 +138,7 @@ export default function ArariPage() {
               ))}
             </tbody>
           </table>
-          {hist.data?.note && <p className="px-4 py-2 text-[12px] text-muted">{hist.data.note}</p>}
+          {hist.data?.note && <p className="px-4 py-2 text-sm text-muted">{hist.data.note}</p>}
         </div>
       </Card>
     </HoryuFrame>

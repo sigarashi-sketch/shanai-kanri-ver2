@@ -15,5 +15,5 @@ export default function AuthCallback() {
       .then((j: { ok?: boolean; error?: string }) => { if (j.ok) window.location.replace('/eigyo/skillsheet'); else setMsg(j.error || 'ログインできませんでした'); })
       .catch(() => setMsg('ログインできませんでした'));
   }, []);
-  return <main className="grid min-h-screen place-items-center bg-soft text-[14px] text-muted"><div>{msg} <a href="/eigyo/skillsheet" className="ml-2 font-semibold underline">戻る</a></div></main>;
+  return <main className="grid min-h-screen place-items-center bg-soft text-body text-muted"><div>{msg} <a href="/eigyo/skillsheet" className="ml-2 font-semibold underline">戻る</a></div></main>;
 }

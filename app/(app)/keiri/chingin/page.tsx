@@ -75,10 +75,10 @@ export default function ChinginPage() {
       <td key={k} className="num px-2 py-2.5 text-right">
         {yen(value)}
         {cur === 'temp' && opts.length > 1 ? (
-          <select aria-label={`${r.name} の${k === 'salarySrc' ? '給与' : '交通費'}の元`} value={cur} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(e) => setSrc(r, k, e.target.value as SalarySrc)} className="mt-0.5 block w-full rounded-md border px-1 text-[11px] disabled:opacity-50" style={{ borderColor: 'var(--color-warn)', background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>
+          <select aria-label={`${r.name} の${k === 'salarySrc' ? '給与' : '交通費'}の元`} value={cur} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(e) => setSrc(r, k, e.target.value as SalarySrc)} className="mt-0.5 block w-full rounded-md border px-1 text-xs disabled:opacity-50" style={{ borderColor: 'var(--color-warn)', background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>
             {opts.map((s) => <option key={s} value={s}>{s === 'temp' ? `${label(s)}のまま` : `${label(s)} ${yen((k === 'salarySrc' ? r.salary : r.fare)[s as never] ?? 0)}`}</option>)}
           </select>
-        ) : <div className="text-[11px] text-faint">{label(cur)}</div>}
+        ) : <div className="text-xs text-faint">{label(cur)}</div>}
       </td>
     );
   };
@@ -88,34 +88,34 @@ export default function ChinginPage() {
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="想定賃金・粗利" sub="10月分。売上（請求・税抜）− 給与 − 交通費 − 法定福利（19%）＝ 粗利。粗利率の低い人を上に・見本データ">
-        <Link href="/keiri/seikyu" className="inline-flex min-h-10 items-center rounded-[10px] border border-field bg-surface px-3.5 text-[13px] font-semibold">請求書へ</Link>
+        <Link href="/keiri/seikyu" className="btn-secondary">請求書へ</Link>
       </PageTitle>
       <LiveBanner state={lv.state} error={lv.error} onReload={lv.reload} />
 
       <div className="mo-fade-up grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]" style={{ ['--i' as string]: 1 }}>
         {([['売上（請求）', sum.billed], ['原価（給与＋交通費＋法定福利）', sum.cost], ['粗利', sum.gross]] as const).map(([l, v]) => (
           <div key={l} className="rounded-xl border border-line bg-surface px-4 py-3">
-            <div className="text-[12px] text-muted">{l}</div>
-            <div className="text-[20px] font-bold">¥<CountUp to={v} /></div>
-            {l === '粗利' && <div className={`text-[12px] text-${rateTone(sum.billed ? sum.gross / sum.billed : 0)}`}>粗利率 {pct(sum.billed ? sum.gross / sum.billed : 0)}</div>}
+            <div className="text-sm text-muted">{l}</div>
+            <div className="text-xl font-bold">¥<CountUp to={v} /></div>
+            {l === '粗利' && <div className={`text-sm text-${rateTone(sum.billed ? sum.gross / sum.billed : 0)}`}>粗利率 {pct(sum.billed ? sum.gross / sum.billed : 0)}</div>}
           </div>
         ))}
         <div className="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
           <RemainRing remain={tempAll.length} total={totalTemp} />
-          <div className="text-[12.5px]"><b>仮の値が残る {tempAll.length}人</b><div className="text-muted">選ぶだけで本当の値に</div></div>
+          <div className="text-sm"><b>仮の値が残る {tempAll.length}人</b><div className="text-muted">選ぶだけで本当の値に</div></div>
         </div>
       </div>
 
       {tempAll.length === 0 && (
         <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-6 text-center">
           <Check className="mx-auto text-ok" size={24} />
-          <div className="mt-1.5 text-[14.5px] font-bold">仮の値はもうありません</div>
-          <div className="mt-1 text-[12.5px] text-muted">給与と交通費が、全員 本当の値（内定の月給・本人提示・経費の申請・定期代）になりました。</div>
+          <div className="mt-1.5 text-md font-bold">仮の値はもうありません</div>
+          <div className="mt-1 text-sm text-muted">給与と交通費が、全員 本当の値（内定の月給・本人提示・経費の申請・定期代）になりました。</div>
         </div>
       )}
 
       <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
-        <div className="flex flex-wrap items-center gap-2 border-b border-line-soft px-4 py-2.5 text-[12.5px]">
+        <div className="flex flex-wrap items-center gap-2 border-b border-line-soft px-4 py-2.5 text-sm">
           <label className="flex items-center gap-1.5 text-muted">取引先
             <select value={client} onChange={(e) => setClient(e.target.value)} className="min-h-8 rounded-lg border border-field bg-surface px-2 text-ink">{['すべて', ...uniq(rows.map((r) => r.client))].map((c) => <option key={c}>{c}</option>)}</select>
           </label>
@@ -123,21 +123,21 @@ export default function ChinginPage() {
             <select value={sales} onChange={(e) => setSales(e.target.value)} className="min-h-8 rounded-lg border border-field bg-surface px-2 text-ink">{['すべて', ...uniq(rows.map((r) => r.sales))].map((c) => <option key={c}>{c}</option>)}</select>
           </label>
           <span className="ml-auto text-faint">{shown.length}人・粗利率の低い順</span>
-          {stale && <button onClick={resort} className="min-h-8 whitespace-nowrap rounded-lg border px-2.5 text-[12px] font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>いまの粗利率で並べ直す</button>}
+          {stale && <button onClick={resort} className="min-h-8 whitespace-nowrap rounded-lg border px-2.5 text-sm font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>いまの粗利率で並べ直す</button>}
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[920px] border-collapse text-[13px]">
+          <table className="w-full min-w-[920px] border-collapse text-body">
             <thead><tr className="th-row text-left">
               <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">取引先・営業</th><th className="px-2 py-2.5 text-right font-semibold">売上（請求）</th><th className="px-2 py-2.5 text-right font-semibold">給与（額面）</th><th className="px-2 py-2.5 text-right font-semibold">交通費</th><th className="px-2 py-2.5 text-right font-semibold">法定福利 {WELFARE_RATE * 100}%</th><th className="px-2 py-2.5 text-right font-semibold">粗利</th><th className="px-4 py-2.5 text-right font-semibold">粗利率</th>
             </tr></thead>
             <tbody>
-              {shown.length === 0 && <tr><td colSpan={8} className="px-4 py-8 text-center text-[12.5px] text-muted">この取引先・営業の組み合わせの人はいません。絞り込みを「すべて」に戻してください。</td></tr>}
+              {shown.length === 0 && <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-muted">この取引先・営業の組み合わせの人はいません。絞り込みを「すべて」に戻してください。</td></tr>}
               {shown.map(({ r, a }, i) => {
                 const t = rateTone(a.rate);
                 return (
                   <tr key={r.id} className={`mo-fade-in border-t border-line-soft align-top ${flash === r.id ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
                     <td className="px-4 py-2.5"><PersonName name={r.name} className="font-semibold hover:underline underline-offset-2" />{isTemp(r) && <div><span className="chip" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>仮の値あり</span></div>}</td>
-                    <td className="px-2 py-2.5">{r.client}<div className="text-[11.5px] text-faint">営業 {r.sales}</div></td>
+                    <td className="px-2 py-2.5">{r.client}<div className="text-xs text-faint">営業 {r.sales}</div></td>
                     <td className="num px-2 py-2.5 text-right">{yen(r.billed)}</td>
                     {srcCell(r, 'salarySrc', a.salary)}
                     {srcCell(r, 'fareSrc', a.fare)}
@@ -154,7 +154,7 @@ export default function ChinginPage() {
           </table>
         </div>
       </div>
-      <p className="text-[11.5px] text-faint">売上は送付した請求書（税抜・請求した交通費を含む）。法定福利は給与の19%で見積もった概算です。給与・社会保険料・税の扱いの最終判断は社労士・税理士に確認してください。</p>
+      <p className="text-xs text-faint">売上は送付した請求書（税抜・請求した交通費を含む）。法定福利は給与の19%で見積もった概算です。給与・社会保険料・税の扱いの最終判断は社労士・税理士に確認してください。</p>
       <ChinginPl live={false} />
     </main>
   );
@@ -175,11 +175,11 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="想定賃金・粗利" sub={`${ymJa(d.ym)}。格納した請求書の売上（税抜）− 給与 − 交通費 − 法定福利（${Math.round((d.rates?.welfare ?? WELFARE_RATE) * 100)}%）＝ 粗利。粗利率の低い人を上に`}>
         {d.months?.length > 0 && (
-          <select aria-label="作業月" value={ym} onChange={(e) => setYm(e.target.value)} className="min-h-10 rounded-[10px] border border-field bg-surface px-2 text-[13px]">
+          <select aria-label="作業月" value={ym} onChange={(e) => setYm(e.target.value)} className="min-h-10 rounded-[10px] border border-field bg-surface px-2 text-body">
             {d.months.map((m) => <option key={m} value={m}>{ymJa(m)}</option>)}
           </select>
         )}
-        <Link href="/keiri/seikyu" className="inline-flex min-h-10 items-center rounded-[10px] border border-field bg-surface px-3.5 text-[13px] font-semibold">請求書へ</Link>
+        <Link href="/keiri/seikyu" className="btn-secondary">請求書へ</Link>
       </PageTitle>
       <LiveBanner state={state} error={error} onReload={reload} note="今の「請求書ベースの粗利」の計算そのままです。給与・交通費を手で直すのは今の画面から（ここでは変えられません）" />
       <MikeikenNote mk={mk} live={true} />
@@ -187,20 +187,20 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
       <div className="mo-fade-up grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]" style={{ ['--i' as string]: 1 }}>
         {([['売上（請求）', sum.billed], ['原価（給与＋交通費＋法定福利）', sum.cost], ['粗利', sum.gross]] as const).map(([l, v]) => (
           <div key={l} className="rounded-xl border border-line bg-surface px-4 py-3">
-            <div className="text-[12px] text-muted">{l}</div>
-            <div className="text-[20px] font-bold">{v < 0 ? '−' : ''}¥<CountUp to={Math.abs(v)} /></div>
-            {l === '粗利' && <div className={`text-[12px] text-${rateTone(sum.billed ? sum.gross / sum.billed : 0)}`}>粗利率 {pct(sum.billed ? sum.gross / sum.billed : 0)}</div>}
+            <div className="text-sm text-muted">{l}</div>
+            <div className="text-xl font-bold">{v < 0 ? '−' : ''}¥<CountUp to={Math.abs(v)} /></div>
+            {l === '粗利' && <div className={`text-sm text-${rateTone(sum.billed ? sum.gross / sum.billed : 0)}`}>粗利率 {pct(sum.billed ? sum.gross / sum.billed : 0)}</div>}
           </div>
         ))}
         <div className="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
           <RemainRing remain={temp.length} total={rows.length} />
-          <div className="text-[12.5px]"><b>仮の値が残る {temp.length}人</b><div className="text-muted">直すのは今の画面から</div></div>
+          <div className="text-sm"><b>仮の値が残る {temp.length}人</b><div className="text-muted">直すのは今の画面から</div></div>
         </div>
       </div>
-      {d.unknown?.length > 0 && <div className="rounded-xl border px-4 py-2.5 text-[12.5px]" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)', borderColor: 'var(--tone-warn-bar)' }}>誰の分か決まらない請求書が {d.unknown.length}件あります（粗利に入っていません）。今の請求書作成の「格納」で人を選んでください。</div>}
+      {d.unknown?.length > 0 && <div className="rounded-xl border px-4 py-2.5 text-sm" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)', borderColor: 'var(--tone-warn-bar)' }}>誰の分か決まらない請求書が {d.unknown.length}件あります（粗利に入っていません）。今の請求書作成の「格納」で人を選んでください。</div>}
 
       <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
-        <div className="flex flex-wrap items-center gap-2 border-b border-line-soft px-4 py-2.5 text-[12.5px]">
+        <div className="flex flex-wrap items-center gap-2 border-b border-line-soft px-4 py-2.5 text-sm">
           <label className="flex items-center gap-1.5 text-muted">取引先
             <select value={client} onChange={(e) => setClient(e.target.value)} className="min-h-8 rounded-lg border border-field bg-surface px-2 text-ink">{['すべて', ...uniq(rows.map((r) => r.company))].map((c) => <option key={c}>{c}</option>)}</select>
           </label>
@@ -210,21 +210,21 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
           <span className="ml-auto text-faint">{shown.length}人・粗利率の低い順</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[920px] border-collapse text-[13px]">
+          <table className="w-full min-w-[920px] border-collapse text-body">
             <thead><tr className="th-row text-left">
               <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">取引先・所属</th><th className="px-2 py-2.5 text-right font-semibold">売上（請求）</th><th className="px-2 py-2.5 text-right font-semibold">給与（額面）</th><th className="px-2 py-2.5 text-right font-semibold">交通費</th><th className="px-2 py-2.5 text-right font-semibold">法定福利</th><th className="px-2 py-2.5 text-right font-semibold">粗利</th><th className="px-4 py-2.5 text-right font-semibold">粗利率</th>
             </tr></thead>
             <tbody>
-              {shown.length === 0 && <tr><td colSpan={8} className="px-4 py-8 text-center text-[12.5px] text-muted">この月に格納した請求書がまだありません（または絞り込みに当たる人がいません）。</td></tr>}
+              {shown.length === 0 && <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-muted">この月に格納した請求書がまだありません（または絞り込みに当たる人がいません）。</td></tr>}
               {shown.map((r, i) => {
                 const t = rateTone(r.rate);
                 return (
                   <tr key={r.key} className="row mo-fade-in border-t border-line-soft align-top" style={{ ['--i' as string]: i }}>
-                    <td className="px-4 py-2.5"><PersonName name={r.name} className="font-semibold underline-offset-2 hover:underline" />{r.temp && <div><span className="chip" title={LIVE_WRITE_BLOCKED} style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>仮の値あり</span></div>}{r.warn.map((w) => <div key={w} className="text-[11px] text-bad">{w}</div>)}</td>
-                    <td className="px-2 py-2.5">{r.company}<div className="text-[11.5px] text-faint">{r.shozoku}</div></td>
+                    <td className="px-4 py-2.5"><PersonName name={r.name} className="font-semibold underline-offset-2 hover:underline" />{r.temp && <div><span className="chip" title={LIVE_WRITE_BLOCKED} style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>仮の値あり</span></div>}{r.warn.map((w) => <div key={w} className="text-xs text-bad">{w}</div>)}</td>
+                    <td className="px-2 py-2.5">{r.company}<div className="text-xs text-faint">{r.shozoku}</div></td>
                     <td className="num px-2 py-2.5 text-right">{yen(r.sales)}</td>
-                    <td className="num px-2 py-2.5 text-right">{yen(r.salary)}<div className="text-[11px] text-faint">{r.salaryLabel}</div></td>
-                    <td className="num px-2 py-2.5 text-right">{yen(r.fare)}<div className="text-[11px] text-faint">{r.fareLabel}</div></td>
+                    <td className="num px-2 py-2.5 text-right">{yen(r.salary)}<div className="text-xs text-faint">{r.salaryLabel}</div></td>
+                    <td className="num px-2 py-2.5 text-right">{yen(r.fare)}<div className="text-xs text-faint">{r.fareLabel}</div></td>
                     <td className="num px-2 py-2.5 text-right text-muted">{yen(r.welfare)}</td>
                     <td className="num px-2 py-2.5 text-right font-bold">{yen(r.gross)}</td>
                     <td className="px-4 py-2.5 text-right">
@@ -238,7 +238,7 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
           </table>
         </div>
       </div>
-      <p className="text-[11.5px] text-faint">売上は格納した請求書（税抜）。法定福利は給与の19%で見積もった概算です。給与・社会保険料・税の扱いの最終判断は社労士・税理士に確認してください。</p>
+      <p className="text-xs text-faint">売上は格納した請求書（税抜）。法定福利は給与の19%で見積もった概算です。給与・社会保険料・税の扱いの最終判断は社労士・税理士に確認してください。</p>
       <ChinginPl live />
     </main>
   );

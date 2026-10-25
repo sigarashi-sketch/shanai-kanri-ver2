@@ -50,16 +50,16 @@ export function OrgChart({ ctl, list }: { ctl: Ctl; list: OrgPerson[] }) {
       <section onDragOver={(e) => { if (hasType(e, DND_PERSON)) { e.preventDefault(); setOverNone(true); } }} onDragLeave={() => setOverNone(false)}
         onDrop={(e) => { e.preventDefault(); setOverNone(false); const p = e.dataTransfer.getData(DND_PERSON); if (p) putPerson(p, undefined); }}
         className="rounded-xl border border-dashed p-3" style={{ borderColor: overNone ? 'var(--a)' : 'var(--color-field)', background: 'var(--color-soft)' }}>
-        <div className="mb-2 text-[13px] font-bold">未所属 <span className="font-normal text-faint">{none.length}人・ここから部署やチームへドラッグ</span></div>
+        <div className="mb-2 text-body font-bold">未所属 <span className="font-normal text-faint">{none.length}人・ここから部署やチームへドラッグ</span></div>
         <div className="flex max-h-[220px] flex-wrap gap-1.5 overflow-y-auto">
           {none.map((p) => <PersonChip key={p.userId} p={p} org={org} flash={flash === p.userId} />)}
-          {!none.length && <span className="text-[12px] text-faint">全員どこかに入っています</span>}
+          {!none.length && <span className="text-sm text-faint">全員どこかに入っています</span>}
         </div>
       </section>
       <div className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
         {depts.map((d) => <Box key={d.id} u={d} depth={0} ctl={ctl} ops={ops} />)}
       </div>
-      <div className="flex items-center gap-2 text-[12.5px] text-muted">部署を足す <AddName placeholder="部署の名前" onAdd={(v) => addUnit(v, null)} /></div>
+      <div className="flex items-center gap-2 text-sm text-muted">部署を足す <AddName placeholder="部署の名前" onAdd={(v) => addUnit(v, null)} /></div>
     </div>
   );
 }
@@ -80,11 +80,11 @@ function Box({ u, depth, ctl, ops }: { u: Unit; depth: 0 | 1; ctl: Ctl; ops: Ops
         style={{ borderColor: over ? 'var(--a)' : 'var(--color-line)', boxShadow: over ? '0 0 0 3px var(--al)' : undefined, background: depth ? 'var(--color-soft)' : undefined }}>
         <div className="flex flex-wrap items-center gap-2">
           <span draggable onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.setData(DND_UNIT, u.id); }} title="ドラッグで並び替え" className="cursor-grab text-faint"><GripVertical size={14} /></span>
-          <NameEdit label={u.name} value={u.name} className={depth ? 'text-[13px] font-semibold' : 'text-[14.5px] font-bold'}
+          <NameEdit label={u.name} value={u.name} className={depth ? 'text-body font-semibold' : 'text-md font-bold'}
             onSave={(v) => commit((s) => ({ ...s, units: s.units.map((x) => (x.id === u.id ? { ...x, name: v } : x)) }), `「${u.name}」を「${v}」にしました`, { flash: u.id })} />
-          <span className="text-[11.5px] text-faint"><Users size={11} className="mr-0.5 inline" />{cand.length}人</span>
-          <label className="ml-auto flex items-center gap-1 text-[11.5px] text-muted">長
-            <select aria-label={`${u.name}の長`} value={u.headId ?? ''} className="max-w-[140px] rounded-md border border-field bg-surface px-1.5 py-0.5 text-[12px]"
+          <span className="text-xs text-faint"><Users size={11} className="mr-0.5 inline" />{cand.length}人</span>
+          <label className="ml-auto flex items-center gap-1 text-xs text-muted">長
+            <select aria-label={`${u.name}の長`} value={u.headId ?? ''} className="max-w-[140px] rounded-md border border-field bg-surface px-1.5 py-0.5 text-sm"
               onChange={(e) => { const h = e.target.value || undefined; commit((s) => ({ ...s, units: s.units.map((x) => (x.id === u.id ? { ...x, headId: h } : x)) }), h ? `「${u.name}」の長を${name(h)}さんにしました` : `「${u.name}」の長を外しました`, { sub: '→ 組織図の「長」の札に反映', flash: u.id }); }}>
               <option value="">決めない</option>
               {(cand.length ? cand : list).map((p) => <option key={p.userId} value={p.userId}>{p.name}</option>)}
@@ -94,7 +94,7 @@ function Box({ u, depth, ctl, ops }: { u: Unit; depth: 0 | 1; ctl: Ctl; ops: Ops
         </div>
         <div className="mt-2 flex min-h-8 flex-wrap gap-1.5">
           {mine.map((p) => <PersonChip key={p.userId} p={p} org={org} head={u.headId === p.userId} flash={flash === p.userId} />)}
-          {!mine.length && <span className="text-[12px] text-faint">ここに人をドラッグ</span>}
+          {!mine.length && <span className="text-sm text-faint">ここに人をドラッグ</span>}
         </div>
         {depth === 0 && (
           <div className="mt-3 flex flex-col gap-2 border-l-2 pl-3" style={{ borderColor: 'var(--al)' }}>

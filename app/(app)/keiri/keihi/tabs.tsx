@@ -37,18 +37,18 @@ export function KeihiMonthlyTab({ live, mk }: { live: boolean; mk: Mikeiken }) {
   const sum = people.reduce((s, p) => ({ c: s.c + p.commute_yen, o: s.o + p.other_yen, t: s.t + p.total_yen }), { c: 0, o: 0, t: 0 });
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3 text-[13px]">
-        <select aria-label="月" value={ym} onChange={(e) => setYm(e.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-[13px]">
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3 text-body">
+        <select aria-label="月" value={ym} onChange={(e) => setYm(e.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-body">
           {[0, 1, 2, 3, 4, 5].map((b) => jstYm(b)).map((m) => <option key={m} value={m}>{ymLabel(m)}分</option>)}
         </select>
         <div><b>承認・支払済 {people.length}人</b><span className="num ml-2 text-muted">通勤 {yen(sum.c)}・その他 {yen(sum.o)}・合計 {yen(sum.t)}</span>
-          {live && ok && (ike.data?.pending || 0) > 0 && <div className="text-[12px] text-warn">この月の申請中・差し戻し中が {ike.data!.pending}件あります（全員分の数）</div>}
-          {!live && <div className="text-[12px] text-faint">見本データです（ログインすると今の社内システムの月次が出ます）</div>}
+          {live && ok && (ike.data?.pending || 0) > 0 && <div className="text-sm text-warn">この月の申請中・差し戻し中が {ike.data!.pending}件あります（全員分の数）</div>}
+          {!live && <div className="text-sm text-faint">見本データです（ログインすると今の社内システムの月次が出ます）</div>}
         </div>
       </div>
-      {live && ike.state === 'error' && <div className="rounded-xl px-4 py-2.5 text-[12.5px]" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>{ike.error}</div>}
+      {live && ike.state === 'error' && <div className="rounded-xl px-4 py-2.5 text-sm" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>{ike.error}</div>}
       <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-        <table className="w-full min-w-[620px] border-collapse text-[13px]">
+        <table className="w-full min-w-[620px] border-collapse text-body">
           <thead><tr className="th-row text-left"><th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 text-right font-semibold">申請</th><th className="px-2 py-2.5 text-right font-semibold">通勤</th><th className="px-2 py-2.5 text-right font-semibold">その他</th><th className="px-2 py-2.5 text-right font-semibold">合計</th><th className="px-4 py-2.5 font-semibold">freee</th></tr></thead>
           <tbody>
             {people.map((p) => (
@@ -58,14 +58,14 @@ export function KeihiMonthlyTab({ live, mk }: { live: boolean; mk: Mikeiken }) {
                 <td className="num px-2 py-2.5 text-right">{yen(p.commute_yen)}</td>
                 <td className="num px-2 py-2.5 text-right">{yen(p.other_yen)}</td>
                 <td className="num px-2 py-2.5 text-right font-semibold">{yen(p.total_yen)}</td>
-                <td className="px-4 py-2.5 text-[12px]">{!live ? '—' : p.freee_employee_id ? <span className="text-ok">結び付き済み</span> : <span className="text-warn">未紐付け（手で確かめる）</span>}</td>
+                <td className="px-4 py-2.5 text-sm">{!live ? '—' : p.freee_employee_id ? <span className="text-ok">結び付き済み</span> : <span className="text-warn">未紐付け（手で確かめる）</span>}</td>
               </tr>
             ))}
-            {people.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-[12.5px] text-muted">{live && ike.state === 'loading' ? '読んでいます…' : 'この月の承認済みの申請はありません'}</td></tr>}
+            {people.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-muted">{live && ike.state === 'loading' ? '読んでいます…' : 'この月の承認済みの申請はありません'}</td></tr>}
           </tbody>
         </table>
       </div>
-      <p className="text-[11.5px] text-faint">支払済にする操作は、定期の打刻の確認が済んでからなので、今の社内システムの経費の管理画面で行ってください。</p>
+      <p className="text-xs text-faint">支払済にする操作は、定期の打刻の確認が済んでからなので、今の社内システムの経費の管理画面で行ってください。</p>
     </div>
   );
 }
@@ -98,26 +98,26 @@ export function KeihiRingiTab({ live, mk }: { live: boolean; mk: Mikeiken }) {
   };
   return (
     <div className="flex flex-col gap-3">
-      <div className="rounded-xl border border-line bg-surface px-4 py-3 text-[13px]"><b>判断待ちの稟議 {rows.length}件</b>
-        {!canApprove && <span className="ml-2 text-[12px] text-bad">{needText('approve')}</span>}
-        {!live && <div className="text-[12px] text-faint">見本データです（ログインすると今の社内システムの稟議が出ます）</div>}
+      <div className="rounded-xl border border-line bg-surface px-4 py-3 text-body"><b>判断待ちの稟議 {rows.length}件</b>
+        {!canApprove && <span className="ml-2 text-sm text-bad">{needText('approve')}</span>}
+        {!live && <div className="text-sm text-faint">見本データです（ログインすると今の社内システムの稟議が出ます）</div>}
       </div>
-      {live && ike.state === 'error' && <div className="rounded-xl px-4 py-2.5 text-[12.5px]" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>{ike.error}</div>}
+      {live && ike.state === 'error' && <div className="rounded-xl px-4 py-2.5 text-sm" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>{ike.error}</div>}
       {rows.length === 0 && (live ? ike.state !== 'loading' : true) && (
-        <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-8 text-center"><Check className="mx-auto text-ok" size={24} /><div className="mt-2 text-[14px] font-bold">判断待ちの稟議はありません</div></div>
+        <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-8 text-center"><Check className="mx-auto text-ok" size={24} /><div className="mt-2 text-body font-bold">判断待ちの稟議はありません</div></div>
       )}
       {rows.map((r) => (
         <div key={r.id} className="flex flex-wrap items-start gap-3 rounded-xl border border-line bg-surface px-4 py-3">
           <div className="min-w-[220px] flex-1">
             <PersonName name={r.linked_name || '（氏名がまだ決まらない）'} className="font-semibold underline-offset-2 hover:underline" />
-            <div className="mt-0.5 text-[13px] font-semibold">{r.title}<span className="num ml-2">{yen(r.amount_yen)}</span></div>
-            {r.detail && <div className="text-[12px] text-muted">{r.detail}</div>}
-            <div className="text-[11.5px] text-faint">申請 {r.created_at.slice(5, 10).replace('-', '/')}{r.planned_on ? `・予定日 ${r.planned_on.slice(5).replace('-', '/')}` : ''}</div>
+            <div className="mt-0.5 text-body font-semibold">{r.title}<span className="num ml-2">{yen(r.amount_yen)}</span></div>
+            {r.detail && <div className="text-sm text-muted">{r.detail}</div>}
+            <div className="text-xs text-faint">申請 {r.created_at.slice(5, 10).replace('-', '/')}{r.planned_on ? `・予定日 ${r.planned_on.slice(5).replace('-', '/')}` : ''}</div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <button onClick={() => decide(r, 'approve')} disabled={!canApprove} title={!canApprove ? needText('approve') : undefined} className="btn-primary min-h-8 rounded-lg px-3 text-[12.5px] font-bold disabled:opacity-40">承認</button>
-            <textarea aria-label="見送る理由" rows={2} value={why[r.id] || ''} disabled={!canApprove} onChange={(e) => setWhy((w) => ({ ...w, [r.id]: e.target.value }))} placeholder="見送る理由（本人に届きます）" className="w-[220px] rounded-lg border border-field bg-surface px-2 py-1 text-[12px] disabled:opacity-50" />
-            <button onClick={() => decide(r, 'reject', (why[r.id] || '').trim())} disabled={!canApprove || !(why[r.id] || '').trim()} className="min-h-8 rounded-lg border border-line px-3 text-[12.5px] font-bold text-bad disabled:opacity-40">見送る</button>
+            <button onClick={() => decide(r, 'approve')} disabled={!canApprove} title={!canApprove ? needText('approve') : undefined} className="btn-primary btn-sm">承認</button>
+            <textarea aria-label="見送る理由" rows={2} value={why[r.id] || ''} disabled={!canApprove} onChange={(e) => setWhy((w) => ({ ...w, [r.id]: e.target.value }))} placeholder="見送る理由（本人に届きます）" className="w-[220px] rounded-lg border border-field bg-surface px-2 py-1 text-sm disabled:opacity-50" />
+            <button onClick={() => decide(r, 'reject', (why[r.id] || '').trim())} disabled={!canApprove || !(why[r.id] || '').trim()} className="min-h-8 rounded-lg border border-line px-3 text-sm font-bold text-bad disabled:opacity-40">見送る</button>
           </div>
         </div>
       ))}

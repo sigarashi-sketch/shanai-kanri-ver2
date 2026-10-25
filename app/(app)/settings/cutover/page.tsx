@@ -40,7 +40,7 @@ const SAMPLE: Section[] = [
 ];
 
 function Mark({ r }: { r: Row }) {
-  if (r.ref) return <span className="text-[11.5px] text-faint">参考</span>;
+  if (r.ref) return <span className="text-xs text-faint">参考</span>;
   if (r.legacy == null || r.v2 == null) return <span className="chip" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}><TriangleAlert size={11} />片方だけ</span>;
   const d = r.v2 - r.legacy;
   if (d === 0) return <span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}><Check size={11} />✓ 同じ</span>;
@@ -80,39 +80,39 @@ export default function CutoverPage() {
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="本番切り替えの突き合わせ" sub="今の社内システムと ver2 の数を並べて、同じか確かめる（見るだけ）">
-        <label className="flex items-center gap-1.5 text-[12.5px] text-muted">月
-          <select value={shownYm} onChange={(e) => setYm(e.target.value)} disabled={busy || months.length === 0} className="rounded-lg border border-field bg-surface px-2 py-1.5 text-[13px] text-ink disabled:opacity-50">
+        <label className="flex items-center gap-1.5 text-sm text-muted">月
+          <select value={shownYm} onChange={(e) => setYm(e.target.value)} disabled={busy || months.length === 0} className="rounded-lg border border-field bg-surface px-2 py-1.5 text-body text-ink disabled:opacity-50">
             {months.map((m) => <option key={m} value={m}>{ymLabel(m)}</option>)}
           </select>
         </label>
       </PageTitle>
-      <div className="mo-fade-up rounded-xl border px-4 py-3 text-[13px]" style={{ background: 'var(--tone-info-bg)', color: 'var(--tone-info-fg)', borderColor: 'var(--tone-info-bar, var(--color-line))' }}>
+      <div className="mo-fade-up rounded-xl border px-4 py-3 text-body" style={{ background: 'var(--tone-info-bg)', color: 'var(--tone-info-fg)', borderColor: 'var(--tone-info-bar, var(--color-line))' }}>
         <b>切り替え前に、この画面で全部 ✓ になっていることを確かめる</b>
-        <div className="mt-0.5 text-[12px]">⚠ が残っていたら、差の理由が分かるまで切り替えない。本番に入れる前に shoya ともう一度確かめます。</div>
+        <div className="mt-0.5 text-sm">⚠ が残っていたら、差の理由が分かるまで切り替えない。本番に入れる前に shoya ともう一度確かめます。</div>
       </div>
       <LiveBanner state={state} error={error} onReload={load} note="今の社内システムの数を読んでいます（見るだけ・何も書きません）" />
 
-      {(state === 'loading' || busy) && !sample && <div className="rounded-xl border border-line bg-surface px-4 py-8 text-center text-[13px] text-muted">今の社内システムの数を読んでいます…（30秒ほど）</div>}
+      {(state === 'loading' || busy) && !sample && <div className="rounded-xl border border-line bg-surface px-4 py-8 text-center text-body text-muted">今の社内システムの数を読んでいます…（30秒ほど）</div>}
 
       {sections.length > 0 && !busy && (
-        <div className="mo-fade-up flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-[13px]" style={{ ['--i' as string]: 1 }}>
+        <div className="mo-fade-up flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-body" style={{ ['--i' as string]: 1 }}>
           {ng === 0 ? <><Check size={18} className="text-ok" /><b>全部 ✓ です</b><span className="text-muted">（{ymLabel(shownYm)}）</span></>
             : <><TriangleAlert size={18} className="text-bad" /><b>⚠ が {ng} つあります</b><span className="text-muted">（{ymLabel(shownYm)}）</span></>}
-          {data?.generatedAt && !sample && <span className="ml-auto text-[11.5px] text-faint">{new Date(data.generatedAt).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' })} に読んだ数</span>}
+          {data?.generatedAt && !sample && <span className="ml-auto text-xs text-faint">{new Date(data.generatedAt).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' })} に読んだ数</span>}
         </div>
       )}
 
       {!busy && sections.map((s, i) => (
         <section key={s.key} className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: i + 2 }}>
           <div className="px-4 py-3">
-            <h2 className="text-[15px] font-bold">{s.title}</h2>
-            <div className="text-[12px] text-muted">今：{s.legacyFrom}／ver2：{s.v2From}</div>
-            {s.note && <div className="mt-0.5 text-[11.5px] text-faint">{s.note}</div>}
-            {s.error && <div className="mt-1 flex items-start gap-1 text-[12px] text-bad"><TriangleAlert size={13} className="mt-0.5 shrink-0" />⚠ 読めなかったもの：{s.error}</div>}
+            <h2 className="text-md font-bold">{s.title}</h2>
+            <div className="text-sm text-muted">今：{s.legacyFrom}／ver2：{s.v2From}</div>
+            {s.note && <div className="mt-0.5 text-xs text-faint">{s.note}</div>}
+            {s.error && <div className="mt-1 flex items-start gap-1 text-sm text-bad"><TriangleAlert size={13} className="mt-0.5 shrink-0" />⚠ 読めなかったもの：{s.error}</div>}
           </div>
           {s.rows.length > 0 && (
             <div className="overflow-x-auto border-t border-line-soft">
-              <table className="w-full min-w-[560px] border-collapse text-[13px]">
+              <table className="w-full min-w-[560px] border-collapse text-body">
                 <thead><tr className="th-row text-left">
                   <th className="px-4 py-2 font-semibold">項目</th><th className="px-2 py-2 text-right font-semibold">今の社内システム</th><th className="px-2 py-2 text-right font-semibold">ver2</th><th className="px-4 py-2 font-semibold">結果</th>
                 </tr></thead>
@@ -131,7 +131,7 @@ export default function CutoverPage() {
           )}
         </section>
       ))}
-      {sample && <p className="text-[11.5px] text-faint">見本の数です。ログインすると今の社内システムの数で突き合わせます。</p>}
+      {sample && <p className="text-xs text-faint">見本の数です。ログインすると今の社内システムの数で突き合わせます。</p>}
     </main>
   );
 }

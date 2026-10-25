@@ -69,12 +69,11 @@ export default function OvertimePage() {
       <NotInLegacy what={live ? '有給の年5日・残業の年の累計と45h超えの回数' : '残業の見込み・36協定・有給の年5日'} />
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 1 }}>
         {([['ot', '残業・36協定'], ['leave', '有給の年5日']] as const).map(([k, l]) => (
-          <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="px-3.5 py-2.5 text-[14px]"
-            style={tab === k ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>{l}</button>
+          <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="tab">{l}</button>
         ))}
       </div>
       <div key={tab} className="mo-axis">{tab === 'ot' ? <OtTab n={notify} probe={live ? probe : null} /> : <LeaveTab n={notify} />}</div>
-      <p className="text-[11.5px] text-faint">36協定の数字は新宿事業所の協定届（令和7年11月1日〜令和8年10月31日）のものです。社員の数字は見本です。扱いに迷うものは社労士に確認してください。</p>
+      <p className="text-xs text-faint">36協定の数字は新宿事業所の協定届（令和7年11月1日〜令和8年10月31日）のものです。社員の数字は見本です。扱いに迷うものは社労士に確認してください。</p>
     </main>
   );
 }
@@ -95,17 +94,17 @@ function useNotify() {
 type Notify = ReturnType<typeof useNotify>;
 
 function EmptyRow({ cols }: { cols: number }) {
-  return <tr><td colSpan={cols} className="px-4 py-8 text-center text-[13px] text-muted">この段階の人はいません。</td></tr>;
+  return <tr><td colSpan={cols} className="px-4 py-8 text-center text-body text-muted">この段階の人はいません。</td></tr>;
 }
 
 /** 知らせるボタン。宛先が無い（知らせを止めている）ときは押せない。 */
 function NotifyButton({ n, k, who, to, what, label }: { n: Notify; k: string; who: string; to: string[]; what: string; label: string }) {
-  if (n.sent[k]) return <span className="inline-flex items-center gap-1 whitespace-nowrap text-[12px] font-semibold text-ok"><Check size={14} />{n.sent[k]}</span>;
+  if (n.sent[k]) return <span className="inline-flex items-center gap-1 whitespace-nowrap text-sm font-semibold text-ok"><Check size={14} />{n.sent[k]}</span>;
   const none = to.length === 0;
   return (
     <>
-      <button onClick={() => n.send(k, who, to, what)} disabled={!n.canEdit || none} title={!n.canEdit ? needText('edit') : none ? 'アラート設定で知らせを止めています' : `${to.join('・')}に知らせる`} className="inline-flex min-h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Bell size={14} />{label}</button>
-      <div className="mt-1 text-[11px] text-faint">{none ? '知らせを止めています' : to.join('・')}</div>
+      <button onClick={() => n.send(k, who, to, what)} disabled={!n.canEdit || none} title={!n.canEdit ? needText('edit') : none ? 'アラート設定で知らせを止めています' : `${to.join('・')}に知らせる`} className="inline-flex min-h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 text-sm font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Bell size={14} />{label}</button>
+      <div className="mt-1 text-xs text-faint">{none ? '知らせを止めています' : to.join('・')}</div>
     </>
   );
 }
@@ -114,8 +113,7 @@ function Filters({ counts, value, onChange }: { counts: Record<string, number>; 
   return (
     <div className="flex flex-wrap gap-2">
       {(['all', ...ORDER] as const).map((k) => (
-        <button key={k} onClick={() => onChange(k)} className="min-h-9 rounded-full border px-3.5 text-[13px]"
-          style={value === k ? { borderColor: 'var(--a)', background: 'var(--as)', color: 'var(--ad)', fontWeight: 700 } : { borderColor: 'var(--color-field)', background: 'var(--color-surface)' }}>
+        <button key={k} onClick={() => onChange(k)} aria-pressed={value === k} className="fchip">
           {k === 'all' ? 'すべて' : LEVEL_STYLE[k].label} <span className="num">{counts[k] ?? 0}</span>
         </button>
       ))}
@@ -137,7 +135,7 @@ function OtTab({ n, probe }: { n: Notify; probe: ReturnType<typeof useOtProbe> |
 
   return (
     <div className="flex flex-col gap-3">
-      <div role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-bad-line bg-bad-soft px-4 py-2.5 text-[12.5px] text-bad">
+      <div role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-bad-line bg-bad-soft px-4 py-2.5 text-sm text-bad">
         <AlertTriangle size={16} className="shrink-0 text-bad" />
         <span><b>{KYOTEI.office}の36協定は {KYOTEI.validUntil} で期限です。</b>11/1 からの新しい協定を届け出たか確かめてください（届け出るまで残業はさせられません）。</span>
         <span className="text-bad">いまの協定：1日{KYOTEI.daily}h・月{KYOTEI.monthly}h・年{KYOTEI.yearly}h／特別条項 月{KYOTEI.spMonthly}h・年{KYOTEI.spYearly}h・年{KYOTEI.overCount}回／休日労働 月{KYOTEI.holidayPerMonth}回</span>
@@ -150,14 +148,14 @@ function OtTab({ n, probe }: { n: Notify; probe: ReturnType<typeof useOtProbe> |
           ['上限間近', `${counts.danger ?? 0}人`, `月${Math.round(KYOTEI.spMonthly * dangerRatio)}h超え見込み・${KYOTEI.overCount}回の枠・平均${KYOTEI.avgLimit}h`],
         ].map(([l, n, s], i) => (
           <div key={l} className="mo-fade-up rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: i }}>
-            <div className="text-[12px] text-muted">{l}</div><div className="num text-[22px] font-bold">{n}</div><div className="text-[11.5px] text-faint">{s}</div>
+            <div className="text-sm text-muted">{l}</div><div className="num text-xl font-bold">{n}</div><div className="text-xs text-faint">{s}</div>
           </div>
         ))}
       </div>
       <Filters counts={counts} value={f} onChange={setF} />
       <div className="overflow-hidden rounded-xl border border-line bg-surface">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1080px] border-collapse text-[13px]">
+          <table className="w-full min-w-[1080px] border-collapse text-body">
             <thead><tr className="th-row text-left">
               <th className="px-4 py-2.5 font-semibold">社員</th>
               <th className="px-2 py-2.5 font-semibold">今月（実績／見込み）<span className="ml-1 font-normal text-faint">線＝{KYOTEI.monthly}h・{KYOTEI.spMonthly}h</span></th>
@@ -170,15 +168,15 @@ function OtTab({ n, probe }: { n: Notify; probe: ReturnType<typeof useOtProbe> |
                 const key = `ot-${o.personId}`;
                 return (
                   <tr key={o.personId} className={`mo-fade-in border-t border-line-soft align-top ${flash === key ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
-                    <td className="px-4 py-2.5"><div className="font-semibold"><PersonName name={o.name} className="underline-offset-2 hover:underline" /></div><div className="text-[11.5px] text-faint">{o.site}・営業 {o.sales}</div></td>
-                    <td className="px-2 py-2.5"><div className="flex items-center gap-2.5"><OtBar actual={o.actual} proj={p} lv={level} /><span className="num whitespace-nowrap"><b>{o.actual}h</b><span className="text-muted"> → {p}h</span></span></div>{o.holiday > 0 && <div className="mt-1 text-[11.5px] text-faint">休日労働 {o.holiday}h を含む</div>}</td>
+                    <td className="px-4 py-2.5"><div className="font-semibold"><PersonName name={o.name} className="underline-offset-2 hover:underline" /></div><div className="text-xs text-faint">{o.site}・営業 {o.sales}</div></td>
+                    <td className="px-2 py-2.5"><div className="flex items-center gap-2.5"><OtBar actual={o.actual} proj={p} lv={level} /><span className="num whitespace-nowrap"><b>{o.actual}h</b><span className="text-muted"> → {p}h</span></span></div>{o.holiday > 0 && <div className="mt-1 text-xs text-faint">休日労働 {o.holiday}h を含む</div>}</td>
                     <td className="num px-2 py-2.5">{o.yearTotal}<span className="text-faint">／{yearCap}h</span></td>
                     <td className="num px-2 py-2.5" style={{ color: o.over45 >= KYOTEI.overCount - 1 ? 'var(--color-bad)' : undefined }}>{o.over45}<span className="text-faint">／{KYOTEI.overCount}回</span></td>
                     <td className="num px-2 py-2.5" style={{ color: o.avg26 >= KYOTEI.avgLimit * 0.9 ? 'var(--color-bad)' : undefined }}>{o.avg26}h</td>
                     <td className="px-2 py-2.5"><Spark xs={o.trend} /></td>
-                    <td className="max-w-[260px] px-2 py-2.5"><LevelChip level={level} />{reason && <div className="mt-1 text-[11.5px] text-muted">{reason}</div>}</td>
+                    <td className="max-w-[260px] px-2 py-2.5"><LevelChip level={level} />{reason && <div className="mt-1 text-xs text-muted">{reason}</div>}</td>
                     <td className="px-4 py-2.5 text-right">
-                      {level === 'ok' ? <span className="text-[12px] text-faint">—</span>
+                      {level === 'ok' ? <span className="text-sm text-faint">—</span>
                         : <NotifyButton n={n} k={key} who={o.name} to={TO(level)} what="残業の見込み" label="知らせる" />}
                     </td>
                   </tr>
@@ -203,11 +201,11 @@ function LeaveTab({ n }: { n: Notify }) {
   rows.forEach((r) => { counts[r.level] = (counts[r.level] ?? 0) + 1; });
   return (
     <div className="flex flex-col gap-3">
-      <div className="rounded-xl border border-line bg-surface px-4 py-3 text-[12.5px] text-muted">年10日以上の有給が付いた人は、<b className="text-ink">付いた日から1年のうちに5日</b>取ってもらう義務があります。期限までの残りと、取った日数の進み具合で色を付けています。</div>
+      <div className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-muted">年10日以上の有給が付いた人は、<b className="text-ink">付いた日から1年のうちに5日</b>取ってもらう義務があります。期限までの残りと、取った日数の進み具合で色を付けています。</div>
       <Filters counts={counts} value={f} onChange={setF} />
       <div className="overflow-hidden rounded-xl border border-line bg-surface">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] border-collapse text-[13px]">
+          <table className="w-full min-w-[900px] border-collapse text-body">
             <thead><tr className="th-row text-left">
               <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">付いた日・日数</th><th className="px-2 py-2.5 font-semibold">取った日数（5日のうち）</th><th className="px-2 py-2.5 font-semibold">期限</th><th className="px-2 py-2.5 font-semibold">段階</th><th className="px-4 py-2.5" />
             </tr></thead>
@@ -218,18 +216,18 @@ function LeaveTab({ n }: { n: Notify }) {
                 const need = Math.max(0, 5 - l.taken);
                 return (
                   <tr key={l.personId} className={`mo-fade-in border-t border-line-soft ${flash === key ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
-                    <td className="px-4 py-2.5"><div className="font-semibold"><PersonName name={l.name} className="underline-offset-2 hover:underline" /></div><div className="text-[11.5px] text-faint">{l.site}</div></td>
+                    <td className="px-4 py-2.5"><div className="font-semibold"><PersonName name={l.name} className="underline-offset-2 hover:underline" /></div><div className="text-xs text-faint">{l.site}</div></td>
                     <td className="num px-2 py-2.5">{l.grantedOn}<span className="text-faint">・{l.granted}日</span></td>
                     <td className="px-2 py-2.5">
                       <div className="flex items-center gap-1" aria-label={`5日のうち${l.taken}日`}>
                         {Array.from({ length: 5 }, (_, d) => <span key={d} className="size-3.5 rounded-[4px]" style={{ background: d < l.taken ? 'var(--a)' : 'var(--color-track)' }} />)}
-                        <span className="num ml-1.5">{l.taken}日</span>{need > 0 && <span className="ml-1 text-[11.5px] text-muted">あと{need}日</span>}{l.planned && <span className="ml-1.5 text-[11.5px] text-info">{l.planned}</span>}
+                        <span className="num ml-1.5">{l.taken}日</span>{need > 0 && <span className="ml-1 text-xs text-muted">あと{need}日</span>}{l.planned && <span className="ml-1.5 text-xs text-info">{l.planned}</span>}
                       </div>
                     </td>
-                    <td className="num px-2 py-2.5">{l.deadline}<span className="ml-1 text-[11.5px]" style={{ color: l.daysLeft <= dangerDays ? 'var(--color-bad)' : 'var(--color-faint)' }}>あと{l.daysLeft}日</span></td>
+                    <td className="num px-2 py-2.5">{l.deadline}<span className="ml-1 text-xs" style={{ color: l.daysLeft <= dangerDays ? 'var(--color-bad)' : 'var(--color-faint)' }}>あと{l.daysLeft}日</span></td>
                     <td className="px-2 py-2.5"><LevelChip level={level} /></td>
                     <td className="px-4 py-2.5 text-right">
-                      {level === 'ok' ? <span className="text-[12px] text-faint">{need === 0 ? '達成' : '—'}</span>
+                      {level === 'ok' ? <span className="text-sm text-faint">{need === 0 ? '達成' : '—'}</span>
                         : <NotifyButton n={n} k={key} who={l.name} to={TO(level)} what="有給の取得のおすすめ" label="取得をすすめる" />}
                     </td>
                   </tr>

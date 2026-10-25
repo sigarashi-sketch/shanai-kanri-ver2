@@ -93,14 +93,14 @@ export default function HomePage() {
     <main className="flex flex-col gap-[18px] px-6 pb-12 pt-[22px]">
       <div className="mo-fade-up flex flex-wrap items-end justify-between gap-3">
         <div>
-          <div className="text-[12.5px] text-muted">{L ? todayJa() : '10月23日（金）・見本データ'}</div>
-          <h1 className="mt-0.5 text-[22px] font-bold tracking-tight">
+          <div className="text-sm text-muted">{L ? todayJa() : '10月23日（金）・見本データ'}</div>
+          <h1 className="mt-0.5 text-xl font-bold tracking-tight">
             おはようございます。今日の対応は <span className="text-bad">{L ? todos.length + approvalsShown.length : todos.length + myApprovals.length}件</span>
           </h1>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href="/jinji/yoyaku?new=1" className="btn inline-flex min-h-10 items-center rounded-[10px] border border-field bg-surface px-3.5 text-[13.5px] font-semibold">変更を予約</Link>
-          <Link href="/roumu/approval" className="btn inline-flex min-h-10 items-center rounded-[10px] bg-sumi px-4 text-[13.5px] font-semibold text-white">上から順に片づける</Link>
+          <Link href="/jinji/yoyaku?new=1" className="btn-secondary btn">変更を予約</Link>
+          <Link href="/roumu/approval" className="btn bg-sumi text-white">上から順に片づける</Link>
         </div>
       </div>
 
@@ -109,9 +109,9 @@ export default function HomePage() {
       <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
         {(liveKpis ?? kpis).map((k, i) => (
           <div key={k.label} className="mo-fade-up rounded-xl border border-line bg-surface px-[18px] py-4" style={{ ['--i' as string]: i + 1, borderTop: `3px solid var(--c-${k.m})` }}>
-            <div className="text-[12.5px] text-muted">{k.label}</div>
-            <div className="text-[30px] font-bold tracking-tight"><CountUp to={k.n} /><small className="ml-1 text-[13px] font-medium">{k.unit}</small></div>
-            <div className="text-[12px]" style={{ color: k.subC }}>{k.sub}</div>
+            <div className="text-sm text-muted">{k.label}</div>
+            <div className="text-2xl font-bold tracking-tight"><CountUp to={k.n} /><small className="ml-1 text-body font-medium">{k.unit}</small></div>
+            <div className="text-sm" style={{ color: k.subC }}>{k.sub}</div>
           </div>
         ))}
       </div>
@@ -119,21 +119,21 @@ export default function HomePage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 5 }}>
           <div className="flex items-center justify-between px-[18px] py-3">
-            <div><h2 className="text-[15px] font-bold">対応が要るもの</h2><div className="text-[12px] text-muted">件数を押すと処理画面へ・✓で片づけ</div></div>
+            <div><h2 className="text-md font-bold">対応が要るもの</h2><div className="text-sm text-muted">件数を押すと処理画面へ・✓で片づけ</div></div>
             <RemainRing remain={todos.length} total={total} />
           </div>
           {todos.length === 0 ? (
             <div className="mo-scale-in m-4 rounded-xl border border-ok-line bg-ok-soft px-5 py-6 text-center">
-              <div className="text-[15px] font-bold text-ok">今日の対応はぜんぶ片づきました</div>
-              <div className="mt-1 text-[13px] text-ok">次は「7日以内に切り替わる予約」の確認がおすすめです</div>
+              <div className="text-md font-bold text-ok">今日の対応はぜんぶ片づきました</div>
+              <div className="mt-1 text-body text-ok">次は「7日以内に切り替わる予約」の確認がおすすめです</div>
             </div>
           ) : (
             <div className="flex flex-col">
               {todos.map((t) => (
                 <div key={t.text} className={`flex items-center gap-3 border-t border-line-soft px-[18px] py-2.5 ${flashing === t.text ? 'mo-flash' : ''}`}>
                   <i className="size-2 rounded-full" style={{ background: `var(--c-${t.module})` }} />
-                  <span className="w-8 shrink-0 text-[11.5px] font-semibold text-muted">{SHORT[t.module]}</span>
-                  <span className="min-w-0 flex-1 text-[13.5px]">{t.text}</span>
+                  <span className="w-8 shrink-0 text-xs font-semibold text-muted">{SHORT[t.module]}</span>
+                  <span className="min-w-0 flex-1 text-body">{t.text}</span>
                   <Link href={t.href} className={`num whitespace-nowrap font-bold ${t.tone === 'bad' ? 'text-bad' : t.tone === 'warn' ? 'text-warn' : ''}`}>{t.n}</Link>
                   <button onClick={() => done(t)} disabled={!!L || !can(t.module, 'edit') || flashing === t.text} title={L ? LIVE_WRITE_BLOCKED : !can(t.module, 'edit') ? needText('edit') : undefined} aria-label={`${t.text}を片づけた`} className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-line text-muted hover:border-ok hover:text-ok disabled:cursor-not-allowed disabled:opacity-40"><Check size={16} /></button>
                 </div>
@@ -144,29 +144,29 @@ export default function HomePage() {
 
         <section className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 6 }}>
           <div className="flex items-center justify-between px-[18px] py-3.5">
-            <h2 className="text-[15px] font-bold">あなたが承認する分</h2>
-            {!L && <span className="rounded-full bg-[var(--tone-purple-bg)] px-2.5 py-0.5 text-[12px] text-info">✦ AIが先に確認済み・要注意 2</span>}
+            <h2 className="text-md font-bold">あなたが承認する分</h2>
+            {!L && <span className="rounded-full bg-[var(--tone-purple-bg)] px-2.5 py-0.5 text-sm text-info">✦ AIが先に確認済み・要注意 2</span>}
           </div>
-          {approvalsShown.length === 0 && <div className="border-t border-line-soft px-[18px] py-6 text-center text-[13px] text-muted">承認の権限がある分類はありません</div>}
+          {approvalsShown.length === 0 && <div className="border-t border-line-soft px-[18px] py-6 text-center text-body text-muted">承認の権限がある分類はありません</div>}
           {approvalsShown.map((a) => (
             <Link key={a.text} href={a.href} className="row flex items-center gap-3 border-t border-line-soft px-[18px] py-2.5">
               <i className="size-2 rounded-full" style={{ background: `var(--c-${a.module})` }} />
-              <span className="min-w-0 flex-1 text-[13.5px]">{a.text}</span>
+              <span className="min-w-0 flex-1 text-body">{a.text}</span>
               <b className="num whitespace-nowrap">{a.n}</b><ChevronRight size={16} className="text-faint" />
             </Link>
           ))}
         </section>
       </div>
 
-      {L && <div className="text-[12px] text-faint">労務・人事の「対応が要るもの」と承認の件数は、それぞれの画面を本物につないでから、ここにも出します。</div>}
+      {L && <div className="text-sm text-faint">労務・人事の「対応が要るもの」と承認の件数は、それぞれの画面を本物につないでから、ここにも出します。</div>}
       {L && <NotInLegacy what="変更の予約" />}
       <section className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 7 }}>
         <div className="flex items-center justify-between px-[18px] py-3.5">
-          <h2 className="text-[15px] font-bold">7日以内に切り替わる予約 <span className="num text-muted">{myReservations.length}</span></h2>
-          <span className="flex items-center gap-3 text-[12px] text-muted"><span className="flex items-center gap-1.5"><i className="mo-pulse size-[7px] rounded-full bg-ok" />毎朝6:00に自動で切り替え</span><Link href="/jinji/yoyaku" className="font-semibold" style={{ color: 'var(--ad)' }}>すべての予約</Link></span>
+          <h2 className="text-md font-bold">7日以内に切り替わる予約 <span className="num text-muted">{myReservations.length}</span></h2>
+          <span className="flex items-center gap-3 text-sm text-muted"><span className="flex items-center gap-1.5"><i className="mo-pulse size-[7px] rounded-full bg-ok" />毎朝6:00に自動で切り替え</span><Link href="/jinji/yoyaku" className="font-semibold" style={{ color: 'var(--ad)' }}>すべての予約</Link></span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] border-collapse text-[13px]">
+          <table className="w-full min-w-[760px] border-collapse text-body">
             <thead><tr className="bg-soft text-left text-muted">
               <th className="px-[18px] py-2.5 font-semibold">適用日</th><th className="px-2 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">分類</th><th className="px-2 py-2.5 font-semibold">変更前 → 変更後</th><th className="px-[18px] py-2.5 font-semibold">一緒に変わるもの</th>
             </tr></thead>
@@ -174,7 +174,7 @@ export default function HomePage() {
               {myReservations.length === 0 && <tr><td colSpan={5} className="px-[18px] py-6 text-center text-muted">7日以内に切り替わる予約はありません</td></tr>}
               {myReservations.map((r, i) => (
                 <tr key={r.id} className="row mo-fade-in border-t border-line-soft" style={{ ['--i' as string]: 8 + i }}>
-                  <td className="px-[18px] py-2.5"><b>{fmtDate(r.date)}</b><div className="text-[11.5px] text-faint">{daysFrom(r.date) === 0 ? '今日' : `あと${daysFrom(r.date)}日`}</div></td>
+                  <td className="px-[18px] py-2.5"><b>{fmtDate(r.date)}</b><div className="text-xs text-faint">{daysFrom(r.date) === 0 ? '今日' : `あと${daysFrom(r.date)}日`}</div></td>
                   <td className="px-2 py-2.5"><PersonName name={r.person} className="underline-offset-2 hover:underline" /></td>
                   <td className="px-2 py-2.5"><span className="font-bold"><span style={{ color: `var(--c-${moduleOf(r)})` }}>●</span> {SHORT[moduleOf(r)]}</span> {r.field}{r.state === '承認待ち' && <span className="chip ml-1.5" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>承認待ち</span>}</td>
                   <td className="px-2 py-2.5"><s className="text-faint">{r.from}</s> → <b>{r.to}</b></td>

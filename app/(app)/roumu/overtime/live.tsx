@@ -56,7 +56,7 @@ export function OtLive({ date, names, caution, danger }: { date: string; names: 
     <div className="flex flex-col gap-3">
       <LiveBanner state={err ? 'error' : month.state} error={err} onReload={month.reload} note="見るだけです。残業は「実働 − 実働日数×8時間」の目安です（所定・休日労働・法定外かどうかは見ていません）" />
       <MikeikenNote mk={mk} live />
-      {ok && (month.data!.pending || 0) > 0 && <div className="flex items-center gap-2 text-[12.5px] text-warn">freee からまだ取れていない人が {month.data!.pending}人います<button onClick={month.reload} className="font-semibold underline">続きを読む</button></div>}
+      {ok && (month.data!.pending || 0) > 0 && <div className="flex items-center gap-2 text-sm text-warn">freee からまだ取れていない人が {month.data!.pending}人います<button onClick={month.reload} className="font-semibold underline">続きを読む</button></div>}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
           ['今月の経過', `${passed}/${all}日`, `${date.slice(5).replace('-', '/')} まで（平日で数えています）`],
@@ -64,29 +64,29 @@ export function OtLive({ date, names, caution, danger }: { date: string; names: 
           ['上限間近（目安）', `${cnt('danger')}人`, `特別条項の月 ${KYOTEI.spMonthly}h の${Math.round(danger * 10)}割を超える見込み`],
           ['注意（目安）', `${cnt('caution')}人`, `月 ${KYOTEI.monthly}h の${Math.round(caution * 10)}割に届く見込み`],
         ].map(([l, n, s]) => (
-          <div key={l} className="rounded-xl border border-line bg-surface px-4 py-3"><div className="text-[12px] text-muted">{l}</div><div className="num text-[22px] font-bold">{n}</div><div className="text-[11.5px] text-faint">{s}</div></div>
+          <div key={l} className="rounded-xl border border-line bg-surface px-4 py-3"><div className="text-sm text-muted">{l}</div><div className="num text-xl font-bold">{n}</div><div className="text-xs text-faint">{s}</div></div>
         ))}
       </div>
       <div className="overflow-hidden rounded-xl border border-line bg-surface">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] border-collapse text-[13px]">
+          <table className="w-full min-w-[760px] border-collapse text-body">
             <thead><tr className="th-row text-left"><th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 text-right font-semibold">今月の総労働</th><th className="px-2 py-2.5 text-right font-semibold">実働日数</th><th className="px-2 py-2.5 font-semibold">残業の目安（いま → 月末の見込み）</th><th className="px-4 py-2.5 font-semibold">段階</th></tr></thead>
             <tbody>
               {[...kept].sort((a, b) => ORDER.indexOf(a.level) - ORDER.indexOf(b.level) || b.proj - a.proj).map((x) => (
                 <tr key={x.key} className="row border-t border-line-soft">
-                  <td className="px-4 py-2.5"><PersonName name={x.name} className="font-semibold underline-offset-2 hover:underline" /><div className="text-[11.5px] text-faint">営業 {x.rep || '—'}</div></td>
+                  <td className="px-4 py-2.5"><PersonName name={x.name} className="font-semibold underline-offset-2 hover:underline" /><div className="text-xs text-faint">営業 {x.rep || '—'}</div></td>
                   <td className="num px-2 py-2.5 text-right">{x.state === 'pending' ? <span className="text-faint">取得中</span> : `${x.total}h`}</td>
                   <td className="num px-2 py-2.5 text-right">{x.days}日</td>
-                  <td className="num px-2 py-2.5"><span className="mr-1 rounded bg-sunken px-1 text-[10.5px] text-faint">目安</span><b>{x.over}h</b><span className="text-muted"> → {x.proj}h</span></td>
+                  <td className="num px-2 py-2.5"><span className="mr-1 rounded bg-sunken px-1 text-xs text-faint">目安</span><b>{x.over}h</b><span className="text-muted"> → {x.proj}h</span></td>
                   <td className="px-4 py-2.5"><span title="目安" className="chip" style={{ background: LEVEL_STYLE[x.level].bg, color: LEVEL_STYLE[x.level].fg }}>{LEVEL_STYLE[x.level].label}</span></td>
                 </tr>
               ))}
-              {kept.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-[12.5px] text-muted">{month.state === 'loading' ? 'freee の月次を読んでいます…（数十秒かかることがあります）' : '出せる人がいません'}</td></tr>}
+              {kept.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-muted">{month.state === 'loading' ? 'freee の月次を読んでいます…（数十秒かかることがあります）' : '出せる人がいません'}</td></tr>}
             </tbody>
           </table>
         </div>
       </div>
-      <div className="rounded-xl border border-line bg-soft px-4 py-2.5 text-[12.5px] text-muted">年の累計・45h超えの回数・2〜6か月平均・休日労働は、今の社内システムにまだ無いので出していません。知らせる（宛先へ載せる）も本物ではまだ動きません。</div>
+      <div className="rounded-xl border border-line bg-soft px-4 py-2.5 text-sm text-muted">年の累計・45h超えの回数・2〜6か月平均・休日労働は、今の社内システムにまだ無いので出していません。知らせる（宛先へ載せる）も本物ではまだ動きません。</div>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarPlus, Pencil, RefreshCw, Search, Trash2, TriangleAlert, Users, X } from 'lucide-react';
-import { PageTitle } from '@/components/ui';
+import { PageTitle, SkeletonRows } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
 import { LiveBanner, useIke } from '@/components/Live';
@@ -173,24 +173,24 @@ export default function MendanPage() {
     <main className="flex flex-col gap-3.5 px-4 pb-12 pt-[22px] sm:px-6">
       <PageTitle title="面談管理" sub={`面談の予定と結果。カードをドラッグするとステータスが変わります${live ? '' : '・見本データ'}`}>
         <button onClick={() => void syncParallel(true)} disabled={!canEdit} title={!canEdit ? needText('edit') : '今月の進行中の面談の件数を、営業リストの「並行」に入れ直します'}
-          className="inline-flex min-h-10 items-center gap-1.5 rounded-[10px] border border-field bg-surface px-3.5 text-[13px] font-semibold disabled:opacity-40"><Users size={14} />並行数を営業リストへ</button>
+          className="btn-secondary"><Users size={14} />並行数を営業リストへ</button>
         <button onClick={() => setAdding(true)} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined}
-          className="btn-primary inline-flex min-h-10 items-center gap-1.5 rounded-[10px] px-4 text-[13.5px] font-bold disabled:opacity-40"><CalendarPlus size={15} />面談を追加</button>
+          className="btn-primary"><CalendarPlus size={15} />面談を追加</button>
       </PageTitle>
       <LiveBanner state={iv.state} error={iv.error} onReload={iv.reload} note={`今の面談（Google カレンダー・2026/7/9 以降）${rows.length}件。ここで変えると今のシステムとカレンダーに保存されます`} />
       <MikeikenNote mk={mk} live={live} />
-      {err && <div role="alert" className="mo-shake flex items-start gap-2 rounded-xl border px-4 py-2.5 text-[12.5px]" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)', borderColor: 'var(--tone-bad-bar)' }}><TriangleAlert size={14} className="mt-0.5" /><span className="flex-1">{err}</span><button onClick={() => setErr('')} aria-label="閉じる"><X size={14} /></button></div>}
+      {err && <div role="alert" className="mo-shake flex items-start gap-2 rounded-xl border px-4 py-2.5 text-sm" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)', borderColor: 'var(--tone-bad-bar)' }}><TriangleAlert size={14} className="mt-0.5" /><span className="flex-1">{err}</span><button onClick={() => setErr('')} aria-label="閉じる"><X size={14} /></button></div>}
 
-      {!ready ? <div className="rounded-xl border border-line bg-surface px-5 py-10 text-center text-[13px] text-muted">{iv.state === 'error' ? '読めませんでした' : '読み込み中…'}</div> : (<>
+      {!ready ? <div className="rounded-xl border border-line bg-surface px-5 py-10 text-center text-body text-muted">{iv.state === 'error' ? '読めませんでした' : <SkeletonRows rows={5} />}</div> : (<>
         {/* 月と数字 */}
         <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
           <RemainRing remain={kpi.needInput} total={Math.max(kpi.needInput, monthRows.filter((r) => ivCol(r, t) !== IV_PRE).length)} />
-          <label className="flex items-center gap-2 text-[13px]">対象月
-            <select value={month} onChange={(e) => setMonth(e.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2.5 text-[13px]">
+          <label className="flex items-center gap-2 text-body">対象月
+            <select value={month} onChange={(e) => setMonth(e.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2.5 text-body">
               {months.map((m) => <option key={m.k} value={m.k}>{monthLabel(m.k)}（{m.n}件）</option>)}
             </select>
           </label>
-          <div className="text-[13px]"><b>結果が未入力 {kpi.needInput}件</b><span className="ml-2 text-[12px] text-faint">月を変えると 数字・カンバン・一覧 が全部その月になります</span></div>
+          <div className="text-body"><b>結果が未入力 {kpi.needInput}件</b><span className="ml-2 text-sm text-faint">月を変えると 数字・カンバン・一覧 が全部その月になります</span></div>
         </div>
         <div className="mo-fade-up grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5" style={{ ['--i' as string]: 2 }}>
           <Kpi label="面談数" value={`${kpi.total}件`} sub="この月の面談（2026/7/9 以降）" />
@@ -202,29 +202,29 @@ export default function MendanPage() {
 
         {/* カンバン */}
         <section className="mo-fade-up flex flex-col gap-2" style={{ ['--i' as string]: 3 }}>
-          <div className="flex flex-wrap items-baseline gap-2"><h2 className="text-[15px] font-bold">カンバン</h2><span className="text-[12px] text-faint">カードを別の列にドラッグするとステータスが変わります。押すと詳しく</span>
-            {notice && <span className="mo-shake text-[12px] font-semibold text-bad">{notice}</span>}</div>
+          <div className="flex flex-wrap items-baseline gap-2"><h2 className="text-md font-bold">カンバン</h2><span className="text-sm text-faint">カードを別の列にドラッグするとステータスが変わります。押すと詳しく</span>
+            {notice && <span className="mo-shake text-sm font-semibold text-bad">{notice}</span>}</div>
           <div className="flex gap-2.5 overflow-x-auto pb-1">
             {cols.map((col) => {
               const list = filtered.filter((r) => ivCol(r, t) === col);
               return (
                 <div key={col} {...dragProps(col)} className="flex w-[240px] shrink-0 flex-col rounded-xl border bg-soft"
                   style={{ borderColor: over === col ? 'var(--a)' : 'var(--color-line)', boxShadow: over === col ? '0 0 0 2px var(--as)' : undefined }}>
-                  <div className="flex items-center gap-1.5 px-3 py-2 text-[13px] font-bold">
+                  <div className="flex items-center gap-1.5 px-3 py-2 text-body font-bold">
                     <span className="chip" style={{ background: toneOf(col).bg, color: toneOf(col).fg }}>{col}</span>
-                    {col === IV_PRE && <span className="text-[11px] font-normal text-faint">自動</span>}
+                    {col === IV_PRE && <span className="text-xs font-normal text-faint">自動</span>}
                     <span className="num ml-auto text-muted">{list.length}</span>
                   </div>
                   <div className="flex max-h-[420px] min-h-[90px] flex-col gap-1.5 overflow-y-auto px-2 pb-2">
                     {list.map((r) => <Card key={r.id} r={r} now={t} canEdit={canEdit} flash={flash === r.id} dragging={drag === r.id}
                       onDragStart={() => setDrag(r.id)} onDragEnd={() => { setDrag(null); setOver(null); }} onOpen={() => setDetail(r)} />)}
-                    {list.length === 0 && <div className="px-2 py-4 text-center text-[12px] text-faint">ありません</div>}
+                    {list.length === 0 && <div className="px-2 py-4 text-center text-sm text-faint">ありません</div>}
                   </div>
                 </div>
               );
             })}
           </div>
-          <div className="mt-1 flex flex-wrap items-baseline gap-2"><h3 className="text-[13.5px] font-bold">着地ゾーン</h3><span className="text-[12px] text-faint">ここにドロップすると確定。押すと一覧をそのステータスに絞ります（件数はこの月の合計）</span></div>
+          <div className="mt-1 flex flex-wrap items-baseline gap-2"><h3 className="text-body font-bold">着地ゾーン</h3><span className="text-sm text-faint">ここにドロップすると確定。押すと一覧をそのステータスに絞ります（件数はこの月の合計）</span></div>
           <div className="grid grid-cols-3 gap-2.5">
             {IV_CLOSED.map((col) => {
               const n = monthRows.filter((r) => r.status === col).length;
@@ -232,7 +232,7 @@ export default function MendanPage() {
                 <button key={col} type="button" {...dragProps(col)} onClick={() => { setSf(col); document.getElementById('iv-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}
                   className="flex min-h-[64px] items-center justify-between rounded-xl border-2 border-dashed px-4 text-left"
                   style={{ borderColor: over === col ? 'var(--a)' : 'var(--color-line)', background: over === col ? 'var(--as)' : toneOf(col).bg, color: toneOf(col).fg }}>
-                  <span className="text-[14px] font-bold">{col}</span><span className="num text-[20px] font-bold">{n}</span>
+                  <span className="text-body font-bold">{col}</span><span className="num text-xl font-bold">{n}</span>
                 </button>
               );
             })}
@@ -242,21 +242,21 @@ export default function MendanPage() {
         {/* 一覧 */}
         <section id="iv-table" className="mo-fade-up flex flex-col gap-2" style={{ ['--i' as string]: 4 }}>
           <div className="flex flex-wrap items-center gap-2">
-            <label className="flex min-h-9 items-center gap-1.5 rounded-[10px] border border-field bg-surface px-2.5 text-[13px]">
+            <label className="flex min-h-9 items-center gap-1.5 rounded-[10px] border border-field bg-surface px-2.5 text-body">
               <Search size={14} className="text-faint" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="名前・案件で探す" className="w-48 min-w-0 bg-transparent outline-none" />
             </label>
-            <select value={sf} onChange={(e) => setSf(e.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2.5 text-[13px]" aria-label="ステータスで絞る">
+            <select value={sf} onChange={(e) => setSf(e.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2.5 text-body" aria-label="ステータスで絞る">
               <option value="">すべてのステータス</option>
               <option value="__pre">面談前（自動）</option>
               <option value={IV_WAIT}>結果待ち（自動を含む）</option>
               {IV_STATUSES.filter((s) => s !== IV_WAIT).map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
-            {(q || sf) && <button onClick={() => { setQ(''); setSf(''); }} className="text-[12.5px] font-semibold underline">絞り込みを消す</button>}
-            <span className="ml-auto text-[12px] text-faint">{filtered.length}件・日時の早い順</span>
-            {live && <button onClick={iv.reload} className="inline-flex items-center gap-1 text-[12px] text-muted"><RefreshCw size={12} />読み直す</button>}
+            {(q || sf) && <button onClick={() => { setQ(''); setSf(''); }} className="text-sm font-semibold underline">絞り込みを消す</button>}
+            <span className="ml-auto text-sm text-faint">{filtered.length}件・日時の早い順</span>
+            {live && <button onClick={iv.reload} className="inline-flex items-center gap-1 text-sm text-muted"><RefreshCw size={12} />読み直す</button>}
           </div>
           <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-            <table className="w-full min-w-[980px] border-collapse text-[13px]">
+            <table className="w-full min-w-[980px] border-collapse text-body">
               <thead><tr className="th-row text-left">
                 {['要員名', '面談日', 'ステータス', '営業担当', '面談回数', '案件', '面談練習担当', 'カテゴリ', 'メモ', ''].map((h, i) => <th key={i} className="whitespace-nowrap px-3 py-2.5 font-semibold">{h}</th>)}
               </tr></thead>
@@ -274,7 +274,7 @@ export default function MendanPage() {
                     <td className="whitespace-nowrap px-3 py-2">{r.trainer || '—'}</td>
                     <td className="whitespace-nowrap px-3 py-2">{r.category || '—'}</td>
                     <td className="max-w-[200px] px-3 py-2 text-muted"><div className="line-clamp-2 whitespace-pre-line">{r.memo || '—'}</div></td>
-                    <td className="px-3 py-2"><button onClick={() => setEdit(r)} disabled={!canEdit} title={!canEdit ? needText('edit') : '編集'} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border border-field px-2 text-[12px] font-semibold disabled:opacity-40"><Pencil size={12} />編集</button></td>
+                    <td className="px-3 py-2"><button onClick={() => setEdit(r)} disabled={!canEdit} title={!canEdit ? needText('edit') : '編集'} className="btn-secondary btn-sm"><Pencil size={12} />編集</button></td>
                   </tr>
                 ))}
                 {shown.length === 0 && <tr><td colSpan={10} className="px-4 py-10 text-center text-muted">この条件の面談はありません</td></tr>}
@@ -284,7 +284,7 @@ export default function MendanPage() {
           {pages > 1 && (
             <div className="flex flex-wrap items-center justify-center gap-1">
               {Array.from({ length: pages }, (_, i) => i + 1).map((p) => (
-                <button key={p} onClick={() => setPage(p)} className="num min-h-8 min-w-8 rounded-lg border border-field px-2 text-[12.5px]" style={p === page ? { background: 'var(--a)', color: 'var(--btn-fg, #fff)', borderColor: 'var(--a)' } : undefined}>{p}</button>
+                <button key={p} onClick={() => setPage(p)} className="num min-h-8 min-w-8 rounded-lg border border-field px-2 text-sm" style={p === page ? { background: 'var(--a)', color: 'var(--btn-fg, #fff)', borderColor: 'var(--a)' } : undefined}>{p}</button>
               ))}
             </div>
           )}
@@ -314,9 +314,9 @@ function Kpi({ label, value, sub, accent, warn, onClick }: { label: string; valu
   const C = onClick ? 'button' : 'div';
   return (
     <C onClick={onClick} className={`rounded-xl border border-line bg-surface px-3.5 py-2.5 text-left ${onClick ? 'hover:border-field' : ''}`}>
-      <div className="text-[12px] font-semibold text-muted">{label}</div>
-      <div className="num mt-0.5 text-[20px] font-bold" style={{ color: warn ? 'var(--color-bad)' : accent ? 'var(--ad)' : undefined }}>{value}</div>
-      {sub && <div className="mt-0.5 text-[11px] leading-snug text-faint">{sub}</div>}
+      <div className="text-sm font-semibold text-muted">{label}</div>
+      <div className="num mt-0.5 text-xl font-bold" style={{ color: warn ? 'var(--color-bad)' : accent ? 'var(--ad)' : undefined }}>{value}</div>
+      {sub && <div className="mt-0.5 text-xs leading-snug text-faint">{sub}</div>}
     </C>
   );
 }
@@ -327,13 +327,13 @@ function Card({ r, now, canEdit, flash, dragging, onDragStart, onDragEnd, onOpen
   return (
     <article draggable={canEdit} onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart(); }} onDragEnd={onDragEnd}
       onClick={onOpen} onKeyDown={(e) => { if (e.key === 'Enter') onOpen(); }} tabIndex={0} role="button" aria-label={`${r.name} の面談`}
-      className={`rounded-lg border bg-surface px-2.5 py-2 text-[12.5px] ${canEdit ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} ${dragging ? 'opacity-50' : ''} ${flash ? (r.status === '成約' ? 'mo-celebrate' : 'mo-flash') : ''}`}
+      className={`rounded-lg border bg-surface px-2.5 py-2 text-sm ${canEdit ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} ${dragging ? 'opacity-50' : ''} ${flash ? (r.status === '成約' ? 'mo-celebrate' : 'mo-flash') : ''}`}
       style={{ borderColor: auto ? 'var(--color-warn)' : 'var(--color-line)' }}>
       <div className="flex items-center gap-1.5">
-        <PersonName name={r.name} className="truncate text-[13px] font-bold underline-offset-2 hover:underline" />
+        <PersonName name={r.name} className="truncate text-body font-bold underline-offset-2 hover:underline" />
         {auto && <span className="chip shrink-0" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }} title="ステータスは未入力。面談日時を過ぎたので自動でこの列に置いています">自動</span>}
       </div>
-      <div className="mt-0.5 flex items-center gap-1 text-[11.5px] text-muted">
+      <div className="mt-0.5 flex items-center gap-1 text-xs text-muted">
         <span className="num truncate">{r.date || '日時未定'}{r.salesRep ? ` / ${r.salesRep}` : ''}</span>
         {hint && <span className="ml-auto shrink-0 font-semibold" style={{ color: hint.tone === 'bad' ? 'var(--color-bad)' : hint.tone === 'warn' ? 'var(--color-warn)' : 'var(--color-faint)' }}>{hint.t}</span>}
       </div>
@@ -349,11 +349,11 @@ function StatusSelect({ r, now, disabled, onChange }: { r: IvRec; now: number; d
   return (
     <span className="inline-flex items-center gap-1">
       <select value={st} disabled={disabled} onChange={(e) => onChange(e.target.value)} aria-label="ステータス"
-        className="min-h-8 rounded-lg border-0 px-2 text-[12.5px] font-semibold disabled:opacity-60" style={{ background: tone.bg, color: tone.fg }}>
+        className="min-h-8 rounded-lg border-0 px-2 text-sm font-semibold disabled:opacity-60" style={{ background: tone.bg, color: tone.fg }}>
         {!st && <option value="" disabled>{ivCol(r, now)}</option>}
         {opts.map((s) => <option key={s} value={s}>{s}</option>)}
       </select>
-      {ivAuto(r, now) && <span className="text-[11px] font-semibold" style={{ color: 'var(--color-warn)' }}>自動</span>}
+      {ivAuto(r, now) && <span className="text-xs font-semibold" style={{ color: 'var(--color-warn)' }}>自動</span>}
     </span>
   );
 }
@@ -361,9 +361,9 @@ function StatusSelect({ r, now, disabled, onChange }: { r: IvRec; now: number; d
 function DlgShell({ label, onClose, children, foot }: { label: string; onClose: () => void; children: React.ReactNode; foot?: React.ReactNode }) {
   return (
     <Dialog label={label} onClose={onClose} z={DLG_Z} backdropClassName="bg-black/30"
-      className="mo-scale-in fixed left-1/2 top-[6vh] flex max-h-[88vh] w-[min(620px,94vw)] -translate-x-1/2 flex-col rounded-2xl border border-line bg-surface shadow-[0_18px_48px_rgba(25,27,46,.22)]">
+      className="mo-scale-in fixed left-1/2 top-[6vh] flex max-h-[88vh] w-[min(620px,94vw)] -translate-x-1/2 flex-col panel">
       <div className="flex items-center gap-2 border-b border-line px-5 py-3">
-        <h2 className="text-[15.5px] font-bold">{label}</h2>
+        <h2 className="text-md font-bold">{label}</h2>
         <button data-dialog-close onClick={onClose} aria-label="閉じる" className="ml-auto rounded-lg p-1.5 text-muted hover:bg-soft"><X size={16} /></button>
       </div>
       <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
@@ -376,9 +376,9 @@ function DetailDialog({ r, now, canEdit, onClose, onEdit, onStatus }: { r: IvRec
   const st = ivStat(r);
   return (
     <DlgShell label={`${r.name || '面談'} の面談`} onClose={onClose}
-      foot={<button onClick={onEdit} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="btn-primary ml-auto inline-flex min-h-10 items-center gap-1.5 rounded-[10px] px-4 text-[13.5px] font-bold disabled:opacity-40"><Pencil size={14} />編集</button>}>
-      <div className="mb-3"><PersonName name={r.name} className="text-[14px] font-bold underline-offset-2 hover:underline" /></div>
-      <dl className="grid grid-cols-[96px_1fr] gap-x-3 gap-y-1.5 text-[13px]">
+      foot={<button onClick={onEdit} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="btn-primary ml-auto"><Pencil size={14} />編集</button>}>
+      <div className="mb-3"><PersonName name={r.name} className="text-body font-bold underline-offset-2 hover:underline" /></div>
+      <dl className="grid grid-cols-[96px_1fr] gap-x-3 gap-y-1.5 text-body">
         <dt className="text-muted">面談日</dt><dd className="num">{r.date || '—'}</dd>
         <dt className="text-muted">ステータス</dt><dd>{st || `${ivCol(r, now)}（自動）`}</dd>
         <dt className="text-muted">営業担当</dt><dd>{r.salesRep || '—'}</dd>
@@ -387,13 +387,13 @@ function DetailDialog({ r, now, canEdit, onClose, onEdit, onStatus }: { r: IvRec
         <dt className="text-muted">練習担当</dt><dd>{r.trainer || '—'}</dd>
         <dt className="text-muted">カテゴリ</dt><dd>{r.category || '—'}</dd>
       </dl>
-      <div className="mt-3 text-[12px] font-semibold text-muted">案件</div>
-      <div className="mt-1 whitespace-pre-wrap break-words rounded-[10px] bg-soft px-3 py-2 text-[13px]">{r.caseInfo || '（案件の情報なし）'}</div>
-      {r.memo && r.memo !== r.caseInfo && <><div className="mt-3 text-[12px] font-semibold text-muted">メモ</div><div className="mt-1 whitespace-pre-wrap break-words text-[13px]">{r.memo}</div></>}
-      <div className="mt-4 text-[12px] font-semibold text-muted">ステータスを変える</div>
+      <div className="mt-3 text-sm font-semibold text-muted">案件</div>
+      <div className="mt-1 whitespace-pre-wrap break-words rounded-[10px] bg-soft px-3 py-2 text-body">{r.caseInfo || '（案件の情報なし）'}</div>
+      {r.memo && r.memo !== r.caseInfo && <><div className="mt-3 text-sm font-semibold text-muted">メモ</div><div className="mt-1 whitespace-pre-wrap break-words text-body">{r.memo}</div></>}
+      <div className="mt-4 text-sm font-semibold text-muted">ステータスを変える</div>
       <div className="mt-1.5 flex flex-wrap gap-1.5">
         {IV_STATUSES.map((s) => (
-          <button key={s} disabled={!canEdit || s === st} onClick={() => onStatus(s)} className="chip min-h-8 px-3 text-[12.5px] disabled:cursor-default"
+          <button key={s} disabled={!canEdit || s === st} onClick={() => onStatus(s)} className="chip min-h-8 px-3 text-sm disabled:cursor-default"
             style={s === st ? { background: 'var(--a)', color: 'var(--btn-fg, #fff)' } : { background: toneOf(s).bg, color: toneOf(s).fg, opacity: canEdit ? 1 : 0.5 }}>{s}</button>
         ))}
       </div>
@@ -402,9 +402,9 @@ function DetailDialog({ r, now, canEdit, onClose, onEdit, onStatus }: { r: IvRec
 }
 
 function Field({ label, children, full }: { label: string; children: React.ReactNode; full?: boolean }) {
-  return <label className={`flex flex-col gap-1 text-[12.5px] font-semibold text-muted ${full ? 'sm:col-span-2' : ''}`}>{label}{children}</label>;
+  return <label className={`flex flex-col gap-1 text-sm font-semibold text-muted ${full ? 'sm:col-span-2' : ''}`}>{label}{children}</label>;
 }
-const INPUT = 'min-h-10 w-full rounded-[10px] border border-field bg-surface px-3 text-[14px] font-normal';
+const INPUT = 'min-h-10 w-full rounded-[10px] border border-field bg-surface px-3 text-body font-normal';
 
 function FormFields({ f, set, salesReps, trainers, names, nameHint }: { f: Form; set: (p: Partial<Form>) => void; salesReps: string[]; trainers: string[]; names?: string[]; nameHint?: string }) {
   return (
@@ -412,7 +412,7 @@ function FormFields({ f, set, salesReps, trainers, names, nameHint }: { f: Form;
       <Field label="要員名 *">
         <input value={f.name} onChange={(e) => set({ name: e.target.value })} list="iv-names" className={INPUT} autoComplete="off" />
         {names && <datalist id="iv-names">{names.map((n) => <option key={n} value={n} />)}</datalist>}
-        {nameHint && <span className="text-[11.5px] font-normal" style={{ color: 'var(--color-warn)' }}>{nameHint}</span>}
+        {nameHint && <span className="text-xs font-normal" style={{ color: 'var(--color-warn)' }}>{nameHint}</span>}
       </Field>
       <Field label="営業担当">
         <input value={f.salesRep} onChange={(e) => set({ salesRep: e.target.value })} list="iv-reps" className={INPUT} autoComplete="off" />
@@ -460,10 +460,10 @@ function AddDialog({ live, salesReps, trainers, onClose, onSaved }: { live: bool
   return (
     <DlgShell label="面談を追加" onClose={onClose}
       foot={<>
-        {err && <span className="mo-shake text-[12.5px] font-semibold text-bad">{err}</span>}
-        <span className="text-[11.5px] text-faint">{live ? '追加すると Google カレンダーに予定が入ります' : '見本なので保存しません'}</span>
-        <button onClick={onClose} className="ml-auto min-h-10 rounded-[10px] border border-field px-3.5 text-[13px] font-semibold">やめる</button>
-        <button onClick={save} disabled={busy} className="btn-primary min-h-10 rounded-[10px] px-4 text-[13.5px] font-bold disabled:opacity-50">{busy ? '追加しています…' : '追加する'}</button>
+        {err && <span className="mo-shake text-sm font-semibold text-bad">{err}</span>}
+        <span className="text-xs text-faint">{live ? '追加すると Google カレンダーに予定が入ります' : '見本なので保存しません'}</span>
+        <button onClick={onClose} className="btn-secondary ml-auto">やめる</button>
+        <button onClick={save} disabled={busy} className="btn-primary">{busy ? '追加しています…' : '追加する'}</button>
       </>}>
       <FormFields f={f} set={(p) => setF((x) => ({ ...x, ...p }))} salesReps={salesReps} trainers={trainers} names={names} nameHint={nameHint} />
     </DlgShell>
@@ -517,18 +517,18 @@ function EditDialog({ r, live, salesReps, trainers, onClose, onSaved, onDeleted 
   return (
     <DlgShell label="面談を編集" onClose={close}
       foot={<>
-        <button onClick={() => setConfirmDel(true)} className="inline-flex min-h-10 items-center gap-1.5 rounded-[10px] border px-3 text-[13px] font-semibold" style={{ color: 'var(--color-bad)', borderColor: 'var(--color-bad-line, var(--color-line))' }}><Trash2 size={14} />削除</button>
-        <span className="ml-auto text-[12px]" style={{ color: state.bad ? 'var(--color-bad)' : 'var(--color-muted)' }}>{state.t}</span>
-        <button onClick={close} className="min-h-10 rounded-[10px] border border-field px-3.5 text-[13px] font-semibold">閉じる</button>
+        <button onClick={() => setConfirmDel(true)} className="inline-flex min-h-10 items-center gap-1.5 rounded-[10px] border px-3 text-body font-semibold" style={{ color: 'var(--color-bad)', borderColor: 'var(--color-bad-line, var(--color-line))' }}><Trash2 size={14} />削除</button>
+        <span className="ml-auto text-sm" style={{ color: state.bad ? 'var(--color-bad)' : 'var(--color-muted)' }}>{state.t}</span>
+        <button onClick={close} className="btn-secondary">閉じる</button>
       </>}>
       <FormFields f={f} set={(p) => set(p, !('name' in p || 'salesRep' in p || 'trainer' in p || 'caseInfo' in p || 'memo' in p))} salesReps={salesReps} trainers={trainers} />
       {confirmDel && (
         <div role="alertdialog" className="mo-scale-in mt-4 rounded-xl border px-4 py-3" style={{ borderColor: 'var(--color-bad-line, var(--color-bad))', background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>
-          <div className="text-[13.5px] font-bold">この面談を削除しますか？</div>
-          <div className="mt-0.5 text-[12.5px]">{live ? 'Google カレンダーの予定も削除されます。元には戻せません。' : '見本なのでこの画面の中だけで消えます。'}</div>
+          <div className="text-body font-bold">この面談を削除しますか？</div>
+          <div className="mt-0.5 text-sm">{live ? 'Google カレンダーの予定も削除されます。元には戻せません。' : '見本なのでこの画面の中だけで消えます。'}</div>
           <div className="mt-2.5 flex gap-2">
-            <button onClick={() => void del()} className="min-h-9 rounded-[10px] px-3.5 text-[13px] font-bold text-white" style={{ background: 'var(--color-bad)' }}>削除する</button>
-            <button onClick={() => setConfirmDel(false)} className="min-h-9 rounded-[10px] border border-field bg-surface px-3.5 text-[13px] font-semibold">やめる</button>
+            <button onClick={() => void del()} className="btn-danger solid">削除する</button>
+            <button onClick={() => setConfirmDel(false)} className="btn-secondary">やめる</button>
           </div>
         </div>
       )}

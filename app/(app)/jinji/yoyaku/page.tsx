@@ -133,7 +133,7 @@ export default function YoyakuPage() {
       {live && <NotInLegacy what="住所・通勤・単価・現場の予約と承認" />}
 
       <section aria-label="これから30日" className="mo-fade-up rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
-        <div className="mb-2 flex items-center justify-between text-[12px] text-muted"><b className="text-[13px] text-ink">これから30日</b>{day && <button onClick={() => setDay(null)} className="font-semibold" style={{ color: 'var(--ad)' }}>{fmtDate(day)} の絞り込みを外す</button>}</div>
+        <div className="mb-2 flex items-center justify-between text-sm text-muted"><b className="text-body text-ink">これから30日</b>{day && <button onClick={() => setDay(null)} className="font-semibold" style={{ color: 'var(--ad)' }}>{fmtDate(day)} の絞り込みを外す</button>}</div>
         <div className="grid grid-cols-[repeat(30,minmax(0,1fr))] gap-1">
           {strip.map(({ d, items }, i) => {
             const date = new Date(d + 'T00:00:00');
@@ -141,18 +141,18 @@ export default function YoyakuPage() {
             const weekend = date.getDay() === 0 || date.getDay() === 6;
             return (
               <button key={d} onClick={() => items.length && setDay(sel ? null : d)} disabled={!items.length} aria-label={`${fmtDate(d)} 予約${items.length}件`}
-                className="mo-fade-in flex min-h-[64px] flex-col items-center gap-1 rounded-lg py-1.5 text-[11px] disabled:cursor-default"
+                className="mo-fade-in flex min-h-[64px] flex-col items-center gap-1 rounded-lg py-1.5 text-xs disabled:cursor-default"
                 style={{ ['--i' as string]: Math.min(i, 12), background: sel ? 'var(--as)' : items.length ? 'var(--color-soft)' : undefined, boxShadow: sel ? 'inset 0 0 0 1.5px var(--a)' : undefined }}>
                 <span className={weekend ? 'text-faint' : 'text-muted'}>{i === 0 ? '今日' : date.getDate() === 1 || i === 1 ? `${date.getMonth() + 1}/${date.getDate()}` : date.getDate()}</span>
                 <span className="flex flex-col items-center gap-0.5">
                   {items.slice(0, 3).map((r) => <i key={r.id} className="size-[7px] rounded-full" style={{ background: `var(--c-${FIELD_RULES[r.field].module})`, outline: r.state === '承認待ち' ? '2px solid var(--tone-bad-bar)' : undefined, outlineOffset: 1 }} />)}
-                  {items.length > 3 && <span className="num text-[10px] text-faint">+{items.length - 3}</span>}
+                  {items.length > 3 && <span className="num text-xs text-faint">+{items.length - 3}</span>}
                 </span>
               </button>
             );
           })}
         </div>
-        <div className="mt-2 flex flex-wrap gap-3 text-[11.5px] text-muted">
+        <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted">
           {MODULES.map((m) => <span key={m.key} className="inline-flex items-center gap-1.5"><i className="size-[7px] rounded-full" style={{ background: `var(--c-${m.key})` }} />{m.label}</span>)}
           <span className="inline-flex items-center gap-1.5"><i className="size-[7px] rounded-full" style={{ outline: '2px solid var(--tone-bad-bar)', outlineOffset: 1 }} />承認待ち</span>
         </div>
@@ -162,8 +162,7 @@ export default function YoyakuPage() {
         {(['これから', '承認待ち', '適用済み'] as Filter[]).map((f) => {
           const n = f === 'これから' ? upcoming.length : rows.filter((r) => r.state === f).length;
           return (
-            <button key={f} onClick={() => setFilter(f)} className="min-h-9 whitespace-nowrap rounded-full border px-3.5 text-[13px]"
-              style={filter === f ? { borderColor: 'var(--a)', background: 'var(--as)', color: 'var(--ad)', fontWeight: 700 } : { borderColor: 'var(--color-field)', background: 'var(--color-surface)' }}>
+            <button key={f} onClick={() => setFilter(f)} aria-pressed={filter === f} className="fchip">
               {f} <span className="num">{n}</span>
             </button>
           );
@@ -172,7 +171,7 @@ export default function YoyakuPage() {
 
       <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 3 }}>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1040px] border-collapse text-[13px]">
+          <table className="w-full min-w-[1040px] border-collapse text-body">
             <thead><tr className="th-row text-left">
               <th className="px-4 py-2.5 font-semibold">適用日</th><th className="px-2 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">項目</th><th className="px-2 py-2.5 font-semibold">変更前 → 変更後</th><th className="px-2 py-2.5 font-semibold">一緒に変わるもの</th><th className="px-2 py-2.5 font-semibold">状態</th><th className="px-4 py-2.5" />
             </tr></thead>
@@ -184,15 +183,15 @@ export default function YoyakuPage() {
                 const canApprove = can(rule.module, 'approve');
                 return (
                   <tr key={r.id} className={`mo-fade-in border-t border-line-soft align-top ${flash === r.id ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
-                    <td className="whitespace-nowrap px-4 py-2.5"><b className="num">{fmtDate(r.date)}</b><div className="text-[11.5px]" style={{ color: left <= 3 && r.state !== '適用済み' ? 'var(--color-bad)' : 'var(--color-faint)' }}>{r.state === '適用済み' ? `${-left}日前に切り替え` : left === 0 ? '今日の朝に切り替え' : left < 0 ? `${-left}日前の日付・まだ確定していない` : `あと${left}日`}</div></td>
-                    <td className="whitespace-nowrap px-2 py-2.5 font-semibold">{r.personId ? <PersonName name={r.person} className="hover:underline underline-offset-2" /> : <PersonName name={r.person} className="underline-offset-2 hover:underline" />}<div className="text-[11.5px] font-normal text-faint">登録 {r.by}</div></td>
-                    <td className="px-2 py-2.5"><span className="inline-flex items-center gap-1.5 font-semibold"><i className="size-[7px] rounded-full" style={{ background: `var(--c-${rule.module})` }} />{r.field}</span><div className="text-[11.5px] text-faint">{SHORT[rule.module]}</div></td>
-                    <td className="px-2 py-2.5"><span className="text-faint line-through">{r.from}</span> <ArrowRight size={13} className="inline text-faint" /> <b>{r.to}</b>{r.note && <div className="mt-0.5 text-[11.5px] text-muted">{r.note}</div>}</td>
-                    <td className="max-w-[280px] px-2 py-2.5"><div className="flex flex-wrap gap-1">{rule.with.map((w) => <span key={w} className="rounded-md bg-soft px-1.5 py-0.5 text-[11.5px] text-muted">{w}</span>)}</div></td>
-                    <td className="px-2 py-2.5"><StateChip s={r.state} />{r.state === '承認待ち' && <div className="mt-1 text-[11px] text-faint">{SHORT[rule.module]}の承認が要る</div>}</td>
+                    <td className="whitespace-nowrap px-4 py-2.5"><b className="num">{fmtDate(r.date)}</b><div className="text-xs" style={{ color: left <= 3 && r.state !== '適用済み' ? 'var(--color-bad)' : 'var(--color-faint)' }}>{r.state === '適用済み' ? `${-left}日前に切り替え` : left === 0 ? '今日の朝に切り替え' : left < 0 ? `${-left}日前の日付・まだ確定していない` : `あと${left}日`}</div></td>
+                    <td className="whitespace-nowrap px-2 py-2.5 font-semibold">{r.personId ? <PersonName name={r.person} className="hover:underline underline-offset-2" /> : <PersonName name={r.person} className="underline-offset-2 hover:underline" />}<div className="text-xs font-normal text-faint">登録 {r.by}</div></td>
+                    <td className="px-2 py-2.5"><span className="inline-flex items-center gap-1.5 font-semibold"><i className="size-[7px] rounded-full" style={{ background: `var(--c-${rule.module})` }} />{r.field}</span><div className="text-xs text-faint">{SHORT[rule.module]}</div></td>
+                    <td className="px-2 py-2.5"><span className="text-faint line-through">{r.from}</span> <ArrowRight size={13} className="inline text-faint" /> <b>{r.to}</b>{r.note && <div className="mt-0.5 text-xs text-muted">{r.note}</div>}</td>
+                    <td className="max-w-[280px] px-2 py-2.5"><div className="flex flex-wrap gap-1">{rule.with.map((w) => <span key={w} className="rounded-md bg-soft px-1.5 py-0.5 text-xs text-muted">{w}</span>)}</div></td>
+                    <td className="px-2 py-2.5"><StateChip s={r.state} />{r.state === '承認待ち' && <div className="mt-1 text-xs text-faint">{SHORT[rule.module]}の承認が要る</div>}</td>
                     <td className="whitespace-nowrap px-4 py-2.5 text-right">
-                      {r.state === '承認待ち' && <button onClick={() => approve(r)} disabled={live || !canApprove} title={live ? LIVE_WRITE_BLOCKED : !canApprove ? needText('approve') : undefined} className="btn-primary mr-1.5 inline-flex min-h-8 items-center gap-1 rounded-lg px-2.5 text-[12.5px] font-semibold disabled:opacity-40"><Check size={14} />承認する</button>}
-                      {(r.state === '承認待ち' || r.state === '予約中') && <button onClick={() => cancel(r)} disabled={live || !can(rule.module, 'edit')} title={live ? LIVE_WRITE_BLOCKED : !can(rule.module, 'edit') ? needText('edit') : undefined} className="inline-flex min-h-8 items-center rounded-lg border border-field bg-surface px-2.5 text-[12.5px] font-semibold disabled:opacity-40">取り消す</button>}
+                      {r.state === '承認待ち' && <button onClick={() => approve(r)} disabled={live || !canApprove} title={live ? LIVE_WRITE_BLOCKED : !canApprove ? needText('approve') : undefined} className="btn-primary mr-1.5 btn-sm"><Check size={14} />承認する</button>}
+                      {(r.state === '承認待ち' || r.state === '予約中') && <button onClick={() => cancel(r)} disabled={live || !can(rule.module, 'edit')} title={live ? LIVE_WRITE_BLOCKED : !can(rule.module, 'edit') ? needText('edit') : undefined} className="btn-secondary btn-sm">取り消す</button>}
                     </td>
                   </tr>
                 );
@@ -227,57 +226,56 @@ function YoyakuForm({ initial, rows, onClose, onSave }: { initial: string; rows:
 
   return (
     <DrawerPortal>
-      <aside aria-label="変更を予約" className="mo-drawer fixed bottom-0 right-0 top-[var(--hdr,58px)] z-20 flex w-[min(444px,100vw)] flex-col border-l border-line bg-surface shadow-[-12px_0_28px_rgba(25,27,46,.10)]">
+      <aside aria-label="変更を予約" className="mo-drawer drawer">
         <div className="flex items-start justify-between px-5 py-4">
-          <div><div className="text-[12px] text-faint">いつから変わるかを決めて予約</div><div className="text-[18px] font-bold">変更を予約</div></div>
+          <div><div className="text-sm text-faint">いつから変わるかを決めて予約</div><div className="text-lg font-bold">変更を予約</div></div>
           <button aria-label="閉じる" onClick={onClose} className="flex size-[34px] items-center justify-center rounded-[10px] border border-line"><X size={16} /></button>
         </div>
-        <div className="flex flex-1 flex-col gap-3.5 overflow-y-auto px-5 pb-4 text-[13px]">
-          <label className="flex flex-col gap-1 text-[12px] text-muted">社員
-            <select value={pid} onChange={(e) => { setPid(e.target.value); setTo(''); setReplace(false); }} className="min-h-10 rounded-[10px] border border-field bg-surface px-2.5 text-[13.5px] text-ink">
+        <div className="flex flex-1 flex-col gap-3.5 overflow-y-auto px-5 pb-4 text-body">
+          <label className="flex flex-col gap-1 text-sm text-muted">社員
+            <select value={pid} onChange={(e) => { setPid(e.target.value); setTo(''); setReplace(false); }} className="min-h-10 rounded-[10px] border border-field bg-surface px-2.5 text-body text-ink">
               {people.map((x) => <option key={x.id} value={x.id}>{x.name}（{x.site === '—' ? x.status : x.site}）</option>)}
             </select>
           </label>
-          <div className="flex flex-col gap-1 text-[12px] text-muted">変える項目
+          <div className="flex flex-col gap-1 text-sm text-muted">変える項目
             <div className="flex flex-wrap gap-1.5">
               {FIELDS.map((f) => (
-                <button key={f} onClick={() => { setField(f); setTo(''); setReplace(false); }} aria-pressed={field === f} className="inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-[13px]"
-                  style={field === f ? { borderColor: 'var(--a)', background: 'var(--as)', color: 'var(--ad)', fontWeight: 700 } : { borderColor: 'var(--color-field)', color: 'var(--color-ink)' }}>
+                <button key={f} onClick={() => { setField(f); setTo(''); setReplace(false); }} aria-pressed={field === f} className="fchip">
                   <i className="size-[7px] rounded-full" style={{ background: `var(--c-${FIELD_RULES[f].module})` }} />{f}
                 </button>
               ))}
             </div>
           </div>
-          <label className="flex flex-col gap-1 text-[12px] text-muted">いつから（この日の朝6:00に切り替え）
-            <input type="date" value={date} min={TODAY} onChange={(e) => setDate(e.target.value)} className="min-h-10 rounded-[10px] border border-field bg-surface px-2.5 text-[13.5px] text-ink" />
+          <label className="flex flex-col gap-1 text-sm text-muted">いつから（この日の朝6:00に切り替え）
+            <input type="date" value={date} min={TODAY} onChange={(e) => setDate(e.target.value)} className="min-h-10 rounded-[10px] border border-field bg-surface px-2.5 text-body text-ink" />
             {past && <span className="text-bad">今日より前の日は選べません</span>}
           </label>
           <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
-            <div className="flex flex-col gap-1 text-[12px] text-muted">いま<div className="flex min-h-10 items-center rounded-[10px] bg-soft px-2.5 text-[13.5px] text-ink">{from}</div></div>
+            <div className="flex flex-col gap-1 text-sm text-muted">いま<div className="flex min-h-10 items-center rounded-[10px] bg-soft px-2.5 text-body text-ink">{from}</div></div>
             <ArrowRight size={16} className="mb-3 text-faint" />
-            <label className="flex flex-col gap-1 text-[12px] text-muted">変更後
-              <select value={to} onChange={(e) => setTo(e.target.value)} className="min-h-10 min-w-0 rounded-[10px] border border-field bg-surface px-2.5 text-[13.5px] text-ink"><option value="">選ぶ</option>{opts.map((o) => <option key={o}>{o}</option>)}</select>
+            <label className="flex flex-col gap-1 text-sm text-muted">変更後
+              <select value={to} onChange={(e) => setTo(e.target.value)} className="min-h-10 min-w-0 rounded-[10px] border border-field bg-surface px-2.5 text-body text-ink"><option value="">選ぶ</option>{opts.map((o) => <option key={o}>{o}</option>)}</select>
             </label>
           </div>
 
           {clash && (
             <div role="alert" key={clash.id} className="mo-shake flex flex-col gap-2 rounded-[10px] border border-bad-line bg-bad-soft px-3 py-2.5 text-bad">
               <span className="flex gap-2"><AlertTriangle size={16} className="mt-0.5 shrink-0" />{p.name} の{field}には、まだ切り替わっていない予約があります（{fmtDate(clash.date)} から「{clash.to}」）。</span>
-              <label className="flex items-center gap-2 text-[12.5px] font-semibold"><input type="checkbox" checked={replace} onChange={(e) => setReplace(e.target.checked)} />前の予約を取り消して、こちらにする</label>
+              <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={replace} onChange={(e) => setReplace(e.target.checked)} />前の予約を取り消して、こちらにする</label>
             </div>
           )}
 
           <div className="rounded-[10px] border border-line px-3.5 py-3">
-            <div className="mb-1.5 text-[12px] font-semibold text-muted">{fmtDate(date)} から一緒に変わるもの</div>
+            <div className="mb-1.5 text-sm font-semibold text-muted">{fmtDate(date)} から一緒に変わるもの</div>
             <ul className="flex flex-col gap-1.5">
               {rule.with.map((w, i) => <li key={w} className="mo-fade-up flex items-center gap-2" style={{ ['--i' as string]: i }}><Check size={14} className="text-ok" />{w}</li>)}
             </ul>
-            {rule.approve && <div className="mt-2 text-[12px] text-warn">この項目は{SHORT[rule.module]}の承認が要ります。承認されるまで切り替わりません。</div>}
-            {field === '現場' && <div className="mt-2 text-[12px] text-muted">通勤の経路が変わる場合は、通勤の予約も同じ日で作られます（経理の承認待ちに載ります）。</div>}
+            {rule.approve && <div className="mt-2 text-sm text-warn">この項目は{SHORT[rule.module]}の承認が要ります。承認されるまで切り替わりません。</div>}
+            {field === '現場' && <div className="mt-2 text-sm text-muted">通勤の経路が変わる場合は、通勤の予約も同じ日で作られます（経理の承認待ちに載ります）。</div>}
           </div>
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
-          <button onClick={onClose} className="min-h-10 rounded-[10px] border border-field bg-surface px-3.5 text-[13.5px] font-semibold">やめる</button>
+          <button onClick={onClose} className="btn-secondary">やめる</button>
           <PrimaryButton onClick={save} disabled={!ready} title={!canMake ? needText('edit') : clash && !replace ? '前の予約をどうするか選んでください' : !to.trim() ? '変更後を選んでください' : past ? '今日より前の日は選べません' : undefined}>
             {rule.approve ? '予約して承認に回す' : '予約する'}
           </PrimaryButton>

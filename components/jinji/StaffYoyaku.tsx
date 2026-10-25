@@ -86,11 +86,11 @@ export function StaffYoyaku({ live, people, yoyaku, today, onDone }: { live: boo
 
   const ty = local.filter((y) => y.kind === 'taiki'), ts = local.filter((y) => y.kind === 'taisha');
   const panel = 'rounded-xl border border-line bg-surface px-4 py-3.5';
-  const list = (items: StaffYoyaku[], empty: string) => items.length === 0 ? <div className="text-[12.5px] text-muted">{empty}</div> : (
+  const list = (items: StaffYoyaku[], empty: string) => items.length === 0 ? <div className="text-sm text-muted">{empty}</div> : (
     <div className="flex flex-wrap gap-1.5">
       {items.map((y) => (
-        <span key={`${y.kind}-${y.name}`} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-soft py-1 pl-3 pr-1 text-[12.5px]">
-          <PersonName name={y.name} className="font-semibold underline-offset-2 hover:underline" /><span className="num">{fmt(y.date)}</span><span className="text-[11.5px] text-muted">{left(y.date, today, y.kind === 'taisha')}</span>
+        <span key={`${y.kind}-${y.name}`} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-soft py-1 pl-3 pr-1 text-sm">
+          <PersonName name={y.name} className="font-semibold underline-offset-2 hover:underline" /><span className="num">{fmt(y.date)}</span><span className="text-xs text-muted">{left(y.date, today, y.kind === 'taisha')}</span>
           <button onClick={() => cancel(y)} disabled={off} title={off ? needText('edit') : 'この予約を取り消す'} aria-label={`${y.name} さんの予約を取り消す`} className="rounded-full p-1 text-muted hover:bg-sunken disabled:opacity-40"><X size={12} /></button>
         </span>
       ))}
@@ -101,54 +101,54 @@ export function StaffYoyaku({ live, people, yoyaku, today, onDone }: { live: boo
     <div className="mo-axis flex flex-col gap-3">
       <WriteError error={error} onClose={() => setError('')} />
       <section className={panel}>
-        <div className="mb-2 flex flex-wrap items-center gap-2"><b className="text-[14px]">予約する</b><span className="text-[12px] text-muted">{kind === 'taisha' ? '退社日の翌朝に退社チェックが入ります（退社日が昨日以前・待機中の人はすぐ退社にします）' : '指定した日の朝に待機チェックが入ります（今日以前ならすぐ待機にします）'}</span>
-          <span className="ml-auto text-[12px] text-muted">{local.length ? `待機 ${ty.length}件／退社 ${ts.length}件` : ''}</span></div>
+        <div className="mb-2 flex flex-wrap items-center gap-2"><b className="text-body">予約する</b><span className="text-sm text-muted">{kind === 'taisha' ? '退社日の翌朝に退社チェックが入ります（退社日が昨日以前・待機中の人はすぐ退社にします）' : '指定した日の朝に待機チェックが入ります（今日以前ならすぐ待機にします）'}</span>
+          <span className="ml-auto text-sm text-muted">{local.length ? `待機 ${ty.length}件／退社 ${ts.length}件` : ''}</span></div>
         <div className="flex flex-wrap items-end gap-2">
           <div role="radiogroup" aria-label="予約の種類" className="flex overflow-hidden rounded-[10px] border border-field">
-            {(['taiki', 'taisha'] as const).map((k) => <button key={k} role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className="min-h-9 px-3.5 text-[13px]" style={kind === k ? { background: 'var(--as)', color: 'var(--ad)', fontWeight: 700 } : undefined}>{k === 'taiki' ? '待機' : '退社'}</button>)}
+            {(['taiki', 'taisha'] as const).map((k) => <button key={k} role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className="min-h-9 px-3.5 text-body" style={kind === k ? { background: 'var(--as)', color: 'var(--ad)', fontWeight: 700 } : undefined}>{k === 'taiki' ? '待機' : '退社'}</button>)}
           </div>
-          <label className="flex flex-col gap-1 text-[12px] text-muted">しぼる
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="名前・フリガナ" className="min-h-9 w-[140px] rounded-[10px] border border-field bg-surface px-2 text-[13px] text-ink" />
+          <label className="flex flex-col gap-1 text-sm text-muted">しぼる
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="名前・フリガナ" className="min-h-9 w-[140px] rounded-[10px] border border-field bg-surface px-2 text-body text-ink" />
           </label>
-          <label className="flex flex-col gap-1 text-[12px] text-muted">人（{cands.length}人）
-            <select value={who} onChange={(e) => setWho(e.target.value)} className="min-h-9 w-[240px] rounded-[10px] border border-field bg-surface px-2 text-[13px] text-ink">
+          <label className="flex flex-col gap-1 text-sm text-muted">人（{cands.length}人）
+            <select value={who} onChange={(e) => setWho(e.target.value)} className="min-h-9 w-[240px] rounded-[10px] border border-field bg-surface px-2 text-body text-ink">
               <option value="">選んでください</option>
               {cands.slice(0, 400).map((p) => { const m = p.taisha ? '退社済' : markOf(p.name) || (p.taiki ? '待機中' : ''); return <option key={p.name} value={p.name}>{p.name}{p.kana ? `（${p.kana}）` : ''}{m ? `　${m}` : ''}</option>; })}
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-[12px] text-muted">{kind === 'taisha' ? '退社日' : '待機にする日'}
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-[13px] text-ink" />
+          <label className="flex flex-col gap-1 text-sm text-muted">{kind === 'taisha' ? '退社日' : '待機にする日'}
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-body text-ink" />
           </label>
-          <button onClick={book} disabled={off || busy} title={off ? needText('edit') : undefined} className="btn-primary inline-flex min-h-9 items-center rounded-[10px] px-4 text-[13px] font-bold disabled:opacity-40">予約する</button>
+          <button onClick={book} disabled={off || busy} title={off ? needText('edit') : undefined} className="btn-primary">予約する</button>
         </div>
       </section>
       <section className={panel}>
-        <h3 className="text-[14px] font-bold">待機の予約</h3>
-        <div className="mb-2 text-[12px] text-muted">指定した日の朝に「待機」チェックが自動で入ります（当日の出勤状況・未打刻アラート・稼働人数の対象から外れます）</div>
+        <h3 className="text-body font-bold">待機の予約</h3>
+        <div className="mb-2 text-sm text-muted">指定した日の朝に「待機」チェックが自動で入ります（当日の出勤状況・未打刻アラート・稼働人数の対象から外れます）</div>
         {list(ty, '予約はありません。「待機」を選んで人と日付を入れると、その日の朝に待機チェックが入ります。')}
-        <h3 className="mt-4 text-[14px] font-bold">退社の予約</h3>
-        <div className="mb-2 text-[12px] text-muted">退社日の翌朝に「退社」チェックが自動で入り、退社日も記入されます（退社日当日はまだ出勤状況に並びます）</div>
+        <h3 className="mt-4 text-body font-bold">退社の予約</h3>
+        <div className="mb-2 text-sm text-muted">退社日の翌朝に「退社」チェックが自動で入り、退社日も記入されます（退社日当日はまだ出勤状況に並びます）</div>
         {list(ts, '予約はありません。「退社」を選んで人と退社日を入れると、退社日の翌朝に退社チェックが入ります。')}
       </section>
       <section className={panel}>
-        <div className="flex flex-wrap items-center gap-2"><b className="text-[14px]">記入漏れチェック</b>{gap.state === 'ok' && gap.rows.length > 0 && <span className="text-[12px] text-muted">{gap.rows.length}人</span>}
-          <button onClick={loadGap} className="ml-auto inline-flex min-h-8 items-center gap-1 rounded-lg border border-field px-2.5 text-[12.5px]"><RefreshCw size={13} />読み直す</button></div>
-        <div className="mb-2 mt-1 text-[12px] text-muted">先月までは稼働管理情報一覧に載っていたのに今月いない未経験の人のうち、退社・待機・次の入場日のどれも入っていない人です。待機なら「待機にする」、退職なら上の「退社」で予約してください。</div>
-        {gap.state === 'loading' && <div className="text-[12.5px] text-muted">読み込み中…</div>}
-        {gap.state === 'err' && <div className="text-[12.5px] text-bad">読めませんでした：{gap.err}</div>}
-        {gap.state === 'ok' && gap.ready === false && <div className="text-[12.5px] text-muted">今月（{gap.curYm}）の稼働管理情報一覧がまだ取り込まれていないので、判定できません。</div>}
-        {gap.state === 'ok' && gap.ready !== false && gap.rows.length === 0 && <div className="text-[12.5px] text-muted">該当する人はいません{live ? '' : '（見本）'}。</div>}
+        <div className="flex flex-wrap items-center gap-2"><b className="text-body">記入漏れチェック</b>{gap.state === 'ok' && gap.rows.length > 0 && <span className="text-sm text-muted">{gap.rows.length}人</span>}
+          <button onClick={loadGap} className="ml-auto inline-flex min-h-8 items-center gap-1 rounded-lg border border-field px-2.5 text-sm"><RefreshCw size={13} />読み直す</button></div>
+        <div className="mb-2 mt-1 text-sm text-muted">先月までは稼働管理情報一覧に載っていたのに今月いない未経験の人のうち、退社・待機・次の入場日のどれも入っていない人です。待機なら「待機にする」、退職なら上の「退社」で予約してください。</div>
+        {gap.state === 'loading' && <div className="text-sm text-muted">読み込み中…</div>}
+        {gap.state === 'err' && <div className="text-sm text-bad">読めませんでした：{gap.err}</div>}
+        {gap.state === 'ok' && gap.ready === false && <div className="text-sm text-muted">今月（{gap.curYm}）の稼働管理情報一覧がまだ取り込まれていないので、判定できません。</div>}
+        {gap.state === 'ok' && gap.ready !== false && gap.rows.length === 0 && <div className="text-sm text-muted">該当する人はいません{live ? '' : '（見本）'}。</div>}
         {gap.state === 'ok' && gap.rows.length > 0 && (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] border-collapse text-[13px]">
+            <table className="w-full min-w-[640px] border-collapse text-body">
               <thead><tr className="th-row text-left"><th className="px-2 py-2 font-semibold">氏名</th><th className="px-2 py-2 font-semibold">最後に載っていた月</th><th className="px-2 py-2 font-semibold">契約の終了日</th><th className="px-2 py-2 font-semibold">退場日（日報）</th><th className="px-2 py-2 font-semibold">メモ</th><th /></tr></thead>
               <tbody>
                 {gap.rows.map((g) => (
                   <tr key={g.name} className="row border-t border-line-soft">
                     <td className="whitespace-nowrap px-2 py-2 font-semibold"><PersonName name={g.name} className="underline-offset-2 hover:underline" /></td>
                     <td className="num px-2 py-2">{g.lastYm}</td><td className="num px-2 py-2">{g.endDate || '—'}</td><td className="num px-2 py-2">{g.taijou || '—'}</td>
-                    <td className="px-2 py-2 text-[12px] text-muted">{[g.reason === 'taijou_only' ? '退場日はあるが待機・退社なし' : '日報に退場日なし', g.jitai ? '辞退' : '', g.poa ? '営業止め' : '', g.joukyou || ''].filter(Boolean).join('／')}</td>
-                    <td className="px-2 py-2 text-right"><button onClick={() => gapTaiki(g)} disabled={off} title={off ? needText('edit') : undefined} className="inline-flex min-h-8 items-center rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>待機にする</button></td>
+                    <td className="px-2 py-2 text-sm text-muted">{[g.reason === 'taijou_only' ? '退場日はあるが待機・退社なし' : '日報に退場日なし', g.jitai ? '辞退' : '', g.poa ? '営業止め' : '', g.joukyou || ''].filter(Boolean).join('／')}</td>
+                    <td className="px-2 py-2 text-right"><button onClick={() => gapTaiki(g)} disabled={off} title={off ? needText('edit') : undefined} className="inline-flex min-h-8 items-center rounded-lg border px-2.5 text-sm font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>待機にする</button></td>
                   </tr>
                 ))}
               </tbody>

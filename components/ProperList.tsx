@@ -233,7 +233,7 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
     const chk = (f: string, label: string, def: boolean): Col => ({
       key: f, label, group: 'チェック', def, filter: 'bool', text: (p) => (p.v[f] === true ? '✓' : ''),
       cell: (p) => (f === 'eigyo_teishi' && p.r.beforeSales && p.v[f] === true
-        ? <span className="inline-flex items-center gap-1"><BoolCell on disabled={ro} title={roTitle ?? '初回ヒアリング前のため営業開始前（済めば自動で外れます）。押すと手で外す'} busy={isBusy(p, f)} label={label} onToggle={() => save(p, { [f]: false })} /><span className="whitespace-nowrap text-[11px] text-warn">営業開始前</span></span>
+        ? <span className="inline-flex items-center gap-1"><BoolCell on disabled={ro} title={roTitle ?? '初回ヒアリング前のため営業開始前（済めば自動で外れます）。押すと手で外す'} busy={isBusy(p, f)} label={label} onToggle={() => save(p, { [f]: false })} /><span className="whitespace-nowrap text-xs text-warn">営業開始前</span></span>
         : <BoolCell on={p.v[f] === true} disabled={ro} title={roTitle} busy={isBusy(p, f)} label={label} onToggle={() => save(p, { [f]: !(p.v[f] === true) })} />),
     });
     const score = (k: ScoreKind, def: boolean): Col => ({
@@ -261,7 +261,7 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
         text: (p) => aux.commute(p.r.name)?.short ?? '',
         cell: (p) => { const c = aux.commute(p.r.name); return (
           <button type="button" onClick={() => setCommuteFor(p)} title={c ? `${c.full}（${c.source === 'sales' ? '営業が入力' : '本人の回答'}）・押すと直す` : '押すと見る・直す'} className="max-w-[160px] truncate text-left hover:underline">
-            {c === undefined ? <span className="text-faint">-</span> : c ? <>{c.short}{c.source === 'sales' && <span className="ml-1 text-[10.5px] text-faint">営業</span>}</> : <span className="text-faint">未設定</span>}
+            {c === undefined ? <span className="text-faint">-</span> : c ? <>{c.short}{c.source === 'sales' && <span className="ml-1 text-xs text-faint">営業</span>}</> : <span className="text-faint">未設定</span>}
           </button>); } },
       txt('kadou', '稼働', '条件', true, 90),
       txt('tsuukin', '通勤', '条件', false, 80),
@@ -272,11 +272,11 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
         cell: (p) => { const st = sukishiDone?.has(p.r.row) ? '作成済み' : sukishiState(p.v); const u = s(p.v.sukishi); return (
           <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
             <span className="chip" style={SK_TONE[st]}>{st}</span>
-            {isUrl(u) && <a href={u} target="_blank" rel="noreferrer" className="text-[12px] underline" style={{ color: 'var(--ad)' }}>開く</a>}
-            <button type="button" onClick={() => onSukishi(p.r.row)} className="inline-flex min-h-7 items-center gap-1 rounded-md border px-1.5 text-[11.5px] font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><FileSpreadsheet size={12} />{st === '作成済み' ? '見る' : '作る'}</button>
+            {isUrl(u) && <a href={u} target="_blank" rel="noreferrer" className="text-sm underline" style={{ color: 'var(--ad)' }}>開く</a>}
+            <button type="button" onClick={() => onSukishi(p.r.row)} className="inline-flex min-h-7 items-center gap-1 rounded-md border px-1.5 text-xs font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><FileSpreadsheet size={12} />{st === '作成済み' ? '見る' : '作る'}</button>
           </span>); } },
       { key: 'pdf', label: 'PDF', group: 'スキシ', def: false, filter: 'none', text: (p) => (p.r.pdfUrl || p.r.pdfAnonUrl ? 'あり' : ''),
-        cell: (p) => <span className="flex flex-col gap-1"><PdfLinks r={p.r} />{isUrl(s(p.v.sukishi)) && <button type="button" disabled={ro || pdfBusy.has(p.r.row)} title={roTitle ?? 'いまのスキシの中身で本名版・イニシャル版の PDF を作り直す（URL は変わりません）'} onClick={() => remakePdf(p)} className="w-fit rounded-md border border-field px-1.5 text-[11.5px] font-semibold disabled:opacity-50">{pdfBusy.has(p.r.row) ? '作成中…' : 'PDF を作り直す'}</button>}</span> },
+        cell: (p) => <span className="flex flex-col gap-1"><PdfLinks r={p.r} />{isUrl(s(p.v.sukishi)) && <button type="button" disabled={ro || pdfBusy.has(p.r.row)} title={roTitle ?? 'いまのスキシの中身で本名版・イニシャル版の PDF を作り直す（URL は変わりません）'} onClick={() => remakePdf(p)} className="w-fit rounded-md border border-field px-1.5 text-xs font-semibold disabled:opacity-50">{pdfBusy.has(p.r.row) ? '作成中…' : 'PDF を作り直す'}</button>}</span> },
       txt('summary', 'サマリ', 'スキシ', false, 200),
       txt('zenshoku', '前職/経験/資格', 'スキシ', false, 200),
       txt('kibou_shokushu', '希望職種', '条件', true, 120),
@@ -383,24 +383,24 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
       <ScoreNote scores={scores} />
       <div className="overflow-hidden rounded-xl border border-line bg-surface">
         <div className="flex flex-wrap items-center gap-2 px-3.5 py-3">
-          <label className="flex min-h-9 min-w-[200px] flex-1 items-center gap-2 rounded-[10px] border border-field px-3 text-faint sm:max-w-[300px]"><Search size={15} /><input value={q} onChange={(e) => setQ(e.target.value)} aria-label="この一覧を検索" placeholder="名前・最寄駅・希望・メモ・担当" className="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none" /></label>
-          <select value={scope} onChange={(e) => setScope(e.target.value as Scope)} aria-label="どの人を出すか" className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-[13px]" style={scope !== 'active' ? { borderColor: 'var(--a)', color: 'var(--ad)', fontWeight: 600 } : undefined}>
+          <label className="flex min-h-9 min-w-[200px] flex-1 items-center gap-2 rounded-[10px] border border-field px-3 text-faint sm:max-w-[300px]"><Search size={15} /><input value={q} onChange={(e) => setQ(e.target.value)} aria-label="この一覧を検索" placeholder="名前・最寄駅・希望・メモ・担当" className="min-w-0 flex-1 bg-transparent text-body text-ink outline-none" /></label>
+          <select value={scope} onChange={(e) => setScope(e.target.value as Scope)} aria-label="どの人を出すか" className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-body" style={scope !== 'active' ? { borderColor: 'var(--a)', color: 'var(--ad)', fontWeight: 600 } : undefined}>
             {SCOPES.map(([k, l]) => <option key={k} value={k}>{l}（{count(k)}）</option>)}
           </select>
-          {filtered && <button onClick={() => { setScope('active'); setQ(''); setFlt({}); }} className="text-[12.5px] text-muted underline">絞り込みを外す</button>}
-          <span className="ml-auto text-[12.5px] text-muted"><span className="num">{shown.length}</span>人</span>
-          <button type="button" onClick={() => setPicker(true)} className="inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border border-field px-3 text-[13px] font-semibold"><Columns3 size={15} />列</button>
+          {filtered && <button onClick={() => { setScope('active'); setQ(''); setFlt({}); }} className="text-sm text-muted underline">絞り込みを外す</button>}
+          <span className="ml-auto text-sm text-muted"><span className="num">{shown.length}</span>人</span>
+          <button type="button" onClick={() => setPicker(true)} className="btn-secondary"><Columns3 size={15} />列</button>
           <button type="button" onClick={pull} disabled={pulling || !canEdit} title={!canEdit ? needText('edit') : 'ミンミカで営業開始前になった未経験の人を、15分おきの自動を待たずにいま取り込みます'}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border border-field px-3 text-[13px] font-semibold disabled:opacity-50"><RefreshCw size={14} className={pulling ? 'animate-spin' : ''} />{pulling ? '取り込み中…' : 'ミンミカ取り込み'}</button>
+            className="btn-secondary"><RefreshCw size={14} className={pulling ? 'animate-spin' : ''} />{pulling ? '取り込み中…' : 'ミンミカ取り込み'}</button>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-[13px]">
+          <table className="w-full border-collapse text-body">
             <thead>
               <tr className="th-row text-left">
                 <th className="sticky left-0 z-[1] bg-surface px-3 py-2.5 font-semibold" style={{ backgroundImage: 'linear-gradient(var(--th-bg, var(--as)), var(--th-bg, var(--as)))' }}><button type="button" onClick={() => clickSort('__name')} className="font-semibold">要員{sort?.key === '__name' ? (sort.dir < 0 ? ' ▼' : ' ▲') : ''}</button></th>
                 {visible.map((c) => (
                   <th key={c.key} className="whitespace-nowrap px-2 py-2.5 font-semibold" title={c.hint}>
-                    <button type="button" onClick={() => clickSort(c.key)} className="font-semibold">{c.label}<span className="text-[10px] opacity-70">{sort?.key === c.key ? (sort.dir < 0 ? ' ▼' : ' ▲') : ''}</span></button>
+                    <button type="button" onClick={() => clickSort(c.key)} className="font-semibold">{c.label}<span className="text-xs opacity-70">{sort?.key === c.key ? (sort.dir < 0 ? ' ▼' : ' ▲') : ''}</span></button>
                   </th>
                 ))}
               </tr>
@@ -409,9 +409,9 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
                 {visible.map((c) => (
                   <th key={c.key} className="px-1.5 py-1 font-normal">
                     {c.filter === 'none' ? null : c.filter === 'text' ? (
-                      <input value={flt[c.key] ?? ''} onChange={(e) => setFlt((f) => ({ ...f, [c.key]: e.target.value }))} aria-label={`${c.label}で絞る`} placeholder="含む…" className="h-7 w-full min-w-[60px] rounded-md border border-field bg-surface px-1.5 text-[12px] outline-none" />
+                      <input value={flt[c.key] ?? ''} onChange={(e) => setFlt((f) => ({ ...f, [c.key]: e.target.value }))} aria-label={`${c.label}で絞る`} placeholder="含む…" className="h-7 w-full min-w-[60px] rounded-md border border-field bg-surface px-1.5 text-sm outline-none" />
                     ) : (
-                      <select value={flt[c.key] ?? ''} onChange={(e) => setFlt((f) => ({ ...f, [c.key]: e.target.value }))} aria-label={`${c.label}で絞る`} className="h-7 w-full min-w-[60px] rounded-md border border-field bg-surface px-1 text-[12px]" style={flt[c.key] ? { borderColor: 'var(--a)', color: 'var(--ad)', fontWeight: 600 } : undefined}>
+                      <select value={flt[c.key] ?? ''} onChange={(e) => setFlt((f) => ({ ...f, [c.key]: e.target.value }))} aria-label={`${c.label}で絞る`} className="h-7 w-full min-w-[60px] rounded-md border border-field bg-surface px-1 text-sm" style={flt[c.key] ? { borderColor: 'var(--a)', color: 'var(--ad)', fontWeight: 600 } : undefined}>
                         <option value="">すべて</option>
                         {c.filter === 'bool' ? <><option value="on">✓あり</option><option value="off">✓なし</option></> : <>{optsOf(c).map((o) => <option key={o} value={o}>{o}</option>)}<option value="(空)">（空）</option></>}
                       </select>
@@ -425,15 +425,15 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
                 <tr key={p.r.row} className="row border-t border-line-soft align-middle" style={!p.r.active ? { opacity: 0.72 } : undefined}>
                   <td className="sticky left-0 z-[1] whitespace-nowrap bg-surface px-3 py-2 font-semibold">
                     <PersonName name={p.r.name} id={p.r.row} className="hover:underline underline-offset-2" />
-                    {p.r.kanagawa && <span className="ml-1 rounded bg-sunken px-1 text-[10.5px] font-normal text-muted">かな西</span>}
-                    {p.r.kansai && <span className="ml-1 rounded bg-sunken px-1 text-[10.5px] font-normal text-muted">関西</span>}
-                    {p.v.needs_review === true && <span className="ml-1 text-[10.5px] font-normal text-warn">要確認</span>}
+                    {p.r.kanagawa && <span className="ml-1 rounded bg-sunken px-1 text-xs font-normal text-muted">かな西</span>}
+                    {p.r.kansai && <span className="ml-1 rounded bg-sunken px-1 text-xs font-normal text-muted">関西</span>}
+                    {p.v.needs_review === true && <span className="ml-1 text-xs font-normal text-warn">要確認</span>}
                   </td>
                   {visible.map((c) => <td key={c.key} className="px-2 py-1.5" style={c.minW ? { minWidth: c.minW } : undefined}>{c.cell(p)}</td>)}
                 </tr>
               ))}
-              {shown.length > limit && <tr><td colSpan={visible.length + 1} className="px-4 py-3 text-center text-[12.5px] text-muted">はじめの{limit}人を出しています <button type="button" onClick={() => setLimit((l) => l + 300)} className="ml-2 font-semibold underline" style={{ color: 'var(--ad)' }}>もっと出す</button></td></tr>}
-              {shown.length === 0 && <tr><td colSpan={visible.length + 1} className="px-4 py-10 text-center text-[13px] text-muted">この条件の要員はいません</td></tr>}
+              {shown.length > limit && <tr><td colSpan={visible.length + 1} className="px-4 py-3 text-center text-sm text-muted">はじめの{limit}人を出しています <button type="button" onClick={() => setLimit((l) => l + 300)} className="ml-2 font-semibold underline" style={{ color: 'var(--ad)' }}>もっと出す</button></td></tr>}
+              {shown.length === 0 && <tr><td colSpan={visible.length + 1} className="px-4 py-10 text-center text-body text-muted">この条件の要員はいません</td></tr>}
             </tbody>
           </table>
         </div>
@@ -460,7 +460,7 @@ function SelectCell({ value, opts, alias, blank, disabled, title, busy, label, o
   const list = value && !opts.includes(value) ? [value, ...opts] : opts;
   return (
     <select value={value} disabled={disabled || busy} title={title} aria-label={label} onChange={(e) => onPick(e.target.value)}
-      className="h-8 w-full min-w-[64px] rounded-md border border-transparent bg-transparent px-1 text-[13px] hover:border-field disabled:cursor-not-allowed" style={busy ? { opacity: 0.5 } : undefined}>
+      className="h-8 w-full min-w-[64px] rounded-md border border-transparent bg-transparent px-1 text-body hover:border-field disabled:cursor-not-allowed" style={busy ? { opacity: 0.5 } : undefined}>
       <option value="">{blank}</option>
       {list.map((o) => <option key={o} value={o}>{alias?.[o] ?? o}{o === value && !opts.includes(o) && !alias?.[o] ? '（今の値）' : ''}</option>)}
     </select>
@@ -482,14 +482,14 @@ function TextCell({ value, multiline, disabled, title, busy, label, onCommit }: 
         if (e.key === 'Escape') { e.preventDefault(); finish(false); }
         if (e.key === 'Enter' && (!multiline || e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); finish(true); }
       },
-      className: 'w-full rounded-md border bg-surface px-1.5 py-1 text-[13px] outline-none', style: { borderColor: 'var(--a)' },
+      className: 'w-full rounded-md border bg-surface px-1.5 py-1 text-body outline-none', style: { borderColor: 'var(--a)' },
     };
     return multiline ? <textarea {...common} rows={4} className={`${common.className} min-w-[240px] resize-y`} /> : <input {...common} />;
   }
   return (
     <button type="button" onClick={start} disabled={disabled} title={disabled ? title : `${value ? value.slice(0, 300) + '\n\n' : ''}押すと直す（${multiline ? '⌘/Ctrl+Enter' : 'Enter'}・欄から出ると保存／Esc で取りやめ）`}
       className="block min-h-8 w-full rounded-md px-1 text-left hover:bg-sunken disabled:cursor-default disabled:hover:bg-transparent" style={busy ? { opacity: 0.5 } : undefined}>
-      {value ? <span className={multiline ? 'line-clamp-2 whitespace-pre-line text-[12.5px]' : 'block max-w-[220px] truncate'}>{value}</span> : <span className="text-faint">—</span>}
+      {value ? <span className={multiline ? 'line-clamp-2 whitespace-pre-line text-sm' : 'block max-w-[220px] truncate'}>{value}</span> : <span className="text-faint">—</span>}
     </button>
   );
 }
@@ -497,7 +497,7 @@ function TextCell({ value, multiline, disabled, title, busy, label, onCommit }: 
 function PdfLinks({ r }: { r: EngineerRow }) {
   const one = (label: string, url?: string) => (url && isUrl(url) ? <a key={label} href={url} target="_blank" rel="noreferrer" className="underline" style={{ color: 'var(--ad)' }}>{label}</a> : null);
   const links = [one('PDF 本名', r.pdfUrl), one('PDF ｲﾆｼｬﾙ', r.pdfAnonUrl), one('XLS 本名', r.xlsxUrl), one('XLS ｲﾆｼｬﾙ', r.xlsxAnonUrl)].filter(Boolean);
-  return links.length ? <span className="flex flex-col gap-0.5 whitespace-nowrap text-[12px]">{links}</span> : <span className="text-faint">—</span>;
+  return links.length ? <span className="flex flex-col gap-0.5 whitespace-nowrap text-sm">{links}</span> : <span className="text-faint">—</span>;
 }
 
 // ---- 列を選ぶ（出す/出さない・ドラッグで並べ替え・この端末に残す） ----
@@ -517,22 +517,22 @@ function ColPicker({ cols, isShown, onToggle, onOrder, onReset, onClose }: {
   };
   const drop = () => { if (drag) onOrder(order); setDrag(null); };
   return (
-    <Dialog label="出す列を選ぶ" onClose={onClose} z={Z_MODAL} className="fixed inset-x-3 top-[10vh] mx-auto flex max-h-[80vh] max-w-[440px] flex-col rounded-xl border border-line bg-surface shadow-xl">
-      <div className="flex items-center justify-between border-b border-line px-4 py-3">
-        <div><div className="text-[15px] font-bold">出す列</div><div className="text-[12px] text-faint">この端末に残ります。つまみ（⋮⋮）をドラッグで並べ替え</div></div>
+    <Dialog label="出す列を選ぶ" onClose={onClose} z={Z_MODAL} className="fixed inset-x-3 top-[10vh] mx-auto flex max-h-[80vh] max-w-[460px] flex-col panel">
+      <div className="flex items-center justify-between border-b border-line px-5 py-3">
+        <div><div className="text-md font-bold">出す列</div><div className="text-sm text-faint">この端末に残ります。つまみ（⋮⋮）をドラッグで並べ替え</div></div>
         <button aria-label="閉じる" data-dialog-close onClick={onClose} className="flex size-8 items-center justify-center rounded-lg border border-line"><X size={15} /></button>
       </div>
       <ul className="flex-1 overflow-y-auto px-2 py-2" onPointerMove={move} onPointerUp={drop} onPointerCancel={drop} style={drag ? { touchAction: 'none', userSelect: 'none' } : undefined}>
         {order.map((k) => { const c = byKey.get(k); if (!c) return null; return (
-          <li key={k} data-colkey={k} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px]" style={drag === k ? { background: 'var(--as)' } : undefined}>
+          <li key={k} data-colkey={k} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-body" style={drag === k ? { background: 'var(--as)' } : undefined}>
             <span onPointerDown={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId); setDrag(k); }} className="cursor-grab touch-none text-faint" aria-label={`${c.label}を並べ替える`}><GripVertical size={16} /></span>
             <label className="flex flex-1 cursor-pointer items-center gap-2"><input type="checkbox" checked={isShown(c)} onChange={() => onToggle(c)} style={{ accentColor: 'var(--a)' }} />{c.label}</label>
-            <span className="text-[11px] text-faint">{c.group}</span>
+            <span className="text-xs text-faint">{c.group}</span>
           </li>); })}
       </ul>
       <div className="flex justify-between border-t border-line px-4 py-3">
-        <button type="button" onClick={onReset} className="text-[12.5px] text-muted underline">はじめの形に戻す</button>
-        <button type="button" onClick={onClose} className="btn-primary min-h-9 rounded-[10px] px-4 text-[13px] font-semibold">閉じる</button>
+        <button type="button" onClick={onReset} className="text-sm text-muted underline">はじめの形に戻す</button>
+        <button type="button" onClick={onClose} className="btn-primary">閉じる</button>
       </div>
     </Dialog>
   );
@@ -575,17 +575,17 @@ function CommuteEditor({ p, live, canEdit, onClose, onSaved }: { p: PRow; live: 
   const toggleBlock = (id: string) => { if (!cur) return; const blocks = cur.blocks.includes(id) ? cur.blocks.filter((x) => x !== id) : [...cur.blocks, id]; void send({ any: false, blocks }, cur); };
   const prefs = Object.keys(COMMUTE_PREF) as (keyof typeof COMMUTE_PREF)[];
   return (
-    <Dialog label={`${p.r.name} の通勤エリア`} onClose={onClose} z={Z_MODAL} className="fixed inset-x-3 top-[6vh] mx-auto flex max-h-[88vh] max-w-[560px] flex-col rounded-xl border border-line bg-surface shadow-xl">
-      <div className="flex items-start justify-between border-b border-line px-4 py-3">
-        <div><div className="text-[12px] text-faint">通勤エリア{!live && '（見本）'}</div><div className="text-[16px] font-bold">{p.r.name}</div></div>
+    <Dialog label={`${p.r.name} の通勤エリア`} onClose={onClose} z={Z_MODAL} className="fixed inset-x-3 top-[6vh] mx-auto flex max-h-[88vh] max-w-[560px] flex-col panel">
+      <div className="flex items-start justify-between border-b border-line px-5 py-3">
+        <div><div className="text-sm text-faint">通勤エリア{!live && '（見本）'}</div><div className="text-md font-bold">{p.r.name}</div></div>
         <button aria-label="閉じる" data-dialog-close onClick={onClose} className="flex size-8 items-center justify-center rounded-lg border border-line"><X size={15} /></button>
       </div>
-      <div className="flex-1 overflow-y-auto px-4 py-3 text-[13px]">
+      <div className="flex-1 overflow-y-auto px-4 py-3 text-body">
         {live && d.state === 'loading' && <p className="text-muted">読み込み中…</p>}
         {live && d.state === 'error' && <p className="text-bad">{d.error}</p>}
         {det && (
           <>
-            <p className="mb-2 text-[12.5px] text-muted">
+            <p className="mb-2 text-sm text-muted">
               {det.status === 'ambiguous' ? '同姓同名が複数いるため、誰の回答か決められません（直せません）'
                 : det.status === 'not_answered' ? '本人はまだ回答していません'
                 : det.status === 'legacy' ? `本人の回答（旧形式）：${det.legacyLabel ?? ''}`
@@ -598,13 +598,13 @@ function CommuteEditor({ p, live, canEdit, onClose, onSaved }: { p: PRow; live: 
                 <label className="mb-3 flex items-center gap-2 font-semibold"><input type="checkbox" checked={cur.any} disabled={!editable || busy} onChange={() => send({ any: !cur.any, blocks: cur.any ? cur.blocks : [] }, cur)} style={{ accentColor: 'var(--a)' }} />1都3県どこでも行ける</label>
                 {prefs.map((pf) => (
                   <fieldset key={pf} className="mb-3" disabled={!editable || busy || cur.any}>
-                    <legend className="mb-1 text-[12px] font-semibold text-muted">{COMMUTE_PREF[pf]}</legend>
+                    <legend className="mb-1 text-sm font-semibold text-muted">{COMMUTE_PREF[pf]}</legend>
                     <div className="flex flex-wrap gap-1.5">
                       {COMMUTE_BLOCKS.filter((b) => b.pref === pf).map((b) => {
                         const on = cur.any || cur.blocks.includes(b.id);
                         return (
                           <button key={b.id} type="button" disabled={b.off || !editable || busy || cur.any} onClick={() => toggleBlock(b.id)} title={b.off ? '対象外のエリア' : b.sub} aria-pressed={on}
-                            className="min-h-8 rounded-full border px-2.5 text-[12.5px] disabled:cursor-not-allowed" style={b.off ? { borderColor: 'var(--color-line)', color: 'var(--color-faint)', textDecoration: 'line-through' } : on ? { borderColor: 'var(--a)', background: 'var(--as)', color: 'var(--ad)', fontWeight: 700 } : { borderColor: 'var(--color-field)' }}>
+                            className="min-h-8 rounded-full border px-2.5 text-sm disabled:cursor-not-allowed" style={b.off ? { borderColor: 'var(--color-line)', color: 'var(--color-faint)', textDecoration: 'line-through' } : on ? { borderColor: 'var(--a)', background: 'var(--as)', color: 'var(--ad)', fontWeight: 700 } : { borderColor: 'var(--color-field)' }}>
                             {b.name}
                           </button>
                         );
@@ -617,9 +617,9 @@ function CommuteEditor({ p, live, canEdit, onClose, onSaved }: { p: PRow; live: 
           </>
         )}
       </div>
-      <div className="flex items-center justify-between gap-2 border-t border-line px-4 py-3 text-[12px] text-faint">
+      <div className="flex items-center justify-between gap-2 border-t border-line px-4 py-3 text-sm text-faint">
         <span>押すたびに保存します（本人の回答は消えません）</span>
-        {cur?.sales && <button type="button" disabled={!editable || busy} onClick={() => send(null, cur)} className="min-h-9 rounded-[10px] border border-field px-3 text-[13px] font-semibold text-ink disabled:opacity-50">本人の回答に戻す</button>}
+        {cur?.sales && <button type="button" disabled={!editable || busy} onClick={() => send(null, cur)} className="min-h-9 rounded-[10px] border border-field px-3 text-body font-semibold text-ink disabled:opacity-50">本人の回答に戻す</button>}
       </div>
     </Dialog>
   );
@@ -643,16 +643,16 @@ function DropoutDialog({ p, onClose, onGo }: { p: PRow; onClose: () => void; onG
   const Radio = ({ o, sel, set, name }: { o: { v: string; t: string; d: string }; sel: string; set: (v: string) => void; name: string }) => (
     <label className="flex cursor-pointer gap-2 rounded-lg border px-3 py-2" style={sel === o.v ? { borderColor: 'var(--a)', background: 'var(--as)' } : { borderColor: 'var(--color-line)' }}>
       <input type="radio" name={name} checked={sel === o.v} onChange={() => set(o.v)} style={{ accentColor: 'var(--a)' }} />
-      <span><b className="text-[13px]">{o.t}</b><span className="block text-[12px] text-muted">{o.d}</span></span>
+      <span><b className="text-body">{o.t}</b><span className="block text-sm text-muted">{o.d}</span></span>
     </label>
   );
   return (
-    <Dialog label={on ? `${p.r.name} の dropout を外す` : `${p.r.name} を dropout にする`} onClose={onClose} z={Z_MODAL} className="fixed inset-x-3 top-[8vh] mx-auto flex max-h-[84vh] max-w-[520px] flex-col rounded-xl border border-line bg-surface shadow-xl">
-      <div className="flex items-start justify-between border-b border-line px-4 py-3">
-        <div className="text-[15px] font-bold">{on ? `${p.r.name} さんの dropout の印を外す` : `${p.r.name} さんを dropout（飛び）にする`}</div>
+    <Dialog label={on ? `${p.r.name} の dropout を外す` : `${p.r.name} を dropout にする`} onClose={onClose} z={Z_MODAL} className="fixed inset-x-3 top-[8vh] mx-auto flex max-h-[84vh] max-w-[560px] flex-col panel">
+      <div className="flex items-start justify-between border-b border-line px-5 py-3">
+        <div className="text-md font-bold">{on ? `${p.r.name} さんの dropout の印を外す` : `${p.r.name} さんを dropout（飛び）にする`}</div>
         <button aria-label="閉じる" data-dialog-close onClick={onClose} className="flex size-8 items-center justify-center rounded-lg border border-line"><X size={15} /></button>
       </div>
-      <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-4 py-3 text-[13px]">
+      <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-4 py-3 text-body">
         {on ? (<>
           <p>いまの記録：{PHASE_LABEL[p.drop.phase] || '時期不明'}{p.drop.at && `（${fmtMd(p.drop.at)}）`}</p>
           <p className="text-muted">飛びの印だけ外します。辞退・参画決定・退社・待機は自動では戻りません。</p>
@@ -664,8 +664,8 @@ function DropoutDialog({ p, onClose, onGo }: { p: PRow; onClose: () => void; onG
         </>)}
       </div>
       <div className="flex justify-end gap-2 border-t border-line px-4 py-3">
-        <button type="button" onClick={onClose} className="min-h-9 rounded-[10px] border border-field px-3 text-[13px] font-semibold">やめる</button>
-        <button type="button" onClick={() => onGo(!on, phase, phase === 'kadou' ? after : 'mark')} className="btn-primary min-h-9 rounded-[10px] px-4 text-[13px] font-semibold">{on ? '印を外す' : 'dropout にする'}</button>
+        <button type="button" onClick={onClose} className="btn-secondary">やめる</button>
+        <button type="button" onClick={() => onGo(!on, phase, phase === 'kadou' ? after : 'mark')} className="btn-primary">{on ? '印を外す' : 'dropout にする'}</button>
       </div>
     </Dialog>
   );

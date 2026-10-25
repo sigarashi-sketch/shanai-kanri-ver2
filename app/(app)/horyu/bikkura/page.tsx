@@ -88,19 +88,19 @@ function ApproveTab({ sample, data, reload }: { sample: boolean; data: Approvals
       <Msg text={msg.text} bad={msg.bad} />
       <Card title="承認待ち" note={`1回 ${data.miles_per_draw}マイル・自分の申請は決められません`}>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] border-collapse text-[13px]">
+          <table className="w-full min-w-[760px] border-collapse text-body">
             <thead><tr className="th-row"><th className={thCls}>いつ</th><th className={thCls}>だれ</th><th className={thCls}>種別・分</th><th className={thCls}>内容</th><th className={thCls}>マイル</th><th className={thCls}>却下の理由</th><th className={thCls} /></tr></thead>
             <tbody>
               {data.pending.map((p) => (
                 <tr key={p.id} className="border-t border-line-soft align-top">
                   <td className={`${tdCls} num whitespace-nowrap`}>{fmtAt(p.at)}</td><td className={`${tdCls} font-semibold`}>{p.name}</td>
-                  <td className={tdCls}>{p.kind}<div className="text-[11.5px] text-faint">{p.minutes}分</div></td>
+                  <td className={tdCls}>{p.kind}<div className="text-xs text-faint">{p.minutes}分</div></td>
                   <td className={`${tdCls} max-w-[280px] whitespace-pre-wrap`}>{p.memo}</td>
                   <td className={tdCls}><input value={miles[p.id] ?? '1'} onChange={(e) => setMiles({ ...miles, [p.id]: e.target.value.replace(/[^\d]/g, '') })} inputMode="numeric" aria-label="与えるマイル" className={`${inputCls} num w-[64px]`} disabled={p.mine} /></td>
                   <td className={tdCls}><input value={reason[p.id] ?? ''} onChange={(e) => setReason({ ...reason, [p.id]: e.target.value })} aria-label="却下の理由" className={`${inputCls} w-[160px]`} disabled={p.mine} /></td>
                   <td className={`${tdCls} whitespace-nowrap`}>
-                    {p.mine ? <span className="text-[12px] text-faint">自分の申請</span> : <>
-                      <button className="btn-primary min-h-9 rounded-[10px] px-3 text-[13px] font-semibold disabled:opacity-40" disabled={busy === p.id} onClick={() => decide(p, true)}>承認</button>
+                    {p.mine ? <span className="text-sm text-faint">自分の申請</span> : <>
+                      <button className="btn-primary" disabled={busy === p.id} onClick={() => decide(p, true)}>承認</button>
                       <button className={`${btnCls} ml-1.5`} disabled={busy === p.id} onClick={() => decide(p, false)}>却下</button>
                     </>}
                   </td>
@@ -113,7 +113,7 @@ function ApproveTab({ sample, data, reload }: { sample: boolean; data: Approvals
       </Card>
       <Card title="最近の決定">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] border-collapse text-[13px]">
+          <table className="w-full min-w-[640px] border-collapse text-body">
             <thead><tr className="th-row"><th className={thCls}>決めた日</th><th className={thCls}>だれの</th><th className={thCls}>内容</th><th className={thCls}>結果</th><th className={thCls}>決めた人</th></tr></thead>
             <tbody>{data.recent.map((r) => (
               <tr key={r.id} className="border-t border-line-soft"><td className={`${tdCls} num`}>{fmtAt(r.decided_at)}</td><td className={tdCls}>{r.name}</td><td className={`${tdCls} max-w-[260px] truncate`}>{r.kind}・{r.memo}</td>
@@ -135,7 +135,7 @@ function DashTab({ sample }: { sample: boolean }) {
   const data = sample ? S_DASH : d.data;
   const k = data?.kpi;
   const tile = (label: string, v: string, prev?: string) => (
-    <div className="rounded-xl border border-line bg-surface px-4 py-3"><div className="text-[12px] text-muted">{label}</div><div className="num text-[20px] font-bold">{v}</div>{prev && <div className="text-[11.5px] text-faint">前の期間 {prev}</div>}</div>
+    <div className="rounded-xl border border-line bg-surface px-4 py-3"><div className="text-sm text-muted">{label}</div><div className="num text-xl font-bold">{v}</div>{prev && <div className="text-xs text-faint">前の期間 {prev}</div>}</div>
   );
   return (
     <>
@@ -150,10 +150,10 @@ function DashTab({ sample }: { sample: boolean }) {
       </div>}
       <Card title="人ごと">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[620px] border-collapse text-[13px]">
+          <table className="w-full min-w-[620px] border-collapse text-body">
             <thead><tr className="th-row"><th className={thCls}>だれ</th><th className={thCls}>役割</th><th className={`${thCls} text-right`}>件数</th><th className={`${thCls} text-right`}>工数</th><th className={`${thCls} text-right`}>手動</th><th className={`${thCls} text-right`}>日平均</th><th className={`${thCls} text-right`}>抽選</th></tr></thead>
             <tbody>{(data?.people ?? []).map((p) => (
-              <tr key={p.email} className="border-t border-line-soft"><td className={`${tdCls} font-semibold`}>{p.name}{p.capped && <span className="ml-1.5 text-[11px] text-warn">上限に届いた日あり</span>}</td><td className={tdCls}>{p.role}</td>
+              <tr key={p.email} className="border-t border-line-soft"><td className={`${tdCls} font-semibold`}>{p.name}{p.capped && <span className="ml-1.5 text-xs text-warn">上限に届いた日あり</span>}</td><td className={tdCls}>{p.role}</td>
                 <td className={`${tdCls} num text-right`}>{p.count}</td><td className={`${tdCls} num text-right`}>{p.hours}h</td><td className={`${tdCls} num text-right`}>{p.manual}</td><td className={`${tdCls} num text-right`}>{p.day_avg}</td><td className={`${tdCls} num text-right`}>{p.draws}</td></tr>
             ))}</tbody>
           </table>
@@ -180,7 +180,7 @@ function DrawsTab({ sample, data, reload }: { sample: boolean; data: { waiting: 
       <Msg text={msg.text} bad={msg.bad} />
       <Card title="景品の受け取り待ち" note="現物が当たった分">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] border-collapse text-[13px]">
+          <table className="w-full min-w-[560px] border-collapse text-body">
             <thead><tr className="th-row"><th className={thCls}>当たった日</th><th className={thCls}>だれ</th><th className={thCls}>景品</th><th className={thCls} /></tr></thead>
             <tbody>
               {data.waiting.map((d) => (
@@ -217,16 +217,16 @@ function SettingsTab({ sample }: { sample: boolean }) {
   };
   return (
     <Card title="設定" note={role ? (data.own ? `${role} だけの設定` : `${role} はいま全体の設定で動いています（保存するとこの役割だけの設定になります）`) : '全体の設定'}
-      right={<label className="flex items-center gap-1.5 text-[12.5px] text-muted">どの設定<select value={role} onChange={(e) => { setRole(e.target.value); setDraft({}); }} className={inputCls}><option value="">全体</option>{data.jimu_roles.map((r) => <option key={r} value={r}>{r}{data.roles_with_own.includes(r) ? '（別設定あり）' : ''}</option>)}</select></label>}>
+      right={<label className="flex items-center gap-1.5 text-sm text-muted">どの設定<select value={role} onChange={(e) => { setRole(e.target.value); setDraft({}); }} className={inputCls}><option value="">全体</option>{data.jimu_roles.map((r) => <option key={r} value={r}>{r}{data.roles_with_own.includes(r) ? '（別設定あり）' : ''}</option>)}</select></label>}>
       <div className="grid gap-2 px-4 pb-4 sm:grid-cols-2">
         {SETTING_LABEL.map(([k, label]) => (
-          <label key={k} className="flex items-center justify-between gap-2 rounded-lg border border-line-soft px-3 py-2 text-[13px]">{label}
+          <label key={k} className="flex items-center justify-between gap-2 rounded-lg border border-line-soft px-3 py-2 text-body">{label}
             <input value={val(k)} onChange={(e) => setDraft({ ...draft, [k]: e.target.value })} inputMode="decimal" className={`${inputCls} num w-[90px] text-right`} />
           </label>
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-2 px-4 pb-4">
-        <button className="btn-primary min-h-10 rounded-[10px] px-4 text-[13.5px] font-semibold disabled:opacity-40" disabled={busy || !Object.keys(draft).length} onClick={save}>保存する</button>
+        <button className="btn-primary" disabled={busy || !Object.keys(draft).length} onClick={save}>保存する</button>
         <Msg text={msg.text} bad={msg.bad} />
       </div>
     </Card>
@@ -249,11 +249,11 @@ function UsersTab({ sample }: { sample: boolean }) {
       <Msg text={msg.text} bad={msg.bad} />
       <Card title="使える人" note="ロールが付いている人だけ。開始日は最初に許可した日のまま">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] border-collapse text-[13px]">
+          <table className="w-full min-w-[640px] border-collapse text-body">
             <thead><tr className="th-row"><th className={thCls}>だれ</th><th className={thCls}>使える</th><th className={thCls}>事務の役割</th><th className={thCls}>承認者</th><th className={thCls}>開始日</th></tr></thead>
             <tbody>{users.map((x) => (
               <tr key={x.email} className="border-t border-line-soft">
-                <td className={tdCls}><b>{x.name}</b><div className="text-[11.5px] text-faint">{x.role}</div></td>
+                <td className={tdCls}><b>{x.name}</b><div className="text-xs text-faint">{x.role}</div></td>
                 <td className={tdCls}><input type="checkbox" checked={x.bikkura} onChange={(e) => grant(x, { on: e.target.checked })} aria-label={`${x.name} が使える`} /></td>
                 <td className={tdCls}><select value={x.jimu_role || ''} onChange={(e) => grant(x, { jimu_role: e.target.value })} className={inputCls} aria-label="事務の役割"><option value="">なし</option>{roles.map((r) => <option key={r}>{r}</option>)}</select></td>
                 <td className={tdCls}><input type="checkbox" checked={x.approver} onChange={(e) => grant(x, { approver: e.target.checked })} aria-label={`${x.name} を承認者にする`} /></td>

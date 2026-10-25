@@ -2,7 +2,8 @@ import type { ModuleKey } from './theme';
 
 // 左メニュー。4つの分類（色を持つ）＋ 連絡・設定。
 //   built=false の画面は「これから作る」ページに落ちる（ver2 は全部そろってから本番に出す）。
-export type NavItem = { href: string; label: string; built?: boolean; badge?: number };
+export type NavItem = { href: string; label: string; built?: boolean };
+// 件数のバッジは、本物の件数がつながるまで出さない（10-25 見た目の整理：見本の数字だったため）。メニューの名前は短く（説明のかっこは付けない）
 export type NavGroup = { module: ModuleKey; label: string; items: NavItem[] };
 
 export const NAV: NavGroup[] = [
@@ -10,27 +11,27 @@ export const NAV: NavGroup[] = [
     module: 'jinji', label: '人事管理', items: [
       { href: '/home/jinji', label: 'ホーム人事', built: true },
       { href: '/jinji/staff', label: '社員一覧', built: true },
-      { href: '/jinji/yoyaku', label: '変更の予約', built: true, badge: 2 },
-      { href: '/jinji/nyusha', label: '入社手続き', built: true, badge: 17 },
-      { href: '/jinji/jimu', label: '参画決定者の手続き', built: true, badge: 5 },
-      { href: '/jinji/shikaku', label: '資格手当', built: true, badge: 6 },
-      { href: '/jinji/sankyu', label: '産休・育休', built: true, badge: 3 },
-      { href: '/jinji/rishoku', label: '離職リスク・離職率', built: true, badge: 5 },
-      { href: '/jinji/community', label: 'コミュニティ', built: true, badge: 2 },
-      { href: '/jinji/saiyou', label: '採用（承諾者・面談）', built: true, badge: 4 },
-      { href: '/jinji/ocr', label: '身分証の読み取り（保留）', built: true },
+      { href: '/jinji/yoyaku', label: '変更の予約', built: true },
+      { href: '/jinji/nyusha', label: '入社手続き', built: true },
+      { href: '/jinji/jimu', label: '参画決定者の手続き', built: true },
+      { href: '/jinji/shikaku', label: '資格手当', built: true },
+      { href: '/jinji/sankyu', label: '産休・育休', built: true },
+      { href: '/jinji/rishoku', label: '離職リスク・離職率', built: true },
+      { href: '/jinji/community', label: 'コミュニティ', built: true },
+      { href: '/jinji/saiyou', label: '採用', built: true },
+      { href: '/jinji/ocr', label: '身分証の読み取り', built: true },
     ],
   },
   {
     module: 'roumu', label: '労務/営業管理', items: [
-      { href: '/roumu/today', label: '当日の出勤状況', built: true, badge: 4 },
-      { href: '/roumu/approval', label: '申請の承認', built: true, badge: 7 },
-      { href: '/roumu/overtime', label: '残業・36協定・有給', built: true, badge: 1 },
-      { href: '/roumu/shime', label: '勤怠の締め', built: true, badge: 7 },
-      { href: '/roumu/shift', label: 'シフト表', built: true, badge: 3 },
-      { href: '/roumu/kekkin', label: '欠勤管理', built: true, badge: 4 },
-      { href: '/roumu/contracts', label: '派遣契約', built: true, badge: 3 },
-      { href: '/roumu/timesheet', label: '勤務表の届き具合', built: true, badge: 4 },
+      { href: '/roumu/today', label: '当日の出勤状況', built: true },
+      { href: '/roumu/approval', label: '申請の承認', built: true },
+      { href: '/roumu/overtime', label: '残業・36協定・有給', built: true },
+      { href: '/roumu/shime', label: '勤怠の締め', built: true },
+      { href: '/roumu/shift', label: 'シフト表', built: true },
+      { href: '/roumu/kekkin', label: '欠勤管理', built: true },
+      { href: '/roumu/contracts', label: '派遣契約', built: true },
+      { href: '/roumu/timesheet', label: '勤務表の届き具合', built: true },
       { href: '/roumu/alerts', label: 'アラート設定', built: true },
       { href: '/roumu/kb', label: '労務法務ナレッジ', built: true },
     ],
@@ -38,30 +39,30 @@ export const NAV: NavGroup[] = [
   {
     module: 'eigyo', label: '営業', items: [
       { href: '/home/eigyo', label: 'ホーム営業', built: true },
-      { href: '/eigyo/cases', label: '案件', built: true, badge: 6 },
-      { href: '/eigyo/progress', label: '案件進捗', built: true, badge: 4 }, // 単独のまま。作り込み（カスタム）はあとで詰める（10-23 shoya）
+      { href: '/eigyo/cases', label: '案件', built: true },
+      { href: '/eigyo/progress', label: '案件進捗', built: true }, // 単独のまま。作り込み（カスタム）はあとで詰める（10-23 shoya）
       { href: '/eigyo/mendan', label: '面談管理', built: true }, // 今の面談管理（カンバン・カレンダーにも書く・10-25）
       { href: '/eigyo/availability', label: '面談可能日の承認', built: true },
       { href: '/eigyo/keisai', label: '案件掲載・応募', built: true }, // 掲載する／応募管理／案件ページの反応 をタブで
-      { href: '/eigyo/proper', label: '要員リスト（プロパー・スキシ）', built: true },
+      { href: '/eigyo/proper', label: '要員リスト', built: true },
       { href: '/eigyo/sales-list', label: '営業リスト一覧', built: true }, // 今の sales.html（読むだけ・10-25）
       { href: '/eigyo/skillsheet', label: 'スキルシート作成', built: true },
-      { href: '/eigyo/haken', label: '派遣契約', built: true, badge: 3 }, // 労務の派遣契約と同じ画面（10-25 shoya「同じもの営業にいれたい」）
-      { href: '/eigyo/taiki', label: '待機・再アサイン', built: true, badge: 7 },
-      { href: '/eigyo/nippo', label: '成約日報', built: true, badge: 1 },
+      { href: '/eigyo/haken', label: '派遣契約', built: true }, // 労務の派遣契約と同じ画面（10-25 shoya「同じもの営業にいれたい」）
+      { href: '/eigyo/taiki', label: '待機・再アサイン', built: true },
+      { href: '/eigyo/nippo', label: '成約日報', built: true },
       { href: '/eigyo/map', label: '案件・要員マップ', built: true },
-      { href: '/eigyo/pl', label: '売上・粗利', built: true, badge: 2 },
+      { href: '/eigyo/pl', label: '売上・粗利', built: true },
     ],
   },
   {
     module: 'keiri', label: '経理管理', items: [
-      { href: '/keiri/keihi', label: '交通費・経費', built: true, badge: 9 },
-      { href: '/keiri/check', label: '交通費チェック', built: true, badge: 7 },
-      { href: '/keiri/seikyu', label: '請求書', built: true, badge: 18 },
+      { href: '/keiri/keihi', label: '交通費・経費', built: true },
+      { href: '/keiri/check', label: '交通費チェック', built: true },
+      { href: '/keiri/seikyu', label: '請求書', built: true },
       { href: '/keiri/seikyu-zukuri', label: '請求書づくり', built: true }, // 今の画面をそのまま（app/ik・データは今のシステム）
       { href: '/keiri/seikyu-make', label: '請求書作成', built: true },
       { href: '/keiri/kakunou', label: '請求書・勤務表の格納', built: true }, // 今の請求書作成の「格納」タブ（10-25）
-      { href: '/keiri/chingin', label: '想定賃金・粗利', built: true, badge: 5 },
+      { href: '/keiri/chingin', label: '想定賃金・粗利', built: true },
     ],
   },
 ];
@@ -84,7 +85,7 @@ export const NAV_KANRI: NavItem[] = [
 //   いつもの4分類には入れず、左の4分類の下に別の見出しで出す。どこに置くか・残すかは shoya があとで決める。
 //   ★各担当はこの配列に項目を足すだけ（描くのは components/Shell.tsx）。ページは app/(app)/horyu/<name>
 export const NAV_HORYU: NavItem[] = [
-  { href: '/horyu/dashboard', label: 'ダッシュボード（参画決定・推移）', built: true },
+  { href: '/horyu/dashboard', label: 'ダッシュボード', built: true },
   { href: '/horyu/nyuujou', label: '入場日カレンダー', built: true },
   { href: '/horyu/shoudaku', label: '承諾者ストーリー', built: true },
   { href: '/horyu/narratives', label: '決着ナラティブ', built: true },

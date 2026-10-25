@@ -62,55 +62,55 @@ export function TeamsEditor({ teams, onDone }: { teams: IkeTeam[]; onDone: () =>
   });
   const chip = (name: string) => (
     <span key={name} draggable onDragStart={(e) => { setDrag(name); e.dataTransfer.effectAllowed = 'move'; }} onDragEnd={() => { setDrag(null); setOver(null); }}
-      className="inline-flex cursor-grab items-center rounded-full border border-line bg-soft px-2.5 py-0.5 text-[12.5px]" style={drag === name ? { opacity: 0.4 } : undefined}>
+      className="inline-flex cursor-grab items-center rounded-full border border-line bg-soft px-2.5 py-0.5 text-sm" style={drag === name ? { opacity: 0.4 } : undefined}>
       <PersonName name={name} className="underline-offset-2 hover:underline" />
     </span>
   );
 
   if (!perm.data?.canWrite) return null; // 書けないロールは今の見るだけの画面のまま
   if (!open) return (
-    <button onClick={() => setOpen(true)} className="inline-flex min-h-9 w-fit items-center gap-1.5 rounded-[10px] border border-field bg-surface px-3 text-[13px] font-semibold" style={{ color: 'var(--ad)' }}><Users size={14} />班分けを直す</button>
+    <button onClick={() => setOpen(true)} className="btn-secondary w-fit" style={{ color: 'var(--ad)' }}><Users size={14} />班分けを直す</button>
   );
   return (
     <section className="mo-fade-up flex flex-col gap-3 rounded-xl border border-line bg-surface px-4 py-3.5">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-[15px] font-bold">班分け</h2>
-        <span className="text-[12px] text-muted">人をつまんで別の班・未割当に落とすと動きます（すぐ保存）。書けるのは採用・役員・全体管理者です</span>
-        {busy && <span className="text-[12px] text-muted">保存しています…</span>}
-        <button onClick={() => setOpen(false)} className="ml-auto text-[12.5px] text-muted underline">閉じる</button>
+        <h2 className="text-md font-bold">班分け</h2>
+        <span className="text-sm text-muted">人をつまんで別の班・未割当に落とすと動きます（すぐ保存）。書けるのは採用・役員・全体管理者です</span>
+        {busy && <span className="text-sm text-muted">保存しています…</span>}
+        <button onClick={() => setOpen(false)} className="ml-auto text-sm text-muted underline">閉じる</button>
       </div>
       <WriteError error={error} onClose={() => setError('')} />
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {teams.map((t) => (
           <div key={t.id} {...dropProps(t.id, t)} className="flex flex-col gap-2 rounded-xl border border-line px-3 py-2.5">
             <div className="flex items-center gap-1.5">
-              <input key={t.name} defaultValue={t.name} aria-label="班名" onBlur={(e) => rename(t, e.target.value.trim())} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} className="min-h-8 flex-1 rounded-lg border border-field bg-surface px-2 text-[13.5px] font-bold" />
-              <span className="num text-[12px] text-muted">{t.members.length}人</span>
+              <input key={t.name} defaultValue={t.name} aria-label="班名" onBlur={(e) => rename(t, e.target.value.trim())} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} className="min-h-8 flex-1 rounded-lg border border-field bg-surface px-2 text-body font-bold" />
+              <span className="num text-sm text-muted">{t.members.length}人</span>
               <button onClick={() => remove(t)} aria-label={`${t.name}を消す`} title="班を消す（班の人は未割当に戻る）" className="rounded p-1 text-muted hover:text-bad"><Trash2 size={14} /></button>
             </div>
-            <div className="flex flex-wrap gap-2 text-[12px] text-muted">
+            <div className="flex flex-wrap gap-2 text-sm text-muted">
               {([false, true] as const).map((sub) => (
                 <label key={String(sub)} className="flex items-center gap-1">{sub ? 'サブ' : 'リーダー'}
-                  <select value={(sub ? t.subleader_name : t.leader_name) || ''} onChange={(e) => role(t, sub, e.target.value)} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-[12.5px] text-ink">
+                  <select value={(sub ? t.subleader_name : t.leader_name) || ''} onChange={(e) => role(t, sub, e.target.value)} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-sm text-ink">
                     <option value="">なし</option>
                     {t.members.map((m) => <option key={m.norm_name} value={m.name}>{m.name}</option>)}
                   </select>
                 </label>
               ))}
             </div>
-            <div className="flex min-h-9 flex-wrap gap-1.5">{t.members.length ? t.members.map((m) => chip(m.name)) : <span className="text-[12px] text-faint">ここに人を落とす</span>}</div>
-            <select value="" onChange={(e) => { if (e.target.value) move(e.target.value, t); }} aria-label={`${t.name}に人を足す`} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-[12.5px] text-muted">
+            <div className="flex min-h-9 flex-wrap gap-1.5">{t.members.length ? t.members.map((m) => chip(m.name)) : <span className="text-sm text-faint">ここに人を落とす</span>}</div>
+            <select value="" onChange={(e) => { if (e.target.value) move(e.target.value, t); }} aria-label={`${t.name}に人を足す`} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-sm text-muted">
               <option value="">＋ 未割当の人を足す{staff.state === 'loading' ? '（読み込み中）' : ''}</option>
               {unassigned.map((n) => <option key={n} value={n}>{n}</option>)}
             </select>
           </div>
         ))}
         <div {...dropProps('none', null)} className="flex flex-col gap-2 rounded-xl border border-dashed border-field px-3 py-2.5">
-          <div className="text-[13.5px] font-bold">未割当 <span className="num text-[12px] font-normal text-muted">{unassigned.length}人</span></div>
-          <div className="flex max-h-[220px] flex-wrap gap-1.5 overflow-y-auto">{staff.state === 'loading' ? <span className="text-[12px] text-muted">読み込み中…</span> : unassigned.map(chip)}</div>
+          <div className="text-body font-bold">未割当 <span className="num text-sm font-normal text-muted">{unassigned.length}人</span></div>
+          <div className="flex max-h-[220px] flex-wrap gap-1.5 overflow-y-auto">{staff.state === 'loading' ? <span className="text-sm text-muted">読み込み中…</span> : unassigned.map(chip)}</div>
           <div className="mt-auto flex gap-1.5">
-            <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="新しい班の名前" className="min-h-8 flex-1 rounded-lg border border-field bg-surface px-2 text-[12.5px]" />
-            <button onClick={create} disabled={!newName.trim()} className="btn-primary inline-flex min-h-8 items-center gap-1 rounded-lg px-2.5 text-[12.5px] font-bold disabled:opacity-40"><Plus size={13} />班を作る</button>
+            <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="新しい班の名前" className="min-h-8 flex-1 rounded-lg border border-field bg-surface px-2 text-sm" />
+            <button onClick={create} disabled={!newName.trim()} className="btn-primary btn-sm"><Plus size={13} />班を作る</button>
           </div>
         </div>
       </div>

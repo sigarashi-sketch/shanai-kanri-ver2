@@ -82,36 +82,36 @@ export default function ContractsPage() {
       <PageTitle title="派遣契約" sub="派遣契約の終わりと抵触日が近い人。更新するか決まるまで、段階ごとに知らせます（準委任は通知の対象外）・見本データ" />
       {/* 今の社内システムには派遣契約の終わり・抵触日・更新の意向を持つ画面も表も無い（稼働の終了日はあるが抵触日とは別物なのでつながない） */}
       <NotInLegacy what="派遣契約の終わり・抵触日・書類・更新の意向" />
-      <p className="flex items-start gap-1.5 text-[12px] text-muted"><ShieldCheck size={14} className="mt-0.5 shrink-0" />法令の判断は労務・専門家に確認してください。更新・終了は営業が提案して、労務が確定します。</p>
+      <p className="flex items-start gap-1.5 text-sm text-muted"><ShieldCheck size={14} className="mt-0.5 shrink-0" />法令の判断は労務・専門家に確認してください。更新・終了は営業が提案して、労務が確定します。</p>
 
       <div className="mo-fade-up flex flex-wrap items-stretch gap-3" style={{ ['--i' as string]: 1 }}>
         <div className="flex min-w-[240px] items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
           <RemainRing remain={open} total={Math.max(openTotal, open)} />
           <div>
-            <div className="text-[12px] text-muted">知らせる段階に入って、意向がまだ</div>
-            <div className="num text-[24px] font-bold">{open}<span className="ml-0.5 text-[13px] font-semibold text-muted">人</span></div>
-            <div className="text-[11.5px] text-faint">意向が決まっていない人は全部で {undecided}人</div>
+            <div className="text-sm text-muted">知らせる段階に入って、意向がまだ</div>
+            <div className="num text-xl font-bold">{open}<span className="ml-0.5 text-body font-semibold text-muted">人</span></div>
+            <div className="text-xs text-faint">意向が決まっていない人は全部で {undecided}人</div>
           </div>
         </div>
         <div className="flex flex-1 flex-wrap items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3">
-          <span className="mr-1 text-[12px] text-muted">知らせる段階</span>
+          <span className="mr-1 text-sm text-muted">知らせる段階</span>
           {rule.stages.map((s, i) => (
             <span key={s.level} className="flex items-center gap-2">
               {i > 0 && <span className="text-faint">→</span>}
-              <span className="rounded-[10px] px-3 py-1.5 text-[12.5px]" style={{ background: LEVEL_STYLE[s.level].bg, color: LEVEL_STYLE[s.level].fg }}><b>{s.when}・{LEVEL_STYLE[s.level].label}</b><span className="ml-1.5">{s.to.join('・')}</span></span>
+              <span className="rounded-[10px] px-3 py-1.5 text-sm" style={{ background: LEVEL_STYLE[s.level].bg, color: LEVEL_STYLE[s.level].fg }}><b>{s.when}・{LEVEL_STYLE[s.level].label}</b><span className="ml-1.5">{s.to.join('・')}</span></span>
             </span>
           ))}
-          <Link href="/roumu/alerts" className="ml-auto text-[12px] font-semibold" style={{ color: 'var(--ad)' }}>宛先を変える</Link>
+          <Link href="/roumu/alerts" className="ml-auto text-sm font-semibold" style={{ color: 'var(--ad)' }}>宛先を変える</Link>
         </div>
       </div>
 
       {open === 0 && (
-        <div className="mo-scale-in flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-[13px]"><Check size={18} className="text-ok" />知らせる段階の人は、全員の意向が決まりました。次に近づいた人がまた上に出ます。</div>
+        <div className="mo-scale-in flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-body"><Check size={18} className="text-ok" />知らせる段階の人は、全員の意向が決まりました。次に近づいた人がまた上に出ます。</div>
       )}
 
       <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1480px] border-collapse text-[13px]">
+          <table className="w-full min-w-[1480px] border-collapse text-body">
             <thead><tr className="th-row text-left">
               <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">契約の形</th><th className="px-2 py-2.5 font-semibold">派遣先</th><th className="px-2 py-2.5 font-semibold">契約の終わり</th><th className="px-2 py-2.5 font-semibold">抵触日（個人単位）</th><th className="px-2 py-2.5 font-semibold">事業所単位の抵触日</th><th className="px-2 py-2.5 font-semibold">意見聴取の期限</th><th className="px-2 py-2.5 font-semibold">書類</th><th className="px-2 py-2.5 font-semibold">段階</th><th className="px-2 py-2.5 font-semibold">更新の意向</th><th className="px-4 py-2.5" />
             </tr></thead>
@@ -123,31 +123,31 @@ export default function ContractsPage() {
                 const conflictFirst = !quasi && c.conflictDays <= c.daysLeft + 31; // 次の更新で抵触日をまたぐ
                 const iken = ikenOf(c);
                 const proposed = (c.intent === '更新' || c.intent === '終了') && !c.confirmed;
-                const naCell = <td className="px-2 py-2.5 text-[12px] text-faint" title={QUASI_NOTE}>—（対象外）</td>;
+                const naCell = <td className="px-2 py-2.5 text-sm text-faint" title={QUASI_NOTE}>—（対象外）</td>;
                 return (
                   <tr key={c.personId} className={`mo-fade-in border-t border-line-soft align-top ${flash === c.personId ? 'mo-flash' : 'row'} ${lv === 'ok' && first[c.personId] !== 'ok' ? 'opacity-60' : ''}`} style={{ ['--i' as string]: i }}>
-                    <td className="px-4 py-2.5"><div className="font-semibold"><PersonName name={c.name} className="underline-offset-2 hover:underline" /></div><div className="text-[11.5px] text-faint">営業 {c.sales}</div></td>
+                    <td className="px-4 py-2.5"><div className="font-semibold"><PersonName name={c.name} className="underline-offset-2 hover:underline" /></div><div className="text-xs text-faint">営業 {c.sales}</div></td>
                     <td className="px-2 py-2.5">
                       <span className="chip" title={quasi ? QUASI_NOTE : '労働者派遣契約'} style={quasi ? { background: 'var(--tone-purple-bg)', color: 'var(--tone-purple-fg)' } : { background: 'var(--tone-info-bg)', color: 'var(--tone-info-fg)' }}>{c.kind}</span>
                       {quasi && (
                         <button onClick={() => setOpenNote(openNote === c.personId ? null : c.personId)} aria-expanded={openNote === c.personId} title={QUASI_NOTE} className="ml-1 inline-flex align-middle text-faint hover:text-ink" aria-label="準委任の説明"><Info size={13} /></button>
                       )}
-                      {quasi && openNote === c.personId && <div className="mo-fade-in mt-1 max-w-[180px] text-[11.5px] text-muted">{QUASI_NOTE}</div>}
+                      {quasi && openNote === c.personId && <div className="mo-fade-in mt-1 max-w-[180px] text-xs text-muted">{QUASI_NOTE}</div>}
                     </td>
-                    <td className="px-2 py-2.5">{c.site}<div className="text-[11.5px] text-faint">{c.start}〜</div></td>
-                    <td className="num px-2 py-2.5">{c.end}<span className="ml-1 text-[11.5px]" style={{ color: c.daysLeft <= 45 ? 'var(--color-bad)' : 'var(--color-faint)' }}>あと{c.daysLeft}日</span></td>
+                    <td className="px-2 py-2.5">{c.site}<div className="text-xs text-faint">{c.start}〜</div></td>
+                    <td className="num px-2 py-2.5">{c.end}<span className="ml-1 text-xs" style={{ color: c.daysLeft <= 45 ? 'var(--color-bad)' : 'var(--color-faint)' }}>あと{c.daysLeft}日</span></td>
                     {quasi ? naCell : (
                       <td className="num px-2 py-2.5">
-                        {c.conflictOn}<span className="ml-1 text-[11.5px]" style={{ color: conflictFirst ? 'var(--color-bad)' : 'var(--color-faint)' }}>あと{c.conflictDays}日</span>
-                        {conflictFirst && <div className="mo-shake mt-1 flex items-start gap-1 text-[11.5px] text-bad"><AlertTriangle size={13} className="mt-0.5 shrink-0 text-bad" />次の更新で抵触日を超えます。同じ組織では続けられません</div>}
+                        {c.conflictOn}<span className="ml-1 text-xs" style={{ color: conflictFirst ? 'var(--color-bad)' : 'var(--color-faint)' }}>あと{c.conflictDays}日</span>
+                        {conflictFirst && <div className="mo-shake mt-1 flex items-start gap-1 text-xs text-bad"><AlertTriangle size={13} className="mt-0.5 shrink-0 text-bad" />次の更新で抵触日を超えます。同じ組織では続けられません</div>}
                       </td>
                     )}
                     {quasi ? naCell : (
-                      <td className="num px-2 py-2.5">{c.officeConflictOn}<span className="ml-1 text-[11.5px]" style={{ color: c.officeConflictDays <= c.daysLeft + 31 ? 'var(--color-bad)' : 'var(--color-faint)' }}>あと{c.officeConflictDays}日</span></td>
+                      <td className="num px-2 py-2.5">{c.officeConflictOn}<span className="ml-1 text-xs" style={{ color: c.officeConflictDays <= c.daysLeft + 31 ? 'var(--color-bad)' : 'var(--color-faint)' }}>あと{c.officeConflictDays}日</span></td>
                     )}
                     {quasi || !iken ? naCell : (
                       <td className="num px-2 py-2.5" title="派遣先が延ばすなら、この日までに過半数労働組合などの意見を聞く">
-                        {iken.on}<span className="ml-1 text-[11.5px]" style={{ color: iken.days <= 30 ? 'var(--color-bad)' : 'var(--color-faint)' }}>{iken.days >= 0 ? `あと${iken.days}日` : '期限切れ'}</span>
+                        {iken.on}<span className="ml-1 text-xs" style={{ color: iken.days <= 30 ? 'var(--color-bad)' : 'var(--color-faint)' }}>{iken.days >= 0 ? `あと${iken.days}日` : '期限切れ'}</span>
                       </td>
                     )}
                     {quasi || !c.docs ? naCell : (
@@ -161,24 +161,24 @@ export default function ContractsPage() {
                     )}
                     <td className="px-2 py-2.5"><span className="chip" style={{ background: s.bg, color: s.fg }}>{quasi ? '対象外' : lv !== 'ok' ? s.label : decided(c) ? '決まり' : 'まだ先'}</span></td>
                     <td className="px-2 py-2.5">
-                      <select aria-label={`${c.name} の更新の意向`} value={c.intent} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} onChange={(e) => setIntent(c, e.target.value as Intent)} className="min-h-8 rounded-lg border border-field bg-surface px-2 text-[12.5px] disabled:opacity-50">
+                      <select aria-label={`${c.name} の更新の意向`} value={c.intent} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} onChange={(e) => setIntent(c, e.target.value as Intent)} className="min-h-8 rounded-lg border border-field bg-surface px-2 text-sm disabled:opacity-50">
                         {INTENTS.map((x) => <option key={x} value={x}>{x}</option>)}
                       </select>
                       {proposed && (
                         <div className="mt-1 flex flex-col items-start gap-1">
                           <span className="chip" style={{ background: 'var(--tone-caution-bg)', color: 'var(--tone-caution-fg)' }}>提案中（労務の確定待ち）</span>
                           <button onClick={() => confirmIntent(c)} disabled={!canConfirm} title={canConfirm ? `「${c.intent}」で確定する` : '確定は労務の権限（直す）が要ります。営業は提案まで'}
-                            className="inline-flex min-h-8 items-center gap-1 rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:cursor-not-allowed disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Check size={13} />確定する</button>
-                          {!canConfirm && <span className="text-[11px] text-faint">確定は労務の権限の人だけ</span>}
+                            className="inline-flex min-h-8 items-center gap-1 rounded-lg border px-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Check size={13} />確定する</button>
+                          {!canConfirm && <span className="text-xs text-faint">確定は労務の権限の人だけ</span>}
                         </div>
                       )}
-                      {c.intent !== '未確認' && !proposed && decided(c) && <div className="mt-1 text-[11.5px] text-ok">確定ずみ</div>}
-                      {c.asked && <div className="mt-1 text-[11.5px] text-faint">{c.asked}</div>}
+                      {c.intent !== '未確認' && !proposed && decided(c) && <div className="mt-1 text-xs text-ok">確定ずみ</div>}
+                      {c.asked && <div className="mt-1 text-xs text-faint">{c.asked}</div>}
                     </td>
                     <td className="px-4 py-2.5 text-right">
-                      {quasi ? <span className="text-[12px] text-faint">準委任は知らせません</span> : lv === 'ok' ? <span className="text-[12px] text-faint">{decided(c) ? '通知は止まりました' : `${days[0]}日前から知らせます`}</span>
-                        : asked[c.personId] ? <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-ok"><Check size={14} />今日 頼みました</span>
-                        : <><button onClick={() => ask(c, STEP_TO(lv))} disabled={!canEdit || STEP_TO(lv).length === 0} title={!canEdit ? needText('edit') : STEP_TO(lv).length === 0 ? 'アラート設定で知らせを止めています' : undefined} className="inline-flex whitespace-nowrap min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Bell size={14} />意向確認を頼む</button><div className="mt-1 text-[11px] text-faint">{STEP_TO(lv).join('・') || '知らせを止めています'}</div></>}
+                      {quasi ? <span className="text-sm text-faint">準委任は知らせません</span> : lv === 'ok' ? <span className="text-sm text-faint">{decided(c) ? '通知は止まりました' : `${days[0]}日前から知らせます`}</span>
+                        : asked[c.personId] ? <span className="inline-flex items-center gap-1 text-sm font-semibold text-ok"><Check size={14} />今日 頼みました</span>
+                        : <><button onClick={() => ask(c, STEP_TO(lv))} disabled={!canEdit || STEP_TO(lv).length === 0} title={!canEdit ? needText('edit') : STEP_TO(lv).length === 0 ? 'アラート設定で知らせを止めています' : undefined} className="inline-flex whitespace-nowrap min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-sm font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Bell size={14} />意向確認を頼む</button><div className="mt-1 text-xs text-faint">{STEP_TO(lv).join('・') || '知らせを止めています'}</div></>}
                     </td>
                   </tr>
                 );
@@ -187,7 +187,7 @@ export default function ContractsPage() {
           </table>
         </div>
       </div>
-      <p className="text-[11.5px] text-faint">法令の判断は労務・専門家に確認してください（抵触日・意見聴取・契約終了の扱い（雇用安定措置など）・書類の要否）。準委任の人に現場が直接指示を出すと偽装請負になるおそれがあります。</p>
+      <p className="text-xs text-faint">法令の判断は労務・専門家に確認してください（抵触日・意見聴取・契約終了の扱い（雇用安定措置など）・書類の要否）。準委任の人に現場が直接指示を出すと偽装請負になるおそれがあります。</p>
     </main>
   );
 }

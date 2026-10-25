@@ -104,7 +104,7 @@ export default function HomeEigyoPage() {
   if (ike.state === 'loading' || (ike.live && mk.state === 'loading')) return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="ホーム営業" sub="担当営業ごとの成約数・売上・粗利（未経験の要員だけ）" />
-      <div className="rounded-xl border border-line bg-surface px-4 py-10 text-center text-[13px] text-muted">日報②の契約実績を読んでいます…（10秒ほど）</div>
+      <div className="rounded-xl border border-line bg-surface px-4 py-10 text-center text-body text-muted">日報②の契約実績を読んでいます…（10秒ほど）</div>
     </main>
   );
 
@@ -112,8 +112,8 @@ export default function HomeEigyoPage() {
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="ホーム営業" sub={`${ymLabel(MONTH)}・担当営業ごとの成約数・売上・粗利（未経験の要員だけ）${L ? '' : '・見本データ'}`}>
         {isAdmin && !myRep && (
-          <label className="flex items-center gap-1.5 text-[12.5px] text-muted">見え方を試す
-            <select value={preview} onChange={(e) => setPreview(e.target.value)} className="rounded-lg border border-field bg-surface px-2 py-1.5 text-[12.5px] text-ink">
+          <label className="flex items-center gap-1.5 text-sm text-muted">見え方を試す
+            <select value={preview} onChange={(e) => setPreview(e.target.value)} className="rounded-lg border border-field bg-surface px-2 py-1.5 text-sm text-ink">
               <option value="">管理者として</option>
               {REPS.map((r) => <option key={r} value={r}>{r}さん（営業）として</option>)}
             </select>
@@ -130,20 +130,20 @@ export default function HomeEigyoPage() {
           { k: '請求の無い退場（差し引き）', v: manOf(team.nb), unit: '万', sub: <span className="text-faint">成約数には残しています</span> },
         ].map((x, i) => (
           <div key={x.k} className="mo-fade-up rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: i + 1, borderTop: '3px solid var(--a)' }}>
-            <div className="text-[12px] text-muted">{x.k}</div>
-            <div className="text-[24px] font-bold tracking-tight"><CountUp to={x.v} /><span className="ml-0.5 text-[13px] font-semibold text-muted">{x.unit}</span></div>
-            <div className="text-[11.5px]">{x.sub}</div>
+            <div className="text-sm text-muted">{x.k}</div>
+            <div className="text-xl font-bold tracking-tight"><CountUp to={x.v} /><span className="ml-0.5 text-body font-semibold text-muted">{x.unit}</span></div>
+            <div className="text-xs">{x.sub}</div>
           </div>
         ))}
       </div>
 
       <section className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 5 }}>
         <div className="flex flex-wrap items-center gap-2 px-4 py-3">
-          <h2 className="text-[15px] font-bold">今月の順位</h2>
+          <h2 className="text-md font-bold">今月の順位</h2>
           <div className="ml-auto flex gap-1">
             {SORTS.map((s) => (
               <button key={s.k} onClick={() => { setSort(s.k); window.history.replaceState(null, '', `?sort=${s.k}${shown && isAdmin && !asRep ? `&tantou=${encodeURIComponent(shown)}` : ''}`); }}
-                className={`min-h-8 rounded-full border px-3 text-[12.5px] ${sort === s.k ? 'font-semibold' : 'text-muted'}`} style={sort === s.k ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>{s.label}</button>
+                className={`min-h-8 rounded-full border px-3 text-sm ${sort === s.k ? 'font-semibold' : 'text-muted'}`} style={sort === s.k ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>{s.label}</button>
             ))}
           </div>
         </div>
@@ -154,47 +154,47 @@ export default function HomeEigyoPage() {
             <div key={r.tantou} onClick={pick ? () => setPicked(r.tantou) : undefined}
               className={`mo-fade-in flex flex-wrap items-center gap-3 border-t border-line-soft px-4 py-2.5 ${pick ? 'row cursor-pointer' : ''}`}
               style={{ ['--i' as string]: 6 + i, ...(on ? { boxShadow: 'inset 3px 0 0 var(--a)', background: 'var(--al)' } : {}) }}>
-              <span className={`flex size-8 shrink-0 items-center justify-center rounded-full text-[13px] font-bold ${n === 1 ? 'mo-spring-in' : ''}`}
+              <span className={`flex size-8 shrink-0 items-center justify-center rounded-full text-body font-bold ${n === 1 ? 'mo-spring-in' : ''}`}
                 style={n === 1 ? { background: 'var(--a)', color: 'var(--o-eigyo)' } : n <= 3 ? { background: 'var(--as)', color: 'var(--ad)' } : { background: 'var(--color-sunken)', color: 'var(--color-muted)' }}>
                 {n === 1 ? <Crown size={15} /> : n}
               </span>
               <span className="w-24 shrink-0 font-semibold">{r.tantou}{mine && <span className="chip ml-1.5" style={{ background: 'var(--tone-info-bg)', color: 'var(--tone-info-fg)' }}>自分</span>}</span>
               <div className="min-w-[160px] flex-1">
                 <div className="h-4 rounded-md bg-sunken"><div className="mo-bar h-4 rounded-md" style={{ width: `${(r[sort] / max) * 100}%`, background: n === 1 ? 'var(--a)' : 'var(--al)', ['--i' as string]: i }} /></div>
-                <div className="mt-0.5 text-[11.5px] text-muted">{ACT_LABELS.map((a) => `${a} ${ACTS[r.tantou]?.[a] ?? 0}`).join('・')}</div>
+                <div className="mt-0.5 text-xs text-muted">{ACT_LABELS.map((a) => `${a} ${ACTS[r.tantou]?.[a] ?? 0}`).join('・')}</div>
               </div>
               <div className="w-[230px] shrink-0 text-right">
-                <b className="num text-[15px]">{fmt(r)}</b>
-                <div className="num text-[11.5px] text-muted">{r.count}件・売上 {manOf(r.uriage)}万・見込み粗利 {manOf(r.gross)}万（{rate(r.gross, r.grossBase).toFixed(1)}%{grossIsRough(r) ? '・参考値' : ''}）{L && !hasLines(r.tantou) ? '・未経験で絞る前の数' : ''}</div>
-                <div className="text-[11.5px]">{p && diff(sort === 'count' ? r.count : manOf(r[sort]), sort === 'count' ? p.count : manOf(p[sort]), sort === 'count' ? '件' : '万')}</div>
+                <b className="num text-md">{fmt(r)}</b>
+                <div className="num text-xs text-muted">{r.count}件・売上 {manOf(r.uriage)}万・見込み粗利 {manOf(r.gross)}万（{rate(r.gross, r.grossBase).toFixed(1)}%{grossIsRough(r) ? '・参考値' : ''}）{L && !hasLines(r.tantou) ? '・未経験で絞る前の数' : ''}</div>
+                <div className="text-xs">{p && diff(sort === 'count' ? r.count : manOf(r[sort]), sort === 'count' ? p.count : manOf(p[sort]), sort === 'count' ? '件' : '万')}</div>
               </div>
             </div>
           );
         })}
-        <div className="border-t border-line-soft px-4 py-2 text-[11.5px] text-muted">粗利＝単価−額面−額面×19%（社保）−交通費（フルリモートは0円・リモート併用は週2出社）。プロパーリストに名前がある人だけ数えています{dropped > 0 ? `（未経験でない${dropped}件を外しています）` : ''}{unfiltered > 0 ? `。明細を見られない担当 ${unfiltered}人と先月の数は、今のシステムの数のまま（未経験で絞る前）` : ''}。交通費未取得の成約は0円で計算＝粗利は多めに出ます（{caveat(team.fareMissing)}）。{isAdmin && !asRep && '行を押すと、その担当の成約した人が下に出ます'}</div>
+        <div className="border-t border-line-soft px-4 py-2 text-xs text-muted">粗利＝単価−額面−額面×19%（社保）−交通費（フルリモートは0円・リモート併用は週2出社）。プロパーリストに名前がある人だけ数えています{dropped > 0 ? `（未経験でない${dropped}件を外しています）` : ''}{unfiltered > 0 ? `。明細を見られない担当 ${unfiltered}人と先月の数は、今のシステムの数のまま（未経験で絞る前）` : ''}。交通費未取得の成約は0円で計算＝粗利は多めに出ます（{caveat(team.fareMissing)}）。{isAdmin && !asRep && '行を押すと、その担当の成約した人が下に出ます'}</div>
       </section>
 
       {!shown || !me1 ? (
-        <div className="rounded-xl border border-line bg-soft px-5 py-6 text-center text-[13px] text-muted"><Lock size={16} className="mx-auto mb-1.5 text-faint" />成約した人の一覧は、担当営業の本人と管理者だけが見られます</div>
+        <div className="rounded-xl border border-line bg-soft px-5 py-6 text-center text-body text-muted"><Lock size={16} className="mx-auto mb-1.5 text-faint" />成約した人の一覧は、担当営業の本人と管理者だけが見られます</div>
       ) : (
         <section className={`mo-fade-up overflow-hidden rounded-xl border border-line bg-surface ${flash === ckKey ? 'mo-flash' : ''}`} style={{ ['--i' as string]: 10 }}>
           <div className="flex flex-wrap items-center gap-3 px-4 py-3">
             {goal > 0 && <RemainRing remain={Math.max(0, goal - me1.count)} total={goal} />}
             <div className="min-w-0 flex-1">
-              <h2 className="text-[15px] font-bold">{shown}さんが成約した人 <span className="num text-muted">{lines.length}</span></h2>
-              <div className="text-[12px] text-muted">{!goal ? `成約 ${me1.count}件` : me1.count >= goal ? `今月の目標 ${goal}件に届きました` : `今月の目標 ${goal}件まで あと${goal - me1.count}件`}{asRep ? '・ほかの担当の人は出しません' : ''}</div>
+              <h2 className="text-md font-bold">{shown}さんが成約した人 <span className="num text-muted">{lines.length}</span></h2>
+              <div className="text-sm text-muted">{!goal ? `成約 ${me1.count}件` : me1.count >= goal ? `今月の目標 ${goal}件に届きました` : `今月の目標 ${goal}件まで あと${goal - me1.count}件`}{asRep ? '・ほかの担当の人は出しません' : ''}</div>
             </div>
             {isAdmin && !asRep && (
-              <select aria-label="担当営業" value={picked} onChange={(e) => setPicked(e.target.value)} className="rounded-lg border border-field bg-surface px-2 py-1.5 text-[12.5px]">
+              <select aria-label="担当営業" value={picked} onChange={(e) => setPicked(e.target.value)} className="rounded-lg border border-field bg-surface px-2 py-1.5 text-sm">
                 {REPS.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
             )}
             {!L && <button onClick={confirm} disabled={!canEdit || !!checked[ckKey]} title={!canEdit ? needText('edit') : checked[ckKey] ? 'この月は確かめてあります' : '見本なのでどこにも保存しません'}
-              className="btn-primary inline-flex min-h-9 items-center gap-1.5 rounded-[10px] px-3.5 text-[13px] font-semibold disabled:cursor-not-allowed disabled:opacity-40"><Check size={15} />{checked[ckKey] ? '確かめました（見本）' : '数字を確かめた（見本）'}</button>}
+              className="btn-primary"><Check size={15} />{checked[ckKey] ? '確かめました（見本）' : '数字を確かめた（見本）'}</button>}
           </div>
-          {goal > 0 && me1.count >= goal && <div className="mo-scale-in mx-4 mb-3 rounded-xl border border-ok-line bg-ok-soft px-4 py-3 text-center text-[13px] font-semibold text-ok">{ymLabel(MONTH)}の目標に届きました。おつかれさまです</div>}
+          {goal > 0 && me1.count >= goal && <div className="mo-scale-in mx-4 mb-3 rounded-xl border border-ok-line bg-ok-soft px-4 py-3 text-center text-body font-semibold text-ok">{ymLabel(MONTH)}の目標に届きました。おつかれさまです</div>}
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[820px] border-collapse text-[13px]">
+            <table className="w-full min-w-[820px] border-collapse text-body">
               <thead><tr className="th-row text-left">
                 <th className="px-4 py-2.5 font-semibold">名前</th><th className="px-2 py-2.5 font-semibold">上位会社</th><th className="px-2 py-2.5 font-semibold">区分</th><th className="px-2 py-2.5 font-semibold">成約日</th>
                 <th className="px-2 py-2.5 text-right font-semibold">単価</th><th className="px-2 py-2.5 text-right font-semibold">額面＋社保</th><th className="px-2 py-2.5 text-right font-semibold">交通費</th><th className="px-4 py-2.5 text-right font-semibold">見込み粗利</th>
@@ -211,7 +211,7 @@ export default function HomeEigyoPage() {
                       <td className="num px-2 py-2.5">{l.md}</td>
                       <td className="num px-2 py-2.5 text-right">{l.uriage == null ? <span className="text-warn">単価が空</span> : yen(l.uriage)}</td>
                       <td className="num px-2 py-2.5 text-right">{l.gakumen == null ? <span className="text-warn">額面不明</span> : L ? <span className="text-faint">—</span> : yen(l.gakumen + (shaho ?? 0))}</td>
-                      <td className="num px-2 py-2.5 text-right">{l.fare == null && l.shussha !== 'remote' ? <span className="text-warn">未取得（0円で計算）</span> : L ? <span className="text-faint">—</span> : yen(l.fare ?? 0)}<div className="text-[11px] text-faint">{SHUSSHA_LABEL[l.shussha]}</div></td>
+                      <td className="num px-2 py-2.5 text-right">{l.fare == null && l.shussha !== 'remote' ? <span className="text-warn">未取得（0円で計算）</span> : L ? <span className="text-faint">—</span> : yen(l.fare ?? 0)}<div className="text-xs text-faint">{SHUSSHA_LABEL[l.shussha]}</div></td>
                       <td className={`num px-4 py-2.5 text-right font-semibold ${l.noBill ? 'text-faint line-through' : ''}`}>{yen(gross)}</td>
                     </tr>
                   );
@@ -219,7 +219,7 @@ export default function HomeEigyoPage() {
               </tbody>
             </table>
           </div>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-line-soft px-4 py-2 text-[11.5px] text-muted">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-line-soft px-4 py-2 text-xs text-muted">
             <span>合計 売上 {yen(me1.uriage)}・見込み粗利 {yen(me1.gross)}（{rate(me1.gross, me1.grossBase).toFixed(1)}%{grossIsRough(me1) ? '・参考値' : ''}）</span>
             <span className="text-warn">{caveat(me1.fareMissing)}</span>
             {me1.noGakumen > 0 && <span className="text-warn">額面不明 {me1.noGakumen}件は粗利に入れていません</span>}
@@ -227,7 +227,7 @@ export default function HomeEigyoPage() {
           </div>
         </section>
       )}
-      <p className="text-[11.5px] text-faint">{L ? '額面・交通費の金額はここには出しません（粗利だけ）。' : '数字は見本です（名前・会社・金額は作り物）。'}社保や交通費の扱いなど、最終判断は社労士・税理士・法務に確認してください。</p>
+      <p className="text-xs text-faint">{L ? '額面・交通費の金額はここには出しません（粗利だけ）。' : '数字は見本です（名前・会社・金額は作り物）。'}社保や交通費の扱いなど、最終判断は社労士・税理士・法務に確認してください。</p>
     </main>
   );
 }

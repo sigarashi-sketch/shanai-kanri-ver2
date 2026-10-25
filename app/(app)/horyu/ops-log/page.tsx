@@ -28,22 +28,22 @@ export default function OpsLogPage() {
         <input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} aria-label="日付" className={inputCls} />
         <input value={actor} onChange={(e) => setActor(e.target.value)} placeholder="だれが（メール）" aria-label="だれが" className={`${inputCls} w-[160px]`} />
         <input value={act} onChange={(e) => setAct(e.target.value)} placeholder="操作の名前" aria-label="操作" className={`${inputCls} w-[160px]`} />
-        <label className="flex items-center gap-1.5 text-[12.5px]"><input type="checkbox" checked={ng} onChange={(e) => setNg(e.target.checked)} />失敗だけ</label>
-        <span className="ml-auto text-[12px] text-faint">{rows.length}件{r.data?.truncated ? '（多いので途中まで）' : ''}</span>
+        <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" checked={ng} onChange={(e) => setNg(e.target.checked)} />失敗だけ</label>
+        <span className="ml-auto text-sm text-faint">{rows.length}件{r.data?.truncated ? '（多いので途中まで）' : ''}</span>
       </div>
       <Card>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] border-collapse text-[13px]">
+          <table className="w-full min-w-[760px] border-collapse text-body">
             <thead><tr className="th-row"><th className={thCls}>いつ</th><th className={thCls}>だれが</th><th className={thCls}>操作</th><th className={thCls}>対象</th><th className={thCls}>結果</th><th className={thCls}>詳しく</th></tr></thead>
             <tbody>
               {rows.map((x) => (
                 <tr key={x.id} className="border-t border-line-soft align-top">
                   <td className={`${tdCls} num whitespace-nowrap`}>{fmtAt(x.at)}</td>
                   <td className={tdCls}>{x.actor.split('@')[0] || '—'}</td>
-                  <td className={tdCls}><code className="text-[12px]">{x.action}</code><div className="text-[11px] text-faint">{x.source}</div></td>
+                  <td className={tdCls}><code className="text-sm">{x.action}</code><div className="text-xs text-faint">{x.source}</div></td>
                   <td className={tdCls}>{x.target || '—'}</td>
                   <td className={tdCls}>{x.ok ? <span className="text-faint">OK</span> : <span style={{ color: 'var(--tone-bad-fg)' }}>失敗 {x.status ?? ''}</span>}</td>
-                  <td className={`${tdCls} max-w-[280px] text-[12px] text-muted`}>{Object.entries(x.detail || {}).map(([k, v]) => `${k}: ${v}`).join('・') || '—'}</td>
+                  <td className={`${tdCls} max-w-[280px] text-sm text-muted`}>{Object.entries(x.detail || {}).map(([k, v]) => `${k}: ${v}`).join('・') || '—'}</td>
                 </tr>
               ))}
               {r.state !== 'loading' && !rows.length && <tr><td colSpan={6} className="px-4 py-8 text-center text-muted">{r.data?.needsMigration ? '今のシステムに操作ログの表がまだありません' : 'この日の記録はありません'}</td></tr>}

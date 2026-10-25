@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import { Check, TriangleAlert } from 'lucide-react';
 
 // 本物のデータ（今の社内システムの API）を画面で読むための道具。
@@ -72,24 +72,56 @@ export function usePoll(fn: (() => void) | null, ms: number | undefined) {
   }, [on, ms]);
 }
 
-/** 画面の上に出す「見本／本物」。note はその画面で本物に無いもの・違うところの一言。 */
+// ---- 「見本／本物」は上のバーに小さく出す（10-25 見た目の整理）。画面の中の帯はやめて、読めなかったときだけ画面の中に出す ----
+//   各画面の <LiveBanner> が「いまの状態」をここに届け、上のバーの <LiveIndicator> が まとめて1つ出す。
+//   上のバーが無いところ（Shell の外）では、いままでどおり画面の中に出す。
+const liveStates = new Map<string, LiveState>();
+const liveSubs = new Set<() => void>();
+let liveSnap: 'live' | 'sample' | null = null;
+let hostCount = 0;
+const recompute = () => {
+  const v = [...liveStates.values()];
+  liveSnap = v.includes('live') ? 'live' : v.includes('sample') ? 'sample' : null;
+  liveSubs.forEach((f) => f());
+};
+const subLive = (f: () => void) => { liveSubs.add(f); return () => { liveSubs.delete(f); }; };
+
+/** 上のバーの「見本データ／本物のデータ」。Shell が置く */
+export function LiveIndicator() {
+  const v = useSyncExternalStore(subLive, () => liveSnap, () => null);
+  useEffect(() => { hostCount++; recompute(); return () => { hostCount--; recompute(); }; }, []);
+  if (v === 'live') return <span className="chip" title="今の社内システムのデータを読んでいます（ここからは変えられない画面もあります）" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}><Check size={11} />本物のデータ</span>;
+  if (v === 'sample') return (
+    <span className="inline-flex items-center gap-2 text-sm text-muted">
+      <span className="chip" title="本物の名前ではありません" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>見本データ</span>
+      <a href="/api/ike-auth/start" className="font-semibold underline-offset-2 hover:underline" style={{ color: 'var(--ad)' }}>ログインして本物を見る</a>
+    </span>
+  );
+  return null;
+}
+
+/** 画面の「見本／本物」。note はその画面で本物に無いもの・違うところの一言。見本・本物の別は上のバーに出し、ここには一言と読めなかったときだけ出す */
 export function LiveBanner({ state, error, note, onReload }: { state: LiveState; error?: string; note?: string; onReload?: () => void }) {
+  const id = useId();
+  const hosted = useSyncExternalStore(subLive, () => hostCount > 0, () => false);
+  useEffect(() => { liveStates.set(id, state); recompute(); }, [id, state]);
+  useEffect(() => () => { liveStates.delete(id); recompute(); }, [id]);
   if (state === 'loading') return null;
-  if (state === 'sample') return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-soft px-4 py-2.5 text-[12.5px] text-muted">
-      いまは見本データです（本物の名前ではありません）。
-      <a href="/api/ike-auth/start" className="btn-primary ml-auto inline-flex min-h-8 items-center px-3 text-[12px]">会社のアカウントでログインして本物を見る</a>
+  if (state === 'sample') return hosted ? null : (
+    <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
+      <span className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>見本データ</span>本物の名前ではありません。
+      <a href="/api/ike-auth/start" className="font-semibold underline-offset-2 hover:underline" style={{ color: 'var(--ad)' }}>ログインして本物を見る</a>
     </div>
   );
   if (state === 'error') return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl border px-4 py-2.5 text-[12.5px]" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)', borderColor: 'var(--tone-bad-bar)' }}>
+    <div role="alert" className="flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-sm" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)', borderColor: 'var(--color-bad-line)' }}>
       <TriangleAlert size={14} />{error || '読めませんでした'}
       {error?.includes('ログイン') ? <a href="/api/ike-auth/start" className="ml-auto font-semibold underline">もう一度ログインする</a> : onReload && <button onClick={onReload} className="ml-auto font-semibold underline">もう一度</button>}
     </div>
   );
   return (
-    <div className="flex flex-wrap items-center gap-2 text-[12px] text-faint">
-      <span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}><Check size={11} />本物のデータ</span>
+    <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+      {!hosted && <span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}><Check size={11} />本物のデータ</span>}
       {note ?? 'ここからは変えられません（見るだけ）。操作は今の社内システムの画面から'}
     </div>
   );
@@ -97,5 +129,5 @@ export function LiveBanner({ state, error, note, onReload }: { state: LiveState;
 
 /** 今の社内システムにまだ無い画面（または一部）。本物につなぐ先が無いので見本のまま、と出す。 */
 export function NotInLegacy({ what = 'この画面' }: { what?: string }) {
-  return <div className="rounded-xl border border-line bg-soft px-4 py-2.5 text-[12.5px] text-muted">{what}は今の社内システムにまだ無いので、見本データのままです。</div>;
+  return <div className="text-sm text-muted">{what}は今の社内システムにまだ無いので、見本データのままです。</div>;
 }

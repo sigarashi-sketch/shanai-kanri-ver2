@@ -16,7 +16,7 @@ export default function BotAbPage() {
       <PageTitle title="botのモデル比較" sub={d?.batch ? `いちばん新しい比較：${d.batch}` : '同じ質問を2つのモデルに答えさせた結果'} />
       <HoryuNote>結果を見るだけです。比較をはじめるのは費用がかかるので、今の社内システムの画面から（全体管理者だけ）。</HoryuNote>
       <LiveBanner state={h.state} error={h.error} onReload={h.reload} note="見るだけです" />
-      {d && !d.rows.length && <div className="rounded-xl border border-line bg-surface px-4 py-6 text-center text-[13px] text-muted">まだ比較の記録がありません</div>}
+      {d && !d.rows.length && <div className="rounded-xl border border-line bg-surface px-4 py-6 text-center text-body text-muted">まだ比較の記録がありません</div>}
       {d && d.questions.map((q, i) => {
         const rs = d.rows.filter((r) => r.qid === q.id);
         if (!rs.length) return null;
@@ -26,8 +26,8 @@ export default function BotAbPage() {
               {d.models.map((m) => {
                 const r = rs.find((x) => x.model === m);
                 return (
-                  <div key={m} className="rounded-lg border border-line-soft px-3 py-2 text-[12.5px]">
-                    <div className="mb-1 text-[11.5px] text-faint">{m}{r && `（${(r.latency_ms / 1000).toFixed(1)}秒・$${r.cost_usd.toFixed(4)}・${r.route}）`}</div>
+                  <div key={m} className="rounded-lg border border-line-soft px-3 py-2 text-sm">
+                    <div className="mb-1 text-xs text-faint">{m}{r && `（${(r.latency_ms / 1000).toFixed(1)}秒・$${r.cost_usd.toFixed(4)}・${r.route}）`}</div>
                     <div className="whitespace-pre-wrap">{!r ? '—' : r.error ? `エラー：${r.error}` : r.answer}</div>
                   </div>
                 );

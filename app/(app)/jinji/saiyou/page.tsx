@@ -91,52 +91,52 @@ export default function SaiyouPage() {
       <PageTitle title="採用（承諾者・面談）" sub={`内定を承諾した人の、入社までのフォロー面談と辞退の兆し${live ? '' : '・見本データ'}`}><FormIssueButton /></PageTitle>
       <LiveBanner state={sg.state} error={sg.error} onReload={sg.reload} note={`承諾者は今の社内システムから（見るだけ）。${shoudakuNote(shoudaku)}`} />
       <MikeikenNote mk={mk} live={live} />
-      <div className="rounded-xl border border-line bg-soft px-4 py-2.5 text-[12.5px] text-muted">兆しはフォローの面談のきっかけにだけ使います。案件から外すなど本人に不利な扱いには使いません。</div>
+      <div className="rounded-xl border border-line bg-soft px-4 py-2.5 text-sm text-muted">兆しはフォローの面談のきっかけにだけ使います。案件から外すなど本人に不利な扱いには使いません。</div>
       {live && <NotInLegacy what="辞退の兆しのうち 面談の日程変更・メモの言葉と、フォロー面談の記録" />}
-      {sigReady && (sg.data?.warnings.length ?? 0) > 0 && <div className="rounded-xl border border-line bg-soft px-4 py-2.5 text-[12.5px] text-muted">{sg.data!.warnings.join('／')}。読めなかった材料は兆しに出していません。</div>}
+      {sigReady && (sg.data?.warnings.length ?? 0) > 0 && <div className="rounded-xl border border-line bg-soft px-4 py-2.5 text-sm text-muted">{sg.data!.warnings.join('／')}。読めなかった材料は兆しに出していません。</div>}
 
       {live ? (
-        <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3 text-[13px]" style={{ ['--i' as string]: 1 }}>
+        <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3 text-body" style={{ ['--i' as string]: 1 }}>
           <b>決着前の承諾者 {rows.length}人</b>
           {sigReady ? <span className="text-muted">兆しがある人 {list.filter(({ s }) => s.length > 0).length}人（強い兆し {list.filter(({ s }) => strongN(s) > 0).length}人）・兆しの強い順</span> : <span className="text-muted">{sg.state === 'loading' ? '辞退の兆しを読んでいます…' : '新しく承諾した順'}</span>}
         </div>
       ) : (
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <RemainRing remain={need.length} total={Math.max(WITH_SIG, need.length)} />
-        <div className="text-[13px]"><b>兆しがあるのに面談が決まっていない {need.length}人</b><span className="ml-2 text-muted">承諾者 {rows.length}人・面談済み {rows.filter((r) => r.follow === '済み').length}</span>{!canEdit && <div className="text-[12px] text-bad">{needText('edit')}</div>}</div>
-        <label className="ml-auto flex items-center gap-1.5 whitespace-nowrap text-[12.5px] text-muted"><input type="checkbox" checked={onlySig} onChange={(e) => setOnlySig(e.target.checked)} />気になる人と予定ありだけ</label>
+        <div className="text-body"><b>兆しがあるのに面談が決まっていない {need.length}人</b><span className="ml-2 text-muted">承諾者 {rows.length}人・面談済み {rows.filter((r) => r.follow === '済み').length}</span>{!canEdit && <div className="text-sm text-bad">{needText('edit')}</div>}</div>
+        <label className="ml-auto flex items-center gap-1.5 whitespace-nowrap text-sm text-muted"><input type="checkbox" checked={onlySig} onChange={(e) => setOnlySig(e.target.checked)} />気になる人と予定ありだけ</label>
       </div>
       )}
 
-      {!live && need.length === 0 && <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-7 text-center"><Check className="mx-auto text-ok" size={24} /><div className="mt-2 text-[14px] font-bold">兆しのある人には、全員フォロー面談が入りました</div><div className="mt-1 text-[12.5px] text-muted">入社日まで、返信が止まったらまたここに並びます。</div></div>}
+      {!live && need.length === 0 && <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-7 text-center"><Check className="mx-auto text-ok" size={24} /><div className="mt-2 text-body font-bold">兆しのある人には、全員フォロー面談が入りました</div><div className="mt-1 text-sm text-muted">入社日まで、返信が止まったらまたここに並びます。</div></div>}
 
       <div className="mo-fade-up overflow-x-auto rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
-        <table className="w-full min-w-[900px] border-collapse text-[13px]">
+        <table className="w-full min-w-[900px] border-collapse text-body">
           <thead><tr className="th-row text-left"><th className="px-4 py-2.5 font-semibold">承諾者</th><th className="px-2 py-2.5 font-semibold">承諾日・入社予定</th><th className="px-2 py-2.5 font-semibold">辞退しそうな兆し</th><th className="px-4 py-2.5 font-semibold">フォロー面談</th></tr></thead>
           <tbody>
-            {shown.length === 0 && <tr><td colSpan={4} className="px-4 py-6 text-center text-[12.5px] text-muted">気になる人はいません。</td></tr>}
+            {shown.length === 0 && <tr><td colSpan={4} className="px-4 py-6 text-center text-sm text-muted">気になる人はいません。</td></tr>}
             {shown.map(({ a, s }, i) => (
               <tr key={a.appId} className={`mo-fade-in border-t border-line-soft align-top ${flash === a.appId ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
                 <td className="px-4 py-2.5">
                   <div className="flex items-center gap-1.5 font-semibold"><PersonName name={a.name} className="underline-offset-2 hover:underline" />{sameName(a) && <span className="chip" style={{ background: 'var(--tone-caution-bg)', color: 'var(--tone-caution-fg)' }} title="同じ名前の別の人がいます。応募IDで見分けてください">同姓同名</span>}</div>
-                  <div className="text-[11.5px] text-faint">{live ? `採用担当 ${a.recruiter}・承諾から ${since(a.acceptedAt)}日` : `${a.appId}・採用担当 ${a.recruiter}・${a.station}`}</div>
+                  <div className="text-xs text-faint">{live ? `採用担当 ${a.recruiter}・承諾から ${since(a.acceptedAt)}日` : `${a.appId}・採用担当 ${a.recruiter}・${a.station}`}</div>
                 </td>
-                <td className="num whitespace-nowrap px-2 py-2.5">{fmt(a.acceptedAt)}{!live ? <div className="text-[12px] text-muted">入社 {a.joinDate ? fmt(a.joinDate) : '未定'}</div> : liveJoin(a) !== undefined && <div className="text-[12px] text-muted">入社 {liveJoin(a) ? fmt(liveJoin(a)!) : '未定'}</div>}</td>
+                <td className="num whitespace-nowrap px-2 py-2.5">{fmt(a.acceptedAt)}{!live ? <div className="text-sm text-muted">入社 {a.joinDate ? fmt(a.joinDate) : '未定'}</div> : liveJoin(a) !== undefined && <div className="text-sm text-muted">入社 {liveJoin(a) ? fmt(liveJoin(a)!) : '未定'}</div>}</td>
                 <td className="px-2 py-2.5">
-                  {live && !sigReady ? <span className="text-[12px] text-faint">{sg.state === 'loading' ? '読んでいます…' : '読めませんでした'}</span> : s.length === 0 ? <span className="text-[12.5px] text-faint">兆しはありません</span> : <ul className="flex flex-col gap-1">{s.map((x) => <li key={x.text} className="flex items-start gap-1.5 text-[12.5px]">{x.strong ? <AlertTriangle size={14} className="mt-0.5 shrink-0 text-bad" /> : <CircleAlert size={14} className="mt-0.5 shrink-0 text-warn" />}<span className={x.strong ? 'font-semibold' : ''}>{x.text}</span></li>)}</ul>}
+                  {live && !sigReady ? <span className="text-sm text-faint">{sg.state === 'loading' ? '読んでいます…' : '読めませんでした'}</span> : s.length === 0 ? <span className="text-sm text-faint">兆しはありません</span> : <ul className="flex flex-col gap-1">{s.map((x) => <li key={x.text} className="flex items-start gap-1.5 text-sm">{x.strong ? <AlertTriangle size={14} className="mt-0.5 shrink-0 text-bad" /> : <CircleAlert size={14} className="mt-0.5 shrink-0 text-warn" />}<span className={x.strong ? 'font-semibold' : ''}>{x.text}</span></li>)}</ul>}
                 </td>
                 <td className="px-4 py-2.5">
-                  {live ? <span className="text-[12px] text-faint">今の社内システムに無い</span> : (<>
+                  {live ? <span className="text-sm text-faint">今の社内システムに無い</span> : (<>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="chip" style={{ background: `var(--tone-${FOLLOW_TONE[a.follow]}-bg)`, color: `var(--tone-${FOLLOW_TONE[a.follow]}-fg)` }}>{a.follow}</span>
-                    {a.followAt && <span className="num whitespace-nowrap text-[12px] text-muted">{a.followAt}・{a.followBy}</span>}
-                    {a.follow === '予定あり' && <button onClick={() => finish(a)} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} className="min-h-8 whitespace-nowrap rounded-lg border border-field bg-surface px-2.5 text-[12.5px] font-semibold disabled:cursor-not-allowed disabled:opacity-40">済みにする</button>}
+                    {a.followAt && <span className="num whitespace-nowrap text-sm text-muted">{a.followAt}・{a.followBy}</span>}
+                    {a.follow === '予定あり' && <button onClick={() => finish(a)} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} className="btn-secondary btn-sm">済みにする</button>}
                   </div>
                   {(a.follow === '未設定' || a.follow === '日程調整中') && (
                     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                      <select aria-label="面談の担当" value={by[a.appId] ?? a.recruiter} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(e) => setBy((x) => ({ ...x, [a.appId]: e.target.value }))} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-[12.5px] disabled:opacity-50">{FOLLOW_BY.map((m) => <option key={m}>{m}</option>)}</select>
-                      <select aria-label="面談の枠" value={slot[a.appId] ?? SLOTS[0]} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(e) => setSlot((x) => ({ ...x, [a.appId]: e.target.value }))} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-[12.5px] disabled:opacity-50">{SLOTS.map((m) => <option key={m}>{m}</option>)}</select>
-                      <button onClick={() => book(a)} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} className="btn-primary inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg px-2.5 text-[12.5px] font-bold disabled:cursor-not-allowed disabled:opacity-40"><CalendarPlus size={14} />入れる</button>
+                      <select aria-label="面談の担当" value={by[a.appId] ?? a.recruiter} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(e) => setBy((x) => ({ ...x, [a.appId]: e.target.value }))} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-sm disabled:opacity-50">{FOLLOW_BY.map((m) => <option key={m}>{m}</option>)}</select>
+                      <select aria-label="面談の枠" value={slot[a.appId] ?? SLOTS[0]} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(e) => setSlot((x) => ({ ...x, [a.appId]: e.target.value }))} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-sm disabled:opacity-50">{SLOTS.map((m) => <option key={m}>{m}</option>)}</select>
+                      <button onClick={() => book(a)} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} className="btn-primary btn-sm"><CalendarPlus size={14} />入れる</button>
                     </div>
                   )}
                   </>)}
@@ -146,7 +146,7 @@ export default function SaiyouPage() {
           </tbody>
         </table>
       </div>
-      <p className="text-[11.5px] leading-relaxed text-faint">承諾日は承諾の記録の日時です。名前は基本情報フォームの表記で、同じ名前の人は応募IDで見分けます。トークの本文は出していません（共有のログイン情報などが流れていることがあるため）。{live && '辞退の兆しは LINE の最後の受信からの日数（一度も受信が無い人は承諾からの日数）・基本情報フォームの回答・名簿の入社日だけで出しています。名前で当てるので、同じ名前の承諾者がいる人は判定しません。'}今のシステムの承諾者一覧シートには書き戻しません。</p>
+      <p className="text-xs leading-relaxed text-faint">承諾日は承諾の記録の日時です。名前は基本情報フォームの表記で、同じ名前の人は応募IDで見分けます。トークの本文は出していません（共有のログイン情報などが流れていることがあるため）。{live && '辞退の兆しは LINE の最後の受信からの日数（一度も受信が無い人は承諾からの日数）・基本情報フォームの回答・名簿の入社日だけで出しています。名前で当てるので、同じ名前の承諾者がいる人は判定しません。'}今のシステムの承諾者一覧シートには書き戻しません。</p>
     </main>
   );
 }

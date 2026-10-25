@@ -113,13 +113,13 @@ export default function OrgPage() {
   return (
     <main className="flex flex-col gap-4 px-6 pb-12 pt-[22px]">
       <PageTitle title="組織表" sub="部署・チーム・役職・長を決めて、ロールと分類ごとの段階を付けます">
-        <button onClick={exportJson} className="inline-flex min-h-10 items-center gap-1.5 rounded-[10px] border border-field bg-surface px-3.5 text-[13.5px] font-semibold"><Download size={15} />書き出す</button>
-        <button onClick={() => fileRef.current?.click()} className="inline-flex min-h-10 items-center gap-1.5 rounded-[10px] border border-field bg-surface px-3.5 text-[13.5px] font-semibold"><Upload size={15} />読み込む</button>
+        <button onClick={exportJson} className="btn-secondary"><Download size={15} />書き出す</button>
+        <button onClick={() => fileRef.current?.click()} className="btn-secondary"><Upload size={15} />読み込む</button>
         <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void importJson(f); e.target.value = ''; }} />
       </PageTitle>
       <LiveBanner state={state} error={error} onReload={reload}
         note={`人は今の社内システムから読んでいます（${people.length}人・読むだけ）。組織・役職・ロールはこの画面の中だけの話なので変えられます。今のシステムのロールは変わりません`} />
-      <p className="text-[12px] text-faint">
+      <p className="text-sm text-faint">
         {shared.state === 'loading' ? '共有の設定を読んでいます…'
           : toShared ? '変えるとすぐ全員の分に保存します（全体管理者だけ）。'
           : shared.state === 'live' ? '全員の分を保存できるのは全体管理者（super_admin）だけです。いまはこの端末にだけ保存します。'
@@ -132,35 +132,35 @@ export default function OrgPage() {
 
       <section className="mo-fade-up flex flex-wrap items-center gap-4 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         {unassigned > 0 ? (
-          <div className="flex items-center gap-3"><RemainRing remain={unassigned} total={allActive.length} /><div className="text-[13px]"><b>未所属 {unassigned}人</b><div className="text-[12px] text-muted">組織図でドラッグ、または一覧で所属を選ぶ</div></div></div>
+          <div className="flex items-center gap-3"><RemainRing remain={unassigned} total={allActive.length} /><div className="text-body"><b>未所属 {unassigned}人</b><div className="text-sm text-muted">組織図でドラッグ、または一覧で所属を選ぶ</div></div></div>
         ) : (
-          <div className="mo-fade-in text-[13px]"><b>全員の所属が決まりました</b><div className="text-[12px] text-muted">{allActive.length}人・部署とチーム {org.units.length}</div></div>
+          <div className="mo-fade-in text-body"><b>全員の所属が決まりました</b><div className="text-sm text-muted">{allActive.length}人・部署とチーム {org.units.length}</div></div>
         )}
         <div role="group" aria-label="内勤と要員" className="inline-flex overflow-hidden rounded-lg border border-field">
           {([['内勤', nInnai], ['要員', nYoin]] as const).map(([k, n]) => (
-            <button key={k} aria-pressed={who === k} onClick={() => { setWho(k); if (k === '要員' && tab === 'chart') setTab('table'); }} className="px-3 py-1.5 text-[13px]"
+            <button key={k} aria-pressed={who === k} onClick={() => { setWho(k); if (k === '要員' && tab === 'chart') setTab('table'); }} className="px-3 py-1.5 text-body"
               style={who === k ? { background: 'var(--as)', color: 'var(--ad)', fontWeight: 700 } : { background: 'var(--color-surface)' }}>{k} {n}人</button>
           ))}
         </div>
         <div role="tablist" className="ml-auto inline-flex overflow-hidden rounded-lg border border-field">
           {TABS.map((t) => (
-            <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px]"
+            <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-body"
               style={tab === t.key ? { background: 'var(--a)', color: 'var(--ao)', fontWeight: 700 } : { background: 'var(--color-surface)' }}><t.icon size={14} />{t.label}</button>
           ))}
         </div>
         {tab !== 'roles' && (
-          <label className="flex items-center gap-1.5 rounded-lg border border-field bg-surface px-2 py-1.5 text-[13px]">
+          <label className="flex items-center gap-1.5 rounded-lg border border-field bg-surface px-2 py-1.5 text-body">
             <Search size={14} className="text-faint" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="名前・メールで探す" aria-label="名前・メールで探す" className="w-[160px] bg-transparent outline-none" />
           </label>
         )}
       </section>
 
       <div key={tab} className="mo-fade-in">
-        {tab === 'chart' && (who === '内勤' ? <OrgChart ctl={ctl} list={active} /> : <p className="rounded-xl border border-line bg-surface px-4 py-6 text-center text-[13px] text-muted">組織図は内勤（会社のメール {INNAI_DOMAIN}）の人だけです。要員は「一覧」で見られます。</p>)}
+        {tab === 'chart' && (who === '内勤' ? <OrgChart ctl={ctl} list={active} /> : <p className="rounded-xl border border-line bg-surface px-4 py-6 text-center text-body text-muted">組織図は内勤（会社のメール {INNAI_DOMAIN}）の人だけです。要員は「一覧」で見られます。</p>)}
         {tab === 'table' && <PeopleTable ctl={ctl} list={active} retired={retired} links={who === '要員' ? links : undefined} />}
         {tab === 'roles' && <RolesEditor ctl={ctl} />}
       </div>
-      {tab === 'chart' && retired.length > 0 && <p className="text-[12px] text-faint">退職の{retired.length}人は組織図に出していません（一覧の下に畳んであります）。</p>}
+      {tab === 'chart' && retired.length > 0 && <p className="text-sm text-faint">退職の{retired.length}人は組織図に出していません（一覧の下に畳んであります）。</p>}
     </main>
   );
 }

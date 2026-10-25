@@ -76,7 +76,7 @@ export default function TodayPage() {
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="当日の出勤状況" sub={`${AT.date} ${AT.time} 時点。freee の打刻・提出済みシフト・勤怠連絡${live ? '' : '・出発コール'}から出しています${live ? (full.live ? '' : '・いまは前に取った打刻（freee から取り直し中）') : '・見本データ'}`}>
-        <select aria-label="担当営業で絞る" value={sales} onChange={(e) => setSales(e.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-[13px]">
+        <select aria-label="担当営業で絞る" value={sales} onChange={(e) => setSales(e.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-body">
           {reps.map((x) => <option key={x} value={x}>{x === 'すべて' ? '担当営業：すべて' : `担当営業：${x}`}</option>)}
         </select>
       </PageTitle>
@@ -93,30 +93,30 @@ export default function TodayPage() {
           ['対応が要る', open.length, '件', open.length ? 'var(--color-warn)' : 'var(--color-ok)'],
         ].map(([l, n, u, c]) => (
           <div key={l as string} className="rounded-xl border border-line bg-surface px-4 py-3">
-            <div className="text-[12px] text-muted">{l}</div>
-            <div className="num text-[24px] font-bold" style={{ color: c as string }}>{n}<span className="ml-0.5 text-[13px] font-semibold text-muted">{u}</span></div>
+            <div className="text-sm text-muted">{l}</div>
+            <div className="num text-xl font-bold" style={{ color: c as string }}>{n}<span className="ml-0.5 text-body font-semibold text-muted">{u}</span></div>
           </div>
         ))}
       </div>
 
       <div className="mo-fade-up flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 2 }}>
         <RemainRing remain={open.length} total={need.length} />
-        <div className="text-[13px]"><b>対応が要る人</b><div className="text-[12px] text-muted">始業を過ぎても打刻が無い人・出発コールが来ていない人・休みや遅れの連絡があった人。未打刻のお知らせは平日10:00にも自動で本人に届きます。</div></div>
-        <Link href="/roumu/approval" className="ml-auto shrink-0 text-[12px] font-semibold" style={{ color: 'var(--ad)' }}>申請の承認へ</Link>
+        <div className="text-body"><b>対応が要る人</b><div className="text-sm text-muted">始業を過ぎても打刻が無い人・出発コールが来ていない人・休みや遅れの連絡があった人。未打刻のお知らせは平日10:00にも自動で本人に届きます。</div></div>
+        <Link href="/roumu/approval" className="ml-auto shrink-0 text-sm font-semibold" style={{ color: 'var(--ad)' }}>申請の承認へ</Link>
       </div>
 
       {open.length === 0 && (
         <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-10 text-center">
           <Check className="mx-auto text-ok" size={26} />
-          <div className="mt-2 text-[15px] font-bold">今の時点で対応が要る人はいません</div>
-          <div className="mt-1 text-[12.5px] text-muted">遅い始業の人に打刻が無ければ、またここに出ます。</div>
+          <div className="mt-2 text-md font-bold">今の時点で対応が要る人はいません</div>
+          <div className="mt-1 text-sm text-muted">遅い始業の人に打刻が無ければ、またここに出ます。</div>
         </div>
       )}
 
       {need.length > 0 && (
         <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 3 }}>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[820px] border-collapse text-[13px]">
+            <table className="w-full min-w-[820px] border-collapse text-body">
               <thead><tr className="th-row text-left">
                 <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">現場・シフト</th><th className="px-2 py-2.5 font-semibold">状況</th><th className="px-2 py-2.5 font-semibold">連絡・メモ</th><th className="px-4 py-2.5 font-semibold">対応</th>
               </tr></thead>
@@ -126,27 +126,27 @@ export default function TodayPage() {
                   const tone = STATE_TONE[r.state];
                   return (
                     <tr key={r.personId} className={`mo-fade-in border-t border-line-soft align-top ${flash === r.personId ? 'mo-flash' : 'row'} ${d ? 'opacity-55' : ''}`} style={{ ['--i' as string]: i }}>
-                      <td className="px-4 py-2.5"><PersonName name={r.person} className="font-semibold underline-offset-2 hover:underline" /><div className="text-[11.5px] text-faint">営業 {r.sales}</div></td>
-                      <td className="px-2 py-2.5">{r.site}<div className="num text-[11.5px] text-faint">{r.shift}</div></td>
+                      <td className="px-4 py-2.5"><PersonName name={r.person} className="font-semibold underline-offset-2 hover:underline" /><div className="text-xs text-faint">営業 {r.sales}</div></td>
+                      <td className="px-2 py-2.5">{r.site}<div className="num text-xs text-faint">{r.shift}</div></td>
                       <td className="px-2 py-2.5">
                         <span className="chip" style={{ background: `var(--tone-${tone}-bg)`, color: `var(--tone-${tone}-fg)` }}>{r.state}</span>
-                        {r.late != null && <div className={`num mt-1 flex items-center gap-1 text-[11.5px] ${r.late >= 30 ? 'font-semibold text-bad' : 'text-muted'}`}><Clock size={12} />始業から {r.late}分</div>}
+                        {r.late != null && <div className={`num mt-1 flex items-center gap-1 text-xs ${r.late >= 30 ? 'font-semibold text-bad' : 'text-muted'}`}><Clock size={12} />始業から {r.late}分</div>}
                       </td>
-                      <td className="px-2 py-2.5 text-[12.5px]">{r.contact ?? <span className="text-faint">連絡なし</span>}{!live && r.memo && <div className="text-[11.5px] text-faint">{r.memo}</div>}
+                      <td className="px-2 py-2.5 text-sm">{r.contact ?? <span className="text-faint">連絡なし</span>}{!live && r.memo && <div className="text-xs text-faint">{r.memo}</div>}
                         {live && date && rawOf(r.personId) && <LiveEdit raw={rawOf(r.personId)!} date={date} canEdit={canEdit} onSaved={saved} />}</td>
                       <td className="px-4 py-2.5">
-                        {d ? <span className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-ok"><Check size={14} />{d}</span>
+                        {d ? <span className="inline-flex items-center gap-1 text-sm font-semibold text-ok"><Check size={14} />{d}</span>
                           : r.state === '未打刻' || r.state === '出発コール未着' ? (
                             <div className="flex flex-wrap items-center gap-2">
-                              {nudged[r.personId] ? <span className="text-[12px] text-faint">促しました・返事待ち</span>
-                                : <button onClick={() => nudge(r)} disabled={!okEdit} title={block} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Bell size={14} />あおいで促す</button>}
-                              <select aria-label={`${r.person} の結果`} value="" disabled={!okEdit} title={block} onChange={(e) => e.target.value && settle(r, e.target.value, resultSub(e.target.value))} className="min-h-8 rounded-lg border border-field bg-surface px-2 text-[12.5px] disabled:opacity-50">
+                              {nudged[r.personId] ? <span className="text-sm text-faint">促しました・返事待ち</span>
+                                : <button onClick={() => nudge(r)} disabled={!okEdit} title={block} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-sm font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Bell size={14} />あおいで促す</button>}
+                              <select aria-label={`${r.person} の結果`} value="" disabled={!okEdit} title={block} onChange={(e) => e.target.value && settle(r, e.target.value, resultSub(e.target.value))} className="min-h-8 rounded-lg border border-field bg-surface px-2 text-sm disabled:opacity-50">
                                 <option value="">結果を選ぶ…</option>
                                 {RESULTS.map((x) => <option key={x} value={x}>{x}</option>)}
                               </select>
                             </div>
                           ) : (
-                            <button onClick={() => settle(r, '現場に伝えた', `→ ${r.sales}（担当営業）から現場に伝えた記録を残しました`)} disabled={!okEdit} title={block} className="btn-primary min-h-8 rounded-lg px-3 text-[12.5px] font-bold disabled:opacity-40">現場に伝えた</button>
+                            <button onClick={() => settle(r, '現場に伝えた', `→ ${r.sales}（担当営業）から現場に伝えた記録を残しました`)} disabled={!okEdit} title={block} className="btn-primary btn-sm">現場に伝えた</button>
                           )}
                       </td>
                     </tr>
@@ -159,12 +159,12 @@ export default function TodayPage() {
       )}
 
       <div className="rounded-xl border border-line bg-surface">
-        <button onClick={() => setShowOthers((v) => !v)} className="flex w-full items-center gap-2 px-4 py-3 text-left text-[13px]">
+        <button onClick={() => setShowOthers((v) => !v)} className="flex w-full items-center gap-2 px-4 py-3 text-left text-body">
           <ChevronDown size={16} className={`transition-transform ${showOthers ? '' : '-rotate-90'}`} />
           <b>出勤済み・休みの人</b><span className="text-muted">{live ? `（${others.length}人）` : `（見本は ${others.length}人だけ・全体は出勤予定 ${TODAY_TOTAL.planned}人）`}</span>
         </button>
         {showOthers && (
-          <ul className="mo-fade-in border-t border-line-soft px-4 py-2 text-[12.5px]">
+          <ul className="mo-fade-in border-t border-line-soft px-4 py-2 text-sm">
             {others.map((r) => (
               <li key={r.personId} className="flex flex-wrap items-center gap-3 py-1.5">
                 <span className="chip" style={{ background: `var(--tone-${STATE_TONE[r.state]}-bg)`, color: `var(--tone-${STATE_TONE[r.state]}-fg)` }}>{r.state}</span>
@@ -177,7 +177,7 @@ export default function TodayPage() {
           </ul>
         )}
       </div>
-      <p className="text-[11.5px] text-faint">シフトが空欄の日は休みとして扱います（今のシステムと同じ）。特別休暇の名前は freee の設定に合わせます。</p>
+      <p className="text-xs text-faint">シフトが空欄の日は休みとして扱います（今のシステムと同じ）。特別休暇の名前は freee の設定に合わせます。</p>
     </main>
   );
 }
@@ -203,13 +203,13 @@ function LiveEdit({ raw, date, canEdit, onSaved, inline }: { raw: IkeTodayRow; d
   const lock = !canEdit ? needText('edit') : undefined;
   return (
     <div className={`mt-1 flex ${inline ? 'flex-wrap items-center' : 'flex-col'} gap-1`}>
-      <select aria-label={`${raw.name} の勤務区分`} value={kubun} disabled={!canEdit || busy} title={lock || '勤務区分を変えると名簿・未打刻のお知らせにも効きます'} onChange={(e) => saveKubun(e.target.value)} className="min-h-7 max-w-[180px] rounded-lg border border-field bg-surface px-1.5 text-[11.5px] disabled:opacity-50">
+      <select aria-label={`${raw.name} の勤務区分`} value={kubun} disabled={!canEdit || busy} title={lock || '勤務区分を変えると名簿・未打刻のお知らせにも効きます'} onChange={(e) => saveKubun(e.target.value)} className="min-h-7 max-w-[180px] rounded-lg border border-field bg-surface px-1.5 text-xs disabled:opacity-50">
         <option value="">勤務区分：未設定</option>{KINMU_CHOICES.map((k) => <option key={k} value={k}>{k}</option>)}
       </select>
       <textarea aria-label={`${raw.name} のメモ`} value={note} disabled={!canEdit || busy} title={lock} maxLength={TODAY_NOTE_MAX} rows={1} onChange={(e) => setNote(e.target.value)} onBlur={saveNote}
         placeholder={raw.noteCarried && raw.note ? `前のメモ（${(raw.noteDate || "").slice(5).replace('-', '/')}）：${raw.note}` : 'メモ（欄を離れたら保存）'}
-        className="min-h-7 w-full min-w-[160px] rounded-lg border border-field bg-surface px-2 py-1 text-[11.5px] disabled:opacity-50" />
-      {err && <span className="text-[11px] text-bad">{err}</span>}
+        className="min-h-7 w-full min-w-[160px] rounded-lg border border-field bg-surface px-2 py-1 text-xs disabled:opacity-50" />
+      {err && <span className="text-xs text-bad">{err}</span>}
     </div>
   );
 }

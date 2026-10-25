@@ -54,55 +54,55 @@ export default function KbPage() {
         <div className="flex flex-wrap items-center gap-2">
           <label className="flex min-h-10 flex-1 items-center gap-2 rounded-[10px] border border-field bg-surface px-3">
             <Search size={15} className="text-faint" />
-            <input value={q} onChange={(e) => { setQ(e.target.value); setAi(null); setAsk(''); }} placeholder="例：残業 上限、有給 5日、準委任 指示" className="w-full bg-transparent text-[13.5px] outline-none" aria-label="ナレッジを検索" />
+            <input value={q} onChange={(e) => { setQ(e.target.value); setAi(null); setAsk(''); }} placeholder="例：残業 上限、有給 5日、準委任 指示" className="w-full bg-transparent text-body outline-none" aria-label="ナレッジを検索" />
           </label>
-          <button onClick={() => { if (live) setAsk(q.trim()); else { setAi(AI_SAMPLE); hit(); } }} disabled={!q.trim()} title={!q.trim() ? '聞きたいことを左の欄に入れてください' : undefined} className="btn-primary inline-flex min-h-10 whitespace-nowrap disabled:opacity-40 items-center gap-1.5 rounded-[10px] px-4 text-[13px] font-bold"><Sparkles size={15} />AIに聞く</button>
+          <button onClick={() => { if (live) setAsk(q.trim()); else { setAi(AI_SAMPLE); hit(); } }} disabled={!q.trim()} title={!q.trim() ? '聞きたいことを左の欄に入れてください' : undefined} className="btn-primary"><Sparkles size={15} />AIに聞く</button>
         </div>
         {live ? <div className="flex flex-wrap gap-1.5">
           {['', ...(ike.data?.categories || [])].map((c) => {
             const n = (ike.data?.rows || []).filter((r) => !c || r.category === c).length;
-            return <button key={c || 'all'} onClick={() => setLcat(c)} className={`min-h-8 rounded-full border px-3 text-[12.5px] ${lcat === c ? 'font-semibold' : 'text-muted'}`} style={lcat === c ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>{c || 'すべて'} {n}</button>;
+            return <button key={c || 'all'} onClick={() => setLcat(c)} className={`min-h-8 rounded-full border px-3 text-sm ${lcat === c ? 'font-semibold' : 'text-muted'}`} style={lcat === c ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>{c || 'すべて'} {n}</button>;
           })}
         </div> : <div className="flex flex-wrap gap-1.5">
           {(['すべて', ...KB_CATS] as const).map((c) => {
             const n = KB.filter((k) => (c === 'すべて' || k.cat === c) && hitWords(k)).length;
-            return <button key={c} onClick={() => setCat(c)} className={`min-h-8 rounded-full border px-3 text-[12.5px] ${cat === c ? 'font-semibold' : 'text-muted'}`} style={cat === c ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>{c} {n}</button>;
+            return <button key={c} onClick={() => setCat(c)} className={`min-h-8 rounded-full border px-3 text-sm ${cat === c ? 'font-semibold' : 'text-muted'}`} style={cat === c ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>{c} {n}</button>;
           })}
         </div>}
       </div>
 
       {live && ask && (
-        <div className="mo-spring-in rounded-xl border px-4 py-3 text-[13px]" style={{ borderColor: 'var(--al)', background: 'var(--as)' }}>
-          <div className="flex items-center gap-1.5 text-[12px] font-semibold" style={{ color: 'var(--ad)' }}><Sparkles size={14} />「{ask}」で bot が拾う記事</div>
+        <div className="mo-spring-in rounded-xl border px-4 py-3 text-body" style={{ borderColor: 'var(--al)', background: 'var(--as)' }}>
+          <div className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: 'var(--ad)' }}><Sparkles size={14} />「{ask}」で bot が拾う記事</div>
           {srch.state === 'loading' ? <p className="mt-1.5 text-muted">探しています…</p> : srch.data?.hits?.length ? (
-            <ul className="mt-1.5 flex flex-col gap-1">{srch.data.hits.map((h) => <li key={h.id}><button onClick={() => setLopen(h.id)} className="font-semibold hover:underline">{h.title}</button><span className="ml-2 text-[11.5px] text-faint">{h.category}・{h.company}</span></li>)}</ul>
+            <ul className="mt-1.5 flex flex-col gap-1">{srch.data.hits.map((h) => <li key={h.id}><button onClick={() => setLopen(h.id)} className="font-semibold hover:underline">{h.title}</button><span className="ml-2 text-xs text-faint">{h.category}・{h.company}</span></li>)}</ul>
           ) : <p className="mt-1.5">{srch.data?.note || srch.error || '見つかりませんでした'}</p>}
-          <p className="mt-1.5 text-[11.5px] text-faint">bot の答えは下書きです。最終判断は社労士・法務に確認してください。</p>
+          <p className="mt-1.5 text-xs text-faint">bot の答えは下書きです。最終判断は社労士・法務に確認してください。</p>
         </div>
       )}
 
       {live && (
         <div className="flex flex-col gap-2">
-          {lrows.length === 0 && <div className="rounded-xl border border-line bg-surface px-4 py-8 text-center text-[13px] text-muted">見つかりませんでした。言葉を減らすか、分類を「すべて」にしてください。</div>}
+          {lrows.length === 0 && <div className="rounded-xl border border-line bg-surface px-4 py-8 text-center text-body text-muted">見つかりませんでした。言葉を減らすか、分類を「すべて」にしてください。</div>}
           {lrows.map((k, i) => {
             const open = lopen === k.id;
             const a = open && art.data?.ok ? art.data.article : null;
             return (
               <article key={k.id} className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: Math.min(i, 20) + 2 }}>
                 <button onClick={() => setLopen(open ? null : k.id)} className="flex w-full items-center gap-2 px-4 py-3 text-left" aria-expanded={open}>
-                  <span className="text-[14px] font-bold">{k.title}</span>
+                  <span className="text-body font-bold">{k.title}</span>
                   {!k.published && <span className="chip" style={{ background: 'var(--tone-caution-bg)', color: 'var(--tone-caution-fg)' }}>下書き</span>}
                   <span className="chip ml-auto" style={{ background: 'var(--al)', color: 'var(--ad)' }}>{k.category}</span>
-                  <span className="whitespace-nowrap text-[11.5px] text-faint">{k.company}</span>
+                  <span className="whitespace-nowrap text-xs text-faint">{k.company}</span>
                 </button>
                 {open && (
                   <div className="mo-fade-in border-t border-line-soft px-4 py-3">
-                    {!a ? <p className="text-[13px] text-muted">{art.state === 'error' ? art.error : art.data && !art.data.ok ? art.data.error : '読み込み中…'}</p>
-                      : <ul className="flex list-disc flex-col gap-1.5 pl-5 text-[13px]">{kbParas(a.body).map((t, j) => <li key={j}>{t}</li>)}</ul>}
-                    <div className="mt-2 flex flex-wrap gap-1">{k.tags.map((t) => <button key={t} onClick={() => { setQ(t); setLcat(''); setAsk(''); }} className="rounded-full bg-soft px-2 py-0.5 text-[11.5px] text-muted">#{t}</button>)}</div>
+                    {!a ? <p className="text-body text-muted">{art.state === 'error' ? art.error : art.data && !art.data.ok ? art.data.error : '読み込み中…'}</p>
+                      : <ul className="flex list-disc flex-col gap-1.5 pl-5 text-body">{kbParas(a.body).map((t, j) => <li key={j}>{t}</li>)}</ul>}
+                    <div className="mt-2 flex flex-wrap gap-1">{k.tags.map((t) => <button key={t} onClick={() => { setQ(t); setLcat(''); setAsk(''); }} className="rounded-full bg-soft px-2 py-0.5 text-xs text-muted">#{t}</button>)}</div>
                     <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line-soft pt-2.5">
-                      <span className="text-[11.5px] text-faint">最終判断は社労士・法務に確認してください。{k.source && `出どころ：${k.source}`}</span>
-                      <button disabled title={LIVE_WRITE_BLOCKED} className="ml-auto inline-flex min-h-8 items-center gap-1 rounded-lg border border-field px-2.5 text-[12px] font-semibold disabled:opacity-40"><ThumbsUp size={13} />役に立った？</button>
+                      <span className="text-xs text-faint">最終判断は社労士・法務に確認してください。{k.source && `出どころ：${k.source}`}</span>
+                      <button disabled title={LIVE_WRITE_BLOCKED} className="btn-secondary ml-auto btn-sm"><ThumbsUp size={13} />役に立った？</button>
                     </div>
                   </div>
                 )}
@@ -113,33 +113,33 @@ export default function KbPage() {
       )}
 
       {!live && ai && (
-        <div className="mo-spring-in rounded-xl border px-4 py-3 text-[13px]" style={{ borderColor: 'var(--al)', background: 'var(--as)' }}>
-          <div className="flex items-center gap-1.5 text-[12px] font-semibold" style={{ color: 'var(--ad)' }}><Sparkles size={14} />AIの答え（見本）{q && `・「${q}」`}</div>
+        <div className="mo-spring-in rounded-xl border px-4 py-3 text-body" style={{ borderColor: 'var(--al)', background: 'var(--as)' }}>
+          <div className="flex items-center gap-1.5 text-sm font-semibold" style={{ color: 'var(--ad)' }}><Sparkles size={14} />AIの答え（見本）{q && `・「${q}」`}</div>
           <p className="mt-1.5">{AI_SAMPLE}</p>
-          <p className="mt-1.5 text-[11.5px] text-faint">AIの答えは下書きです。最終判断は社労士・法務に確認してください。</p>
+          <p className="mt-1.5 text-xs text-faint">AIの答えは下書きです。最終判断は社労士・法務に確認してください。</p>
         </div>
       )}
 
       {!live && <div className="flex flex-col gap-2">
-        {list.length === 0 && <div className="rounded-xl border border-line bg-surface px-4 py-8 text-center text-[13px] text-muted">見つかりませんでした。言葉を減らすか、分類を「すべて」にするか、「AIに聞く」を試してください。</div>}
+        {list.length === 0 && <div className="rounded-xl border border-line bg-surface px-4 py-8 text-center text-body text-muted">見つかりませんでした。言葉を減らすか、分類を「すべて」にするか、「AIに聞く」を試してください。</div>}
         {list.map((k, i) => {
           const open = openId === k.id;
           return (
             <article key={k.id} className="mo-fade-up overflow-hidden rounded-xl border bg-surface" style={{ ['--i' as string]: i + 2, borderColor: k.warn ? 'var(--color-bad-line)' : 'var(--color-line)' }}>
               <button onClick={() => setOpenId(open ? null : k.id)} className="flex w-full items-center gap-2 px-4 py-3 text-left" aria-expanded={open}>
                 {k.warn && <AlertTriangle size={16} className="shrink-0 text-bad" />}
-                <span className="text-[14px] font-bold">{k.q}</span>
+                <span className="text-body font-bold">{k.q}</span>
                 <span className="chip ml-auto" style={{ background: 'var(--al)', color: 'var(--ad)' }}>{k.cat}</span>
-                <span className="num whitespace-nowrap text-[11.5px] text-faint">{k.seen + (helped[k.id] ? 1 : 0)}人が参考に</span>
+                <span className="num whitespace-nowrap text-xs text-faint">{k.seen + (helped[k.id] ? 1 : 0)}人が参考に</span>
               </button>
               {open && (
                 <div className="mo-fade-in border-t border-line-soft px-4 py-3">
-                  {k.warn && <div className="mo-shake mb-2.5 flex items-start gap-2 rounded-[10px] px-3 py-2 text-[13px] font-bold" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}><AlertTriangle size={16} className="mt-0.5 shrink-0" />{k.warn}</div>}
-                  <ul className="flex list-disc flex-col gap-1.5 pl-5 text-[13px]">{k.a.map((t) => <li key={t}>{t}</li>)}</ul>
-                  <div className="mt-2 flex flex-wrap gap-1">{k.tags.map((t) => <button key={t} onClick={() => { setQ(t); setCat('すべて'); setAi(null); }} className="rounded-full bg-soft px-2 py-0.5 text-[11.5px] text-muted">#{t}</button>)}</div>
+                  {k.warn && <div className="mo-shake mb-2.5 flex items-start gap-2 rounded-[10px] px-3 py-2 text-body font-bold" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}><AlertTriangle size={16} className="mt-0.5 shrink-0" />{k.warn}</div>}
+                  <ul className="flex list-disc flex-col gap-1.5 pl-5 text-body">{k.a.map((t) => <li key={t}>{t}</li>)}</ul>
+                  <div className="mt-2 flex flex-wrap gap-1">{k.tags.map((t) => <button key={t} onClick={() => { setQ(t); setCat('すべて'); setAi(null); }} className="rounded-full bg-soft px-2 py-0.5 text-xs text-muted">#{t}</button>)}</div>
                   <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line-soft pt-2.5">
-                    <span className="text-[11.5px] text-faint">最終判断は社労士・法務に確認してください。</span>
-                    <button onClick={() => help(k.id)} disabled={!!helped[k.id]} className="ml-auto inline-flex min-h-8 items-center gap-1 rounded-lg border border-field px-2.5 text-[12px] font-semibold disabled:text-ok"><ThumbsUp size={13} />{helped[k.id] ? '役に立った' : '役に立った？'}</button>
+                    <span className="text-xs text-faint">最終判断は社労士・法務に確認してください。</span>
+                    <button onClick={() => help(k.id)} disabled={!!helped[k.id]} className="btn-secondary ml-auto disabled:text-ok btn-sm"><ThumbsUp size={13} />{helped[k.id] ? '役に立った' : '役に立った？'}</button>
                   </div>
                 </div>
               )}
@@ -147,7 +147,7 @@ export default function KbPage() {
           );
         })}
       </div>}
-      <p className="text-[11.5px] text-faint">ここの説明は一般的な法律の目安です。会社の 36協定・就業規則・契約書が優先します。法律・労務・税務の最終判断は社労士・税理士・法務に確認してください。</p>
+      <p className="text-xs text-faint">ここの説明は一般的な法律の目安です。会社の 36協定・就業規則・契約書が優先します。法律・労務・税務の最終判断は社労士・税理士・法務に確認してください。</p>
     </main>
   );
 }

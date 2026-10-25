@@ -35,11 +35,11 @@ export function PersonChip({ p, org, head, flash }: { p: OrgPerson; org: OrgStat
   const t = org.titles.find((x) => x.id === org.people[p.userId]?.title);
   return (
     <span draggable onDragStart={(e) => { e.dataTransfer.setData(DND_PERSON, p.userId); e.dataTransfer.effectAllowed = 'move'; }}
-      className={`inline-flex cursor-grab items-center gap-1 rounded-lg border border-line bg-surface py-1 pl-1 pr-2 text-[12.5px] active:cursor-grabbing ${flash ? 'mo-flash' : ''}`}
+      className={`inline-flex cursor-grab items-center gap-1 rounded-lg border border-line bg-surface py-1 pl-1 pr-2 text-sm active:cursor-grabbing ${flash ? 'mo-flash' : ''}`}
       title="ドラッグで部署・チームへ">
       <GripVertical size={12} className="text-faint" />
       <PersonName name={p.name} />
-      {t && <span className="text-[11px] text-muted">{t.label}</span>}
+      {t && <span className="text-xs text-muted">{t.label}</span>}
       {head && <span className="chip" style={{ background: 'var(--as)', color: 'var(--ad)' }}>長</span>}
       {p.mikeiken && <span className="chip" title="未経験事業部" style={{ background: 'var(--tone-info-bg)', color: 'var(--tone-info-fg)' }}>未</span>}
     </span>
@@ -59,7 +59,7 @@ export function NameEdit({ value, onSave, className, label }: { value: string; o
   return (
     <input autoFocus aria-label={`${label}の名前`} value={edit} onChange={(e) => setEdit(e.target.value)} onBlur={done}
       onKeyDown={(e) => { if (e.key === 'Enter') done(); if (e.key === 'Escape') setEdit(null); }}
-      className="w-[180px] rounded-md border border-field bg-surface px-2 py-0.5 text-[13px]" />
+      className="w-[180px] rounded-md border border-field bg-surface px-2 py-0.5 text-body" />
   );
 }
 
@@ -70,8 +70,8 @@ export function AddName({ placeholder, onAdd }: { placeholder: string; onAdd: (v
   return (
     <span className="inline-flex items-center gap-1">
       <input value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') go(); }} placeholder={placeholder} aria-label={placeholder}
-        className="w-[150px] rounded-md border border-field bg-surface px-2 py-1 text-[12.5px]" />
-      <button onClick={go} disabled={!v.trim()} className="rounded-md border border-field bg-surface px-2 py-1 text-[12.5px] font-semibold disabled:opacity-40">足す</button>
+        className="w-[150px] rounded-md border border-field bg-surface px-2 py-1 text-sm" />
+      <button onClick={go} disabled={!v.trim()} className="rounded-md border border-field bg-surface px-2 py-1 text-sm font-semibold disabled:opacity-40">足す</button>
     </span>
   );
 }

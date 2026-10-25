@@ -63,47 +63,47 @@ export default function KeiyakuPage() {
       <div className="grid gap-3.5 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
         <Card title="1. 要員と報告区分">
           <div className="flex flex-col gap-3 px-4 pb-4">
-            <label className="flex items-center gap-1.5 rounded-lg border border-field bg-surface px-2 py-1.5 text-[13px]">
+            <label className="flex items-center gap-1.5 rounded-lg border border-field bg-surface px-2 py-1.5 text-body">
               <Search size={14} className="shrink-0 text-faint" />
               <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="氏名の一部で探す" aria-label="要員を探す" className="min-w-0 flex-1 bg-transparent outline-none" />
             </label>
             {list.length > 0 && (
               <ul className="max-h-[220px] overflow-y-auto rounded-lg border border-line-soft">
                 {list.map((p) => (
-                  <li key={p.name} className="flex items-center gap-2 border-b border-line-soft px-3 py-2 text-[13px] last:border-0">
+                  <li key={p.name} className="flex items-center gap-2 border-b border-line-soft px-3 py-2 text-body last:border-0">
                     <input type="radio" name="kh-person" checked={person?.name === p.name} onChange={() => { setPerson(p); if (p.last?.houkoku) { const [k, y] = p.last.houkoku.split('_'); if (kinds.includes('継続') && k) setKind('継続'); if (y) setKoyou(y); } }} aria-label={`${p.name} を選ぶ`} />
                     <PersonName name={p.name} />
-                    <span className="ml-auto text-[11.5px] text-faint">{p.last ? `前回 ${p.last.tab}・${p.last.joi}` : '前回の報告なし'}</span>
+                    <span className="ml-auto text-xs text-faint">{p.last ? `前回 ${p.last.tab}・${p.last.joi}` : '前回の報告なし'}</span>
                   </li>
                 ))}
               </ul>
             )}
-            {live && qq && people.state === 'live' && !list.length && <p className="text-[12.5px] text-muted">見つかりません</p>}
+            {live && qq && people.state === 'live' && !list.length && <p className="text-sm text-muted">見つかりません</p>}
             <div className="flex flex-wrap gap-2">
-              <label className="flex items-center gap-1.5 text-[12.5px] text-muted">種別<select value={kind} onChange={(e) => setKind(e.target.value)} className={inputCls}><option value="">選ぶ</option>{kinds.map((k) => <option key={k}>{k}</option>)}</select></label>
-              <label className="flex items-center gap-1.5 text-[12.5px] text-muted">雇用<select value={koyou} onChange={(e) => setKoyou(e.target.value)} className={inputCls}><option value="">選ぶ</option>{koyous.map((k) => <option key={k}>{k}</option>)}</select></label>
-              <label className="flex items-center gap-1.5 text-[12.5px]"><input type="checkbox" checked={shienhi} onChange={(e) => setShienhi(e.target.checked)} />支援費あり</label>
+              <label className="flex items-center gap-1.5 text-sm text-muted">種別<select value={kind} onChange={(e) => setKind(e.target.value)} className={inputCls}><option value="">選ぶ</option>{kinds.map((k) => <option key={k}>{k}</option>)}</select></label>
+              <label className="flex items-center gap-1.5 text-sm text-muted">雇用<select value={koyou} onChange={(e) => setKoyou(e.target.value)} className={inputCls}><option value="">選ぶ</option>{koyous.map((k) => <option key={k}>{k}</option>)}</select></label>
+              <label className="flex items-center gap-1.5 text-sm"><input type="checkbox" checked={shienhi} onChange={(e) => setShienhi(e.target.checked)} />支援費あり</label>
             </div>
-            <label className="flex flex-col gap-1 text-[12.5px] text-muted">2. 条件詳細（成約の連絡などをそのまま貼る）
+            <label className="flex flex-col gap-1 text-sm text-muted">2. 条件詳細（成約の連絡などをそのまま貼る）
               <textarea value={text} onChange={(e) => setText(e.target.value)} rows={9} className={`${inputCls} font-[inherit]`} placeholder="上位・期間・単価・精算幅など" />
             </label>
-            <button onClick={build} disabled={busy} className="btn-primary min-h-10 rounded-[10px] px-4 text-[13.5px] font-semibold disabled:opacity-40">{busy ? '作っています…（30秒ほど）' : '雛形を作る'}</button>
+            <button onClick={build} disabled={busy} className="btn-primary">{busy ? '作っています…（30秒ほど）' : '雛形を作る'}</button>
             <Msg text={msg.text} bad={msg.bad} />
           </div>
         </Card>
         <Card title="3. できた雛形" note={built ? `報告区分 ${built.houkoku}` : undefined} right={built && <button onClick={copy} className={btnCls}><Copy size={13} className="mr-1 inline" />文をコピー</button>}>
-          {!built ? <p className="px-4 pb-6 text-[13px] text-muted">左で要員と条件を入れて「雛形を作る」を押すと、ここに出ます。</p> : (
+          {!built ? <p className="px-4 pb-6 text-body text-muted">左で要員と条件を入れて「雛形を作る」を押すと、ここに出ます。</p> : (
             <div className="flex flex-col gap-2 pb-3">
-              {[...built.warnings, ...built.notes].map((w, i) => <div key={i} className="mx-4 rounded-lg px-3 py-2 text-[12.5px]" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>{w}</div>)}
+              {[...built.warnings, ...built.notes].map((w, i) => <div key={i} className="mx-4 rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>{w}</div>)}
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[560px] border-collapse text-[13px]">
+                <table className="w-full min-w-[560px] border-collapse text-body">
                   <thead><tr className="th-row"><th className={thCls}>項目</th><th className={thCls}>値</th><th className={thCls}>どこから</th></tr></thead>
                   <tbody>
                     {built.fields.map((f) => (
                       <tr key={f.key} className="border-t border-line-soft align-top">
                         <td className={`${tdCls} whitespace-nowrap font-semibold`}>{f.key}</td>
                         <td className={`${tdCls} whitespace-pre-wrap`} style={/★/.test(f.value) ? { color: 'var(--tone-bad-fg)' } : undefined}>{f.value || <span className="text-faint">—</span>}</td>
-                        <td className={`${tdCls} text-[12px] text-muted`}>{SRC_LABEL[f.src] ?? f.src}{f.why ? `・${f.why}` : ''}</td>
+                        <td className={`${tdCls} text-sm text-muted`}>{SRC_LABEL[f.src] ?? f.src}{f.why ? `・${f.why}` : ''}</td>
                       </tr>
                     ))}
                   </tbody>
