@@ -80,8 +80,27 @@ export const NAV_KANRI: NavItem[] = [
   { href: '/settings/cutover', label: '本番切り替えの突き合わせ', built: true }, // 今と ver2 の数が同じか（10-25）
 ];
 
+// 保留（あとで決める）＝今の社内システムにあった画面を「とりあえず全部」写したもの（10-25 shoya）。
+//   いつもの4分類には入れず、左の4分類の下に別の見出しで出す。どこに置くか・残すかは shoya があとで決める。
+//   ★各担当はこの配列に項目を足すだけ（描くのは components/Shell.tsx）。ページは app/(app)/horyu/<name>
+export const NAV_HORYU: NavItem[] = [
+  { href: '/horyu/dashboard', label: 'ダッシュボード（参画決定・推移）', built: true },
+  { href: '/horyu/nyuujou', label: '入場日カレンダー', built: true },
+  { href: '/horyu/shoudaku', label: '承諾者ストーリー', built: true },
+  { href: '/horyu/narratives', label: '決着ナラティブ', built: true },
+  { href: '/horyu/cohort', label: '承諾者の月別・段階', built: true },
+  { href: '/horyu/richmenu', label: 'リッチメニューの反応', built: true },
+  { href: '/horyu/bot-ab', label: 'botのモデル比較', built: true },
+  { href: '/horyu/my-activity', label: '自分の行動', built: true },
+  { href: '/horyu/office', label: '内勤の今日の画面', built: true },
+  { href: '/horyu/links', label: 'LINEの紐付け管理', built: true },
+  { href: '/horyu/dropout', label: 'dropout した人', built: true },
+  { href: '/horyu/orphans', label: '営業リスト外グループ', built: true },
+];
+
 export function findNav(pathname: string): { group?: NavGroup; item?: NavItem } {
   for (const g of NAV) for (const it of g.items) if (pathname === it.href || pathname.startsWith(it.href + '/')) return { group: g, item: it };
+  for (const it of NAV_HORYU) if (pathname === it.href || pathname.startsWith(it.href + '/')) return { item: it };
   for (const it of [...NAV_EXTRA, ...NAV_KANRI]) if (pathname === it.href || pathname.startsWith(it.href + '/')) return { item: it };
   return {};
 }
