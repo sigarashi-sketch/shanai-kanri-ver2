@@ -95,7 +95,7 @@ function SummaryView({ d }: { d: Data }) {
               <li key={i} className="flex gap-3 border-b border-line-soft py-2 last:border-0">
                 <Actor e={e} />
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline gap-2 text-[11.5px]"><b className="text-ink">{who(e)}</b><span className="text-faint">{e.actor === 'self' ? '自社' : 'LINE'}・{e.date}</span></div>
+                  <div className="flex items-baseline gap-2 text-[11.5px]"><b className="text-ink">{who(e)}</b><span className="text-faint">{e.actor === 'self' ? (who(e) === '自社' ? '' : '自社・') : 'LINE・'}{e.date}</span></div>
                   <div className="mt-0.5 break-words">{e.text}</div>
                 </div>
               </li>
