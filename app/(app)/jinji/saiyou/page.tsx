@@ -11,6 +11,7 @@ import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { acceptorsFromIke, liveSignalLines, shoudakuNote, type SaiyouSignal, type SaiyouSignalsLive } from '@/lib/live/saiyou';
 import { useLiveRoute } from '@/lib/live/use-live-route';
 import { PersonName } from '@/components/Person';
+import { FormIssueButton } from '@/components/FormIssue';
 
 // 採用（承諾者・面談）＝内定を承諾した人の、入社までのフォロー面談と辞退の兆し。
 //   ・兆し：返信が遅い・面談のリスケが重なる・基本情報フォームが未回答・入社日が決まっていない・メモの気になる言葉
@@ -87,7 +88,7 @@ export default function SaiyouPage() {
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="採用（承諾者・面談）" sub={`内定を承諾した人の、入社までのフォロー面談と辞退の兆し${live ? '' : '・見本データ'}`} />
+      <PageTitle title="採用（承諾者・面談）" sub={`内定を承諾した人の、入社までのフォロー面談と辞退の兆し${live ? '' : '・見本データ'}`}><FormIssueButton /></PageTitle>
       <LiveBanner state={sg.state} error={sg.error} onReload={sg.reload} note={`承諾者は今の社内システムから（見るだけ）。${shoudakuNote(shoudaku)}`} />
       <MikeikenNote mk={mk} live={live} />
       <div className="rounded-xl border border-line bg-soft px-4 py-2.5 text-[12.5px] text-muted">兆しはフォローの面談のきっかけにだけ使います。案件から外すなど本人に不利な扱いには使いません。</div>

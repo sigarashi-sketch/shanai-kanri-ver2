@@ -75,6 +75,23 @@ export const NAV_KANRI: NavItem[] = [
   { href: '/settings/cutover', label: '本番切り替えの突き合わせ', built: true }, // 今と ver2 の数が同じか（10-25）
 ];
 
+// 保留（あとで決める）。今の社内システムにあった画面を全部入れたが、本採用かはあとで決める（10-25 shoya）。
+//   見られるかは今のシステムが決める（権限が無ければ開いても何も出さない）
+export const NAV_HORYU: NavItem[] = [
+  { href: '/horyu/freee', label: 'freee 請求書', built: true },
+  { href: '/horyu/keiyaku', label: '契約報告の雛形', built: true },
+  { href: '/horyu/arari', label: '粗利試算', built: true },
+  { href: '/horyu/bikkura', label: 'たまげたポン 管理', built: true },
+  { href: '/horyu/kashitsuke', label: '貸付管理', built: true },
+  { href: '/horyu/ippass', label: 'アイパス管理', built: true },
+  { href: '/horyu/page-access', label: 'ロール別ページ表示', built: true },
+  { href: '/horyu/ops-log', label: '操作ログ', built: true },
+  { href: '/horyu/access-log', label: 'アクセス元IP', built: true },
+  { href: '/horyu/custom-pages', label: 'カスタムページ', built: true },
+  { href: '/horyu/calendar', label: 'カレンダー設定', built: true },
+  { href: '/horyu/settings-center', label: '設定センター', built: true },
+];
+
 export function findNav(pathname: string): { group?: NavGroup; item?: NavItem } {
   for (const g of NAV) for (const it of g.items) if (pathname === it.href || pathname.startsWith(it.href + '/')) return { group: g, item: it };
   for (const it of [...NAV_EXTRA, ...NAV_KANRI]) if (pathname === it.href || pathname.startsWith(it.href + '/')) return { item: it };
