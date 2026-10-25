@@ -12,7 +12,7 @@ const NOT_ALLOWED = 'この読み口は通していません';
 
 // '' は action（op）なし。roster のように op で分かれる口は 'op:action'
 const ALLOW: Record<string, readonly string[]> = {
-  proxy: ['getProgressData', 'getProgressReplies', 'getMapData', 'getRosterStatus'],
+  proxy: ['getProgressData', 'getProgressReplies', 'getMapData', 'getRosterStatus', 'getReplies', 'getGroupNames', 'getSalesTableData'],
   roster: ['getEngineerRows', 'jimu:list', 'kekkin:list', 'shime:board', 'timesheet:list'],
   'cases-map': ['list'],
   nippo: ['', 'pl-reps'],
@@ -32,6 +32,9 @@ const ALLOW: Record<string, readonly string[]> = {
   'progress-stats': [''],
   chat: ['contacts', 'groups', 'thread', 'groupThread'],
   'ikou-requests': ['history', 'pending'],
+  // 10-25 プロパーリストの列（フォーム回答＝回答済みの氏名だけ／通勤エリア＝一覧と1人ぶん）。どちらも GET は SELECT だけ
+  'basic-info': ['names'],
+  'commute-area': ['list', ''],
 };
 // 念のため：名前が書き込みっぽい action / op は ALLOW にあっても止める
 const WRITE_LIKE = /^(save|set|delete|update|add|remove|create|send|upsert|toggle)/i;

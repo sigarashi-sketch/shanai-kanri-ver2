@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, FileSpreadsheet, Search, X } from 'lucide-react';
+import { AlertTriangle, Search, X } from 'lucide-react';
 import { LIVERS, PEOPLE, PROPERS, type Proper } from '@/lib/sample';
 import { StaffList } from '@/components/lists/StaffList';
 import { PageTitle, Pill, PrimaryButton } from '@/components/ui';
@@ -11,49 +11,39 @@ import { useMotivation } from '@/components/Motivation';
 import { DrawerPortal } from '@/components/DrawerPortal';
 import { LiveBanner, useIke } from '@/components/Live';
 import { liveProperRows, type LiverList, type LiveProper, type PartnerList } from '@/lib/live/proper';
+import { ProperList } from '@/components/ProperList';
+import { sampleEngineerRows } from '@/lib/proper-sample';
 import type { EngineerRows } from '@/lib/live/eigyo-common';
 import { PersonName } from '@/components/Person';
 
 // 要員（プロパー）＋スキシ作成（2026-10-23 shoya「プロパーリストの中にスキシ作成をマージ」）。
 //   スキシは客先に出す紙：本名は載せずイニシャル、経歴は古い順、稼働開始に健康情報らしい値は載せない（今のシステムと同じ決まり）。
 //   本物（ログイン中）：プロパー＝/api/roster?action=getEngineerRows&area=main、営業共有リスト＝/api/partner-list?action=list、
-//     ライバーリスト＝/api/livers（全体管理者だけ・見られるかは今の API が決める）。読むだけ。スキシを作るのは スキルシート作成 の画面から
+//     ライバーリスト＝/api/livers（全体管理者だけ・見られるかは今の API が決める）。スキシを作るのは スキルシート作成 の画面から
+//   10-25 プロパーは今の proper.html の列を全部（スコア・チェック・文字の保存つき）＝components/ProperList.tsx
 //   名前を押すと要員ページ（/eigyo/proper/<id>）を開く
-const SK_STYLE: Record<string, { bg: string; fg: string }> = {
-  作成済み: { bg: 'var(--tone-ok-bg)', fg: 'var(--tone-ok-fg)' }, 未作成: { bg: 'var(--tone-mute-bg)', fg: 'var(--tone-mute-fg)' }, 要確認: { bg: 'var(--tone-bad-bg)', fg: 'var(--tone-bad-fg)' },
-};
-
-type ChipKey = 'すべて' | '営業中' | 'スキシ未作成' | 'スキシ要確認';
-const CHIP_TEST: Record<ChipKey, (p: Proper) => boolean> = {
-  すべて: () => true, 営業中: (p) => p.status === '営業中', スキシ未作成: (p) => p.sukishi.state === '未作成', スキシ要確認: (p) => p.sukishi.state === '要確認',
-};
-
 // rows は親（タブの外）で持つ。タブを行き来しても、作ったスキシの状態が消えないように
-function ProperTab({ rows, setRows, live }: { rows: (Proper & Partial<LiveProper>)[]; setRows: React.Dispatch<React.SetStateAction<Proper[]>>; live: boolean }) {
+//   表は components/ProperList.tsx（今のプロパーリストの列を全部・スコア・チェックの保存）。ここはスキシの引き出しだけ持つ
+type DrawerP = (Omit<Proper, 'status'> & { status: string }) & Partial<LiveProper>;
+function ProperTab({ data, reload, sampleRows, setRows, live }: { data: EngineerRows | null; reload: () => unknown; sampleRows: Proper[]; setRows: React.Dispatch<React.SetStateAction<Proper[]>>; live: boolean }) {
   const canEdit = usePerms().can('eigyo', 'edit') && !live;
-  const SALES_OPTS = useMemo(() => Array.from(new Set(rows.map((p) => (live ? p.recruiter ?? '' : p.sales)))).filter(Boolean).sort(), [rows, live]);
-  const START_OPTS = useMemo(() => Array.from(new Set(rows.map((p) => p.sukishi.start))).filter(Boolean).slice(0, 40), [rows]);
   const { hit, toast } = useMotivation();
-  const [chip, setChip] = useState<ChipKey>('営業中');   // 基本は営業中だけ（10-25 shoya）
-  const [q, setQ] = useState('');
-  const [fSales, setFSales] = useState('');
-  const [fStart, setFStart] = useState('');
-  const shown = rows.filter((p) => CHIP_TEST[chip](p) && (!q || `${p.name}${p.station}${p.want}`.includes(q)) && (!fSales || (live ? p.recruiter : p.sales) === fSales) && (!fStart || p.sukishi.start === fStart));
-  const filtered = chip !== '営業中' || q || fSales || fStart;
+  const lrows = useMemo(() => liveProperRows(data), [data]);
+  const byId = useMemo(() => new Map<string, DrawerP>((live ? lrows : sampleRows).map((p) => [p.id, p as DrawerP])), [live, lrows, sampleRows]);
+  const done = useMemo(() => new Set(live ? [] : sampleRows.filter((p) => p.sukishi.state === '作成済み').map((p) => p.id)), [live, sampleRows]);
   // ?sukishi=<id> でそのスキシを開いた状態から始める（画面の見本を撮るとき用）
-  const [open, setOpen] = useState<(Proper & Partial<LiveProper>) | null>(null);
-  useEffect(() => { const u = new URLSearchParams(window.location.search); const id = u.get('sukishi'); const p = PROPERS.find((x) => x.id === id); if (p) setOpen(p); const qq = u.get('q'); if (qq) setQ(qq); }, []);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const open = openId ? byId.get(openId) ?? null : null;
+  useEffect(() => { const id = new URLSearchParams(window.location.search).get('sukishi'); if (id) setOpenId(id); }, []);
   const [busy, setBusy] = useState(false);
-  const [flash, setFlash] = useState<string | null>(null);
 
-  const make = (p: Proper) => {
+  const make = (p: DrawerP) => {
     setBusy(true);
     setTimeout(() => {
       setBusy(false);
-      const prev = rows.find((r) => r.id === p.id)?.sukishi ?? p.sukishi;
+      const prev = sampleRows.find((r) => r.id === p.id)?.sukishi ?? p.sukishi;
       setRows((rs) => rs.map((r) => (r.id === p.id ? { ...r, sukishi: { ...r.sukishi, state: '作成済み', updated: '今日' } } : r)));
-      setFlash(p.id); setTimeout(() => setFlash(null), 1300);
-      setOpen(null);
+      setOpenId(null);
       hit();
       toast({ text: `${p.sukishi.initial || p.name} のスキシを作りました`, sub: '→ 案件の提案と、営業共有リストから開けます', undo: () => setRows((rs) => rs.map((r) => (r.id === p.id ? { ...r, sukishi: prev } : r))) });
     }, 900);
@@ -62,61 +52,15 @@ function ProperTab({ rows, setRows, live }: { rows: (Proper & Partial<LiveProper
   return (
     <div className="flex min-h-full">
       <div className={`flex min-w-0 flex-1 flex-col gap-3.5 ${open ? 'xl:pr-[444px]' : ''}`}>
-        <div className="mo-fade-up flex flex-wrap gap-2" style={{ ['--i' as string]: 1 }}>
-          {(Object.keys(CHIP_TEST) as ChipKey[]).map((l) => (
-            <button key={l} onClick={() => setChip(l)} aria-pressed={chip === l} className="min-h-9 whitespace-nowrap rounded-full border px-3.5 text-[13px]" style={chip === l ? { borderColor: 'var(--a)', background: 'var(--as)', color: 'var(--ad)', fontWeight: 700 } : { borderColor: 'var(--color-field)', background: 'var(--color-surface)' }}>{l} <span className="num">{rows.filter(CHIP_TEST[l]).length}</span></button>
-          ))}
-        </div>
-        <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
-          <div className="flex flex-wrap items-center gap-2 px-3.5 py-3">
-            <label className="flex min-h-9 min-w-[240px] items-center gap-2 rounded-[10px] border border-field px-3 text-faint"><Search size={15} /><input value={q} onChange={(e) => setQ(e.target.value)} aria-label="この一覧を検索" placeholder="名前・最寄駅・希望" className="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none" /></label>
-            {([[live ? '採用担当' : '担当営業', fSales, setFSales, SALES_OPTS], ['稼働開始', fStart, setFStart, START_OPTS]] as const).map(([l, v, set, opts]) => (
-              <select key={l} aria-label={`${l}で絞る`} value={v} onChange={(e) => set(e.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-[13px]" style={v ? { borderColor: 'var(--a)', color: 'var(--ad)', fontWeight: 600 } : undefined}>
-                <option value="">{l}：すべて</option>{opts.map((o) => <option key={o} value={o}>{l}：{o}</option>)}
-              </select>
-            ))}
-            {filtered && <button onClick={() => { setChip('営業中'); setQ(''); setFSales(''); setFStart(''); }} className="text-[12.5px] text-muted underline">絞り込みを外す</button>}
-            <span className="ml-auto text-[12.5px] text-muted"><span className="num">{shown.length}</span>人</span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[960px] border-collapse text-[13px]">
-              <thead><tr className="th-row text-left">
-                <th className="px-4 py-2.5 font-semibold">要員</th><th className="px-2 py-2.5 font-semibold">状態</th><th className="px-2 py-2.5 font-semibold">最寄駅</th><th className="px-2 py-2.5 font-semibold">希望</th><th className="px-2 py-2.5 text-right font-semibold">{live ? '額面' : '単価'}</th><th className="px-2 py-2.5 font-semibold">{live ? '採用担当' : '担当営業'}</th><th className="px-2 py-2.5 font-semibold">スキシ</th><th className="px-4 py-2.5" />
-              </tr></thead>
-              <tbody>
-                {shown.slice(0, 300).map((p, i) => {
-                  const s = SK_STYLE[p.sukishi.state];
-                  return (
-                    <tr key={p.id} className={`mo-fade-in border-t border-line-soft ${flash === p.id ? 'mo-flash' : open?.id === p.id ? '' : 'row'}`} style={{ ['--i' as string]: i + 3, background: open?.id === p.id ? 'var(--as)' : undefined }}>
-                      <td className="px-4 py-2.5 font-semibold"><PersonName name={p.name} id={p.id} className="hover:underline underline-offset-2" />{p.flag && <span className="ml-1.5 text-[11px] font-normal text-warn">{p.flag}</span>}</td>
-                      <td className="whitespace-nowrap px-2 py-2.5"><Pill>{p.status === '営業中' ? '待機' : p.status === '参画決定' ? '入場予定' : '稼働中'}</Pill> <span className="text-[11.5px] text-muted">{p.status}</span></td>
-                      <td className="px-2 py-2.5">{p.station}</td>
-                      <td className="px-2 py-2.5">{p.want}</td>
-                      <td className="num whitespace-nowrap px-2 py-2.5 text-right">{p.price}</td>
-                      <td className="px-2 py-2.5">{live ? p.recruiter : p.sales}</td>
-                      <td className="whitespace-nowrap px-2 py-2.5"><span className="chip" style={{ background: s.bg, color: s.fg }}>{p.sukishi.state}</span>{p.sukishi.updated && <span className="ml-1.5 text-[11.5px] text-faint">{p.sukishi.updated}</span>}</td>
-                      <td className="px-4 py-2.5 text-right">
-                        <button onClick={() => setOpen(p)} className="inline-flex min-h-8 items-center whitespace-nowrap gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>
-                          <FileSpreadsheet size={14} />{p.sukishi.state === '作成済み' ? 'スキシを見る' : 'スキシを作る'}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {shown.length > 300 && <tr><td colSpan={8} className="px-4 py-3 text-center text-[12px] text-muted">はじめの300人を出しています。検索や絞り込みで探してください</td></tr>}
-                {shown.length === 0 && <tr><td colSpan={8} className="px-4 py-10 text-center text-[13px] text-muted">この条件の要員はいません</td></tr>}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <ProperList data={data} live={live} reload={reload} onSukishi={setOpenId} sukishiDone={done} />
       </div>
 
       {open && (
         <DrawerPortal>
         <aside key={open.id} aria-label="スキシ" className="mo-drawer fixed bottom-0 right-0 top-[var(--hdr,58px)] z-20 flex w-[min(420px,100vw)] flex-col border-l border-line bg-surface shadow-[-12px_0_28px_rgba(25,27,46,.10)]">
           <div className="flex items-start justify-between px-5 py-4">
-            <div><div className="text-[12px] text-faint">スキルシート（客先に出す紙）</div><div className="text-[18px] font-bold"><PersonName name={open.name} className="underline-offset-2 hover:underline" /></div></div>
-            <button aria-label="閉じる" onClick={() => setOpen(null)} className="flex size-[34px] items-center justify-center rounded-[10px] border border-line"><X size={16} /></button>
+            <div><div className="text-[12px] text-faint">スキルシート（客先に出す紙）</div><div className="text-[18px] font-bold"><PersonName name={open.name} id={open.id} className="underline-offset-2 hover:underline" /></div></div>
+            <button aria-label="閉じる" onClick={() => setOpenId(null)} className="flex size-[34px] items-center justify-center rounded-[10px] border border-line"><X size={16} /></button>
           </div>
           <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-5 pb-4 text-[13px]">
             {open.sukishi.warn && <div role="alert" className="mo-shake flex gap-2 rounded-[10px] border border-bad-line bg-bad-soft px-3 py-2.5 text-bad"><AlertTriangle size={16} className="mt-0.5 shrink-0 text-bad" />{open.sukishi.warn}</div>}
@@ -169,8 +113,9 @@ export default function YoinPage() {
   const [rowsS, setRows] = useState<Proper[]>(PROPERS);
   const er = useIke<EngineerRows>('roster?action=getEngineerRows&area=main');
   const live = er.live;
-  const lrows = useMemo(() => liveProperRows(er.data), [er.data]);
-  const rows = live ? lrows : rowsS;
+  const sample = useMemo(() => sampleEngineerRows(), []);
+  const data = live ? er.data : sample;
+  const activeN = (er.data?.rows ?? []).filter((r) => r.active).length;
   const [want, setWant] = useState<TabKey>('proper');
   // クエリは useEffect で読む（hydration ずれ防止）
   useEffect(() => { const t = new URLSearchParams(window.location.search).get('tab') as TabKey | null; if (t) setWant(t); }, []);
@@ -186,7 +131,7 @@ export default function YoinPage() {
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="要員リスト" sub="プロパー（スキシ作成つき）・営業共有リスト・従業員名簿を1か所で。タブで切り替え" />
-      <LiveBanner state={er.state} error={er.error} onReload={er.reload} note={`今のプロパーリスト ${lrows.length}人（営業止め・辞退の人は出していません）。ここからは変えられません`} />
+      <LiveBanner state={er.state} error={er.error} onReload={er.reload} note={`今のプロパーリスト ${er.data?.rows.length ?? 0}人（営業中 ${activeN}人）。チェック・文字は変えるとすぐ今のシステムに保存します（取り消せます）`} />
       <div role="tablist" className="mo-fade-up flex gap-1 overflow-x-auto border-b border-line" style={{ ['--i' as string]: 1 }}>
         {tabs.map((t) => (
           <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => go(t.key)} className="whitespace-nowrap px-3.5 py-2.5 text-[14px]"
@@ -196,7 +141,7 @@ export default function YoinPage() {
         ))}
       </div>
       <div key={tab} className="mo-axis">
-        {tab === 'proper' && <ProperTab rows={rows} setRows={setRows} live={live} />}
+        {tab === 'proper' && <ProperTab data={data} reload={er.reload} sampleRows={rowsS} setRows={setRows} live={live} />}
         {tab === 'shared' && <SharedTab live={live} />}
         {tab === 'meibo' && <StaffList embedded />}
         {tab === 'liver' && <LiverTab live={live} />}
