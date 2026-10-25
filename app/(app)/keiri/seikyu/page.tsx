@@ -13,7 +13,7 @@ import { savedPdfUrl, stampedPdfUrl, type IkeMonthSum, type SeikyuStoreLive, typ
 // 請求書（経理管理）＝格納した請求書を正にした、月ごと・取引先マスタの会社ごとの一覧（10-25 shoya「請求書は請求書格納したところベースに」）。
 //   ・数え方は今の格納タブと同じ（10-25「1」）：その会社の名簿の人（未経験）が全員、格納した請求書（押印ずみ・別で作った）に載っているか
 //   ・ログイン中は /api/live/seikyu-store（今の GET だけ）。見るだけ。PDF を置く・人を選ぶは「請求書・勤務表の格納」ページから
-//   ・ログインしていなければ見本（本物の会社名・人ではない）
+//   ・ログインしていなければ見本（本物の会社名・人ではない）。★見本はログインしていないときだけ。読み込み中・読めなかったときは見本を出さない（10-25）
 const yen = (n: number) => `¥${n.toLocaleString('ja-JP')}`;
 const TONE: Record<StoreState, string> = { 全員載っている: 'ok', 載っていない人あり: 'bad', 押印し直しが要る: 'warn', 人を選ぶ: 'warn', まだ: 'mute' };
 const STATES: StoreState[] = ['載っていない人あり', '人を選ぶ', '押印し直しが要る', 'まだ', '全員載っている'];
@@ -35,10 +35,10 @@ export default function SeikyuPage() {
   const [ym, setYm] = useState('');
   const lv = useLiveRoute<SeikyuStoreLive>(`/api/live/seikyu-store${ym ? `?ym=${ym}` : ''}`);
   const live = lv.live && !!lv.data;
-  const d = live ? lv.data! : SAMPLE;
-  const busy = live && !!ym && d.ym !== ym;
+  const d: SeikyuStoreLive | null = live ? lv.data! : lv.state === 'sample' ? SAMPLE : null;
+  const busy = live && !!ym && d!.ym !== ym;
   const [filter, setFilter] = useState<'すべて' | StoreState>('すべて');
-  const cs = d.companies;
+  const cs = useMemo(() => d?.companies ?? [], [d]);
   const count = (s: StoreState) => cs.filter((c) => c.state === s).length;
   const withPeople = cs.filter((c) => c.people > 0);
   const allOn = withPeople.filter((c) => !c.off.length && c.state === '全員載っている').length;
@@ -48,13 +48,13 @@ export default function SeikyuPage() {
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="請求書" sub={`格納した請求書を正にした一覧です。会社の名簿の人が全員、格納した請求書に載っているかを見ます${live ? '' : '・見本データ'}`}>
+      <PageTitle title="請求書" sub={`格納した請求書を正にした一覧です。会社の名簿の人が全員、格納した請求書に載っているかを見ます${lv.state === 'sample' ? '・見本データ' : ''}`}>
         <Link href="/keiri/kakunou" className="btn-primary inline-flex min-h-9 items-center gap-1.5 rounded-[10px] px-3.5 text-[13px] font-bold"><FolderInput size={15} />格納する</Link>
       </PageTitle>
       <LiveBanner state={lv.state} error={lv.error} onReload={lv.reload} note="今の請求書作成の「格納」タブと同じデータ・同じ数え方です（見るだけ）。全員ぶんの下書きを読むので、開くのに10〜20秒かかります" />
-      {lv.state === 'loading' && <div className="rounded-xl border border-line bg-surface px-4 py-6 text-center text-[13px] text-muted">今の格納の中身を読んでいます…（10〜20秒）</div>}
+      {!d && lv.state === 'loading' && <div className="rounded-xl border border-line bg-surface px-4 py-6 text-center text-[13px] text-muted">今の格納の中身を読んでいます…（10〜20秒）</div>}
 
-      <div className="mo-fade-up flex flex-wrap gap-2" style={{ ['--i' as string]: 1 }}>
+      {d && <div className="mo-fade-up flex flex-wrap gap-2" style={{ ['--i' as string]: 1 }}>
         {d.months.map((m: IkeMonthSum) => (
           <button key={m.ym} onClick={() => live && setYm(m.ym)} aria-pressed={m.ym === (ym || d.ym)} className="min-h-[58px] rounded-xl border px-3.5 py-2 text-left text-[12px]"
             style={m.ym === (ym || d.ym) ? { borderColor: 'var(--a)', background: 'var(--as)' } : { borderColor: 'var(--color-line)', background: 'var(--color-surface)' }}>
@@ -62,9 +62,9 @@ export default function SeikyuPage() {
             <div className="num text-muted">保存 {m.n}枚・{yen(m.total)}・押印 {m.stamped}/{m.n}</div>
           </button>
         ))}
-      </div>
+      </div>}
 
-      {busy ? <div className="rounded-xl border border-line bg-surface px-4 py-6 text-center text-[13px] text-muted">{ymLabel(ym)}を読んでいます…（10〜20秒）</div> : (lv.state !== 'loading' || !live) && (
+      {busy ? <div className="rounded-xl border border-line bg-surface px-4 py-6 text-center text-[13px] text-muted">{ymLabel(ym)}を読んでいます…（10〜20秒）</div> : d && (
         <>
           <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 2 }}>
             <RemainRing remain={withPeople.length - allOn} total={withPeople.length} />

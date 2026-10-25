@@ -7,8 +7,9 @@ import { needText, usePerms } from '@/components/Perms';
 import { CountUp, RemainRing, useMotivation } from '@/components/Motivation';
 import { LiveBanner, useIke } from '@/components/Live';
 import { PersonName } from '@/components/Person';
+import { useMikeiken } from '@/components/Mikeiken';
 import { HE_ACTS, HE_ACT_LABELS, HE_GOAL, HE_LINES, HE_MONTH, HE_PREV, HE_PROPER_NAMES, HE_REPS, HE_REP_OF_MEMBER } from '@/lib/home-eigyo-sample';
-import { SHUSSHA_LABEL, grossOf, manOf, onlyProper, rate, repOf, yen, type HeLine, type HeRep, type HeRepPrev, type IkePlReps } from '@/lib/live/home-eigyo';
+import { SHUSSHA_LABEL, fareOverMax, grossIsRough, grossOf, manOf, onlyProper, rate, repFromIkeLines, repOf, yen, type HeLine, type HeRep, type HeRepPrev, type IkePlReps } from '@/lib/live/home-eigyo';
 
 // ホーム営業（10-25 shoya「当月の営業に属する人たちの成約数・売上・粗利」「営業は自分の成約してる人だけ見れる。関係ない人は見ない」）。
 //   ・上：チーム合計と、担当営業ごとの順位（成約数・売上・粗利で並べ替え）。前月比つき
@@ -16,7 +17,7 @@ import { SHUSSHA_LABEL, grossOf, manOf, onlyProper, rate, repOf, yen, type HeLin
 //   ・ログイン中は今のシステムの GET /api/nippo?action=pl-reps（10-25 足した口・駅すぱあとは呼ばない＝交通費は辞書にある分だけ）。
 //     担当ごとの合計は全員分、成約した人の明細は super_admin・admin は全員分／ほかは自分の分だけ（今のシステムが絞って返す）
 type SortKey = 'count' | 'uriage' | 'gross';
-const SORTS: { k: SortKey; label: string }[] = [{ k: 'count', label: '成約数' }, { k: 'uriage', label: '売上' }, { k: 'gross', label: '粗利' }];
+const SORTS: { k: SortKey; label: string }[] = [{ k: 'count', label: '成約数' }, { k: 'uriage', label: '売上' }, { k: 'gross', label: '見込み粗利' }];
 const ymLabel = (ym: string) => `${Number(ym.slice(5))}月`;
 const diff = (now: number, prev: number, unit: string) => {
   const d = now - prev;
@@ -43,6 +44,9 @@ export default function HomeEigyoPage() {
   }, []);
 
   const ike = useIke<IkePlReps>('nippo?action=pl-reps');
+  const mk = useMikeiken();
+  // ★本物で ok でない答え（今のシステムが失敗を返した）は「読めなかった」として出す。見本の数字に本物の印を付けて出さない（10-25）
+  const liveBad = ike.live && ike.data?.ok !== true;
   const L = ike.live && ike.data?.ok ? ike.data : null;
   const MONTH = L ? L.ym : HE_MONTH;
   const REPS: string[] = L ? [...new Set(L.reps.filter((x) => x.ym === L.ym).map((x) => x.tantou))] : HE_REPS;
@@ -53,13 +57,23 @@ export default function HomeEigyoPage() {
   const myRep = L ? (L.all ? null : L.me || null) : myRep0;
   const asRep = myRep ?? (isAdmin && preview ? preview : null);
   const shown = asRep ?? (isAdmin ? (REPS.includes(picked) ? picked : REPS[0] ?? null) : null);       // 成約した人の一覧を出す担当（出せなければ null）
+  // 本物も明細をプロパーリスト（未経験の正）で絞る。担当ごとの合計は、明細が返ってくる担当だけ絞ったあとの明細から作り直す
+  const liveLines = L && mk.set ? L.lines.filter((l) => l.ym === L.ym) : [];
+  const liveKept = L && mk.set ? liveLines.filter((l) => mk.has(l.name)) : [];
   const { kept: ALL, dropped } = L
-    ? { kept: L.lines.map((l): HeLine => ({ tantou: l.tantou, name: l.name, joui: l.joui, status: l.status as HeLine['status'], md: l.md, uriage: l.uriage, gakumen: l.gakumenKnown ? 0 : null, fare: l.fareMissing ? null : 0, shussha: (l.shussha || 'jouchuu') as HeLine['shussha'], noBill: l.noBill, gross: l.gross })), dropped: 0 }
+    ? { kept: liveKept.map((l): HeLine => ({ tantou: l.tantou, name: l.name, joui: l.joui, status: l.status as HeLine['status'], md: l.md, uriage: l.uriage, gakumen: l.gakumenKnown ? 0 : null, fare: l.fareMissing ? null : 0, shussha: (l.shussha || 'jouchuu') as HeLine['shussha'], noBill: l.noBill, gross: l.gross })), dropped: liveLines.length - liveKept.length }
     : onlyProper(HE_LINES, HE_PROPER_NAMES);   // 未経験の正＝プロパーリストに名前がある人だけ
-  const reps: HeRep[] = L ? L.reps.filter((x) => x.ym === L.ym) : HE_REPS.map((t) => repOf(t, ALL));
+  const hasLines = (t: string) => !!L && (L.all || t === L.me);   // 明細が返ってくる担当（＝絞って作り直せる担当）
+  const reps: HeRep[] = L
+    ? L.reps.filter((x) => x.ym === L.ym).map((x) => (hasLines(x.tantou) ? repFromIkeLines(x.tantou, liveKept) : x))
+    : HE_REPS.map((t) => repOf(t, ALL));
+  const unfiltered = L ? reps.filter((r) => !hasLines(r.tantou)).length : 0;
   const ranked = [...reps].sort((a, b) => b[sort] - a[sort] || b.count - a.count);
   const rankOf = (r: HeRep) => 1 + ranked.filter((x) => x[sort] > r[sort]).length;
-  const team = reps.reduce((s, r) => ({ count: s.count + r.count, uriage: s.uriage + r.uriage, gross: s.gross + r.gross, base: s.base + r.grossBase, nb: s.nb + r.noBillUriage }), { count: 0, uriage: 0, gross: 0, base: 0, nb: 0 });
+  const team = reps.reduce((s, r) => ({ count: s.count + r.count, uriage: s.uriage + r.uriage, gross: s.gross + r.gross, base: s.base + r.grossBase, nb: s.nb + r.noBillUriage, noPrice: s.noPrice + r.noPrice, noBillCount: s.noBillCount + r.noBillCount, noGakumen: s.noGakumen + r.noGakumen, fareMissing: s.fareMissing + r.fareMissing }), { count: 0, uriage: 0, gross: 0, base: 0, nb: 0, noPrice: 0, noBillCount: 0, noGakumen: 0, fareMissing: 0 });
+  const teamRough = grossIsRough(team);
+  // 見込み粗利の注意書き（いつも出す）
+  const caveat = (fm: number) => `交通費未取得 ${fm}件＝最大 ¥${fareOverMax(fm).toLocaleString('ja-JP')} 多め・社保は額面の19%で概算`;
   const prev = Object.values(PREV).reduce((s, p) => ({ count: s.count + p.count, uriage: s.uriage + p.uriage, gross: s.gross + p.gross }), { count: 0, uriage: 0, gross: 0 });
   const max = Math.max(1, ...reps.map((r) => r[sort]));
   const fmt = (r: HeRep) => (sort === 'count' ? `${r.count}件` : `${manOf(r[sort]).toLocaleString('ja-JP')}万`);
@@ -75,11 +89,19 @@ export default function HomeEigyoPage() {
     const k = ckKey, who = shown;
     setChecked((c) => ({ ...c, [k]: true })); setFlash(k); setTimeout(() => setFlash(null), 1300);
     hit();
-    toast({ text: `${who}さんの${ymLabel(MONTH)}の成約を確かめました`, sub: '→ 売上・粗利の「営業別」の確認に反映しました', undo: () => setChecked((c) => ({ ...c, [k]: false })) });
+    // ★どこにも保存していない（見本だけの動き）。本物ではボタンを押せない（10-25 保存していないのに「反映しました」と出さない）
+    toast({ text: `${who}さんの${ymLabel(MONTH)}の成約を確かめました（見本）`, sub: '見本なのでどこにも保存していません', undo: () => setChecked((c) => ({ ...c, [k]: false })) });
   };
 
+  if (liveBad || (ike.live && mk.state === 'error')) return (
+    <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
+      <PageTitle title="ホーム営業" sub="担当営業ごとの成約数・売上・見込み粗利（未経験の要員だけ）" />
+      <LiveBanner state="error" error={liveBad ? (ike.data as { error?: string } | null)?.error || '今のシステムが答えを返せませんでした' : `未経験の人に絞れませんでした（${mk.error}）`} onReload={ike.reload} />
+    </main>
+  );
+
   // 本物を読んでいるあいだ（10秒ほど）は見本の数字を出さない
-  if (ike.state === 'loading') return (
+  if (ike.state === 'loading' || (ike.live && mk.state === 'loading')) return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="ホーム営業" sub="担当営業ごとの成約数・売上・粗利（未経験の要員だけ）" />
       <div className="rounded-xl border border-line bg-surface px-4 py-10 text-center text-[13px] text-muted">日報②の契約実績を読んでいます…（10秒ほど）</div>
@@ -104,7 +126,7 @@ export default function HomeEigyoPage() {
         {[
           { k: 'チームの成約数', v: team.count, unit: '件', sub: diff(team.count, prev.count, '件') },
           { k: '売上（契約単価の合計）', v: manOf(team.uriage), unit: '万', sub: diff(manOf(team.uriage), manOf(prev.uriage), '万') },
-          { k: '粗利', v: manOf(team.gross), unit: '万', sub: <>粗利率 {rate(team.gross, team.base).toFixed(1)}%・{diff(manOf(team.gross), manOf(prev.gross), '万')}</> },
+          { k: '見込み粗利（成約ベース）', v: manOf(team.gross), unit: '万', sub: <>粗利率 {rate(team.gross, team.base).toFixed(1)}%{teamRough && <span className="text-warn">（参考値）</span>}・{diff(manOf(team.gross), manOf(prev.gross), '万')}<div className="text-warn">{caveat(team.fareMissing)}</div></> },
           { k: '請求の無い退場（差し引き）', v: manOf(team.nb), unit: '万', sub: <span className="text-faint">成約数には残しています</span> },
         ].map((x, i) => (
           <div key={x.k} className="mo-fade-up rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: i + 1, borderTop: '3px solid var(--a)' }}>
@@ -143,13 +165,13 @@ export default function HomeEigyoPage() {
               </div>
               <div className="w-[230px] shrink-0 text-right">
                 <b className="num text-[15px]">{fmt(r)}</b>
-                <div className="num text-[11.5px] text-muted">{r.count}件・売上 {manOf(r.uriage)}万・粗利 {manOf(r.gross)}万（{rate(r.gross, r.grossBase).toFixed(1)}%）</div>
+                <div className="num text-[11.5px] text-muted">{r.count}件・売上 {manOf(r.uriage)}万・見込み粗利 {manOf(r.gross)}万（{rate(r.gross, r.grossBase).toFixed(1)}%{grossIsRough(r) ? '・参考値' : ''}）{L && !hasLines(r.tantou) ? '・未経験で絞る前の数' : ''}</div>
                 <div className="text-[11.5px]">{p && diff(sort === 'count' ? r.count : manOf(r[sort]), sort === 'count' ? p.count : manOf(p[sort]), sort === 'count' ? '件' : '万')}</div>
               </div>
             </div>
           );
         })}
-        <div className="border-t border-line-soft px-4 py-2 text-[11.5px] text-muted">粗利＝単価−額面−額面×19%（社保）−交通費（フルリモートは0円・リモート併用は週2出社）。プロパーリストに名前がある人だけ数えています{dropped > 0 ? `（載っていない成約 ${dropped}件は除外）` : ''}。{isAdmin && !asRep && '行を押すと、その担当の成約した人が下に出ます'}</div>
+        <div className="border-t border-line-soft px-4 py-2 text-[11.5px] text-muted">粗利＝単価−額面−額面×19%（社保）−交通費（フルリモートは0円・リモート併用は週2出社）。プロパーリストに名前がある人だけ数えています{dropped > 0 ? `（未経験でない${dropped}件を外しています）` : ''}{unfiltered > 0 ? `。明細を見られない担当 ${unfiltered}人と先月の数は、今のシステムの数のまま（未経験で絞る前）` : ''}。交通費未取得の成約は0円で計算＝粗利は多めに出ます（{caveat(team.fareMissing)}）。{isAdmin && !asRep && '行を押すと、その担当の成約した人が下に出ます'}</div>
       </section>
 
       {!shown || !me1 ? (
@@ -167,21 +189,21 @@ export default function HomeEigyoPage() {
                 {REPS.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
             )}
-            <button onClick={confirm} disabled={!canEdit || !!checked[ckKey]} title={!canEdit ? needText('edit') : checked[ckKey] ? 'この月は確かめてあります' : undefined}
-              className="btn-primary inline-flex min-h-9 items-center gap-1.5 rounded-[10px] px-3.5 text-[13px] font-semibold disabled:cursor-not-allowed disabled:opacity-40"><Check size={15} />{checked[ckKey] ? '確かめました' : '数字を確かめた'}</button>
+            {!L && <button onClick={confirm} disabled={!canEdit || !!checked[ckKey]} title={!canEdit ? needText('edit') : checked[ckKey] ? 'この月は確かめてあります' : '見本なのでどこにも保存しません'}
+              className="btn-primary inline-flex min-h-9 items-center gap-1.5 rounded-[10px] px-3.5 text-[13px] font-semibold disabled:cursor-not-allowed disabled:opacity-40"><Check size={15} />{checked[ckKey] ? '確かめました（見本）' : '数字を確かめた（見本）'}</button>}
           </div>
           {goal > 0 && me1.count >= goal && <div className="mo-scale-in mx-4 mb-3 rounded-xl border border-ok-line bg-ok-soft px-4 py-3 text-center text-[13px] font-semibold text-ok">{ymLabel(MONTH)}の目標に届きました。おつかれさまです</div>}
           <div className="overflow-x-auto">
             <table className="w-full min-w-[820px] border-collapse text-[13px]">
               <thead><tr className="th-row text-left">
                 <th className="px-4 py-2.5 font-semibold">名前</th><th className="px-2 py-2.5 font-semibold">上位会社</th><th className="px-2 py-2.5 font-semibold">区分</th><th className="px-2 py-2.5 font-semibold">成約日</th>
-                <th className="px-2 py-2.5 text-right font-semibold">単価</th><th className="px-2 py-2.5 text-right font-semibold">額面＋社保</th><th className="px-2 py-2.5 text-right font-semibold">交通費</th><th className="px-4 py-2.5 text-right font-semibold">粗利</th>
+                <th className="px-2 py-2.5 text-right font-semibold">単価</th><th className="px-2 py-2.5 text-right font-semibold">額面＋社保</th><th className="px-2 py-2.5 text-right font-semibold">交通費</th><th className="px-4 py-2.5 text-right font-semibold">見込み粗利</th>
               </tr></thead>
               <tbody>
                 {lines.map((l) => {
                   const g0 = grossOf(l), shaho = g0.shaho, gross = L ? l.gross ?? null : g0.gross;   // 本物は額面を返さない＝粗利は今のシステムの値
                   return (
-                    <tr key={l.name} className="row border-t border-line-soft">
+                    <tr key={`${l.tantou}|${l.name}|${l.md}|${l.status}`} className="row border-t border-line-soft">
                       <td className="px-4 py-2.5"><PersonName name={l.name} />
                         {l.noBill && <span className="chip ml-1.5" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>請求なし退場・差し引き</span>}</td>
                       <td className="px-2 py-2.5 text-muted">{l.joui}</td>
@@ -198,10 +220,10 @@ export default function HomeEigyoPage() {
             </table>
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-line-soft px-4 py-2 text-[11.5px] text-muted">
-            <span>合計 売上 {yen(me1.uriage)}・粗利 {yen(me1.gross)}（{rate(me1.gross, me1.grossBase).toFixed(1)}%）</span>
+            <span>合計 売上 {yen(me1.uriage)}・見込み粗利 {yen(me1.gross)}（{rate(me1.gross, me1.grossBase).toFixed(1)}%{grossIsRough(me1) ? '・参考値' : ''}）</span>
+            <span className="text-warn">{caveat(me1.fareMissing)}</span>
             {me1.noGakumen > 0 && <span className="text-warn">額面不明 {me1.noGakumen}件は粗利に入れていません</span>}
             {me1.noPrice > 0 && <span className="text-warn">単価が空 {me1.noPrice}件は売上に入れていません</span>}
-            {me1.fareMissing > 0 && <span className="text-warn">交通費未取得 {me1.fareMissing}件</span>}
           </div>
         </section>
       )}

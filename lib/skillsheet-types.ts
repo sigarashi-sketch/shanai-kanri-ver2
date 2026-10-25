@@ -2,6 +2,7 @@
 //   （本物につないだら中身だけ差し替わる。画面は形を変えない）。
 export type SsRow = {
   name: string;
+  normalizedName?: string; // 今のシステムの正規化した氏名（一覧の行の見分けに使う）
   gender: string;
   birth: string;
   prefecture: string;
@@ -22,12 +23,12 @@ export type SsList = {
 };
 export type SsQuery = { q: string; gender: string; pref: string; tantou: string; sukishi: '' | 'yes' | 'no'; roster: '' | 'yes' | 'no'; sort: 'desc' | 'asc'; limit: number; offset: number };
 
+// ★健康状況・連絡先・住所・生年月日・緊急連絡先は載せない（サーバの detailOf で落とす・10-25）
 export type SsDetail = {
   ok?: boolean; error?: string;
   sheet?: Record<string, string>;
   work?: { company?: string; from?: string; to?: string; emp_type?: string; job_category?: string; description?: string }[];
   analysis?: { label: string; value: string }[];
-  health?: { label: string; value: string }[]; healthConsentAt?: string; healthError?: string;
   submittedAt?: string; durationSec?: number; sheetError?: string; formError?: string;
 };
 

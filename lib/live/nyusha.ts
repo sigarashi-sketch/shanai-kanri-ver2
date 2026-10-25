@@ -12,10 +12,12 @@
 //       C よみがな   … /api/roster?op=jimu&action=list の kana（名簿に載っている人だけ。スプシは basic_info.kana）
 //       E 入社日     … /api/roster?op=nyusha&action=list（roster_nyusha.nyusha_bi＝スプシと同じ）→無ければ jimu の nyusha
 //       F 入場日     … nyusha-progress の nyuujou_bi（営業リスト）→空なら jimu の nyuujou（日報の入場日で補った値）
-//       G 賃金       … /api/roster?action=getEngineerRows の 額面（sales_roster.gakumen＝スプシと同じ）
+//       G 賃金       … /api/roster?action=getEngineerRows の 額面（sales_roster.gakumen＝スプシと同じ）。営業リストの行（id）で引く
 //     D メール・H freee送信・I 送信日・J メモ・K 辞退/入社取消・L 日付 は今のシステムに読む口が無い → null（画面は「スプシで見る」）
 //   ★対象の人はスプシに寄せる：参画決定日が 10/1(JST) 以降、または 9月に決まって入場日が 10/1 以降（10/21 に手で足した分）。
 //     スプシの初回だけ freee に同名がいる人を外した分・労務が手で消した行は、ここでは区別できない。
+//   ★1人1行は営業リストの行（id）で決める（10-25 名前で重ねると同姓同名の人が消える）。同じ名前が2行あれば「同姓同名」と書き添える
+//     （よみがな・入社日・入場日の補いは名前でしか引けないので、同姓同名の行では確かめが要る）
 import { normName } from './eigyo-common';
 import { parseDateIso, staffIdOf } from './staff';
 
@@ -26,7 +28,8 @@ export const SHEET_HEADER = ['参画決定日', '氏名', 'よみがな', 'メ�
 export const SHEET_SINCE = '2026-10-01';      // cron の自動追記はこの日(JST)以降の参画決定
 export const SHEET_SEPT_FROM = '2026-09-01';  // 9月に決まって10月以降に入場する人（10/21 に手で足した分）
 
-export type ExceptKind = '' | '辞退' | '入社取消';
+// K列：取消（取り消し）→入社取消／辞退→辞退／それ以外の文字は「その他：…」のまま出す（10-25 決めつけない）
+export type ExceptKind = '' | '辞退' | '入社取消' | `その他：${string}`;
 /** スプシの1行。null＝本物では読めない列（スプシにだけある） */
 export type SheetRow = {
   id: string; personId: string;
@@ -43,6 +46,7 @@ export type SheetRow = {
   memo: string | null;        // J
   except: ExceptKind | null;  // K
   exceptOn: string | null;    // L
+  note?: string;              // 画面に添える一言（同姓同名など）
 };
 /** source: 'sheet'＝スプシそのもの（全部の列が本物）／'build'＝スプシが読めず今の GET から組み立てた（D・H〜L は null） */
 export type NyushaSheetLive = { rows: SheetRow[]; warnings: string[]; generatedAt: string; source?: 'sheet' | 'build' };
@@ -69,21 +73,25 @@ export function buildSheetRows(x: {
 }): SheetRow[] {
   const jimu = new Map<string, IkeJimuLite['rows'][number]>();
   for (const r of x.jimu?.rows || []) { const k = normName(r.name); if (k && !jimu.has(k)) jimu.set(k, r); }
+  const nameN = new Map<string, number>();
+  for (const r of x.progress.rows || []) { const k = normName(r.name); if (k) nameN.set(k, (nameN.get(k) || 0) + 1); }
   const seen = new Set<string>();
   const out: SheetRow[] = [];
   for (const r of x.progress.rows || []) {
     const k = normName(r.name);
-    if (!k || seen.has(k)) continue;
+    const id = String(r.id || '');
+    if (!k || (id && seen.has(id))) continue;
     const j = jimu.get(k);
     const decidedOn = jstDate(r.decided_at);
     const nyuujouRaw = String(r.nyuujou_bi || '').trim() || String(j?.nyuujou || '').trim();
     const nyuujouOn = parseDateIso(nyuujouRaw);
     if (!inSheetScope(decidedOn, nyuujouOn)) continue;
-    seen.add(k);
+    if (id) seen.add(id);
     out.push({
-      id: r.id || k, personId: staffIdOf(r.name), decidedOn, name: r.name, kana: j?.kana || '', email: null,
+      id: id || k, personId: staffIdOf(r.name), decidedOn, name: r.name, kana: j?.kana || '', email: null,
       nyushaOn: parseDateIso(x.nyusha?.[k]?.nyushaBi || j?.nyusha || ''), nyuujouOn, nyuujouRaw,
-      wage: x.gakumen.get(k) || '', sent: null, sentOn: null, memo: null, except: null, exceptOn: null,
+      wage: x.gakumen.get(id) || '', sent: null, sentOn: null, memo: null, except: null, exceptOn: null,
+      ...((nameN.get(k) || 0) > 1 ? { note: '同姓同名（営業リストに同じ名前が複数）・よみがな／入社日／入場日は名前で引いているので確かめてください' } : {}),
     });
   }
   return out.sort((a, b) => a.decidedOn.localeCompare(b.decidedOn));
@@ -95,7 +103,13 @@ export type IkeSankakuSheetRow = {
   gakumen: number | ''; sent: boolean; sentAt: string; memo: string; except: string; exceptAt: string;
 };
 export type IkeSankakuSheet = { ok?: boolean; url?: string; rows: IkeSankakuSheetRow[] };
-const exceptOf = (v: string): ExceptKind => (!v ? '' : v.includes('取消') ? '入社取消' : '辞退');
+const exceptOf = (v0: string): ExceptKind => {
+  const v = String(v0 || '').trim();
+  if (!v) return '';
+  if (/取り?消/.test(v)) return '入社取消';
+  if (/辞退/.test(v)) return '辞退';
+  return `その他：${v}`;
+};
 
 /** スプシの行 → 画面の行。並び・中身はスプシのまま（日付だけ YYYY-MM-DD に） */
 export function fromSheetRows(rows: readonly IkeSankakuSheetRow[]): SheetRow[] {

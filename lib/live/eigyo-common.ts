@@ -28,10 +28,11 @@ export function properStatus(r: EngineerRow, c: Record<string, string>): '営業
   return r.active ? '営業中' : '止め・辞退';
 }
 
-// ---- 氏名の名寄せ（今の normName と同じ：空白を詰め、さん・様を外し、異体字を寄せる） ----
-const VARIANT: Record<string, string> = { 髙: '高', 﨑: '崎', 邊: '辺', 邉: '辺', 齋: '斎', 齊: '斉', 齌: '斎', 澤: '沢', 濱: '浜', 濵: '浜', 德: '徳', 廣: '広', 曾: '曽', 眞: '真', 靑: '青', 惠: '恵', 槇: '槙', 渕: '淵', 冨: '富', 籠: '篭', 桒: '桑', 國: '国', 萬: '万' };
+// ---- 氏名の名寄せ（今の api/_link.ts の normName と1文字も違わないように：空白を詰め、さん・様を外し、異体字を寄せる） ----
+//   ★10-25 今に揃えた：齌→斉（斎ではない）・NFKC はかけない（今のシステムもかけていない＝半角カナ・全角英数はそのまま）
+const VARIANT: Record<string, string> = { 髙: '高', 﨑: '崎', 邊: '辺', 邉: '辺', 齋: '斎', 齊: '斉', 齌: '斉', 澤: '沢', 濱: '浜', 濵: '浜', 德: '徳', 廣: '広', 曾: '曽', 眞: '真', 靑: '青', 惠: '恵', 槇: '槙', 渕: '淵', 冨: '富', 籠: '篭', 桒: '桑', 國: '国', 萬: '万' };
 export function normName(s: unknown): string {
-  return String(s ?? '').normalize('NFKC').replace(/[\s　]+/g, '').replace(/(さん|サン|様|君|くん)$/, '').replace(/[髙﨑邊邉齋齊齌澤濱濵德廣曾眞靑惠槇渕冨籠桒國萬]/g, (c) => VARIANT[c] || c);
+  return String(s ?? '').replace(/[\s　]+/g, '').replace(/(さん|サン|様|君|くん)$/, '').replace(/[髙﨑邊邉齋齊齌澤濱濵德廣曾眞靑惠槇渕冨籠桒國萬]/g, (c) => VARIANT[c] || c);
 }
 /** グループ名から、その中に名前が入っている人を1人に決める（今の matchRosterName と同じ＝いちばん長く一致した名前・1文字の名前は使わない） */
 export function matchGroupName(groupName: string, norms: readonly string[]): string | null {

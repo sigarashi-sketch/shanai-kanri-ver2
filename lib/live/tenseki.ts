@@ -50,27 +50,44 @@ export function toTensekiLive(j: IkeTensekiList) {
 }
 
 // ---- 転籍台帳はページに出さず、名簿と変更の予約に混ぜる（10-25 shoya「転籍台帳は裏で持っててさ従業員名簿にいれて」「変更の予約に転籍も入れて」） ----
-/** 台帳の行 → 変更の予約の行。確認待ち＝承認待ち／確定で転籍日がこれから＝予約中／確定で過ぎた＝適用済み。却下は出さない */
+/** 台帳の行 → 変更の予約の行。確認待ち＝承認待ち／確定で転籍日が明日以降＝予約中／確定で今日まで＝適用済み。却下は出さない
+ *  ★「今日」の転籍は済み（適用済み）に数える。名簿の印（tensekiMarks の転籍済み）と同じ線（10-25 揃えた） */
 export function tensekiYoyaku(rows: readonly LiveTenseki[], today: string): Yoyaku[] {
   return rows.filter((r) => r.state !== '却下' && r.on).map((r) => ({
     id: `tenseki:${r.id}`, date: r.on, personId: r.personId, person: r.name, field: '転籍' as const, from: r.from, to: r.to, by: '転籍台帳',
-    state: r.state === '確認待ち' ? '承認待ち' as const : r.on >= today ? '予約中' as const : '適用済み' as const,
+    state: r.state === '確認待ち' ? '承認待ち' as const : r.on > today ? '予約中' as const : '適用済み' as const,
     note: r.state === '確認待ち' ? `転籍台帳の確認待ち（${r.proofs.join('・') || '根拠なし'}）。確定は今の社内システムの転籍台帳から` : undefined,
   }));
 }
 
-/** 名簿の名前の下に出す1行（正規化した氏名 → 文）。これからの転籍と、30日以内に済んだ転籍だけ */
-export function tensekiMarks(rows: readonly { name: string; on: string; from: string; to: string; state: string }[], today: string): Map<string, { text: string; pending: boolean }> {
-  const out = new Map<string, { text: string; pending: boolean }>();
+/** 名簿の名前の下に出す1行（正規化した氏名 → 文）。これからの転籍と、30日以内に済んだ転籍だけ
+ *  ・今日の転籍は「転籍済み」（tensekiYoyaku の適用済みと同じ線）
+ *  ・これからの転籍がいくつもあれば、いちばん近いものを出す。これからの転籍があれば済んだものより優先
+ *  ・台帳は名前でしか名簿とつながらない。rosterNames（名簿の氏名）を渡すと、名簿に同じ名前が2人以上いる人には印を付けず、
+ *    ambiguous=true の注意書きだけ返す（別人に転籍の印を付けない・10-25） */
+export function tensekiMarks(
+  rows: readonly { name: string; on: string; from: string; to: string; state: string }[], today: string, rosterNames?: readonly string[],
+): Map<string, { text: string; pending: boolean; ambiguous?: boolean }> {
+  const out = new Map<string, { text: string; pending: boolean; ambiguous?: boolean }>();
   const recent = new Date(Date.parse(today) - 30 * 86400000).toISOString().slice(0, 10);
   const md = (iso: string) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`;
+  const dupe = new Set<string>();
+  if (rosterNames) {
+    const n = new Map<string, number>();
+    for (const x of rosterNames) { const k = normName(x); if (k) n.set(k, (n.get(k) || 0) + 1); }
+    for (const [k, c] of n) if (c > 1) dupe.add(k);
+  }
   for (const r of [...rows].sort((a, b) => a.on.localeCompare(b.on))) {
     if (!r.on || r.state === '却下' || r.state === '取りやめ') continue;
     const done = r.state === '確定' || r.state === '完了';
     if (done && r.on < recent) continue;
     const pending = !done || r.on > today;
     const k = normName(r.name);
-    if (!k || (out.has(k) && !pending)) continue;
+    if (!k) continue;
+    if (dupe.has(k)) { out.set(k, { pending: false, ambiguous: true, text: '同姓同名がいるので転籍の印は付けていません（変更の予約で確かめてください）' }); continue; }
+    const cur = out.get(k);
+    // 古い順に見ている：済み同士は新しいほう、これから同士は先に来た（近い）ほう、これからは済みより優先
+    if (cur && cur.pending) continue;
     out.set(k, { pending, text: `${pending ? '転籍予定' : '転籍済み'} ${md(r.on)}〜 ${r.from}→${r.to}${done ? '' : `（${r.state}）`}` });
   }
   return out;
