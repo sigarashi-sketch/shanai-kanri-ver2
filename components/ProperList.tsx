@@ -7,6 +7,7 @@ import { Pill } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
 import { PersonName } from '@/components/Person';
+import { ProperDetail } from '@/components/ProperDetail';
 import { Dialog } from '@/components/Dialog';
 import { useIke } from '@/components/Live';
 import { ScoreBadge, ScoreNote, SCORE_HINT, SCORE_LABEL, useProperScores } from '@/components/ProperScore';
@@ -175,7 +176,13 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
 
   const [commuteFor, setCommuteFor] = useState<PRow | null>(null);
   const [dropFor, setDropFor] = useState<PRow | null>(null);
-  const [statusFor, setStatusFor] = useState<PRow | null>(null);
+  const [statusFor, setStatusFor] = useState<{ p: PRow; tab?: string } | null>(null);
+  // 表示の形：リスト（今の既定＝9列だけ＋押すと右に詳細）／全列表（今の従来の表）。その人の端末に残す
+  const [mode, setModeRaw] = useState<'list' | 'table'>('list');
+  useEffect(() => { try { if (localStorage.getItem('v2_proper_mode') === 'table') setModeRaw('table'); } catch { /* なくても動く */ } }, []);
+  const setMode = (m: 'list' | 'table') => { setModeRaw(m); try { localStorage.setItem('v2_proper_mode', m); } catch { /* なくても動く */ } };
+  const [selRow, setSelRow] = useState<string | null>(null);
+  const selP = selRow ? rows.find((p) => p.r.row === selRow) ?? null : null;
 
   // ---- dropout（飛び）の印。取り消す＝印を戻し、一緒に変わったチェック（辞退・参画決定・稼働中）も前の値で保存し直す ----
   const setDrop = useCallback(async (p: PRow, on: boolean, phase: string, after: string, undo?: boolean) => {
@@ -248,7 +255,7 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
     });
     const scoreCols = scores.state === 'off' ? [] : [score('skill', true), score('join', true), score('decline', true), score('poa', false)];
     const all: Col[] = [
-      { key: 'status', label: '状態', group: '基本', def: true, filter: 'select', opts: ['営業中', '参画決定', '稼働中', '止め・辞退'], text: (p) => p.status, cell: (p) => <button type="button" disabled={ro} title={roTitle ?? '押すと状態を変える（参画決定・辞退などは日付も入れます）'} onClick={() => setStatusFor(p)} className="disabled:cursor-not-allowed"><Pill>{p.status}</Pill></button> },
+      { key: 'status', label: '状態', group: '基本', def: true, filter: 'select', opts: ['営業中', '参画決定', '稼働中', '止め・辞退'], text: (p) => p.status, cell: (p) => <button type="button" disabled={ro} title={roTitle ?? '押すと状態を変える（参画決定・辞退などは日付も入れます）'} onClick={() => setStatusFor({ p })} className="disabled:cursor-not-allowed"><Pill>{p.status}</Pill></button> },
       ...scoreCols,
       txt('sentouryoku', '戦闘力', '基本', true, 70),
       { key: 'lastReply', label: '最終返信', group: '連絡', def: true, filter: 'select', opts: ['24時間以内', '3日以内', 'なし'], hint: '直近3日の LINE グループの返信',
@@ -384,7 +391,8 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
   return (
     <div className="flex flex-col gap-3">
       <ScoreNote scores={scores} />
-      <div className="overflow-hidden rounded-xl border border-line bg-surface">
+      <div className="flex items-start gap-3">
+      <div className="@container min-w-0 flex-1 overflow-hidden rounded-xl border border-line bg-surface">
         <div className="flex flex-wrap items-center gap-2 px-3.5 py-3">
           <label className="flex min-h-9 min-w-[200px] flex-1 items-center gap-2 rounded-[10px] border border-field px-3 text-faint sm:max-w-[300px]"><Search size={15} /><input value={q} onChange={(e) => setQ(e.target.value)} aria-label="この一覧を検索" placeholder="名前・最寄駅・希望・メモ・担当" className="min-w-0 flex-1 bg-transparent text-body text-ink outline-none" /></label>
           <select value={scope} onChange={(e) => setScope(e.target.value as Scope)} aria-label="どの人を出すか" className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-body" style={scope !== 'active' ? { borderColor: 'var(--a)', color: 'var(--ad)', fontWeight: 600 } : undefined}>
@@ -392,11 +400,16 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
           </select>
           {filtered && <button onClick={() => { setScope('active'); setQ(''); setFlt({}); }} className="text-sm text-muted underline">絞り込みを外す</button>}
           <span className="ml-auto text-sm text-muted"><span className="num">{shown.length}</span>人</span>
-          <button type="button" onClick={() => setPicker(true)} className="btn-secondary"><Columns3 size={15} />列</button>
+          <div role="tablist" aria-label="表示の形" className="flex rounded-[10px] border border-field p-0.5">
+            {([['list', 'リスト'], ['table', '全列表']] as const).map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={mode === k} onClick={() => setMode(k)} className="rounded-lg px-3 py-1 text-sm font-semibold" style={mode === k ? { background: 'var(--as)', color: 'var(--ad)' } : { color: 'var(--color-muted)' }}>{l}</button>)}
+          </div>
+          {mode === 'table' && <button type="button" onClick={() => setPicker(true)} className="btn-secondary"><Columns3 size={15} />列</button>}
           <button type="button" onClick={pull} disabled={pulling || !canEdit} title={!canEdit ? needText('edit') : 'ミンミカで営業開始前になった未経験の人を、15分おきの自動を待たずにいま取り込みます'}
             className="btn-secondary"><RefreshCw size={14} className={pulling ? 'animate-spin' : ''} />{pulling ? '取り込み中…' : 'ミンミカ取り込み'}</button>
         </div>
-        <div className="overflow-x-auto">
+        {mode === 'list' && <ProperListView rows={shown.slice(0, limit)} sel={selRow} onPick={(id) => setSelRow((x) => (x === id ? null : id))} aux={aux} />}
+        {mode === 'list' && shown.length > limit && <div className="border-t border-line-soft px-4 py-3 text-center text-sm text-muted">はじめの{limit}人を出しています <button type="button" onClick={() => setLimit((l) => l + 300)} className="ml-2 font-semibold underline" style={{ color: 'var(--ad)' }}>もっと出す</button></div>}
+        {mode === 'table' && <div className="overflow-x-auto">
           <table className="w-full border-collapse text-body">
             <thead>
               <tr className="th-row text-left">
@@ -441,10 +454,38 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
               {shown.length === 0 && <tr><td colSpan={visible.length + 1} className="px-4 py-10 text-center text-body text-muted">この条件の要員はいません</td></tr>}
             </tbody>
           </table>
-        </div>
+        </div>}
+      </div>
+      {mode === 'list' && selP && (
+        <aside aria-label={`${selP.r.name} の詳細`} className="sticky top-3 flex max-h-[calc(100vh-24px)] w-[440px] shrink-0 flex-col overflow-hidden rounded-xl border border-line bg-surface">
+          <div className="border-b border-line px-4 py-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0"><div className="truncate text-md font-bold">{selP.r.name}</div>
+                <div className="truncate text-sm text-muted">担当 {s(selP.v.tantou) || '未割当'}　／　{s(selP.v.shozoku) || '所属未入力'}{selP.r.active ? '' : '　／　営業中ではありません'}</div></div>
+              <button aria-label="閉じる" onClick={() => setSelRow(null)} className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-line"><X size={15} /></button>
+            </div>
+            {scores.state !== 'off' && <div className="mt-1.5 flex flex-wrap gap-1.5">{(['skill', 'join', 'decline'] as ScoreKind[]).map((k) => <ScoreBadge key={k} s={scores.map.get(selP.r.row)} kind={k} meta={scores.meta} name={selP.r.name} />)}</div>}
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {(['営業中', '営業止め', '参画決定', '辞退'] as const).map((t) => {
+                const now = t === '営業中' ? selP.status === '営業中' : t === '営業止め' ? selP.v.poa === true : t === '参画決定' ? selP.v.sankaku_kettei === true : selP.v.jitai === true;
+                return <button key={t} type="button" disabled={ro} title={roTitle ?? `押すと「${t}」にする（日付も入れます）`} onClick={() => setStatusFor({ p: selP, tab: t })} aria-pressed={now}
+                  className="min-h-8 rounded-lg border px-2.5 text-sm font-semibold disabled:opacity-40" style={now ? { background: 'var(--a)', color: 'var(--ao)', borderColor: 'var(--a)' } : { borderColor: 'var(--color-field)' }}>{t}</button>;
+              })}
+              {colByKey.get('dropout')?.cell(selP)}
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 border-b border-line px-4 py-3 text-sm">
+              {PANE_KEYS.map((k) => { const c = colByKey.get(k); return c ? <label key={k} className="flex min-w-0 flex-col"><span className="text-xs text-muted">{c.label}</span><span className="min-w-0 [&>button.block]:truncate">{c.cell(selP)}</span></label> : null; })}
+              {colByKey.get('memo') && <label className="col-span-2 flex flex-col"><span className="text-xs text-muted">メモ</span>{colByKey.get('memo')!.cell(selP)}</label>}
+            </div>
+            <ProperDetail key={selP.r.row} id={selP.r.row} embedded />
+          </div>
+        </aside>
+      )}
       </div>
       {picker && <ColPicker cols={ordered} isShown={shownCol} onToggle={toggleCol} onOrder={(order) => setPrefsSave({ ...(prefs ?? { hidden: [], shown: [] }), order })} onReset={() => { setPrefsSave({ order: [], hidden: [], shown: [] }); }} onClose={() => setPicker(false)} />}
-      {statusFor && <StatusDialog p={statusFor} hasCol={(k) => !live || !!data?.columns.some((c) => c.col === k)} onClose={() => setStatusFor(null)} onGo={(patch) => { const p = statusFor; setStatusFor(null); void save(p, patch); }} />}
+      {statusFor && <StatusDialog p={statusFor.p} start={statusFor.tab} hasCol={(k) => !live || !!data?.columns.some((c) => c.col === k)} onClose={() => setStatusFor(null)} onGo={(patch) => { const p = statusFor.p; setStatusFor(null); void save(p, patch); }} />}
       {dropFor && <DropoutDialog p={dropFor} onClose={() => setDropFor(null)} onGo={(on, phase, after) => { setDropFor(null); void setDrop(dropFor, on, phase, after); }} />}
       {commuteFor && <CommuteEditor p={commuteFor} live={live} canEdit={canEdit} onClose={() => setCommuteFor(null)}
         onSaved={(row) => { setCommuteOver((o) => ({ ...o, [commuteKey(commuteFor.r.name)]: row })); }} />}
@@ -686,9 +727,9 @@ const STATUS_TABS = [
 ] as const;
 const DATE_LABEL: Record<string, string> = { poa_bi: '営業止めにした日', sankaku_bi: '参画日', jitai_bi: '辞退した日' };
 const todayIso = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
-function StatusDialog({ p, hasCol, onClose, onGo }: { p: PRow; hasCol: (k: string) => boolean; onClose: () => void; onGo: (patch: V) => void }) {
+function StatusDialog({ p, start, hasCol, onClose, onGo }: { p: PRow; start?: string; hasCol: (k: string) => boolean; onClose: () => void; onGo: (patch: V) => void }) {
   const cur = p.v.jitai === true ? '辞退' : p.v.sankaku_kettei === true ? '参画決定' : p.v.poa === true ? '営業止め' : '営業中';
-  const [tab, setTab] = useState<string>(cur === '営業中' ? '参画決定' : '営業中');
+  const [tab, setTab] = useState<string>(start ?? (cur === '営業中' ? '参画決定' : '営業中'));
   const t = STATUS_TABS.find((x) => x.v === tab)!;
   const old = t.date ? s(p.v[t.date]).replace(/\//g, '-') : '';
   const [date, setDate] = useState(todayIso());
@@ -730,5 +771,68 @@ function StatusDialog({ p, hasCol, onClose, onGo }: { p: PRow; hasCol: (k: strin
         <button type="button" disabled={same || (!!t.date && colOk && !date)} onClick={go} className="btn-primary disabled:opacity-40">{tab}にする</button>
       </div>
     </Dialog>
+  );
+}
+
+// ---- リスト表示（今の proper-views.js の「リスト」を写す：9列だけ・稼働の月ごとに区切る・押すと右に詳細） ----
+const PANE_KEYS = ['kadou', 'gakumen', 'eki', 'tantou', 'shozoku', 'zokusei', 'kibou_shokushu', 'heikou_suu', 'shift', 'yakin', 'shucchou', 'shoudaku_nyusha_bi', 'hearing_booking', 'shoudaku_bi'];
+function kadouBucket(v: string): { k: number; label: string } {
+  if (/^\s*即日/.test(v)) return { k: 0, label: '即日' };
+  const m = v.match(/\d{4}[/\-年](\d{1,2})/) || v.match(/(\d{1,2})\s*月/);
+  const n = m ? Number(m[1]) : NaN;
+  if (!(n >= 1 && n <= 12)) return { k: 99, label: '未定・その他' };
+  const cur = new Date(Date.now() + 9 * 3600e3).getUTCMonth() + 1;
+  return { k: 1 + ((((n - cur) % 12) + 12) % 12), label: `${n}月` };
+}
+function man(v: string): string {
+  const n = parseFloat(v.replace(/[,，円\s]/g, ''));
+  if (!n) return '';
+  return `${n >= 1000 ? Math.round(n / 1000) / 10 : n}万`;
+}
+const LIST_GRID = 'grid grid-cols-[84px_minmax(100px,1.3fr)_64px_44px_minmax(72px,1fr)_96px_minmax(72px,1fr)_60px] @4xl:grid-cols-[84px_minmax(100px,1.3fr)_64px_44px_minmax(72px,1fr)_96px_minmax(72px,1fr)_60px_minmax(80px,1.4fr)] items-center gap-x-2';
+function ProperListView({ rows, sel, onPick, aux }: {
+  rows: PRow[]; sel: string | null; onPick: (id: string) => void;
+  aux: { lastReply: (n: string) => number | null | undefined; form: (n: string) => string; line: (n: string) => string };
+}) {
+  const groups = useMemo(() => {
+    const m = new Map<number, { label: string; rows: PRow[] }>();
+    for (const p of rows) { const b = kadouBucket(s(p.v.kadou)); const g = m.get(b.k) ?? { label: b.label, rows: [] }; g.rows.push(p); m.set(b.k, g); }
+    return [...m.entries()].sort((a, b) => a[0] - b[0]).map(([k, g]) => ({ k, ...g }));
+  }, [rows]);
+  if (!rows.length) return <div className="px-4 py-10 text-center text-body text-muted">この条件の要員はいません</div>;
+  return (
+    <div className="border-t border-line text-sm">
+      <div className={`${LIST_GRID} th-row px-3 py-2 font-semibold`}>
+        <span>状態</span><span>要員名 ／ 所属</span><span>稼働</span><span className="text-right">額面</span><span>最寄駅</span><span>連絡</span><span>属性・希望</span><span>担当</span><span className="hidden @4xl:block">メモ</span>
+      </div>
+      {groups.map((g) => (
+        <div key={g.k}>
+          <div className="bg-sunken px-3 py-1 text-xs font-bold text-muted">{g.label}<span className="ml-1.5 font-normal">{g.rows.length}名</span></div>
+          {g.rows.map((p) => {
+            const t = aux.lastReply(p.r.name), f = aux.form(p.r.name), ln = aux.line(p.r.name);
+            const g2 = man(s(p.v.gakumen)), eki = s(p.v.eki), zok = s(p.v.zokusei) || s(p.v.kibou_shokushu);
+            const st = p.status + (p.drop.on ? '・飛び' : '');
+            return (
+              <button key={p.r.row} type="button" onClick={() => onPick(p.r.row)} aria-pressed={sel === p.r.row}
+                className={`${LIST_GRID} row w-full border-t border-line-soft px-3 py-2 text-left`} style={sel === p.r.row ? { background: 'var(--as)' } : !p.r.active ? { opacity: 0.72 } : undefined}>
+                <span className="min-w-0"><Pill>{st}</Pill></span>
+                <span className="min-w-0"><b className="block truncate text-body">{p.r.name}</b><small className="block truncate text-xs text-muted">{s(p.v.shozoku)}</small></span>
+                <span className="truncate">{kadouBucket(s(p.v.kadou)).k === 99 ? s(p.v.kadou) || '未定' : kadouBucket(s(p.v.kadou)).label}</span>
+                <span className={`num text-right ${g2 ? '' : 'text-faint'}`}>{g2 || '額?'}</span>
+                <span className={`truncate ${eki ? '' : 'text-faint'}`}>{eki || '駅未入力'}</span>
+                <span className="flex flex-wrap gap-1 text-xs">
+                  <span title="最終返信" style={{ color: t ? (Date.now() - t < 864e5 ? 'var(--tone-ok-fg)' : 'var(--tone-warn-fg)') : 'var(--color-faint)' }}>{t === undefined ? '…' : t ? elapsed(t) : '—'}</span>
+                  <span className={f === '未回答' ? 'font-semibold text-bad' : 'text-muted'}>{f === '未回答' ? 'フォーム未' : 'フォーム'}</span>
+                  <span className={ln === '未作成' ? 'font-semibold text-bad' : 'text-muted'}>{ln === '未作成' ? 'LINE無' : 'LINE'}</span>
+                </span>
+                <span className={`truncate ${zok ? '' : 'text-faint'}`}>{zok || '—'}</span>
+                <span className="truncate">{s(p.v.tantou) || '—'}</span>
+                <span className="hidden truncate text-muted @4xl:block">{s(p.v.memo).split('\n')[0]}</span>
+              </button>
+            );
+          })}
+        </div>
+      ))}
+    </div>
   );
 }
