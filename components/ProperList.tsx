@@ -49,7 +49,7 @@ const scopeTest: Record<Scope, (p: PRow) => boolean> = {
 
 const PREF_KEY = 'v2_proper_cols_v2';
 // はじめに出す列＝大事なものだけ（横スクロールなしで見える数）。ほかは列の設定で足すか、行を押して小窓で見る（10-25 shoya）
-const MAIN_COLS = new Set(['status', 'score:join', 'tantou', 'eki', 'kibou_shokushu', 'lastReply', 'sukishi', 'shoudaku_nyusha_bi']);
+const MAIN_COLS = new Set(['status', 'score:join', 'tantou', 'eki', 'lastReply', 'sukishi', 'shoudaku_nyusha_bi']);
 type Prefs = { order: string[]; hidden: string[]; shown: string[] };
 function loadPrefs(): Prefs | null { try { const s = localStorage.getItem(PREF_KEY); return s ? (JSON.parse(s) as Prefs) : null; } catch { return null; } }
 function savePrefs(p: Prefs) { try { localStorage.setItem(PREF_KEY, JSON.stringify(p)); } catch { /* 残せなくても画面は動く */ } }
@@ -273,12 +273,8 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
       txt('gakumen', '額面', '基本', true, 90),
       { key: 'sukishi', label: 'スキシ', group: 'スキシ', def: true, filter: 'select', opts: ['作成済み', '未作成', '要確認'],
         text: (p) => (sukishiDone?.has(p.r.row) ? '作成済み' : sukishiState(p.v)),
-        cell: (p) => { const st = sukishiDone?.has(p.r.row) ? '作成済み' : sukishiState(p.v); const u = s(p.v.sukishi); return (
-          <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-            <span className="chip" style={SK_TONE[st]}>{st}</span>
-            {isUrl(u) && <a href={u} target="_blank" rel="noreferrer" className="text-sm underline" style={{ color: 'var(--ad)' }}>開く</a>}
-            <button type="button" onClick={() => onSukishi(p.r.row)} className="inline-flex min-h-7 items-center gap-1 rounded-md border px-1.5 text-xs font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><FileSpreadsheet size={12} />{st === '作成済み' ? '見る' : '作る'}</button>
-          </span>); } },
+        cell: (p) => { const st = sukishiDone?.has(p.r.row) ? '作成済み' : sukishiState(p.v); return (
+          <button type="button" onClick={() => onSukishi(p.r.row)} title={st === '作成済み' ? '押すとスキシを見る' : '押すとスキシを作る'} className="chip whitespace-nowrap" style={SK_TONE[st]}>{st}</button>); } },
       { key: 'pdf', label: 'PDF', group: 'スキシ', def: false, filter: 'none', text: (p) => (p.r.pdfUrl || p.r.pdfAnonUrl ? 'あり' : ''),
         cell: (p) => <span className="flex flex-col gap-1"><PdfLinks r={p.r} />{isUrl(s(p.v.sukishi)) && <button type="button" disabled={ro || pdfBusy.has(p.r.row)} title={roTitle ?? 'いまのスキシの中身で本名版・イニシャル版の PDF を作り直す（URL は変わりません）'} onClick={() => remakePdf(p)} className="w-fit rounded-md border border-field px-1.5 text-xs font-semibold disabled:opacity-50">{pdfBusy.has(p.r.row) ? '作成中…' : 'PDF を作り直す'}</button>}</span> },
       txt('summary', 'サマリ', 'スキシ', false, 200),
@@ -436,7 +432,7 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
                     {p.r.kansai && <span className="ml-1 rounded bg-sunken px-1 text-xs font-normal text-muted">関西</span>}
                     {p.v.needs_review === true && <span className="ml-1 text-xs font-normal text-warn">要確認</span>}
                   </td>
-                  {visible.map((c) => <td key={c.key} className="px-2 py-1.5" style={c.minW ? { minWidth: c.minW } : undefined}>{c.cell(p)}</td>)}
+                  {visible.map((c) => <td key={c.key} className="max-w-[140px] px-2 py-1.5 [&>button.block]:truncate">{c.cell(p)}</td>)}
                 </tr>
               ))}
               {shown.length > limit && <tr><td colSpan={visible.length + 1} className="px-4 py-3 text-center text-sm text-muted">はじめの{limit}人を出しています <button type="button" onClick={() => setLimit((l) => l + 300)} className="ml-2 font-semibold underline" style={{ color: 'var(--ad)' }}>もっと出す</button></td></tr>}
