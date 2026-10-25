@@ -6,6 +6,7 @@ import { LiveBanner } from '@/components/Live';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { PersonName } from '@/components/Person';
 import { PageTitle } from '@/components/ui';
+import { NyushaMarks } from '@/components/jinji/NyushaMarks';
 import { useLiveRoute } from '@/lib/live/use-live-route';
 import { SHEET_SAMPLE } from '@/lib/nyusha-sample';
 import { SHEET_HEADER, SHEET_TAB, SHEET_URL, fmtSheetDate, rowKind, sortSheetRows, type NyushaSheetLive, type SheetFilter, type SheetRow } from '@/lib/live/nyusha';
@@ -119,6 +120,8 @@ export default function NyushaPage() {
         </div>
       </div>
       </>}
+      {/* 入社手続きの印（今の入社手続きの画面と同じ・選んだらすぐ保存・10-25） */}
+      <NyushaMarks />
       <p className="text-[11.5px] text-faint">
         スプシは今の社内システムが15分ごとに書き足しています（参画決定日・氏名・よみがな・メール・入社日・入場日・賃金・辞退は空欄だけ自動で埋める）。
         freee送信の☑・送信日・メモ・入社取消は労務がスプシで付けます。雇用契約・社会保険などの手続きの要否や期限の最終判断は社労士に確認してください。

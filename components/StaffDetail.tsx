@@ -20,6 +20,10 @@ import { LiveBanner, NotInLegacy } from '@/components/Live';
 import { useLiveRoute } from '@/lib/live/use-live-route';
 import { isLiveStaffId, slashDate, type LiveStaff, type LiveStaffList } from '@/lib/live/staff';
 import { CAN_ALL, logView, memoOf, type LivePersonView, type PersonCan } from '@/lib/live/person';
+import { normName } from '@/lib/live/staff';
+import type { LiveStaffListX } from '@/lib/live/staff-extra';
+import { PersonActions, StaffOps } from '@/components/jinji/StaffOps';
+import { TaiouLog } from '@/components/jinji/TaiouLog';
 
 type SiteRow = (typeof SITE_HISTORY)[number] & { key: string; pending?: boolean };
 
@@ -41,7 +45,8 @@ function fallbackPerson(id: string): Person | null {
 }
 
 // チャットは一番右のタブ（10-25 shoya「名前押したらチャットは右タブに」）。基本情報＝フォームの回答・面談メモ＝要員リストのメモ（どれも読むだけ）
-const TABS = ['基本情報', '現場の履歴', '勤怠', '請求', '書類', '面談メモ', 'チャット'] as const;
+// 名簿の入力・対応歴＝今の従業員名簿でできた入力（退社・待機・予約・日付・駅・採用担当・LINEグループ・対応歴）を書く（10-25）
+const TABS = ['基本情報', '現場の履歴', '勤怠', '請求', '書類', '面談メモ', '名簿の入力', '対応歴', 'チャット'] as const;
 type Tab = (typeof TABS)[number];
 
 /** 名前の小窓が /api/live/person で読んだ分。渡されたら /api/live/staff・/api/live/person を読み直さない（10-25） */
@@ -193,6 +198,13 @@ function SamplePerson({ id, embedded }: { id: string; embedded: boolean }) {
               </div>
             </aside>
           </>
+        ) : tab === '名簿の入力' ? (
+          <div className="w-full"><StaffOps live={false} recruiters={PEOPLE.map((x) => x.recruiter)} staff={{
+            id: p.id, name: p.name, kana: p.kana, status: p.status, statusKey: 'kadou', site: p.site, siteEki: '', contract: p.contract, start: '', end: '',
+            joined: '', nyuujou: '', taijou: '', taishaBi: '', station: p.station, price: p.price, sales: p.sales, recruiter: p.recruiter, company: '', provisional: false, carriedFrom: '',
+          }} /></div>
+        ) : tab === '対応歴' ? (
+          <div className="w-full"><TaiouLog name={p.name} live={false} rule={{ ok: true, n: 0 }} /></div>
         ) : SIDE.has(tab) ? null : (
           <section className="w-full rounded-xl border border-dashed border-field bg-surface px-6 py-10 text-center text-[13.5px] text-muted">「{tab}」タブはこれから作ります（今の社内システムの中身を、この型に載せ替えます）</section>
         )}</Fragment>
@@ -205,13 +217,14 @@ function SamplePerson({ id, embedded }: { id: string; embedded: boolean }) {
 // ---- 本物の人（今の従業員名簿）。名簿の行からわかる分だけ出す。見るだけ ------------------------------
 //   名前の小窓からは initial（小窓が読んだ行）をそのまま使う＝ /api/live/staff を読まない（10-25）
 function LivePerson({ id, embedded, initial }: { id: string; embedded: boolean; initial?: StaffInitial }) {
-  const r = useLiveRoute<LiveStaffList>(initial ? null : '/api/live/staff');
+  const r = useLiveRoute<LiveStaffList & Partial<LiveStaffListX>>(initial ? null : '/api/live/staff');
   const state = initial ? 'live' : r.state;
   const live = !!initial || r.live;
   const p = initial?.staff ?? (live ? r.data?.rows.find((x) => x.id === id) : undefined);
   const month = initial?.month ?? r.data?.month ?? '';
   const can = initial?.can ?? CAN_ALL;
   const everyone = initial?.everyone ?? (r.data?.rows ?? []).map((x) => x.name);
+  const everyoneRecruiters = (r.data?.rows ?? []).map((x) => x.recruiter);
   const memo = initial ? memoOf(initial.proper) : undefined;
   const { tab, select: setTab, seen } = useTabs(p?.name ?? '', live);
   const ext = embedded ? { target: '_blank', rel: 'noopener' } : {};
@@ -232,6 +245,7 @@ function LivePerson({ id, embedded, initial }: { id: string; embedded: boolean; 
     </div>
   );
   const hasPrice = !!p.price && p.price !== '—';
+  const rule = r.data?.rule ? { ok: r.data.rule.ok, n: r.data.rule.n[normName(p.name)] } : undefined;
   const facts: [string, React.ReactNode][] = [
     ['現場（上位会社）', <span key="s"><b>{p.site}</b>{p.siteEki && <span className="block text-[11.5px] text-faint">{p.siteEki}</span>}</span>],
     [hasPrice ? '契約・単価' : '契約', hasPrice ? `${p.contract}・${p.price}` : p.contract],
@@ -243,7 +257,7 @@ function LivePerson({ id, embedded, initial }: { id: string; embedded: boolean; 
     <div className="flex flex-col">
       {crumb}
       <section className="mo-fade-up border-b border-line bg-surface px-4 pt-5 sm:px-6">
-        <div className="mb-3"><LiveBanner state={state} error={r.error} onReload={r.reload} note="今の従業員名簿の行から出しています（見るだけ・未経験の人だけ＝今のプロパーリストに入っている人）。直すのは今の社内システムの名簿から" /></div>
+        <div className="mb-3"><LiveBanner state={state} error={r.error} onReload={r.reload} note="今の従業員名簿の行から出しています（未経験の人だけ＝今のプロパーリストに入っている人）。退社・待機・日付・対応歴などは「名簿の入力」「対応歴」タブから入れると今の名簿にすぐ保存されます" /></div>
         <div className="flex flex-wrap items-start gap-5">
           <div aria-hidden className="flex size-[72px] shrink-0 items-center justify-center rounded-full text-[26px] font-bold" style={{ background: 'var(--as)', color: 'var(--ad)', boxShadow: '0 0 0 3px var(--color-surface), 0 0 0 5px var(--al)' }}>{p.name[0]}</div>
           <div className="min-w-0 flex-1 sm:w-[210px] sm:flex-none">
@@ -255,6 +269,7 @@ function LivePerson({ id, embedded, initial }: { id: string; embedded: boolean; 
             {facts.map(([k, v]) => <div key={k} className="min-w-0 break-words"><dt className="text-[11.5px] text-faint">{k}</dt><dd>{v}</dd></div>)}
           </dl>
         </div>
+        <div className="mt-3"><PersonActions name={p.name} live={live} rule={rule} onTaiou={() => setTab('対応歴')} /></div>
         <div role="tablist" className="mt-4 flex gap-1 overflow-x-auto text-[13.5px]">
           {tabsFor(can).map((t) => (
             <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className="whitespace-nowrap px-3 py-2.5"
@@ -280,6 +295,10 @@ function LivePerson({ id, embedded, initial }: { id: string; embedded: boolean; 
             </section>
             <NotInLegacy what="期間ごとの現場の履歴（勤務表の稼働・請求と並べたもの）とタイムライン" />
           </>
+        ) : tab === '名簿の入力' ? (
+          <StaffOps staff={p} live={live} recruiters={everyoneRecruiters} onDone={initial ? undefined : r.reload} />
+        ) : tab === '対応歴' ? (
+          <TaiouLog name={p.name} live={live} rule={rule} />
         ) : SIDE.has(tab) ? null : (
           <section className="w-full rounded-xl border border-dashed border-field bg-surface px-6 py-10 text-center text-[13.5px] text-muted">「{tab}」タブはこれから作ります（今の社内システムの中身を、この型に載せ替えます）</section>
         )}</Fragment>
