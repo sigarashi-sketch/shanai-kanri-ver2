@@ -326,17 +326,22 @@ function DetailBody({ d }: { d?: SsDetail }) {
   );
 }
 
-// 一覧の下の見張り：見えてきたら続きを読む（読み込み中は待つ）
+// 一覧の下の見張り：見えてきたら続きを読む（読み込み中は待つ）。見張りが効かない環境のためにスクロールでも確かめる・押しても読める
 function MoreSentinel({ busy, onMore }: { busy: boolean; onMore: () => void }) {
-  const el = useRef<HTMLDivElement>(null);
+  const el = useRef<HTMLButtonElement>(null);
   const cb = useRef(onMore);
   cb.current = onMore;
   useEffect(() => {
     const n = el.current;
     if (!n || busy) return;
-    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) cb.current(); }, { rootMargin: '400px 0px' });
+    let fired = false;
+    const fire = () => { if (!fired) { fired = true; cb.current(); } };
+    const near = () => { if (n.getBoundingClientRect().top < window.innerHeight + 400) fire(); };
+    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) fire(); }, { rootMargin: '400px 0px' });
     io.observe(n);
-    return () => io.disconnect();
+    window.addEventListener('scroll', near, { capture: true, passive: true });
+    near();
+    return () => { io.disconnect(); window.removeEventListener('scroll', near, { capture: true }); };
   }, [busy]);
-  return <div ref={el} className="py-3 text-center text-[12px] text-faint">{busy ? '続きを読み込み中…' : '続きを読む'}</div>;
+  return <button ref={el} type="button" disabled={busy} onClick={() => cb.current()} className="w-full py-3 text-center text-[12px] text-faint">{busy ? '続きを読み込み中…' : '続きを読む'}</button>;
 }
