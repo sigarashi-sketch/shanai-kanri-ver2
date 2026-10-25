@@ -47,7 +47,9 @@ const scopeTest: Record<Scope, (p: PRow) => boolean> = {
   sankaku: (p) => p.v.sankaku_kettei === true, dropout: (p) => p.drop.on, kanawest: (p) => !!p.r.kanagawa, review: (p) => p.v.needs_review === true,
 };
 
-const PREF_KEY = 'v2_proper_cols_v1';
+const PREF_KEY = 'v2_proper_cols_v2';
+// はじめに出す列＝大事なものだけ（横スクロールなしで見える数）。ほかは列の設定で足すか、行を押して小窓で見る（10-25 shoya）
+const MAIN_COLS = new Set(['status', 'score:join', 'tantou', 'eki', 'kibou_shokushu', 'lastReply', 'sukishi', 'shoudaku_nyusha_bi']);
 type Prefs = { order: string[]; hidden: string[]; shown: string[] };
 function loadPrefs(): Prefs | null { try { const s = localStorage.getItem(PREF_KEY); return s ? (JSON.parse(s) as Prefs) : null; } catch { return null; } }
 function savePrefs(p: Prefs) { try { localStorage.setItem(PREF_KEY, JSON.stringify(p)); } catch { /* 残せなくても画面は動く */ } }
@@ -173,6 +175,7 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
 
   const [commuteFor, setCommuteFor] = useState<PRow | null>(null);
   const [dropFor, setDropFor] = useState<PRow | null>(null);
+  const [statusFor, setStatusFor] = useState<PRow | null>(null);
 
   // ---- dropout（飛び）の印。取り消す＝印を戻し、一緒に変わったチェック（辞退・参画決定・稼働中）も前の値で保存し直す ----
   const setDrop = useCallback(async (p: PRow, on: boolean, phase: string, after: string, undo?: boolean) => {
@@ -244,8 +247,8 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
       cell: (p) => <ScoreBadge s={scores.map.get(p.r.row)} kind={k} meta={scores.meta} name={p.r.name} />,
     });
     const scoreCols = scores.state === 'off' ? [] : [score('skill', true), score('join', true), score('decline', true), score('poa', false)];
-    return [
-      { key: 'status', label: '状態', group: '基本', def: true, filter: 'select', opts: ['営業中', '参画決定', '稼働中', '止め・辞退'], text: (p) => p.status, cell: (p) => <Pill>{p.status}</Pill> },
+    const all: Col[] = [
+      { key: 'status', label: '状態', group: '基本', def: true, filter: 'select', opts: ['営業中', '参画決定', '稼働中', '止め・辞退'], text: (p) => p.status, cell: (p) => <button type="button" disabled={ro} title={roTitle ?? '押すと状態を変える（参画決定・辞退などは日付も入れます）'} onClick={() => setStatusFor(p)} className="disabled:cursor-not-allowed"><Pill>{p.status}</Pill></button> },
       ...scoreCols,
       txt('sentouryoku', '戦闘力', '基本', true, 70),
       { key: 'lastReply', label: '最終返信', group: '連絡', def: true, filter: 'select', opts: ['24時間以内', '3日以内', 'なし'], hint: '直近3日の LINE グループの返信',
@@ -306,6 +309,7 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
       chk('kansai', '関西', false),
       chk('needs_review', '要確認', false),
     ];
+    return all.map((c) => ({ ...c, def: MAIN_COLS.has(c.key) }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scores, aux, ro, roTitle, busy, save, sukishiDone, onSukishi, pdfBusy]);
 
@@ -423,7 +427,8 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
             </thead>
             <tbody>
               {(sort?.key === '__name' ? [...shown].sort((a, b) => a.r.name.localeCompare(b.r.name, 'ja') * sort.dir) : shown).slice(0, limit).map((p) => (
-                <tr key={p.r.row} className="row border-t border-line-soft align-middle" style={!p.r.active ? { opacity: 0.72 } : undefined}>
+                <tr key={p.r.row} className="row cursor-pointer border-t border-line-soft align-middle" style={!p.r.active ? { opacity: 0.72 } : undefined}
+                  onClick={(e) => { if ((e.target as HTMLElement).closest('button,a,input,select,textarea,label')) return; window.dispatchEvent(new CustomEvent('person:open', { detail: { name: p.r.name, id: p.r.row } })); }}>
                   <td className="sticky left-0 z-[1] whitespace-nowrap bg-surface px-3 py-2 font-semibold">
                     <PersonName name={p.r.name} id={p.r.row} className="hover:underline underline-offset-2" />
                     <Link href={`/eigyo/proper/${encodeURIComponent(p.r.row)}`} className="ml-0.5 inline-flex rounded p-0.5 align-middle hover:bg-soft" aria-label={`${p.r.name}の要員ページを開く`}><ChevronRight size={14} className="text-faint" /></Link>
@@ -441,6 +446,7 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
         </div>
       </div>
       {picker && <ColPicker cols={ordered} isShown={shownCol} onToggle={toggleCol} onOrder={(order) => setPrefsSave({ ...(prefs ?? { hidden: [], shown: [] }), order })} onReset={() => { setPrefsSave({ order: [], hidden: [], shown: [] }); }} onClose={() => setPicker(false)} />}
+      {statusFor && <StatusDialog p={statusFor} hasCol={(k) => !live || !!data?.columns.some((c) => c.col === k)} onClose={() => setStatusFor(null)} onGo={(patch) => { const p = statusFor; setStatusFor(null); void save(p, patch); }} />}
       {dropFor && <DropoutDialog p={dropFor} onClose={() => setDropFor(null)} onGo={(on, phase, after) => { setDropFor(null); void setDrop(dropFor, on, phase, after); }} />}
       {commuteFor && <CommuteEditor p={commuteFor} live={live} canEdit={canEdit} onClose={() => setCommuteFor(null)}
         onSaved={(row) => { setCommuteOver((o) => ({ ...o, [commuteKey(commuteFor.r.name)]: row })); }} />}
@@ -668,6 +674,62 @@ function DropoutDialog({ p, onClose, onGo }: { p: PRow; onClose: () => void; onG
       <div className="flex justify-end gap-2 border-t border-line px-4 py-3">
         <button type="button" onClick={onClose} className="btn-secondary">やめる</button>
         <button type="button" onClick={() => onGo(!on, phase, phase === 'kadou' ? after : 'mark')} className="btn-primary">{on ? '印を外す' : 'dropout にする'}</button>
+      </div>
+    </Dialog>
+  );
+}
+
+// ---- 状態を変える（タブで選ぶ・参画決定／辞退／営業止めは日付も一緒に答える・10-25 shoya） ----
+const STATUS_TABS = [
+  { v: '営業中', date: '', d: '営業止め・辞退・参画決定を外して、営業中に戻します。' },
+  { v: '営業止め', date: 'poa_bi', d: '営業止めにします。' },
+  { v: '参画決定', date: 'sankaku_bi', d: '参画決定にします（今のシステムが稼働中ON・営業止めOFF も一緒にします）。' },
+  { v: '辞退', date: 'jitai_bi', d: '辞退にします。' },
+] as const;
+const DATE_LABEL: Record<string, string> = { poa_bi: '営業止めにした日', sankaku_bi: '参画日', jitai_bi: '辞退した日' };
+const todayIso = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+function StatusDialog({ p, hasCol, onClose, onGo }: { p: PRow; hasCol: (k: string) => boolean; onClose: () => void; onGo: (patch: V) => void }) {
+  const cur = p.v.jitai === true ? '辞退' : p.v.sankaku_kettei === true ? '参画決定' : p.v.poa === true ? '営業止め' : '営業中';
+  const [tab, setTab] = useState<string>(cur === '営業中' ? '参画決定' : '営業中');
+  const t = STATUS_TABS.find((x) => x.v === tab)!;
+  const old = t.date ? s(p.v[t.date]).replace(/\//g, '-') : '';
+  const [date, setDate] = useState(todayIso());
+  useEffect(() => { setDate(/^\d{4}-\d{2}-\d{2}$/.test(old) ? old : todayIso()); }, [tab, old]);
+  const colOk = !t.date || hasCol(t.date);
+  const go = () => {
+    const patch: V = {};
+    if (tab === '営業中') { for (const k of ['poa', 'jitai', 'sankaku_kettei']) if (p.v[k] === true) patch[k] = false; }
+    else {
+      const flag = tab === '営業止め' ? 'poa' : tab === '参画決定' ? 'sankaku_kettei' : 'jitai';
+      if (p.v[flag] !== true) patch[flag] = true;
+      if (tab === '辞退' && p.v.poa === true) patch.poa = false;
+      if (t.date && colOk) patch[t.date] = date.replace(/-/g, '/');
+    }
+    onGo(patch);
+  };
+  const same = tab === cur && (!t.date || !colOk || s(p.v[t.date]) === date.replace(/-/g, '/'));
+  return (
+    <Dialog label={`${p.r.name} の状態を変える`} onClose={onClose} z={Z_MODAL} className="fixed inset-x-3 top-[10vh] mx-auto flex max-w-[460px] flex-col panel">
+      <div className="flex items-start justify-between border-b border-line px-5 py-3">
+        <div><div className="text-md font-bold">{p.r.name} さんの状態</div><div className="text-sm text-muted">いま：{p.status}</div></div>
+        <button aria-label="閉じる" data-dialog-close onClick={onClose} className="flex size-8 items-center justify-center rounded-lg border border-line"><X size={15} /></button>
+      </div>
+      <div role="tablist" aria-label="状態" className="flex gap-1 border-b border-line px-4 pt-2">
+        {STATUS_TABS.map((x) => (
+          <button key={x.v} type="button" role="tab" aria-selected={tab === x.v} onClick={() => setTab(x.v)}
+            className="whitespace-nowrap px-3 py-2 text-body" style={tab === x.v ? { borderBottom: '2px solid var(--a)', color: 'var(--ad)', fontWeight: 700 } : { borderBottom: '2px solid transparent', color: 'var(--color-muted)' }}>{x.v}</button>
+        ))}
+      </div>
+      <div className="flex flex-col gap-3 px-5 py-4 text-body">
+        <p className="text-muted">{t.d}</p>
+        {t.date && (colOk
+          ? <label className="flex flex-col gap-1"><span className="font-semibold">{DATE_LABEL[t.date]}</span>
+              <input type="date" required value={date} onChange={(e) => setDate(e.target.value)} className="min-h-10 w-[200px] rounded-[10px] border border-field bg-surface px-3" /></label>
+          : <p className="text-sm text-warn">{DATE_LABEL[t.date]}を入れる欄は、今のシステムでまだ準備中です（いまは状態だけ保存します）</p>)}
+      </div>
+      <div className="flex justify-end gap-2 border-t border-line px-4 py-3">
+        <button type="button" onClick={onClose} className="btn-secondary">やめる</button>
+        <button type="button" disabled={same || (!!t.date && colOk && !date)} onClick={go} className="btn-primary disabled:opacity-40">{tab}にする</button>
       </div>
     </Dialog>
   );
