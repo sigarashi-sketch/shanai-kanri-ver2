@@ -78,6 +78,14 @@ export default function HomeEigyoPage() {
     toast({ text: `${who}さんの${ymLabel(MONTH)}の成約を確かめました`, sub: '→ 売上・粗利の「営業別」の確認に反映しました', undo: () => setChecked((c) => ({ ...c, [k]: false })) });
   };
 
+  // 本物を読んでいるあいだ（10秒ほど）は見本の数字を出さない
+  if (ike.state === 'loading') return (
+    <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
+      <PageTitle title="ホーム営業" sub="担当営業ごとの成約数・売上・粗利（未経験の要員だけ）" />
+      <div className="rounded-xl border border-line bg-surface px-4 py-10 text-center text-[13px] text-muted">日報②の契約実績を読んでいます…（10秒ほど）</div>
+    </main>
+  );
+
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="ホーム営業" sub={`${ymLabel(MONTH)}・担当営業ごとの成約数・売上・粗利（未経験の要員だけ）${L ? '' : '・見本データ'}`}>
