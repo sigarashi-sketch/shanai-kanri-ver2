@@ -6,7 +6,6 @@ import { ChevronRight, Columns3, FileSpreadsheet, GripVertical, RefreshCw, Searc
 import { Pill } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
-import { PersonName } from '@/components/Person';
 import { ProperDetail } from '@/components/ProperDetail';
 import { Dialog } from '@/components/Dialog';
 import { useIke } from '@/components/Live';
@@ -439,9 +438,9 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
             <tbody>
               {(sort?.key === '__name' ? [...shown].sort((a, b) => a.r.name.localeCompare(b.r.name, 'ja') * sort.dir) : shown).slice(0, limit).map((p) => (
                 <tr key={p.r.row} className="row cursor-pointer border-t border-line-soft align-middle" style={!p.r.active ? { opacity: 0.72 } : undefined}
-                  onClick={(e) => { if ((e.target as HTMLElement).closest('button,a,input,select,textarea,label')) return; window.dispatchEvent(new CustomEvent('person:open', { detail: { name: p.r.name, id: p.r.row } })); }}>
+                  onClick={(e) => { if ((e.target as HTMLElement).closest('button,a,input,select,textarea,label')) return; setSelRow((x) => (x === p.r.row ? null : p.r.row)); }}>
                   <td className="sticky left-0 z-[1] max-w-[150px] bg-surface px-3 py-2 font-semibold">
-                    <PersonName name={p.r.name} id={p.r.row} className="hover:underline underline-offset-2" />
+                    <button type="button" onClick={() => setSelRow((x) => (x === p.r.row ? null : p.r.row))} className="font-semibold hover:underline underline-offset-2">{p.r.name}</button>
                     <Link href={`/eigyo/proper/${encodeURIComponent(p.r.row)}`} className="ml-0.5 inline-flex rounded p-0.5 align-middle hover:bg-soft" aria-label={`${p.r.name}の要員ページを開く`}><ChevronRight size={14} className="text-faint" /></Link>
                     {p.r.kanagawa && <span className="ml-1 rounded bg-sunken px-1 text-xs font-normal text-muted">かな西</span>}
                     {p.r.kansai && <span className="ml-1 rounded bg-sunken px-1 text-xs font-normal text-muted">関西</span>}
@@ -456,7 +455,7 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
           </table>
         </div>}
       </div>
-      {mode === 'list' && selP && (
+      {selP && (
         <aside aria-label={`${selP.r.name} の詳細`} className="sticky top-3 flex max-h-[calc(100vh-24px)] w-[420px] shrink-0 flex-col overflow-hidden rounded-xl border border-line bg-surface">
           <div className="border-b border-line px-4 py-3">
             <div className="flex items-start justify-between gap-2">

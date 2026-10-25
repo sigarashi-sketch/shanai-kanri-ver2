@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronRight, Search } from 'lucide-react';
+import { ChevronRight, Search, X } from 'lucide-react';
 import { PEOPLE, STATUS_COUNTS } from '@/lib/sample';
 import { GhostButton, PageTitle, Pill, PrimaryButton, TONE, SkeletonRows } from '@/components/ui';
 import { useMotivation } from '@/components/Motivation';
@@ -15,7 +15,7 @@ import { TENSEKI } from '@/lib/tenseki-sample';
 import { TODAY } from '@/lib/yoyaku-sample';
 import { useLiveRoute } from '@/lib/live/use-live-route';
 import { MIKEIKEN_NOTE } from '@/lib/live/mikeiken';
-import { PersonName } from '@/components/Person';
+import { StaffDetail } from '@/components/StaffDetail';
 import { STATUS_LABEL, STATUS_ORDER, jstToday, slashDate, type LiveStaffList, type StaffEdit } from '@/lib/live/staff';
 import type { LiveStaffListX, StaffYoyaku as YoyakuRow } from '@/lib/live/staff-extra';
 import { rulePhaseOf, type StaffWrite } from '@/lib/live/staff-write';
@@ -68,6 +68,8 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
   const [tab, setTab] = useState<string>('すべて');
   const [q, setQ] = useState('');
   const [sel, setSel] = useState<Set<string>>(new Set());
+  // 押した人（同じページの右に社員ページの中身を出す・小窓は使わない・10-26 shoya「小窓なしで」）
+  const [pick, setPick] = useState<string | null>(null);
   const [limit, setLimit] = useState(PAGE);
   // 絞り込み（選ぶだけ）。空＝すべて
   const [f, setF] = useState<{ recruiter: string; sales: string; contract: string }>({ recruiter: '', sales: '', contract: '' });
@@ -176,7 +178,7 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
   return (
     <Wrap className={`flex flex-col gap-3.5 ${embedded ? 'pb-[120px]' : 'px-4 pb-[120px] pt-[22px] sm:px-6'}`}>
       {!embedded && (
-        <PageTitle title="社員一覧" sub={live ? '今の従業員名簿と同じ判定で状態を出しています。チェックはその場で保存されます。名前を押すと小窓、右の矢印を押すと社員ページに移ります' : '状態は日付つきの履歴から自動で決まります。名前を押すと小窓、右の矢印を押すと社員ページに移ります'}>
+        <PageTitle title="社員一覧" sub={live ? '今の従業員名簿と同じ判定で状態を出しています。チェックはその場で保存されます。名前か行を押すと右に社員ページの中身、右の矢印でページに移ります' : '状態は日付つきの履歴から自動で決まります。名前か行を押すと右に社員ページの中身、右の矢印でページに移ります'}>
           {live
             ? <button disabled title={LIVE_WRITE_BLOCKED} className="btn-secondary cursor-not-allowed opacity-40">CSV</button>
             : <GhostButton onClick={() => toast({ text: `${rows.length}人を CSV に書き出しました（見本）`, sub: '→ ダウンロードに入る想定です（いまは見本なのでファイルは作りません）' })}>CSV</GhostButton>}
@@ -221,7 +223,8 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
         })}
       </div>
 
-      <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
+      <div className="flex items-start gap-3">
+      <div className="mo-fade-up min-w-0 flex-1 overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
         <div className="flex flex-wrap items-center gap-2 px-3.5 py-3">
           <label className="flex min-h-9 min-w-[200px] flex-1 items-center gap-2 rounded-[10px] border border-field px-3 text-faint sm:flex-none sm:min-w-[240px]">
             <Search size={15} /><input value={q} onChange={(e) => { setQ(e.target.value); setLimit(PAGE); }} aria-label="この一覧を検索" placeholder="名前・カナ・現場・最寄駅" className="flex-1 bg-transparent text-body text-ink outline-none" />
@@ -247,11 +250,12 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
             <tbody>
               {state === 'loading' && <tr><td colSpan={nCols} className="p-0"><SkeletonRows /></td></tr>}
               {state !== 'loading' && shown.map((p, i) => (
-                <tr key={p.id + i} className={`mo-fade-in border-t border-line-soft ${sel.has(p.id) ? '' : 'row'}`} style={{ ['--i' as string]: Math.min(i, 24) + 3, background: sel.has(p.id) ? 'var(--as)' : undefined }}>
+                <tr key={p.id + i} className={`mo-fade-in cursor-pointer border-t border-line-soft ${sel.has(p.id) ? '' : 'row'}`} style={{ ['--i' as string]: Math.min(i, 24) + 3, background: sel.has(p.id) || pick === p.id ? 'var(--as)' : undefined }}
+                  onClick={(e) => { if ((e.target as HTMLElement).closest('button,a,input,select,textarea,label')) return; setPick((x) => (x === p.id ? null : p.id)); }}>
                   <td className="px-3.5 py-2"><input type="checkbox" checked={sel.has(p.id)} onChange={() => toggle(p.id)} aria-label={`${p.name}を選ぶ`} /></td>
                   <td className="px-2 py-2"><div className="flex items-center gap-2.5">
                     <div aria-hidden className="flex size-[30px] items-center justify-center rounded-full text-sm font-bold" style={{ background: 'var(--as)', color: 'var(--ad)' }}>{p.name[0]}</div>
-                    <div><PersonName name={p.name} id={p.id} />
+                    <div><button type="button" onClick={() => setPick((x) => (x === p.id ? null : p.id))} className="font-semibold hover:underline underline-offset-2">{p.name}</button>
                       {p.tag && <span className="chip ml-1.5" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }} title={p.tag === '仮' ? '稼働管理情報一覧にまだ載っていない人（営業リストから立てた行）' : '当月の行が無いので、前の月の行を出しています'}>{p.tag}</span>}
                       <div className="text-xs text-faint">{p.sub}</div>
                       {tmarks.get(normName(p.name)) && <Link href="/jinji/yoyaku" className="block text-xs font-semibold hover:underline" style={{ color: tmarks.get(normName(p.name))!.pending ? 'var(--ad)' : 'var(--color-muted)' }}>{tmarks.get(normName(p.name))!.text}</Link>}</div>
@@ -268,6 +272,16 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
           <button onClick={() => setLimit((n) => n + PAGE)} className="w-full border-t border-line-soft py-2.5 text-sm font-semibold" style={{ color: 'var(--ad)' }}>さらに表示（残り {rows.length - shown.length}人）</button>
         )}
         <div className="flex items-center justify-between border-t border-line-soft px-3.5 py-2.5 text-sm text-muted"><span>全{rows.length}件</span><span>{live ? `${data?.month || ''}の名簿・状態は今日（${data?.today || ''}）の判定` : '見本データは一部の人だけです'}</span></div>
+      </div>
+      {pick && (
+        <aside aria-label="社員の詳細" className="sticky top-3 flex max-h-[calc(100vh-24px)] w-[480px] shrink-0 flex-col overflow-hidden rounded-xl border border-line bg-surface">
+          <div className="flex items-center justify-between border-b border-line px-4 py-2">
+            <Link href={`/jinji/staff/${encodeURIComponent(pick)}`} className="text-sm font-semibold hover:underline" style={{ color: 'var(--ad)' }}>ページで開く</Link>
+            <button aria-label="閉じる" onClick={() => setPick(null)} className="flex size-8 items-center justify-center rounded-lg border border-line"><X size={15} /></button>
+          </div>
+          <div className="flex-1 overflow-y-auto"><StaffDetail key={pick} id={pick} embedded /></div>
+        </aside>
+      )}
       </div>
       </>)}
 
