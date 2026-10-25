@@ -10,6 +10,8 @@
 // ver2 に出すのは未経験の人だけ（10-25 shoya）。未経験の正＝今のシステムのプロパーリスト（GET /api/roster?action=getEngineerRows・
 //   中身は sales_roster）に名前がある人。空白を外した氏名（normName）で照合する。今のシステムの営業別は
 //   「契約実績のステータスが 未経験〜」で決めていて、プロパーリストを見るのはステータスの無い 1〜3月だけ＝少しずれるので、ここで重ねて絞る。
+//   本物（10-25〜）：画面で明細（lines）をプロパーリストで絞り、担当ごとの合計は repFromIkeLines で明細から作り直す。
+//     明細が返ってこない担当（営業の人が見たときのほかの担当）と前月は、今のシステムの合計のまま（絞れない）
 import { normName } from './eigyo-common';
 
 export const SHAHO_RATE = 0.19;
@@ -71,3 +73,32 @@ export const yen = (n: number | null) => (n == null ? '—' : `${n.toLocaleStrin
 export type IkePlRep = HeRep & { ym: string; noBillGross: number; acts: Record<string, number> };
 export type IkePlLine = { ym: string; tantou: string; name: string; joui: string; status: string; md: string; uriage: number | null; gross: number | null; gakumenKnown: boolean; fareMissing: boolean; shussha: string; noBill: boolean };
 export type IkePlReps = { ok?: boolean; ym: string; prev: string; me: string; all: boolean; reps: IkePlRep[]; lines: IkePlLine[]; actLabels: string[]; notes: string[] };
+
+// ---- 本物の明細から担当ごとの合計を作り直す（未経験で絞ったあと・10-25） ----
+//   決まりは今のシステムの api/_nippo_pl.ts（営業別の足し方）と同じ順：単価が空→noPrice／請求なし退場→差し引き／粗利が出ない→noGakumen／交通費が引けない→fareMissing
+export function repFromIkeLines(tantou: string, lines: readonly IkePlLine[]): HeRep {
+  const r: HeRep = { tantou, count: 0, uriage: 0, gross: 0, grossBase: 0, noBillCount: 0, noBillUriage: 0, noPrice: 0, noGakumen: 0, fareMissing: 0 };
+  for (const l of lines) {
+    if (l.tantou !== tantou) continue;
+    r.count++;
+    if (l.uriage == null) { r.noPrice++; continue; }
+    if (l.noBill) { r.noBillCount++; r.noBillUriage += l.uriage; continue; }
+    r.uriage += l.uriage;
+    if (l.gross == null) { r.noGakumen++; continue; }
+    r.gross += l.gross;
+    r.grossBase += l.uriage;
+    if (l.fareMissing) r.fareMissing++;
+  }
+  return r;
+}
+
+// 交通費が引けなかった成約は 0円で粗利を出している＝粗利が多めに出る。どれだけ多めかの上限の目安
+//   ★今のシステムに交通費の上限は無い。ここでは「1件 月3万円まで」と置いた目安（10-25 ver2 の仮置き。決まったら直す）
+export const FARE_CAP_PER_LINE = 30000;
+/** 交通費未取得の件数 → 粗利が多めに出ているぶんの上限（円） */
+export const fareOverMax = (fareMissing: number) => fareMissing * FARE_CAP_PER_LINE;
+/** 粗利に入った成約のうち交通費未取得が 20% を超えたら、粗利率は「参考値」 */
+export function grossIsRough(r: Pick<HeRep, 'count' | 'noPrice' | 'noBillCount' | 'noGakumen' | 'fareMissing'>): boolean {
+  const n = r.count - r.noPrice - r.noBillCount - r.noGakumen;
+  return n > 0 && r.fareMissing / n > 0.2;
+}

@@ -39,9 +39,20 @@ export async function detailOf(name: string): Promise<SsDetail> {
   if (await isLive()) {
     const mk = await loadMikeikenSet().catch(() => null);
     if (!mk || !isMikeiken(mk, name)) return { ok: false, error: mk ? '未経験の人（今のプロパーリストに入っている人）ではないので出していません' : 'プロパーリストが読めないので、未経験の人か確かめられませんでした' };
-    return callIke<SsDetail>(`/api/basic-info?action=detail&name=${encodeURIComponent(name)}`);
+    // ★健康状況は読まない（health=0）。連絡先・住所・生年月日・緊急連絡先もここで落としてから画面へ返す（10-25 shoya「健康の情報は出さない」）
+    const j = await callIke<SsDetail & Record<string, unknown>>(`/api/basic-info?action=detail&health=0&name=${encodeURIComponent(name)}`);
+    return safeDetail(j);
   }
-  return sampleDetail(name);
+  return safeDetail(sampleDetail(name));
+}
+
+// 画面に渡さない項目（要配慮・連絡先・住所・生年月日・緊急連絡先）。年齢だけは残す
+const DROP_SHEET = new Set(['phone', 'email', 'address', 'birth', 'emName', 'emRelation', 'emPhone', 'emAddress', 'keirekiText', 'timestamp']);
+function safeDetail(j: SsDetail & Record<string, unknown>): SsDetail {
+  const { health: _h, healthConsentAt: _c, healthError: _e, ...rest } = j as Record<string, unknown>;
+  void _h; void _c; void _e;
+  const sheet = j.sheet ? Object.fromEntries(Object.entries(j.sheet).filter(([k]) => !DROP_SHEET.has(k))) as Record<string, string> : j.sheet;
+  return { ...(rest as SsDetail), sheet };
 }
 
 export async function runSkillsheet(body: { action?: 'pdf' | 'xlsx'; name?: string; rosterId: string; force?: boolean }): Promise<SsResult> {
@@ -97,10 +108,10 @@ function sampleDetail(name: string): SsDetail {
   if (!r) return { ok: false, error: '見つかりませんでした' };
   return {
     ok: true,
-    sheet: { name: r.name, kana: '（見本）', gender: r.gender, birth: r.birth, address: `${r.prefecture}（見本）`, eki: r.eki, email: '（見本）', gakureki: '高等学校卒業', tools: 'Excel・Word', shikaku: 'なし', tokui: '事務', shift: '可', yakin: '不可', shutcho: '不可' },
+    sheet: { name: r.name, kana: '（見本）', gender: r.gender, eki: r.eki, gakureki: '高等学校卒業', tools: 'Excel・Word', shikaku: 'なし', tokui: '事務', shift: '可', yakin: '不可', shutcho: '不可' },
     work: [{ company: '見本の会社', from: '2019/04', to: '2023/03', emp_type: '正社員', job_category: '事務', description: '受発注の入力・電話対応（見本）' }],
     analysis: [{ label: '希望の働き方', value: '（見本）' }],
-    health: [], submittedAt: new Date().toISOString(), durationSec: 900,
+    submittedAt: new Date().toISOString(), durationSec: 900,
   };
 }
 

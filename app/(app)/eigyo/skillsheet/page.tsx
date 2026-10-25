@@ -14,7 +14,7 @@ import { PersonName } from '@/components/Person';
 //   ・生成は「営業リストに一意にいる行」だけ（同名複数・リスト無しは保存先が決められない）。生成の前に確かめる（20〜40秒）
 //   ・すでにスキシがあるときは、上書きしてよいかもう一度確かめる（needsConfirm）
 //   ・PDF出力・Excel出力は「スキシがある行」だけ。本名版とイニシャル版（客先送付用）の2つ。URLは変わらない
-//   ・名前を押すとフォームの回答を全部見る（健康状況は就業配慮・健康管理・緊急時対応のためだけ。配属先へ病名は伝えない）
+//   ・名前を押すとフォームの回答を見る。★健康状況・連絡先・住所・生年月日・緊急連絡先は出さない（サーバで落とす・10-25 shoya「健康の情報は出さない」）
 //   ・?q=氏名 でその人を検索した状態で開く
 type F = { q: string; gender: string; pref: string; tantou: string; sukishi: '' | 'yes' | 'no'; roster: '' | 'yes' | 'no'; sort: 'desc' | 'asc' };
 const F0: F = { q: '', gender: '', pref: '', tantou: '', sukishi: '', roster: '', sort: 'desc' };
@@ -22,6 +22,8 @@ type Busy = { id: string; what: 'gen' | 'pdf' | 'xlsx' } | null;
 type Done = { name: string; title: string; lines: [string, string][]; notes: string[]; bad?: boolean };
 
 const isUrl = (s?: string) => !!s && s.startsWith('http');
+// 一覧の行の見分け（営業リストの行 → 正規化した氏名 → 氏名）。続きを足すときの重なりを落とす
+const rowKey = (r: SsRow) => r.rosterId || `n:${r.normalizedName || r.name}`;
 const SEL = 'min-h-9 rounded-[10px] border border-field bg-surface px-2.5 text-[12.5px] text-ink';
 
 export default function SkillsheetPage() {
@@ -34,6 +36,7 @@ export default function SkillsheetPage() {
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);   // 続きを下に足しているあいだ（一覧は薄くしない）
   const [err, setErr] = useState('');
+  const [moreErr, setMoreErr] = useState('');   // 続きを足す読み込みの失敗（自動では読み直さない）
   const [busy, setBusy] = useState<Busy>(null);
   const [ask, setAsk] = useState<{ row: SsRow; existing?: string } | null>(null);
   const [done, setDone] = useState<Done | null>(null);
@@ -42,27 +45,58 @@ export default function SkillsheetPage() {
   const seq = useRef(0);
 
   // 下までスクロールしたら次の20人を下に足す（10-25 shoya「ページボタン押すと更新して上からになるのやめて」）。
-  //   pg ページ目まで出す：append＝pg ページ目だけ読んで下に足す／それ以外＝1〜pg ページ目を読み直して置き換える（更新・作ったあと）
-  const load = useCallback(async (ff: F, pg: number, append = false) => {
+  //   pg ページ目まで出す：append＝pg ページ目だけ読んで下に足す／それ以外＝1〜pg ページ目を「1回で」読み直して置き換える（更新・作ったあと）
+  //   ・読み直しは limit=pg×20（100件まで）offset 0 の1回。100件を超えるときだけ100件ずつ順に読む（10-25 まとめて何本も投げない）
+  //   ・足す読み込みが失敗したら自動では読まない（「もう一度」ボタン）。前のページから件数が変わっていたら1ページ目から読み直す
+  const lastTotal = useRef<number | null>(null);
+  const load = useCallback(async (ff: F, pg: number, append = false): Promise<void> => {
     const my = ++seq.current;
     const on = append ? setAdding : setLoading;
     on(true);
-    const one = async (n: number) => {
-      const p = new URLSearchParams({ limit: String(size), offset: String((n - 1) * size), sort: ff.sort });
+    setMoreErr('');
+    const one = async (limit: number, offset: number) => {
+      const p = new URLSearchParams({ limit: String(limit), offset: String(offset), sort: ff.sort });
       for (const k of ['q', 'gender', 'pref', 'tantou', 'sukishi', 'roster'] as const) if (ff[k]) p.set(k, ff[k]);
-      return (await (await fetch(`/api/skillsheet?${p}`, { cache: 'no-store' })).json()) as SsList;
+      const r = await fetch(`/api/skillsheet?${p}`, { cache: 'no-store' });
+      return (await r.json()) as SsList;
     };
     try {
-      const list = append ? [await one(pg)] : await Promise.all(Array.from({ length: Math.max(1, pg) }, (_, i) => one(i + 1)));
+      const list: SsList[] = [];
+      if (append) list.push(await one(size, (pg - 1) * size));
+      else {
+        const want = Math.max(1, pg) * size;
+        for (let off = 0; off < want; off += 100) {
+          const n = Math.min(100, want - off);
+          const x = await one(n, off);
+          list.push(x);
+          if (my !== seq.current) return;
+          if (x.error || (x.rows || []).length < n) break;
+        }
+      }
       if (my !== seq.current) return;   // あとから出した読み込みが先に返っていたら古いほうは捨てる
       const j = list[list.length - 1];
-      if (j.error && !(j.rows && j.rows.length)) { setErr(j.error); on(false); return; }
+      if (j.error && !(j.rows && j.rows.length)) {
+        if (append) setMoreErr(j.error); else setErr(j.error);
+        on(false); return;
+      }
+      // 前のページから件数が変わった＝ずれて抜け・重なりが出るので、1ページ目から読み直す
+      if (append && lastTotal.current != null && j.total !== lastTotal.current) {
+        setAdding(false);
+        return load(ff, pg);
+      }
+      lastTotal.current = j.total;
       const rows = list.flatMap((x) => x.rows || []);
       setErr('');
-      setData((prev) => ({ ...list[0], rows: append && prev ? [...prev.rows, ...rows] : rows }));
+      setData((prev) => {
+        if (!append || !prev) return { ...list[0], rows };
+        const seen = new Set(prev.rows.map(rowKey));
+        return { ...prev, ...j, rows: [...prev.rows, ...rows.filter((r) => !seen.has(rowKey(r)))] };
+      });
       setPage(pg);
       setFirstNo((n) => (n == null && !ff.q && !ff.gender && !ff.pref && !ff.tantou && !ff.sukishi && !ff.roster ? list[0].stats.noSukishi : n));
-    } catch (e) { if (my === seq.current) setErr(`読み込めませんでした（${(e as Error).message}）`); }
+    } catch (e) {
+      if (my === seq.current) { const m = `読み込めませんでした（${(e as Error).message}）`; if (append) setMoreErr(m); else setErr(m); }
+    }
     if (my === seq.current) { setLoading(false); setAdding(false); }
   }, []);
 
@@ -214,7 +248,7 @@ export default function SkillsheetPage() {
                 const mine = busy && busy.id === r.rosterId;
                 const hasSs = !!r.rosterId && isUrl(r.sukishi) || (!!r.rosterId && data.source === 'sample' && !!r.sukishi);
                 return (
-                  <tr key={r.rosterId || r.name} className="row border-t border-line-soft">
+                  <tr key={rowKey(r)} className="row border-t border-line-soft">
                     <td className="whitespace-nowrap px-2.5 py-2"><button onClick={() => openDetail(r.name)} className="font-bold hover:underline" style={{ color: 'var(--ad)' }}>{r.name}</button></td>
                     <td className="whitespace-nowrap px-2.5 py-2">{r.gender}</td>
                     <td className="whitespace-nowrap px-2.5 py-2 tabular-nums">{r.birth}</td>
@@ -241,7 +275,10 @@ export default function SkillsheetPage() {
               })}
             </tbody>
           </table>
-          {more && <MoreSentinel busy={loading || adding} onMore={() => load(f, page + 1, true)} />}
+          {more && (moreErr
+            ? <div className="flex flex-wrap items-center justify-center gap-2 py-3 text-[12px]" style={{ color: 'var(--tone-bad-fg)' }}><TriangleAlert size={13} />続きを読めませんでした（{moreErr}）<button type="button" onClick={() => load(f, page + 1, true)} className="font-semibold underline">もう一度</button></div>
+            : <MoreSentinel busy={loading || adding} onMore={() => load(f, page + 1, true)} />)}
+          {data && !more && data.rows.length > 0 && <div className="py-3 text-center text-[12px] text-faint">全部出しました（{total.toLocaleString()}件）</div>}
         </div>
         <Pager />
       </section>
@@ -292,9 +329,7 @@ function DetailBody({ d }: { d?: SsDetail }) {
     <>
       <Sec t="基本情報" />
       <Row k="氏名" v={s.name} /><Row k="ふりがな" v={s.kana} /><Row k="性別" v={s.gender} />
-      <Row k="生年月日" v={(s.birth || '') + (s.age ? `（${s.age}歳）` : '')} /><Row k="現住所" v={s.address} /><Row k="最寄り駅" v={s.eki} />
-      <Sec t="連絡先" />
-      <Row k="携帯電話" v={s.phone} /><Row k="メール" v={s.email} />
+      <Row k="年齢" v={s.age ? `${s.age}歳` : ''} /><Row k="最寄り駅" v={s.eki} />
       <Sec t="学歴・スキル・勤務条件" />
       <Row k="最終学歴" v={s.gakureki} /><Row k="経験ツール" v={s.tools} /><Row k="所有資格" v={s.shikaku} /><Row k="得意分野" v={s.tokui} />
       <Row k="シフト" v={s.shift} /><Row k="夜勤" v={s.yakin} /><Row k="出張" v={s.shutcho} />
@@ -307,16 +342,6 @@ function DetailBody({ d }: { d?: SsDetail }) {
       )) : <div className="text-faint">（職歴なし）</div>}
       <Sec t="アンケートの回答" />
       {d.analysis?.length ? d.analysis.map((a) => <Row key={a.label} k={a.label} v={a.value} />) : <div className="text-faint">（回答なし）</div>}
-      <Sec t="健康状況" />
-      {d.health?.length ? (
-        <>
-          {d.health.map((h) => <Row key={h.label} k={h.label} v={h.value} />)}
-          {d.healthConsentAt && <Row k="本人同意" v={new Date(d.healthConsentAt).toLocaleString('ja-JP')} />}
-          <div className="mt-1.5 text-[12px] text-faint">※ 就業配慮・健康管理・緊急時対応のためだけに使ってください。配属先へ病名は伝えません。</div>
-        </>
-      ) : d.healthError ? <div className="text-faint">※ 健康状況を取れませんでした：{d.healthError}</div>
-        : <div className="text-faint">（記録なし）2026/7/28 より前の回答か、健康状況のところをまだ答えていません。</div>}
-      {(s.emName || s.emPhone) && (<><Sec t="緊急連絡先" /><Row k="お名前" v={s.emName} /><Row k="続柄" v={s.emRelation} /><Row k="電話" v={s.emPhone} /><Row k="住所" v={s.emAddress} /></>)}
       <Sec t="記録" />
       {d.submittedAt && <Row k="送信日時" v={new Date(d.submittedAt).toLocaleString('ja-JP')} />}
       {d.durationSec != null && <Row k="かかった時間" v={`${Math.round(d.durationSec / 60)}分`} />}

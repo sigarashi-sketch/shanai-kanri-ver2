@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ikeFetch, ikeToken } from '@/lib/ike';
-import { cellsOf, normName, type EngineerRows } from '@/lib/live/eigyo-common';
+import { cellsOf, type EngineerRows } from '@/lib/live/eigyo-common';
 import { mikeikenSetOf, onlyMikeiken } from '@/lib/live/mikeiken';
 import { buildSheetRows, fromSheetRows, type IkeJimuLite, type IkeSankakuSheet, type IkeNyushaOverlay, type IkeNyushaProgress } from '@/lib/live/nyusha';
 
@@ -30,7 +30,9 @@ export async function GET() {
       soft(getJson<IkeSankakuSheet>('/api/nyusha-progress?action=sheet')),
       getJson<EngineerRows>('/api/roster?action=getEngineerRows'),
     ]);
-    if (sheet?.ok && Array.isArray(sheet.rows)) {
+    // スプシが設定されていない（今のシステムの答えが ok・url 空・rows 空）ときは「読めた・0人」にしないで、組み立てに回す（10-25）
+    const noSheet = !!sheet?.ok && !sheet.url;
+    if (sheet?.ok && sheet.url && Array.isArray(sheet.rows)) {
       return NextResponse.json({ rows: onlyMikeiken(mikeikenSetOf(eng0), fromSheetRows(sheet.rows), 'name'), warnings: [], generatedAt: new Date().toISOString(), source: 'sheet' });
     }
     const [progress, eng, ny, jimu] = await Promise.all([
@@ -39,17 +41,15 @@ export async function GET() {
       soft(getJson<{ overlay?: IkeNyushaOverlay }>('/api/roster?op=nyusha&action=list')),
       soft(getJson<IkeJimuLite>('/api/roster?op=jimu&action=list')),
     ]);
-    const warnings: string[] = ['スプシ（参画決定者タブ）が読めなかったので、今のシステムの材料から組み立てています'];
+    const warnings: string[] = [noSheet ? 'スプシが設定されていません（今のシステムに参画決定者タブのスプシがつながっていない）。今のシステムの材料から組み立てています' : 'スプシ（参画決定者タブ）が読めなかったので、今のシステムの材料から組み立てています'];
     if (!ny?.overlay) warnings.push('入社日（名簿の入社日）が読めませんでした');
     if (!jimu?.rows) warnings.push('よみがな・入場日の補い（事務ページの一覧）が読めませんでした');
 
-    // 額面：同じ名前が複数あれば参画決定が ON の行を優先
+    // 額面：営業リストの行（id＝nyusha-progress の id と同じ sales_roster.id）で引く。名前では引かない（同姓同名で取り違えない・10-25）
     const gakumen = new Map<string, string>();
     for (const r of eng.rows || []) {
       const c = cellsOf(eng, r);
-      const k = normName(r.name);
-      if (!k || !c.gakumen) continue;
-      if (!gakumen.has(k) || c.sankaku_kettei === 'true') gakumen.set(k, c.gakumen);
+      if (r.row && c.gakumen) gakumen.set(String(r.row), c.gakumen);
     }
     const rows = buildSheetRows({ progress, gakumen, nyusha: ny?.overlay || null, jimu: jimu || null });
     return NextResponse.json({ rows: onlyMikeiken(mikeikenSetOf(eng), rows, 'name'), warnings, generatedAt: new Date().toISOString(), source: 'build' });
