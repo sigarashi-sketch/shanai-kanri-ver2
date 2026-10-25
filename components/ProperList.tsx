@@ -155,7 +155,7 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
       hit();
       toast({
         text: opts?.undo ? `${p.r.name}：元に戻しました` : `${p.r.name}：${what}`,
-        sub: opts?.undo ? undefined : patch.sankaku_kettei === true ? `→ ${side}。入社案内は1時間後に本人へ送られます。「取り消す」（または1時間以内に参画決定を外す）で送られません` : side ? `→ ${side}` : '→ 今のプロパーリストにも出ます',
+        sub: opts?.undo ? undefined : patch.sankaku_kettei === true ? `→ ${side}。入社案内を送る設定なら、1時間後に本人へ送られます。「取り消す」（または1時間以内に参画決定を外す）と送られません` : side ? `→ ${side}` : '→ 今のプロパーリストにも出ます',
         undo: opts?.undo ? undefined : () => { void save({ ...p, v: { ...p.v, ...patch, ...auto } }, prev, { undo: true }); },
       });
       // チェックは連動があるので読み直す（読み直したら手元の値は捨てる＝本物の値に揃える）
