@@ -33,7 +33,10 @@ const SAMPLE: SeikyuStoreLive = {
 
 export default function SeikyuPage() {
   const [ym, setYm] = useState('');
-  const lv = useLiveRoute<SeikyuStoreLive>(`/api/live/seikyu-store${ym ? `?ym=${ym}` : ''}`);
+  // 「読み直す」を押したときだけ控え（3分）を使わずに読む。月を変えたら控えに戻す
+  const [fresh, setFresh] = useState(0);
+  const qs = [ym && `ym=${ym}`, fresh && `refresh=1&n=${fresh}`].filter(Boolean).join('&');
+  const lv = useLiveRoute<SeikyuStoreLive>(`/api/live/seikyu-store${qs ? `?${qs}` : ''}`);
   const live = lv.live && !!lv.data;
   const d: SeikyuStoreLive | null = live ? lv.data! : lv.state === 'sample' ? SAMPLE : null;
   const busy = live && !!ym && d!.ym !== ym;
@@ -49,6 +52,7 @@ export default function SeikyuPage() {
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="請求書" sub={`格納した請求書を正にした一覧です。会社の名簿の人が全員、格納した請求書に載っているかを見ます${lv.state === 'sample' ? '・見本データ' : ''}`}>
+        {live && <button type="button" onClick={() => setFresh(Date.now())} disabled={lv.state === 'loading'} className="inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border border-field px-3 text-[13px] font-semibold text-muted disabled:opacity-40">読み直す</button>}
         <Link href="/keiri/kakunou" className="btn-primary inline-flex min-h-9 items-center gap-1.5 rounded-[10px] px-3.5 text-[13px] font-bold"><FolderInput size={15} />格納する</Link>
       </PageTitle>
       <LiveBanner state={lv.state} error={lv.error} onReload={lv.reload} note="今の請求書作成の「格納」タブと同じデータ・同じ数え方です（見るだけ）。全員ぶんの下書きを読むので、開くのに10〜20秒かかります" />
@@ -56,7 +60,7 @@ export default function SeikyuPage() {
 
       {d && <div className="mo-fade-up flex flex-wrap gap-2" style={{ ['--i' as string]: 1 }}>
         {d.months.map((m: IkeMonthSum) => (
-          <button key={m.ym} onClick={() => live && setYm(m.ym)} aria-pressed={m.ym === (ym || d.ym)} className="min-h-[58px] rounded-xl border px-3.5 py-2 text-left text-[12px]"
+          <button key={m.ym} onClick={() => { if (live && m.ym !== (ym || d.ym)) { setFresh(0); setYm(m.ym); } }} aria-pressed={m.ym === (ym || d.ym)} className="min-h-[58px] rounded-xl border px-3.5 py-2 text-left text-[12px]"
             style={m.ym === (ym || d.ym) ? { borderColor: 'var(--a)', background: 'var(--as)' } : { borderColor: 'var(--color-line)', background: 'var(--color-surface)' }}>
             <div className="text-[13.5px] font-bold" style={m.ym === (ym || d.ym) ? { color: 'var(--ad)' } : undefined}>{ymLabel(m.ym)}</div>
             <div className="num text-muted">保存 {m.n}枚・{yen(m.total)}・押印 {m.stamped}/{m.n}</div>

@@ -6,6 +6,7 @@
 //   ・未経験の人だけ       … /api/roster?action=getEngineerRows&area=main（プロパーリスト）に名前がある人だけ出す
 //   ・担当営業             … /api/proxy?action=getRosterData の rep（稼働管理情報一覧の営業）＋ 面談カンバンの salesRep
 //   本物の名前・単価はここに書かない（形とキー名だけ）
+import { normName } from './eigyo-common';
 import { GROUP_TEXT, toPosts, type FeedPerson, type FeedPost, type FeedType } from '@/lib/home-jinji-sample';
 
 export type IkeStoryList = { people?: Array<{ name: string; norm?: string; tantou?: string; shoudaku_at: string; outcome: 'sankaku' | 'jitai' | 'poa' | 'open'; outcome_at: string | null }> };
@@ -14,11 +15,8 @@ export type IkeInterview = { id: string; status?: string; salesRep?: string; nam
 export type IkeRosterStatus = { normalized_name: string; taisha?: boolean; taisha_bi?: string };
 export type IkeRosterRows = { rows?: Array<{ name: string; rep?: string }> };
 
-// 今の normName と同じ（空白を詰め、さん・様を外し、異体字を寄せる）
-const VARIANT: Record<string, string> = { 髙: '高', 﨑: '崎', 邊: '辺', 邉: '辺', 齋: '斎', 齊: '斉', 齌: '斎', 澤: '沢', 濱: '浜', 濵: '浜', 德: '徳', 廣: '広', 曾: '曽', 眞: '真', 靑: '青', 惠: '恵', 槇: '槙', 渕: '淵', 冨: '富', 籠: '篭', 桒: '桑', 國: '国', 萬: '万' };
-export function normName(s: unknown): string {
-  return String(s ?? '').normalize('NFKC').replace(/[\s　]+/g, '').replace(/(さん|サン|様|君|くん)$/, '').replace(/[髙﨑邊邉齋齊齌澤濱濵德廣曾眞靑惠槇渕冨籠桒國萬]/g, (c) => VARIANT[c] || c);
-}
+// 名前の寄せ方は今の normName と同じもの（eigyo-common）を使う
+export { normName };
 
 /** 営業として「自分の人だけ」に絞るロール（今のシステムで 営業(sales_admin)・staff_sales・かな西営業）。それ以外（管理者・人事）は全員分 */
 export const SALES_ROLES = ['sales_admin', 'staff_sales', 'kanawest_sales'];

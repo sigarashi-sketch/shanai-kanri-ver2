@@ -36,10 +36,10 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
   const tk = useIke<IkeTensekiList>(live ? 'tenseki?action=list' : null);
   const tmarks = useMemo(() => {
     if (!live) return tensekiMarks(TENSEKI, TODAY);
-    if (!tk.live || !tk.data) return new Map<string, { text: string; pending: boolean }>();
+    if (!tk.live || !tk.data) return new Map<string, { text: string; pending: boolean; ambiguous?: boolean }>();
     const t = toTensekiLive(tk.data);
-    return tensekiMarks(t.rows, t.today);
-  }, [live, tk.live, tk.data]);
+    return tensekiMarks(t.rows, t.today, (data?.rows || []).map((r) => r.name));
+  }, [live, tk.live, tk.data, data]);
   const [tab, setTab] = useState<string>('すべて');
   const [q, setQ] = useState('');
   const [sel, setSel] = useState<Set<string>>(new Set());
