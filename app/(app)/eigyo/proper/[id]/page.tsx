@@ -110,18 +110,24 @@ function PersonInner() {
         </div>
         <div role="tablist" className="mt-4 flex gap-1 overflow-x-auto text-[13.5px]">
           {TABS.map((t) => (
-            <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className="whitespace-nowrap px-3 py-2.5"
+            <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className={`whitespace-nowrap px-3 py-2.5 ${t === 'チャット' ? 'xl:hidden' : ''}`}
               style={tab === t ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>{t}</button>
           ))}
         </div>
       </section>
 
-      <main key={tab} className="mo-axis flex flex-col gap-4 px-6 pb-12 pt-[18px]">
-        {tab === '基本・希望条件' && <Facts facts={p.facts} />}
-        {tab === 'スキシ・サマリ' && <Sukishi p={p} liver={liver} />}
-        {tab === '送った案件' && <SentCases name={p.name} live={live} liver={liver} />}
-        {tab === 'チャット' && <Chat name={p.name} live={live} everyone={everyone} />}
-      </main>
+      {/* 広い画面は左に情報・右にチャットを並べる（10-25 shoya「営業もそんなかんじに」＝名前の小窓と同じ形）。狭い画面はチャットのタブで */}
+      <div className="grid items-start gap-4 px-6 pb-12 pt-[18px] xl:grid-cols-[minmax(0,1fr)_minmax(440px,0.85fr)]">
+        <main key={tab} className="mo-axis flex min-w-0 flex-col gap-4">
+          {(tab === '基本・希望条件' || tab === 'チャット') && <div className={tab === 'チャット' ? 'hidden xl:block' : ''}><Facts facts={p.facts} /></div>}
+          {tab === 'スキシ・サマリ' && <Sukishi p={p} liver={liver} />}
+          {tab === '送った案件' && <SentCases name={p.name} live={live} liver={liver} />}
+          {tab === 'チャット' && <div className="xl:hidden"><Chat name={p.name} live={live} everyone={everyone} /></div>}
+        </main>
+        <aside className="hidden min-w-0 xl:sticky xl:top-[calc(var(--hdr,58px)+12px)] xl:block">
+          <Chat name={p.name} live={live} everyone={everyone} />
+        </aside>
+      </div>
     </div>
   );
 }
