@@ -12,12 +12,13 @@ import { useLiveWrite, WriteError } from './useLiveWrite';
 // 班分け（コミュニティ）を直す（今のコミュニティの画面 teams.html と同じ口・10-25）。
 //   ・人はつまんで別の班（または「未割当」）に落とすと動く＝すぐ保存（取り消すで元の班に戻す）
 //   ・リーダー／サブリーダーは班の人から選ぶ・班名は欄を離れたら保存・班を消すと班の人は未割当に戻る（確かめる）
-//   ・書けるのは今のシステムで 採用・役員・全体管理者（＋個別に許された人）。ほかの人は保存のときに理由が出る
+//   ・直す欄が出るのは 採用・役員・全体管理者 のロールだけ（GET /api/live/teams で確かめる）。ほかの人は見るだけ
 //   ・本物のときだけ（見本には班の人が無い）
 const URL = '/api/live/teams';
 
 export function TeamsEditor({ teams, onDone }: { teams: IkeTeam[]; onDone: () => void }) {
   const [open, setOpen] = useState(false);
+  const perm = useLiveRoute<{ canWrite: boolean }>(URL);
   const staff = useLiveRoute<LiveStaffList>(open ? '/api/live/staff' : null);
   const { send, error, setError, busy } = useLiveWrite(true, onDone);
   const [drag, setDrag] = useState<string | null>(null);
@@ -66,6 +67,7 @@ export function TeamsEditor({ teams, onDone }: { teams: IkeTeam[]; onDone: () =>
     </span>
   );
 
+  if (!perm.data?.canWrite) return null; // 書けないロールは今の見るだけの画面のまま
   if (!open) return (
     <button onClick={() => setOpen(true)} className="inline-flex min-h-9 w-fit items-center gap-1.5 rounded-[10px] border border-field bg-surface px-3 text-[13px] font-semibold" style={{ color: 'var(--ad)' }}><Users size={14} />班分けを直す</button>
   );

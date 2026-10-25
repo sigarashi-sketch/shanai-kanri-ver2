@@ -122,32 +122,20 @@ export function StaffOps({ staff, live, recruiters, onDone }: { staff: LiveStaff
               {rec.map((x) => <option key={x} value={x}>{x}</option>)}
             </select>
           </label>
-          <LineGroupPick name={name} live={live} cur={{ id: v.lineGroupId, name: v.lineGroup, has: v.hasLine }} off={off} onPick={(g, label) => put({ lineGroupId: g, lineGroup: label, hasLine: !!g }, { kind: 'linegroup', name, groupId: g }, g ? `${name} さんに LINE グループを紐付けました` : `${name} さんの LINE グループの紐付けを外しました`, '→ LINE列・チャットのグループ（LINE側のグループ名は変わりません）', { kind: 'linegroup', name, groupId: v.lineGroupId })} />
+          <LineGroupView cur={{ name: v.lineGroup, has: v.hasLine }} />
         </div>
       ))}
     </div>
   );
 }
 
-type LgCand = { groupId: string; name?: string; lineName?: string; speakers?: string[] };
-function LineGroupPick({ name, live, cur, off, onPick }: { name: string; live: boolean; cur: { id: string; name: string; has: boolean }; off: boolean; onPick: (id: string, label: string) => void }) {
-  const [cands, setCands] = useState<LgCand[] | null>(null);
-  const load = () => {
-    if (cands || !live) return;
-    fetch('/api/live/staff/read', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ what: 'lg', name }) })
-      .then((r) => r.json()).then((j) => setCands(Array.isArray(j.candidates) ? j.candidates : [])).catch(() => setCands([]));
-  };
-  const list = [...(cur.id && !(cands || []).some((c) => c.groupId === cur.id) ? [{ groupId: cur.id, name: cur.name }] : []), ...(cands || [])];
-  const label = (c: LgCand) => [c.name || '（名前なし）', c.lineName ? `LINE上の名前: ${c.lineName}` : '', c.speakers?.length ? `発言: ${c.speakers.join('・')}` : ''].filter(Boolean).join('／');
+// LINEグループは見るだけ（今のシステムに紐付けを保存する口が無いため・10-25 決定）。紐付けは今の従業員名簿の画面で
+function LineGroupView({ cur }: { cur: { name: string; has: boolean } }) {
   return (
-    <label className="flex flex-col gap-1 text-[12px] text-muted" title={off ? needText('edit') : 'グループ名で自動で見つけられていないグループだけ出ます。選んでも LINE 側のグループ名は変わりません'}>
-      LINEグループ（今 {cur.has ? cur.name || '名前なし' : 'なし'}）
-      <select value={cur.id} disabled={off || !live} onFocus={load} onPointerDown={load} onChange={(e) => { const c = list.find((x) => x.groupId === e.target.value); onPick(e.target.value, c?.name || ''); }} className="min-h-9 max-w-[320px] rounded-[10px] border border-field bg-surface px-2 text-[13px] text-ink disabled:opacity-50">
-        <option value="">紐付けなし（グループ名で自動）</option>
-        {list.map((c) => <option key={c.groupId} value={c.groupId}>{label(c)}</option>)}
-        {live && cands === null && <option disabled>候補を読み込み中…</option>}
-      </select>
-    </label>
+    <div className="flex flex-col gap-1 text-[12px] text-muted" title="ここでは変えられません（今の従業員名簿の画面で紐付けます）">
+      LINEグループ
+      <span className="min-h-9 max-w-[320px] rounded-[10px] border border-line bg-soft px-2 py-2 text-[13px] text-ink">{cur.has ? cur.name || '（名前なし）' : 'なし'}</span>
+    </div>
   );
 }
 

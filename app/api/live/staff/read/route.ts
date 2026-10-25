@@ -9,7 +9,6 @@ import { normName, type IkeRosterData } from '@/lib/live/staff';
 //   what:
 //     taiou   … 対応歴（GET /api/roster?op=extra&action=getTaiouLog＝今の名簿の「対応歴」と同じ・SELECT だけ）
 //     tel     … 電話（GET /api/proxy?action=getRosterData の info.phone だけ。基本情報を見られるロールだけ・ほかの info は返さない）
-//     lg      … LINEグループの候補（GET /api/roster?op=linegroup&action=candidates・SELECT と LINE の名前の読みだけ）
 //     exitGap … 記入漏れチェック（GET /api/roster?op=extra&action=exitGap・SELECT だけ）。名前は要らない
 //   ★未経験の人（今のプロパーリストに入っている人）だけ
 type Body = { what?: string; name?: string };
@@ -30,10 +29,6 @@ export async function POST(req: Request) {
     if (b.what === 'taiou') {
       const list = await get<unknown>(`/api/roster?op=extra&action=getTaiouLog&name=${encodeURIComponent(name)}`);
       return NextResponse.json({ ok: true, rows: Array.isArray(list) ? list : [] });
-    }
-    if (b.what === 'lg') {
-      const j = await get<{ success?: boolean; candidates?: unknown[]; error?: string }>(`/api/roster?op=linegroup&action=candidates&name=${encodeURIComponent(name)}`);
-      return NextResponse.json({ ok: true, candidates: j.success ? j.candidates || [] : [] });
     }
     if (b.what === 'tel') {
       if (!(await roleCan('basic'))) return NextResponse.json({ error: 'あなたのロールでは電話番号を見られません（基本情報を見られるロールだけ）' }, { status: 403 });

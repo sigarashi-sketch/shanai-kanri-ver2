@@ -15,7 +15,6 @@ import { parseStaffWrite, type StaffWrite } from '@/lib/live/staff-write';
 //     tantou    … POST /api/roster?op=extra&action=saveTantou  {name, value}
 //     flag      … GET  /api/proxy?action=setEngineerStatusByName（辞退・ぽあ・参画決定。ダッシュボードの「辞退にチェック」と同じ）
 //     taiou     … POST /api/roster?op=extra&action=addTaiouLog {name, kind, body, fields}
-//     linegroup … POST /api/roster?op=linegroup&action=save    {name, groupId}
 //   ★未経験の人（今のプロパーリストに入っている人）にだけ書く。プロパーリストが読めなければ書かない
 //   ★saveRosterStatus は「退社・退社日・待機」を毎回まるごと書き直す口なので、今の値（getRosterStatus）を読んでから変える所だけ差し替える
 //     （読めなければ書かない＝黙って退社を外さない）。答えに元の値（prev）を付けて返す＝画面の「取り消す」で戻せる
@@ -41,7 +40,6 @@ function target(w: Exclude<StaffWrite, { kind: 'status' }>): { path: string; bod
     case 'sales': return { path: '/api/roster?op=extra&action=saveSalesField', body: { name: w.name, field: w.field, value: w.value }, method: 'POST' };
     case 'tantou': return { path: '/api/roster?op=extra&action=saveTantou', body: { name: w.name, value: w.value }, method: 'POST' };
     case 'taiou': return { path: '/api/roster?op=extra&action=addTaiouLog', body: { name: w.name, kind: w.taiouKind, body: w.body, fields: w.fields }, method: 'POST' };
-    case 'linegroup': return { path: '/api/roster?op=linegroup&action=save', body: { name: w.name, groupId: w.groupId }, method: 'POST' };
     case 'flag': {
       const q = new URLSearchParams({ action: 'setEngineerStatusByName', name: w.name, statusKey: w.statusKey, value: w.value ? 'true' : 'false' });
       return { path: `/api/proxy?${q}`, body: null, method: 'GET' };

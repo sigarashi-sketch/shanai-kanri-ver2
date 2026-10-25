@@ -25,8 +25,7 @@ export type StaffWrite =
   | { kind: 'sales'; name: string; field: 'nyuujou_bi'; value: string }
   | { kind: 'tantou'; name: string; value: string }
   | { kind: 'flag'; name: string; statusKey: (typeof FLAG_KEYS)[number]; value: boolean }
-  | { kind: 'taiou'; name: string; taiouKind: (typeof TAIOU_KINDS)[number]; body: string; fields: TaiouFields }
-  | { kind: 'linegroup'; name: string; groupId: string };
+  | { kind: 'taiou'; name: string; taiouKind: (typeof TAIOU_KINDS)[number]; body: string; fields: TaiouFields };
 
 const isDate = (v: unknown) => v === '' || (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`)));
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : null);
@@ -92,10 +91,6 @@ export function parseStaffWrite(b: unknown): StaffWrite | string {
       }
       if (!body && !Object.keys(fields).length) return '対応内容を書いてください';
       return { kind: 'taiou', name, taiouKind: o.taiouKind, body, fields };
-    }
-    case 'linegroup': {
-      const g = str(o.groupId, 80); if (g == null || !/^[A-Za-z0-9_-]*$/.test(g)) return 'グループが違います';
-      return { kind: 'linegroup', name, groupId: g };
     }
     default: return '書く種類が違います';
   }
