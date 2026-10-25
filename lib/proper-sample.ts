@@ -6,10 +6,10 @@ import { LEGACY_COLUMNS, type ScoreRes } from './live/proper-cols';
 
 type Extra = Partial<Record<string, string | boolean>>;
 const EXTRA: Record<string, Extra> = {
-  s0441: { tantou: '佐藤', kadou: '即日', tsuukin: '60分', shozoku: '—', shift: '可', yakin: '要検討', shucchou: '不可', genba_made: '', memo: '面談10/22。夜勤は月数回なら可', sentouryoku: '3', zokusei: '20代・飲食出身', heikou_suu: '2', shoudaku_bi: '2026/10/01', hearing_booking: '2026/10/03 10:00', shoudaku_nyusha_bi: '即日' },
-  s0455: { tantou: '佐藤', kadou: '11月', tsuukin: '45分', shift: '可', yakin: '不可', shucchou: '可', sentouryoku: '4', zokusei: '20代・販売出身', heikou_suu: '1', nyuujou_bi: '2026/11/01', sankaku_bi: '2026/10/20', shoudaku_bi: '2026/09/20', sankaku_kettei: true, shoudaku_nyusha_bi: '2026/11/01' },
+  s0441: { tantou: '佐藤', kadou: '即日', tsuukin: '60分', shozoku: '—', shift: '可能', yakin: '要検討', shucchou: 'NG', genba_made: '', memo: '面談10/22。夜勤は月数回なら可', sentouryoku: '3', zokusei: '20代・飲食出身', heikou_suu: '2', shoudaku_bi: '2026/10/01', hearing_booking: '2026/10/03 10:00', shoudaku_nyusha_bi: '即日' },
+  s0455: { tantou: '佐藤', kadou: '11月', tsuukin: '45分', shift: '可能', yakin: '不可', shucchou: '可能', sentouryoku: '4', zokusei: '20代・販売出身', heikou_suu: '1', nyuujou_bi: '2026/11/01', sankaku_bi: '2026/10/20', shoudaku_bi: '2026/09/20', sankaku_kettei: true, shoudaku_nyusha_bi: '2026/11/01' },
   s0470: { tantou: '鈴木', kadou: '即日', tsuukin: '90分', shift: '不可', yakin: '不可', shucchou: '不可', sentouryoku: '', zokusei: '20代・物流出身', heikou_suu: '0', shoudaku_bi: '2026/10/10', eigyo_teishi: true, memo: '' },
-  s0472: { tantou: '鈴木', kadou: '即日', tsuukin: '60分', shift: '要検討', yakin: '可', shucchou: '要検討', sentouryoku: '2', zokusei: '20代・コルセン出身', heikou_suu: '3', shoudaku_bi: '2026/10/05', needs_review: true, kanagawa: true },
+  s0472: { tantou: '鈴木', kadou: '即日', tsuukin: '60分', shift: '要検討', yakin: '可能', shucchou: '要検討', sentouryoku: '2', zokusei: '20代・コルセン出身', heikou_suu: '3', shoudaku_bi: '2026/10/05', needs_review: true, kanagawa: true },
   s0388: { tantou: '佐藤', kadou: '稼働中', shozoku: '—', sentouryoku: '5', zokusei: '20代・家電販売出身', nyuujou_bi: '2024/10/01', sankaku_bi: '2024/09/15', shoudaku_bi: '2024/08/20', kadou_chu: true },
 };
 const STOPPED = [

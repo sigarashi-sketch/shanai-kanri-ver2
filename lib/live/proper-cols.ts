@@ -57,10 +57,18 @@ export const colOfField = (field: string) => LEGACY_COLUMNS.find((c) => c.field 
 /** 決まった選択肢がある列（今の値が選択肢に無ければ、画面はその値も「今の値」として残す＝勝手に消さない） */
 export const SELECT_OPTIONS: Record<string, readonly string[]> = {
   sentouryoku: ['0', '1', '2', '3', '4', '5'],          // 戦闘力 0〜5（スキルの点と半々で混ぜる）
-  shift: ['可', '要検討', '不可'],                        // 今のスコアの読み方（可／検討・相談／不可）に合わせる
-  yakin: ['可', '要検討', '不可'],
-  shucchou: ['可', '要検討', '不可'],
+  shift: ['可能', '要検討', '不可'],                      // 今の DB の値そのまま（スコアは 可能→可・要検討→要検討・不可→不可 と読む）
+  yakin: ['可能', '要検討', '不可'],
+  shucchou: ['可能', '要検討', '不可'],
 };
+/** 古い書き方の見え方（保存されている値は、人が選び直すまで変えない） */
+export const SELECT_ALIAS: Record<string, Record<string, string>> = {
+  shift: { 不可能: '不可', NG: '不可' }, yakin: { 不可能: '不可', NG: '不可' }, shucchou: { 不可能: '不可', NG: '不可' },
+};
+/** 空のときの見え方 */
+export const SELECT_BLANK: Record<string, string> = { shift: '未入力', yakin: '未入力', shucchou: '未入力', sentouryoku: '—' };
+/** 絞り込み・並べ替えに使う見え方（不可能・NG は 不可 として数える） */
+export const shownValue = (field: string, v: string) => SELECT_ALIAS[field]?.[v] ?? v;
 /** 自由記述のまま文字で入れる列のうち、長い文（複数行）のもの */
 export const LONG_TEXT: ReadonlySet<string> = new Set(['memo', 'summary', 'zenshoku']);
 

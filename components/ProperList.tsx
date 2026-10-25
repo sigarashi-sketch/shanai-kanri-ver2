@@ -12,7 +12,7 @@ import { ScoreBadge, ScoreNote, SCORE_HINT, SCORE_LABEL, useProperScores } from 
 import { Z_MODAL } from '@/lib/layers';
 import { normName, properStatus, type EngineerRow, type EngineerRows } from '@/lib/live/eigyo-common';
 import {
-  COMMUTE_BLOCKS, COMMUTE_PREF, LONG_TEXT, SCORE_FILTER_OPTS, SELECT_OPTIONS, commuteKey, scoreFilterLabel, scoreValue,
+  COMMUTE_BLOCKS, COMMUTE_PREF, LONG_TEXT, SCORE_FILTER_OPTS, SELECT_ALIAS, SELECT_BLANK, SELECT_OPTIONS, commuteKey, shownValue, scoreFilterLabel, scoreValue,
   type CommuteDetail, type CommuteListRow, type ScoreKind,
 } from '@/lib/live/proper-cols';
 
@@ -24,11 +24,12 @@ import {
 //   ・書く：チェック・選択肢・文字は変えたらすぐ保存（/api/live/proper-save → 今の saveEngineerRow）。トーストの「取り消す」で前の値に戻す
 //     参画決定ON の連動（稼働中ON・営業止め/再アサインOFF・入社案内の予約）は今のシステムがやる → 保存のあと読み直す
 //   ・「稼働月を開いたときに今月へ直す」書き込みは入れない（今の画面だけの動き・10-25 指示）
-//   ・dropout の印をつける・PDF を作り直すのはここではしない（今の画面から）
+//   ・dropout の印（/api/live/proper-dropout → 今の setDropout）・PDF を作り直す（/api/live/proper-pdf → 今の /api/skillsheet pdf）もここから
 
 type Val = string | boolean;
 type V = Record<string, Val>;
-type PRow = { r: EngineerRow; v: V; status: string };
+type Drop = { on: boolean; at: string; phase: string };
+type PRow = { r: EngineerRow; v: V; status: string; drop: Drop };
 type FilterKind = 'text' | 'select' | 'bool' | 'none';
 type Col = {
   key: string; label: string; group: string; def: boolean; filter: FilterKind; opts?: readonly string[];
@@ -42,7 +43,7 @@ const SCOPES = [
 type Scope = (typeof SCOPES)[number][0];
 const scopeTest: Record<Scope, (p: PRow) => boolean> = {
   active: (p) => p.r.active, all: () => true, poa: (p) => p.v.poa === true, teishi: (p) => p.v.eigyo_teishi === true, jitai: (p) => p.v.jitai === true,
-  sankaku: (p) => p.v.sankaku_kettei === true, dropout: (p) => !!p.r.dropout, kanawest: (p) => !!p.r.kanagawa, review: (p) => p.v.needs_review === true,
+  sankaku: (p) => p.v.sankaku_kettei === true, dropout: (p) => p.drop.on, kanawest: (p) => !!p.r.kanagawa, review: (p) => p.v.needs_review === true,
 };
 
 const PREF_KEY = 'v2_proper_cols_v1';
@@ -50,6 +51,8 @@ type Prefs = { order: string[]; hidden: string[]; shown: string[] };
 function loadPrefs(): Prefs | null { try { const s = localStorage.getItem(PREF_KEY); return s ? (JSON.parse(s) as Prefs) : null; } catch { return null; } }
 function savePrefs(p: Prefs) { try { localStorage.setItem(PREF_KEY, JSON.stringify(p)); } catch { /* 残せなくても画面は動く */ } }
 
+const PHASE_LABEL: Record<string, string> = { eigyo: '参画決定の前', kettei: '参画決定の後・入場前', kadou: '現場に入った後' };
+const fmtMd = (iso: string) => { const t = Date.parse(iso); if (Number.isNaN(t)) return ''; const d = new Date(t + 9 * 3600e3); return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`; };
 const s = (v: Val | undefined) => (typeof v === 'boolean' ? (v ? 'true' : '') : String(v ?? ''));
 const isUrl = (x: string) => /^https?:\/\//.test(x);
 function elapsed(ts: number | null): string {
@@ -88,14 +91,15 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
   const [over, setOver] = useState<Record<string, V>>({});
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [commuteOver, setCommuteOver] = useState<Record<string, CommuteListRow | null>>({});
+  const [dropOver, setDropOver] = useState<Record<string, Drop>>({});
 
   const rows: PRow[] = useMemo(() => (data?.rows ?? []).map((r) => {
     const v: V = {};
     for (const c of data!.columns) { const x = r.cells[c.idx]; v[c.col] = c.type === 'bool' ? x === true : String(x ?? '').trim(); }
     Object.assign(v, over[r.row]);
     const cs: Record<string, string> = Object.fromEntries(Object.entries(v).map(([k, x]) => [k, s(x)]));
-    return { r, v, status: properStatus(r, cs) };
-  }), [data, over]);
+    return { r, v, status: properStatus(r, cs), drop: dropOver[r.row] ?? { on: !!r.dropout, at: r.dropoutAt || '', phase: r.dropoutPhase || '' } };
+  }), [data, over, dropOver]);
 
   // ---- 連絡まわりの当て方（今の proper.html と同じ：グループ名（畳む）に氏名（畳む・2文字以上）が入っているか） ----
   const aux = useMemo(() => {
@@ -151,7 +155,7 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
       hit();
       toast({
         text: opts?.undo ? `${p.r.name}：元に戻しました` : `${p.r.name}：${what}`,
-        sub: opts?.undo ? undefined : side ? `→ ${side}${patch.sankaku_kettei === true ? '。1時間以内に外せば入社案内は送られません' : ''}` : '→ 今のプロパーリストにも出ます',
+        sub: opts?.undo ? undefined : patch.sankaku_kettei === true ? `→ ${side}。入社案内は1時間後に本人へ送られます。「取り消す」（または1時間以内に参画決定を外す）で送られません` : side ? `→ ${side}` : '→ 今のプロパーリストにも出ます',
         undo: opts?.undo ? undefined : () => { void save({ ...p, v: { ...p.v, ...patch, ...auto } }, prev, { undo: true }); },
       });
       // チェックは連動があるので読み直す（読み直したら手元の値は捨てる＝本物の値に揃える）
@@ -167,6 +171,52 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
   }, [live, data, hit, toast, reload]);
 
   const [commuteFor, setCommuteFor] = useState<PRow | null>(null);
+  const [dropFor, setDropFor] = useState<PRow | null>(null);
+
+  // ---- dropout（飛び）の印。取り消す＝印を戻し、一緒に変わったチェック（辞退・参画決定・稼働中）も前の値で保存し直す ----
+  const setDrop = useCallback(async (p: PRow, on: boolean, phase: string, after: string, undo?: boolean) => {
+    const prevDrop = p.drop;
+    const prevV = { jitai: p.v.jitai === true, sankaku_kettei: p.v.sankaku_kettei === true, kadou_chu: p.v.kadou_chu === true };
+    let d: { ok?: boolean; error?: string; dropoutAt?: string; phase?: string; sales?: Record<string, boolean>; status?: Record<string, boolean>; saiAssignOn?: boolean; salesNote?: string } = { ok: true };
+    if (live) {
+      try {
+        const r = await fetch('/api/live/proper-dropout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: p.r.name, row: p.r.row, on, phase, after }) });
+        d = await r.json().catch(() => ({ error: `（${r.status}）` }));
+        if (!r.ok || !d.ok) { toast({ text: `${p.r.name}：dropout を保存できませんでした`, sub: d.error }); return; }
+      } catch (e) { toast({ text: `${p.r.name}：dropout を保存できませんでした`, sub: (e as Error).message }); return; }
+    }
+    const now: Drop = on ? { on: true, at: d.dropoutAt || new Date().toISOString(), phase: d.phase || phase } : { on: false, at: '', phase: '' };
+    setDropOver((o) => ({ ...o, [p.r.row]: now }));
+    const sales = d.sales ?? {};
+    const st = d.status ?? {};
+    const m = [sales.sankaku_kettei === true && '参画決定ON', sales.jitai === true && '辞退ON', sales.kadou_chu === false && '稼働中OFF', st.taisha === true && '退社', st.taiki === true && `待機${d.saiAssignOn ? '・再アサインON' : ''}`].filter(Boolean) as string[];
+    const changed = Object.fromEntries(Object.entries(prevV).filter(([k]) => k in sales && sales[k] !== prevV[k as keyof typeof prevV]));
+    hit();
+    toast({
+      text: undo ? `${p.r.name}：dropout を元に戻しました` : on ? `${p.r.name}：dropout（飛び）にしました${live ? '' : '（見本）'}` : `${p.r.name}：dropout の印を外しました${live ? '' : '（見本）'}`,
+      sub: undo ? undefined : on ? (m.length ? `→ ${m.join('・')}${st.taisha || st.taiki ? '（退社・待機は取り消しでは戻りません。従業員名簿で直してください）' : ''}` : '→ 印だけ付けました') : '→ 辞退・参画決定・退社・待機はそのままです',
+      undo: undo ? undefined : async () => {
+        await setDrop({ ...p, drop: now }, !on, prevDrop.phase || 'eigyo', 'mark', true);
+        if (on && Object.keys(changed).length && live) await save({ ...p, v: { ...p.v, ...sales } }, changed, { undo: true });
+      },
+    });
+    if (live) { await reload(); setDropOver((o) => { const n = { ...o }; delete n[p.r.row]; return n; }); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, hit, toast, reload, save]);
+
+  // ---- スキシの PDF を作り直す（取り消しはない＝作り直すだけ。URL は変わらない） ----
+  const [pdfBusy, setPdfBusy] = useState<Set<string>>(new Set());
+  const remakePdf = async (p: PRow) => {
+    if (!live) { toast({ text: `${p.r.name}：PDF を作り直しました（見本）`, sub: 'ログインすると、本物のスキシから PDF を作ります' }); return; }
+    setPdfBusy((b) => new Set([...b, p.r.row]));
+    try {
+      const r = await fetch('/api/live/proper-pdf', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ row: p.r.row }) });
+      const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!r.ok || !j.ok) toast({ text: `${p.r.name}：PDF を作れませんでした`, sub: j.error || `（${r.status}）` });
+      else { hit(); toast({ text: `${p.r.name}：PDF を作り直しました`, sub: '→ 本名版・イニシャル版（URL はそのまま）' }); await reload(); }
+    } catch (e) { toast({ text: `${p.r.name}：PDF を作れませんでした`, sub: (e as Error).message }); }
+    finally { setPdfBusy((b) => { const n = new Set(b); n.delete(p.r.row); return n; }); }
+  };
   const ro = !canEdit;
   const roTitle = ro ? needText('edit') : undefined;
   const isBusy = (p: PRow, f: string) => busy.has(`${p.r.row}:${f}`);
@@ -174,10 +224,10 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
   // ---- 列 ----
   const cols: Col[] = useMemo(() => {
     const txt = (f: string, label: string, group: string, def: boolean, minW = 110): Col => ({
-      key: f, label, group, def, filter: SELECT_OPTIONS[f] ? 'select' : 'text', opts: SELECT_OPTIONS[f], minW, text: (p) => s(p.v[f]),
+      key: f, label, group, def, filter: SELECT_OPTIONS[f] ? 'select' : 'text', opts: SELECT_OPTIONS[f], minW, text: (p) => shownValue(f, s(p.v[f])),
       num: f === 'sentouryoku' || f === 'heikou_suu' ? (p) => (s(p.v[f]) === '' ? null : Number(s(p.v[f])) || 0) : undefined,
       cell: (p) => SELECT_OPTIONS[f]
-        ? <SelectCell value={s(p.v[f])} opts={SELECT_OPTIONS[f]} disabled={ro} title={roTitle} busy={isBusy(p, f)} label={label} onPick={(x) => save(p, { [f]: x })} />
+        ? <SelectCell value={s(p.v[f])} opts={SELECT_OPTIONS[f]} alias={SELECT_ALIAS[f]} blank={SELECT_BLANK[f] ?? '—'} disabled={ro} title={roTitle} busy={isBusy(p, f)} label={label} onPick={(x) => save(p, { [f]: x })} />
         : <TextCell value={s(p.v[f])} multiline={LONG_TEXT.has(f)} disabled={ro} title={roTitle} busy={isBusy(p, f)} label={label} onCommit={(x) => save(p, { [f]: x })} />,
     });
     const chk = (f: string, label: string, def: boolean): Col => ({
@@ -226,7 +276,7 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
             <button type="button" onClick={() => onSukishi(p.r.row)} className="inline-flex min-h-7 items-center gap-1 rounded-md border px-1.5 text-[11.5px] font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><FileSpreadsheet size={12} />{st === '作成済み' ? '見る' : '作る'}</button>
           </span>); } },
       { key: 'pdf', label: 'PDF', group: 'スキシ', def: false, filter: 'none', text: (p) => (p.r.pdfUrl || p.r.pdfAnonUrl ? 'あり' : ''),
-        cell: (p) => <PdfLinks r={p.r} /> },
+        cell: (p) => <span className="flex flex-col gap-1"><PdfLinks r={p.r} />{isUrl(s(p.v.sukishi)) && <button type="button" disabled={ro || pdfBusy.has(p.r.row)} title={roTitle ?? 'いまのスキシの中身で本名版・イニシャル版の PDF を作り直す（URL は変わりません）'} onClick={() => remakePdf(p)} className="w-fit rounded-md border border-field px-1.5 text-[11.5px] font-semibold disabled:opacity-50">{pdfBusy.has(p.r.row) ? '作成中…' : 'PDF を作り直す'}</button>}</span> },
       txt('summary', 'サマリ', 'スキシ', false, 200),
       txt('zenshoku', '前職/経験/資格', 'スキシ', false, 200),
       txt('kibou_shokushu', '希望職種', '条件', true, 120),
@@ -244,8 +294,9 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
       txt('hearing_booking', '初回ヒアリング予約', '日付', false, 140),
       chk('poa', '営業止め', true),
       chk('jitai', '辞退', true),
-      { key: 'dropout', label: 'dropout', group: 'チェック', def: true, filter: 'bool', text: (p) => (p.r.dropout ? '✓' : ''),
-        cell: (p) => (p.r.dropout ? <span className="chip whitespace-nowrap" style={SK_TONE.要確認} title={`飛び ${p.r.dropoutAt || ''} ${p.r.dropoutPhase || ''}（印をつける・外すのは今の画面から）`}>飛び{p.r.dropoutAt ? ` ${p.r.dropoutAt.slice(5).replace('-', '/')}` : ''}</span> : <span className="text-faint">—</span>) },
+      { key: 'dropout', label: 'dropout', group: 'チェック', def: true, filter: 'bool', text: (p) => (p.drop.on ? '✓' : ''),
+        cell: (p) => <button type="button" disabled={ro} title={roTitle ?? (p.drop.on ? `飛び（${PHASE_LABEL[p.drop.phase] || '時期不明'}）。押すと印を外す` : '押すと dropout（飛び）にする')} onClick={() => setDropFor(p)}
+          className="chip whitespace-nowrap disabled:cursor-not-allowed" style={p.drop.on ? SK_TONE.要確認 : { background: 'transparent', color: 'var(--color-faint)', boxShadow: 'inset 0 0 0 1px var(--color-field)' }}>{p.drop.on ? `飛び${p.drop.at ? ` ${fmtMd(p.drop.at)}` : ''}` : 'dropout'}</button> },
       chk('sankaku_kettei', '参画決定', true),
       chk('kadou_chu', '稼働中', true),
       chk('sai_assign', '再アサイン', false),
@@ -255,7 +306,7 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
       chk('needs_review', '要確認', false),
     ];
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scores, aux, ro, roTitle, busy, save, sukishiDone, onSukishi]);
+  }, [scores, aux, ro, roTitle, busy, save, sukishiDone, onSukishi, pdfBusy]);
 
   // ---- 出す列・並び（その人の端末に残す） ----
   const [prefs, setPrefs] = useState<Prefs | null>(null);
@@ -388,6 +439,7 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
         </div>
       </div>
       {picker && <ColPicker cols={ordered} isShown={shownCol} onToggle={toggleCol} onOrder={(order) => setPrefsSave({ ...(prefs ?? { hidden: [], shown: [] }), order })} onReset={() => { setPrefsSave({ order: [], hidden: [], shown: [] }); }} onClose={() => setPicker(false)} />}
+      {dropFor && <DropoutDialog p={dropFor} onClose={() => setDropFor(null)} onGo={(on, phase, after) => { setDropFor(null); void setDrop(dropFor, on, phase, after); }} />}
       {commuteFor && <CommuteEditor p={commuteFor} live={live} canEdit={canEdit} onClose={() => setCommuteFor(null)}
         onSaved={(row) => { setCommuteOver((o) => ({ ...o, [commuteKey(commuteFor.r.name)]: row })); }} />}
     </div>
@@ -403,13 +455,14 @@ function BoolCell({ on, disabled, title, busy, label, onToggle }: { on: boolean;
   );
 }
 
-function SelectCell({ value, opts, disabled, title, busy, label, onPick }: { value: string; opts: readonly string[]; disabled: boolean; title?: string; busy: boolean; label: string; onPick: (v: string) => void }) {
-  const list = value && !opts.includes(value) ? [value, ...opts] : opts;   // 今の値が選択肢に無ければそのまま残す
+function SelectCell({ value, opts, alias, blank, disabled, title, busy, label, onPick }: { value: string; opts: readonly string[]; alias?: Record<string, string>; blank: string; disabled: boolean; title?: string; busy: boolean; label: string; onPick: (v: string) => void }) {
+  // 今の値が選択肢に無ければそのまま残す（古い書き方 不可能・NG は「不可」と見せるが、保存された値は選び直すまで変えない）
+  const list = value && !opts.includes(value) ? [value, ...opts] : opts;
   return (
     <select value={value} disabled={disabled || busy} title={title} aria-label={label} onChange={(e) => onPick(e.target.value)}
       className="h-8 w-full min-w-[64px] rounded-md border border-transparent bg-transparent px-1 text-[13px] hover:border-field disabled:cursor-not-allowed" style={busy ? { opacity: 0.5 } : undefined}>
-      <option value="">—</option>
-      {list.map((o) => <option key={o} value={o}>{o}{o === value && !opts.includes(o) ? '（今の値）' : ''}</option>)}
+      <option value="">{blank}</option>
+      {list.map((o) => <option key={o} value={o}>{alias?.[o] ?? o}{o === value && !opts.includes(o) && !alias?.[o] ? '（今の値）' : ''}</option>)}
     </select>
   );
 }
@@ -567,6 +620,52 @@ function CommuteEditor({ p, live, canEdit, onClose, onSaved }: { p: PRow; live: 
       <div className="flex items-center justify-between gap-2 border-t border-line px-4 py-3 text-[12px] text-faint">
         <span>押すたびに保存します（本人の回答は消えません）</span>
         {cur?.sales && <button type="button" disabled={!editable || busy} onClick={() => send(null, cur)} className="min-h-9 rounded-[10px] border border-field px-3 text-[13px] font-semibold text-ink disabled:opacity-50">本人の回答に戻す</button>}
+      </div>
+    </Dialog>
+  );
+}
+
+// ---- dropout（飛び）にする／印を外す（今の dropout.js と同じ問い） ----
+const PHASES = [
+  { v: 'eigyo', t: '参画決定の前（営業中に連絡が取れなくなった）', d: '辞退にします。' },
+  { v: 'kettei', t: '参画決定の後・現場に入る前（当日飛びを含む）', d: '参画決定を付けたまま辞退にします（参画決定が付いていなければ付けます）。従業員名簿にも飛びの印が出ます。' },
+  { v: 'kadou', t: '現場に入った後（案件参画中）', d: '辞退にはしません。このあとの扱いを下で選びます。' },
+];
+const AFTERS = [
+  { v: 'mark', t: '印だけ付ける', d: '退社・待機は変えません（あとで人が決める）。' },
+  { v: 'taisha', t: '退社にする', d: '退社チェックを付けます（退社日が空なら今日）。' },
+  { v: 'taiki', t: '待機にする', d: '待機チェックを付けます（在籍のまま現場から外す。再アサインもONになります）。' },
+];
+function DropoutDialog({ p, onClose, onGo }: { p: PRow; onClose: () => void; onGo: (on: boolean, phase: string, after: string) => void }) {
+  const on = p.drop.on;
+  const [phase, setPhase] = useState(p.v.kadou_chu === true ? 'kadou' : p.v.sankaku_kettei === true ? 'kettei' : 'eigyo');
+  const [after, setAfter] = useState('mark');
+  const Radio = ({ o, sel, set, name }: { o: { v: string; t: string; d: string }; sel: string; set: (v: string) => void; name: string }) => (
+    <label className="flex cursor-pointer gap-2 rounded-lg border px-3 py-2" style={sel === o.v ? { borderColor: 'var(--a)', background: 'var(--as)' } : { borderColor: 'var(--color-line)' }}>
+      <input type="radio" name={name} checked={sel === o.v} onChange={() => set(o.v)} style={{ accentColor: 'var(--a)' }} />
+      <span><b className="text-[13px]">{o.t}</b><span className="block text-[12px] text-muted">{o.d}</span></span>
+    </label>
+  );
+  return (
+    <Dialog label={on ? `${p.r.name} の dropout を外す` : `${p.r.name} を dropout にする`} onClose={onClose} z={Z_MODAL} className="fixed inset-x-3 top-[8vh] mx-auto flex max-h-[84vh] max-w-[520px] flex-col rounded-xl border border-line bg-surface shadow-xl">
+      <div className="flex items-start justify-between border-b border-line px-4 py-3">
+        <div className="text-[15px] font-bold">{on ? `${p.r.name} さんの dropout の印を外す` : `${p.r.name} さんを dropout（飛び）にする`}</div>
+        <button aria-label="閉じる" data-dialog-close onClick={onClose} className="flex size-8 items-center justify-center rounded-lg border border-line"><X size={15} /></button>
+      </div>
+      <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-4 py-3 text-[13px]">
+        {on ? (<>
+          <p>いまの記録：{PHASE_LABEL[p.drop.phase] || '時期不明'}{p.drop.at && `（${fmtMd(p.drop.at)}）`}</p>
+          <p className="text-muted">飛びの印だけ外します。辞退・参画決定・退社・待機は自動では戻りません。</p>
+        </>) : (<>
+          <p className="text-muted">いまの参画決定：{p.v.sankaku_kettei === true ? 'あり' : 'なし'}</p>
+          <p className="font-semibold">いつ飛びましたか？</p>
+          {PHASES.map((o) => <Radio key={o.v} o={o} sel={phase} set={setPhase} name="dropout-phase" />)}
+          {phase === 'kadou' && <><p className="mt-1 font-semibold">このあとの扱い</p>{AFTERS.map((o) => <Radio key={o.v} o={o} sel={after} set={setAfter} name="dropout-after" />)}</>}
+        </>)}
+      </div>
+      <div className="flex justify-end gap-2 border-t border-line px-4 py-3">
+        <button type="button" onClick={onClose} className="min-h-9 rounded-[10px] border border-field px-3 text-[13px] font-semibold">やめる</button>
+        <button type="button" onClick={() => onGo(!on, phase, phase === 'kadou' ? after : 'mark')} className="btn-primary min-h-9 rounded-[10px] px-4 text-[13px] font-semibold">{on ? '印を外す' : 'dropout にする'}</button>
       </div>
     </Dialog>
   );
