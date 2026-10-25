@@ -20,6 +20,8 @@ export type ConfirmSpec = {
   extra?: React.ReactNode;
   /** extra が揃っていないときなど、押せない理由 */
   blocked?: string;
+  /** 何人ずつ書くときの途中経過（run の途中で spec を差し替えて出す） */
+  progress?: string;
   run: () => Promise<unknown>;
 };
 
@@ -43,6 +45,7 @@ export function ConfirmWrite({ spec, onClose }: { spec: ConfirmSpec; onClose: (d
       )}
       {spec.extra && <div className="mt-3">{spec.extra}</div>}
       <div className="mt-2 text-[11.5px] text-faint">本物のデータ（今の社内システム）に書きます。</div>
+      {busy && spec.progress && <div className="num mt-2 text-[12.5px] font-semibold" style={{ color: 'var(--ad)' }}>{spec.progress}</div>}
       {err && <div className="mt-2 rounded-lg px-3 py-2 text-[12.5px]" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>{err}</div>}
       <div className="mt-4 flex justify-end gap-2">
         <button data-dialog-close onClick={() => onClose(false)} disabled={busy} className="min-h-9 rounded-[10px] border border-field px-3.5 text-[13px] font-semibold disabled:opacity-40">やめる</button>

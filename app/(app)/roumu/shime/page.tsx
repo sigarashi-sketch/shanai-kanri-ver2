@@ -11,7 +11,7 @@ import { LiveBanner, NotInLegacy, useIke } from '@/components/Live';
 import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
 import { postLive } from '@/lib/live/post';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
-import { SHIME_AUTO, SHIME_LABEL, defaultShimeYm, hhmm, reasonsFor, shimeRowsOf, ymLabel, type IkeShimeBoard, type ShimeLiveRow } from '@/lib/live/shime';
+import { SHIME_AUTO, SHIME_BULK_MAX, SHIME_LABEL, defaultShimeYm, hhmm, reasonsFor, shimeRowsOf, ymLabel, type IkeShimeBoard, type ShimeLiveRow } from '@/lib/live/shime';
 import { PersonName } from '@/components/Person';
 
 // 勤怠の締め（労務/営業管理）＝月の締めまでにやることを人ごとに並べ、全部0になった人から「締められる」にする。
@@ -61,8 +61,10 @@ export default function ShimePage() {
   const lopen = lrows.filter((r) => SHIME_LABEL[r.cell.status].todo);
   // 本物の締め（10-25）：押す前に確認の窓。締め・開け直しは承認の権限（今のシステムもページ権限 kintai-shime で見る）
   const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
-  const autoAll = live && ym ? SHIME_AUTO.reduce((s, k) => s + (ike.data?.counts?.[ym]?.[k] || 0), 0) : 0;
-  const autoMine = lrows.filter((r) => SHIME_AUTO.includes(r.cell.status)).length;
+  // まとめて締めるのは、この一覧（未経験の人）で一致などになっている人だけ。1人ずつ close（サーバでも未経験・一致をもう一度確かめる）
+  const autoRows = lrows.filter((r) => SHIME_AUTO.includes(r.cell.status));
+  const autoMine = autoRows.length;
+  const [bulk, setBulk] = useState<{ ym: string; ok: number; ng: { name: string; error: string }[] } | null>(null);
   const lock = !canApprove ? needText('approve') : undefined;
   const after = (text: string, sub: string) => { hit(); toast({ text, sub }); ike.reload(); };
   const askClose = (r: ShimeLiveRow) => {
@@ -84,12 +86,35 @@ export default function ShimePage() {
     lines: ['締めた時の写しを消し、もう一度見比べて締められる状態に戻します'],
     run: async () => { await postLive('/api/live/shime', { action: 'reopen', ym, key: r.key }); after(`${r.name} の締めを外しました`, 'もう一度見比べて締めてください'); },
   });
-  const askCloseMatched = () => setConfirm({
-    title: `${ymLabel(ym)}の「一致」した人をまとめて締める`, okLabel: `${autoAll}人を締める`, danger: true,
-    lines: [`一致・freee だけ・記録なし・契約なし の人を締めます（今の社内システムの決まりで ${autoAll}人）`, `この一覧（未経験の人）ではそのうち ${autoMine}人`, 'ずれ・未着・未読の人は締めません（1人ずつ理由を選んで締めます）'],
-    sends: autoAll > autoMine ? `未経験以外の人（${autoAll - autoMine}人）も、今の社内システムと同じく一緒に締まります` : undefined,
-    run: async () => { const j = await postLive<{ closed?: number }>('/api/live/shime', { action: 'close-matched', ym }); hit(j.closed || 1); toast({ text: `${ymLabel(ym)}の ${j.closed ?? 0}人を締めました`, sub: '→ 請求書づくりと給与の材料に反映されます' }); ike.reload(); },
-  });
+  const askCloseMatched = () => {
+    const targets = autoRows.map((r) => ({ key: r.key, name: r.name }));
+    const n = targets.length;
+    setBulk(null);
+    setConfirm({
+      title: `${ymLabel(ym)}の「一致」した未経験の人をまとめて締める`, okLabel: `${n}人を締める`, danger: true,
+      lines: [`この一覧（未経験の人）で 一致・freee だけ・記録なし・契約なし の ${n}人を、1人ずつ締めます`, '未経験以外の人は締めません', 'ずれ・未着・未読の人は締めません（1人ずつ理由を選んで締めます）'],
+      run: async () => {
+        let ok = 0; const ng: { name: string; error: string }[] = [];
+        const nameOf = new Map(targets.map((t) => [t.key, t.name]));
+        for (let i = 0; i < n; i += SHIME_BULK_MAX) {
+          const chunk = targets.slice(i, i + SHIME_BULK_MAX);
+          setConfirm((c) => c && { ...c, progress: `締めています… ${i}/${n}人（締めた ${ok}・できなかった ${ng.length}）` });
+          try {
+            const j = await postLive<{ results?: { key: string; ok: boolean; error?: string }[] }>('/api/live/shime', { action: 'close-mine', ym, keys: chunk.map((t) => t.key) });
+            for (const x of j.results || []) { if (x.ok) ok++; else ng.push({ name: nameOf.get(x.key) || '', error: x.error || '締められませんでした' }); }
+          } catch (e) {
+            const msg = (e as Error).message;
+            for (const t of chunk) ng.push({ name: t.name, error: msg });
+            if (/ログイン|not_logged_in/.test(msg)) { for (const t of targets.slice(i + SHIME_BULK_MAX)) ng.push({ name: t.name, error: '途中で止めました（ログインが切れました）' }); break; }
+          }
+        }
+        setBulk({ ym, ok, ng });
+        if (ok) hit(ok);
+        toast({ text: `${ymLabel(ym)}の ${ok}人を締めました${ng.length ? `（できなかった ${ng.length}人）` : ''}`, sub: '→ 請求書づくりと給与の材料に反映されます' });
+        ike.reload();
+      },
+    });
+  };
 
   const rows = ROWS;
   const notReady = rows.filter((r) => total(r, fix[r.personId]) > 0);
@@ -134,8 +159,14 @@ export default function ShimePage() {
           <div className="text-[13px]"><b>{ymLabel(ym)}でまだ締めていない人 {lopen.length}人</b>
             <span className="ml-2 text-muted">{(['match', 'freee_only', 'diff', 'unread', 'missing', 'no_freee'] as const).map((k) => `${SHIME_LABEL[k].label.replace(/（.*）/, '')} ${lrows.filter((r) => r.cell.status === k).length}`).join('・')}</span>
           </div>
-          <button onClick={askCloseMatched} disabled={!canApprove || !ym || autoAll === 0 || ym >= (ike.data?.currentYm || '')} title={lock || (ym >= (ike.data?.currentYm || '') ? 'まだ月の途中なので締められません' : autoAll === 0 ? '一致した人はいません' : undefined)} className="btn-primary ml-auto inline-flex min-h-10 items-center gap-1.5 rounded-[10px] px-4 text-[13.5px] font-bold disabled:opacity-40"><Lock size={15} />一致した人をまとめて締める</button>
+          <button onClick={askCloseMatched} disabled={!canApprove || !ym || autoMine === 0 || ym >= (ike.data?.currentYm || '')} title={lock || (ym >= (ike.data?.currentYm || '') ? 'まだ月の途中なので締められません' : autoMine === 0 ? '一致した未経験の人はいません' : undefined)} className="btn-primary ml-auto inline-flex min-h-10 items-center gap-1.5 rounded-[10px] px-4 text-[13.5px] font-bold disabled:opacity-40"><Lock size={15} />一致した人をまとめて締める{autoMine > 0 && `（${autoMine}人）`}</button>
         </div>
+        {bulk && bulk.ym === ym && (
+          <div className="mo-fade-up flex flex-col gap-1 rounded-xl border border-line bg-surface px-4 py-2.5 text-[12.5px]">
+            <div className="flex items-center gap-2"><b>まとめて締めた結果</b><span className="text-ok">締めた {bulk.ok}人</span>{bulk.ng.length > 0 && <span style={{ color: 'var(--tone-bad-fg)' }}>できなかった {bulk.ng.length}人</span>}<button onClick={() => setBulk(null)} className="ml-auto text-faint">閉じる</button></div>
+            {bulk.ng.length > 0 && <ul className="flex flex-col gap-0.5">{bulk.ng.map((x, i) => <li key={i} className="flex flex-wrap gap-2">{x.name ? <PersonName name={x.name} className="font-semibold underline-offset-2 hover:underline" /> : <span>—</span>}<span className="text-muted">{x.error}</span></li>)}</ul>}
+          </div>
+        )}
         {lrows.length > 0 && lopen.length === 0 && (
           <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-8 text-center"><Check className="mx-auto text-ok" size={26} /><div className="mt-2 text-[15px] font-bold">{ymLabel(ym)}の勤怠は全員締まっています</div></div>
         )}

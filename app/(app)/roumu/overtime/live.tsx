@@ -60,9 +60,9 @@ export function OtLive({ date, names, caution, danger }: { date: string; names: 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
           ['今月の経過', `${passed}/${all}日`, `${date.slice(5).replace('-', '/')} まで（平日で数えています）`],
-          ['45h を超えそう', `${kept.filter((x) => x.proj > KYOTEI.monthly).length}人`, '月末までの見込み（目安）'],
-          ['上限間近', `${cnt('danger')}人`, `特別条項の月 ${KYOTEI.spMonthly}h の${Math.round(danger * 10)}割を超える見込み`],
-          ['注意', `${cnt('caution')}人`, `月 ${KYOTEI.monthly}h の${Math.round(caution * 10)}割に届く見込み`],
+          ['45h を超えそう（目安）', `${kept.filter((x) => x.proj > KYOTEI.monthly).length}人`, '月末までの見込み（目安）'],
+          ['上限間近（目安）', `${cnt('danger')}人`, `特別条項の月 ${KYOTEI.spMonthly}h の${Math.round(danger * 10)}割を超える見込み`],
+          ['注意（目安）', `${cnt('caution')}人`, `月 ${KYOTEI.monthly}h の${Math.round(caution * 10)}割に届く見込み`],
         ].map(([l, n, s]) => (
           <div key={l} className="rounded-xl border border-line bg-surface px-4 py-3"><div className="text-[12px] text-muted">{l}</div><div className="num text-[22px] font-bold">{n}</div><div className="text-[11.5px] text-faint">{s}</div></div>
         ))}
@@ -70,15 +70,15 @@ export function OtLive({ date, names, caution, danger }: { date: string; names: 
       <div className="overflow-hidden rounded-xl border border-line bg-surface">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] border-collapse text-[13px]">
-            <thead><tr className="th-row text-left"><th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 text-right font-semibold">今月の総労働</th><th className="px-2 py-2.5 text-right font-semibold">実働日数</th><th className="px-2 py-2.5 font-semibold">8時間を超えた分（いま → 月末の見込み）</th><th className="px-4 py-2.5 font-semibold">段階</th></tr></thead>
+            <thead><tr className="th-row text-left"><th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 text-right font-semibold">今月の総労働</th><th className="px-2 py-2.5 text-right font-semibold">実働日数</th><th className="px-2 py-2.5 font-semibold">残業の目安（いま → 月末の見込み）</th><th className="px-4 py-2.5 font-semibold">段階</th></tr></thead>
             <tbody>
               {[...kept].sort((a, b) => ORDER.indexOf(a.level) - ORDER.indexOf(b.level) || b.proj - a.proj).map((x) => (
                 <tr key={x.key} className="row border-t border-line-soft">
                   <td className="px-4 py-2.5"><PersonName name={x.name} className="font-semibold underline-offset-2 hover:underline" /><div className="text-[11.5px] text-faint">営業 {x.rep || '—'}</div></td>
                   <td className="num px-2 py-2.5 text-right">{x.state === 'pending' ? <span className="text-faint">取得中</span> : `${x.total}h`}</td>
                   <td className="num px-2 py-2.5 text-right">{x.days}日</td>
-                  <td className="num px-2 py-2.5"><b>{x.over}h</b><span className="text-muted"> → {x.proj}h</span></td>
-                  <td className="px-4 py-2.5"><span className="chip" style={{ background: LEVEL_STYLE[x.level].bg, color: LEVEL_STYLE[x.level].fg }}>{LEVEL_STYLE[x.level].label}</span></td>
+                  <td className="num px-2 py-2.5"><span className="mr-1 rounded bg-sunken px-1 text-[10.5px] text-faint">目安</span><b>{x.over}h</b><span className="text-muted"> → {x.proj}h</span></td>
+                  <td className="px-4 py-2.5"><span title="目安" className="chip" style={{ background: LEVEL_STYLE[x.level].bg, color: LEVEL_STYLE[x.level].fg }}>{LEVEL_STYLE[x.level].label}</span></td>
                 </tr>
               ))}
               {kept.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-[12.5px] text-muted">{month.state === 'loading' ? 'freee の月次を読んでいます…（数十秒かかることがあります）' : '出せる人がいません'}</td></tr>}

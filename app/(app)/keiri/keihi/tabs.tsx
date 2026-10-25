@@ -72,7 +72,7 @@ export function KeihiMonthlyTab({ live, mk }: { live: boolean; mk: Mikeiken }) {
 
 type Ringi = { id: string; linked_name?: string | null; title: string; detail?: string | null; amount_yen: number; planned_on?: string | null; status: string; created_at: string; decision_comment?: string | null };
 type RingiList = { ok?: boolean; ringi: Ringi[]; error?: string };
-// 見送りの理由（選ぶだけ・本人の LINE に届く）。★今のシステムは自由入力。言い回しは shoya が決めたら直す
+// 見送りの理由（選ぶだけ・本人の LINE に届く）。★仮の文言（あとで直せるようここ1か所にまとめている）。今のシステムは自由入力。言い回しは shoya が決めたら直す
 export const RINGI_REJECT = ['今回は見送ります（予算の都合）', '内容をもう少し詳しく書いて出し直してください', '金額を見直して出し直してください', '会社で手配するので申請は不要です'];
 const RINGI_SAMPLE: Ringi[] = [
   { id: 's1', linked_name: '見本 太郎', title: '資格の参考書', detail: '基本情報の問題集', amount_yen: 3080, planned_on: '2026-11-01', status: '申請中', created_at: '2026-10-22T01:00:00Z' },
@@ -117,7 +117,7 @@ export function KeihiRingiTab({ live, mk }: { live: boolean; mk: Mikeiken }) {
           <div className="flex flex-col gap-1.5">
             <button onClick={() => decide(r, 'approve')} disabled={!canApprove} title={!canApprove ? needText('approve') : undefined} className="btn-primary min-h-8 rounded-lg px-3 text-[12.5px] font-bold disabled:opacity-40">承認</button>
             <select aria-label="見送る理由" value="" disabled={!canApprove} onChange={(e) => e.target.value && decide(r, 'reject', e.target.value)} className="min-h-8 max-w-[220px] rounded-lg border border-field bg-surface px-2 text-[12px] text-muted disabled:opacity-50">
-              <option value="">見送る理由…</option>{RINGI_REJECT.map((x) => <option key={x}>{x}</option>)}
+              <option value="">見送る理由（仮の文言）…</option>{RINGI_REJECT.map((x) => <option key={x}>{x}</option>)}
             </select>
           </div>
         </div>

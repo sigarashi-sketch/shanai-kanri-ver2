@@ -51,6 +51,8 @@ export function shimeRowsOf(b: IkeShimeBoard | null, ym: string): ShimeLiveRow[]
 export const ymLabel = (ym: string) => (ym ? `${Number(ym.slice(5))}月` : '');
 
 // 締めるときの理由（今の画面 kintai-shime.html と同じ選択肢・自由入力にしない）。一致・freee だけ・記録なし・契約なしは理由なしで締められる
+/** まとめて締めるとき、1回の POST で送る人数の上限（画面は何回かに分けて送る） */
+export const SHIME_BULK_MAX = 5;
 export const SHIME_AUTO: IkeShimeStatus[] = ['match', 'freee_only', 'no_record', 'no_contract'];
 export const SHIME_REASONS: Partial<Record<IkeShimeStatus, readonly string[]>> = {
   diff: ['freeeを本人に直してもらった', '勤務表の誤り（上位に確認済み）', '休暇・特休の付け方の違い', '差を認めて締める'],
