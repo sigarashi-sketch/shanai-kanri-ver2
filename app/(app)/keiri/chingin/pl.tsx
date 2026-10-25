@@ -13,7 +13,7 @@ import { useMikeiken, type Mikeiken } from '@/components/Mikeiken';
 type SumRow = { key: string; name: string; eligible: boolean; sales: number; wage: number; shaho: number; fare: number; grossNet: number; issues: string[] };
 type MonthSum = { ok?: boolean; summary?: { ym: string; label: string; provisional: boolean; through: string }; rows?: SumRow[]; error?: unknown };
 type Pl = { ok?: boolean; ym: string; inputs?: { sga: { label: string; amount: number | null }[] }; sgaSource?: { kind: string } | null };
-type M = { ym: string; provisional: boolean; n: number; sales: number; cost: number; gross: number; ok: boolean; loading: boolean };
+type M = { ym: string; provisional: boolean; n: number; sales: number; cost: number; gross: number; ok: boolean; loading: boolean; noRoster?: boolean };
 
 const man = (y: number) => `${y < 0 ? '−' : ''}${Math.round(Math.abs(y) / 10000).toLocaleString('ja-JP')}万`;
 const jstYm = (back: number) => { const j = new Date(Date.now() + 9 * 3600e3); const d = new Date(Date.UTC(j.getUTCFullYear(), j.getUTCMonth() - back, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`; };
@@ -29,7 +29,7 @@ function useMonth(ym: string, on: boolean, mk: Mikeiken): M {
   const r = useIke<MonthSum>(on ? `chingin?action=month-summary&ym=${ym}&rows=1` : null);
   const rows = r.data?.ok && r.data.rows ? mk.keep(r.data.rows, 'name').filter((x) => x.eligible) : [];
   const sales = rows.reduce((s, x) => s + (x.sales || 0), 0), gross = rows.reduce((s, x) => s + (x.grossNet || 0), 0);
-  return { ym, provisional: !!r.data?.summary?.provisional, n: rows.length, sales, gross, cost: sales - gross, ok: !!r.data?.ok, loading: r.state === 'loading' };
+  return { ym, provisional: !!r.data?.summary?.provisional, n: rows.length, sales, gross, cost: sales - gross, ok: !!r.data?.ok, loading: r.state === 'loading', noRoster: (r.data as { error?: { kind?: string } } | null)?.error?.kind === 'roster' };
 }
 
 export function ChinginPl({ live }: { live: boolean }) {
@@ -63,7 +63,7 @@ export function ChinginPl({ live }: { live: boolean }) {
             {months.map((m, i) => (
               <tr key={m.ym} className="row border-t border-line-soft">
                 <td className="px-4 py-2.5 font-semibold">{mLabel(m.ym)}{m.provisional && <span className="ml-1 text-[11px] font-normal text-faint">（月の途中）</span>}</td>
-                <td className="w-[38%] px-2 py-2.5">{m.loading ? <span className="text-[12px] text-faint">読んでいます…</span> : !m.ok ? <span className="text-[12px] text-faint">読めませんでした</span> : <>
+                <td className="w-[38%] px-2 py-2.5">{m.loading ? <span className="text-[12px] text-faint">読んでいます…</span> : !m.ok ? <span className="text-[12px] text-faint">{m.noRoster ? 'この月の名簿がありません' : '読めませんでした'}</span> : <>
                   <div className="relative h-4 rounded-md bg-sunken">
                     <div className="mo-bar absolute inset-y-0 left-0 rounded-md" style={{ width: `${(m.sales / maxS) * 100}%`, background: 'var(--al)', ['--i' as string]: i }} />
                     <div className="mo-bar absolute inset-y-0 left-0 rounded-md" style={{ width: `${(Math.max(0, m.gross) / maxS) * 100}%`, background: 'var(--a)', ['--i' as string]: i }} />
