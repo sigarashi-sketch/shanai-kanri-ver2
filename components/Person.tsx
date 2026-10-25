@@ -40,7 +40,7 @@ function sampleRes(name: string, id?: string): PersonRes {
     ...staff.map((s, i): PersonCandidate => ({ key: `s${i}:${s.id}`, name: s.name, staff: { id: s.id } as PersonCandidate['staff'], proper: i === 0 && staff.length === 1 && propers.length === 1 ? { id: propers[0].id } as PersonCandidate['proper'] : null, hint: { recruiter: s.recruiter, company: '', station: s.station } })),
     ...(staff.length === 1 && propers.length === 1 ? [] : propers.map((p): PersonCandidate => ({ key: `p:${p.id}`, name: p.name, staff: null, proper: { id: p.id } as PersonCandidate['proper'], hint: { recruiter: '', company: '', station: p.station } }))),
   ];
-  return { ok: true, name, month: '', candidates: cands, everyone: [], can: { chat: true, basic: true, price: true } };
+  return { ok: true, name, month: '', candidates: cands, everyone: [], can: { chat: true, summary: true, basic: true, price: true } };
 }
 
 /** Shell に1つだけ置く。'person:open' を受けて右にこの人の社員ページ（いなければ要員ページ）を出す。 */

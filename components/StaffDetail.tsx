@@ -58,7 +58,7 @@ type SideProps = { tab: Tab; name: string; live: boolean; staffId?: string; ever
 function SideTab({ tab, name, live, staffId, everyone, memo, can }: SideProps) {
   if (tab === '基本情報') return <section className="w-full rounded-xl border border-line bg-surface px-5 py-4 text-[13px]"><PersonBasic name={name} live={live} /></section>;
   if (tab === '面談メモ') return <section className="w-full rounded-xl border border-line bg-surface px-5 py-4 text-[13px]"><PersonMemo name={name} live={live} id={staffId} initial={memo} /></section>;
-  if (tab === 'チャット') return <section className="w-full rounded-xl border border-line bg-surface px-5 py-4 text-[13px]"><PersonChat name={name} live={live} everyone={everyone} canSummary={can.chat} /></section>;
+  if (tab === 'チャット') return <section className="w-full rounded-xl border border-line bg-surface px-5 py-4 text-[13px]"><PersonChat name={name} live={live} everyone={everyone} canSummary={can.summary} /></section>;
   return null;
 }
 const SIDE = new Set<Tab>(['基本情報', '面談メモ', 'チャット']);

@@ -7,6 +7,7 @@ import { MODULES } from '@/lib/theme';
 import { PageTitle } from '@/components/ui';
 import { useMotivation } from '@/components/Motivation';
 import { SAVED_SHARED, loadShared, saveShared, type SharedLoad } from '@/lib/org';
+import { RoleCanEditor } from './RoleCanEditor';
 
 // 人ごとに「ロール」と「分類ごとの段階」を付ける。
 //   実際の段階＝ロールの段階と個別の段階の高いほう。ロールで既に持っている段階より下は選べない（灰色）。
@@ -51,6 +52,8 @@ export function AccessEditor({ initial, meId }: { initial: Member[]; meId: strin
   return (
     <main className="flex flex-col gap-4 px-6 pb-12 pt-[22px]">
       <PageTitle title="権限管理" sub="入れるのは未経験事業部の内勤だけ（それ以外は営業共有リストだけ）。内勤の中は分類ごとに 見ない／見る／直す／承認" />
+
+      <RoleCanEditor shared={shared} />
 
       <section className="mo-fade-up grid gap-3 md:grid-cols-4" style={{ ['--i' as string]: 1 }}>
         {(Object.keys(ROLES) as RoleKey[]).map((k) => (

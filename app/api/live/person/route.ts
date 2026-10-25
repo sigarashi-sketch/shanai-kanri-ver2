@@ -39,7 +39,7 @@ export async function POST(req: Request) {
       ikeRole(),
     ]);
     if (!er?.rows) return NextResponse.json({ error: 'プロパーリストが読めないので、未経験の人か確かめられませんでした' }, { status: 502 });
-    const can = canOf(role);
+    const can = await canOf(role);
     const list = roster?.success ? buildStaffList(roster, Array.isArray(status) ? status : null, sales?.overlay || null, nyusha?.overlay || null) : null;
 
     // id から名前を決める（id が古い・見本の id なら名前のまま）

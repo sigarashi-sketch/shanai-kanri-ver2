@@ -113,8 +113,8 @@ export function maskSecrets(text: string): string {
 }
 
 // ---- 名前の小窓（/api/live/person の返り） ----
-export type PersonCan = { chat: boolean; basic: boolean; price: boolean };
-export const CAN_ALL: PersonCan = { chat: true, basic: true, price: true };
+export type PersonCan = { chat: boolean; summary: boolean; basic: boolean; price: boolean };
+export const CAN_ALL: PersonCan = { chat: true, summary: true, basic: true, price: true };
 /** 小窓の候補1人ぶん。同姓同名なら複数（採用担当・所属・最寄駅で見分ける） */
 export type PersonCandidate = {
   key: string; name: string; staff: LiveStaff | null; proper: LivePersonView | null;

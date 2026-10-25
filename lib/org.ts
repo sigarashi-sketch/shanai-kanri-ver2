@@ -67,9 +67,9 @@ export function saveOrg(s: OrgState): boolean {
 }
 
 // ---- 全員で共有する設定（v2-settings・10-25）。/api/live/v2-settings が今の社内システムに読み書きする ----
-export const V2_SETTING_KEYS = ['org', 'members'] as const;
+export const V2_SETTING_KEYS = ['org', 'members', 'roleCan'] as const;
 export type V2SettingKey = (typeof V2_SETTING_KEYS)[number];
-export type V2Settings = { org?: unknown; members?: Member[]; updatedAt?: string; updatedBy?: string };
+export type V2Settings = { org?: unknown; members?: Member[]; roleCan?: unknown; updatedAt?: string; updatedBy?: string };
 /** 共有の状態。sample＝ログインしていない（この端末だけ）／missing＝今のシステムに置き場がまだ無い */
 export type SharedState = 'loading' | 'live' | 'sample' | 'missing' | 'error';
 export type SharedLoad = { state: SharedState; value: V2Settings | null; canSave: boolean; error?: string };

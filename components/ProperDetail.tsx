@@ -146,7 +146,7 @@ export function ProperDetail({ id, liver = false, embedded = false, initial }: {
             {t === '基本・希望条件' && <Facts facts={p.facts} />}
             {t === 'スキシ・サマリ' && <Sukishi p={p} liver={liver} ext={ext} />}
             {t === '送った案件' && <SentCases name={p.name} live={live} liver={liver} />}
-            {t === 'チャット' && <Chat name={p.name} live={live} everyone={everyone} embedded={embedded} canSummary={can.chat} />}
+            {t === 'チャット' && <Chat name={p.name} live={live} everyone={everyone} embedded={embedded} canSummary={can.summary} />}
           </div>
         ))}
       </main>

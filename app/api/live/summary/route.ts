@@ -6,7 +6,7 @@
 //   ・人事の情報なので、管理者と採用の担当だけ（lib/live/role.ts）。ほかのロールは 403
 import { NextResponse } from 'next/server';
 import { ikeFetch, ikeToken } from '@/lib/ike';
-import { HR_FORBIDDEN, canSeeHr, ikeRole } from '@/lib/live/role';
+import { FORBIDDEN, roleCan } from '@/lib/live/role';
 
 export const maxDuration = 60;
 
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
   const id = String(b.id || '');
   const days = b.days === 7 ? 7 : 3;
   if (!/^[A-Za-z0-9_-]{4,80}$/.test(id)) return NextResponse.json({ error: '相手が分かりません' }, { status: 400 });
-  if (!canSeeHr(await ikeRole())) return NextResponse.json({ error: HR_FORBIDDEN }, { status: 403 });
+  if (!(await roleCan('summary'))) return NextResponse.json({ error: FORBIDDEN.summary }, { status: 403 });
 
   let r: Response;
   try {

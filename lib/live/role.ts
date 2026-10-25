@@ -1,17 +1,20 @@
 import 'server-only';
-import { ikeFetch, ikeToken } from '../ike';
+import { ikeFetch, ikeFetchCached, ikeToken } from '../ike';
+import { canRow, normRoleCan, type CanKey, type RoleCan } from '../role-can';
 import type { PersonCan } from './person';
 
 // ログインした人のロール（今の社内システムの /api/auth?action=me）で、名前の小窓に出してよい中身を決める（10-25）。
 //   ・ロール名は今のシステム（api/_auth.ts・api/_page_access.ts）と同じ
 //       super_admin / admin / executive / sales_admin / staff_sales / staff_recruit / kanawest_sales
 //       （staff・list_viewer・keiri・applicant_support・retired は「専用ページだけ」のロール）
-//   ・単価・額面 … 全体管理者・管理者・executive・営業（今の「粗利試算」「契約報告の雛形」と同じく採用には出さない）
-//   ・チャット・基本情報・要約 … 全体管理者・管理者・executive・採用（人事の情報）
+//   ・見られる中身（チャット・要約・基本情報・単価額面）はロールごとの表で決める（lib/role-can.ts・権限管理で全体管理者が切り替える）
 //   ・同じトークンなら 60 秒は控えを使う（1回の小窓で何度も聞かない）。読めなければ ''＝何も見せない側に倒す
-export const PRICE_ROLES = ['super_admin', 'admin', 'executive', 'sales_admin', 'staff_sales', 'kanawest_sales'] as const;
-export const HR_ROLES = ['super_admin', 'admin', 'executive', 'staff_recruit'] as const;
-export const HR_FORBIDDEN = 'この中身（チャット・基本情報・要約）は、管理者と採用の担当だけが見られます';
+export const FORBIDDEN: Record<CanKey, string> = {
+  chat: 'あなたのロールではチャットを見られません（権限管理で全体管理者が変えられます）',
+  summary: 'あなたのロールでは要約を押せません（権限管理で全体管理者が変えられます）',
+  basic: 'あなたのロールでは基本情報を見られません（権限管理で全体管理者が変えられます）',
+  price: 'あなたのロールでは単価・額面を見られません',
+};
 
 const TTL = 60_000;
 const cache = new Map<string, { at: number; p: Promise<string> }>();
@@ -34,6 +37,16 @@ export async function ikeRole(): Promise<string> {
   return p.catch(() => '');
 }
 
-export const canSeePrice = (role: string) => (PRICE_ROLES as readonly string[]).includes(role);
-export const canSeeHr = (role: string) => (HR_ROLES as readonly string[]).includes(role);
-export const canOf = (role: string): PersonCan => ({ chat: canSeeHr(role), basic: canSeeHr(role), price: canSeePrice(role) });
+/** ロールごとの表（全員で共有している設定。30秒は控え。読めなければ初めの値） */
+export async function roleCanTable(): Promise<RoleCan> {
+  try {
+    const r = await ikeFetchCached<{ value?: { roleCan?: unknown } | null }>('/api/assistant?action=v2-settings', 30_000, { timeoutMs: 8000 });
+    return normRoleCan(r.ok ? r.data?.value?.roleCan : null);
+  } catch { return normRoleCan(null); }
+}
+export async function canOf(role: string): Promise<PersonCan> {
+  return canRow(await roleCanTable(), role);
+}
+export async function roleCan(key: CanKey): Promise<boolean> {
+  return (await canOf(await ikeRole()))[key];
+}
