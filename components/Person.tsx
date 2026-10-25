@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, ExternalLink, X } from 'lucide-react';
+import { ExternalLink, X } from 'lucide-react';
 import { PEOPLE, PROPERS } from '@/lib/sample';
 import type { LivePersonView } from '@/lib/live/person';
 import type { LiveStaff } from '@/lib/live/staff';
@@ -14,6 +14,7 @@ import { PersonBasic } from './PersonBasic';
 //   ・<PersonName name="…" /> を名前の代わりに置くだけ。押すと window に 'person:open' を投げ、Shell の <PersonHost /> が受けて開く
 //   ・形は前の社員ページと同じ（10-25 shoya「営業と人事をタブで分けるんじゃなくて、前の人事のみたいに」）：
 //     上に人の情報（社員＝人事の値を先に、要員＝営業の値を足す・タブで分けない）、下の左に「面談メモ／基本情報」、下の右に「チャット」
+//     社員ページ・要員ページのボタンは別のタブで開く＝一覧のスクロールが上に戻らない（10-25 shoya「ページボタン押すと更新して上からになるのやめて」）
 //     （10-25 shoya「押したら面談メモ、右にチャット置けばいい」「名前クリックしたらチャットと基本情報の回答もだして」）。狭い画面はチャットもタブに
 //   ・ログインしていれば本物（/api/live/person・読むだけ）、していなければ見本から名前で探す
 const norm = (s: string) => s.replace(/[\s　]+/g, '');
@@ -100,8 +101,8 @@ export function PersonHost() {
               </div>
             </div>
             <div className="flex shrink-0 flex-wrap justify-end gap-2">
-              {v?.staff && <Link href={`/jinji/staff/${encodeURIComponent(v.staff.id)}`} onClick={close} className="inline-flex min-h-9 items-center gap-1 rounded-[10px] border border-field px-3 text-[12.5px] font-semibold text-muted">社員ページ<ArrowRight size={13} /></Link>}
-              {v?.proper && <Link href={`/eigyo/proper/${encodeURIComponent(v.proper.id)}`} onClick={close} className="inline-flex min-h-9 items-center gap-1 rounded-[10px] border border-field px-3 text-[12.5px] font-semibold text-muted">要員ページ<ArrowRight size={13} /></Link>}
+              {v?.staff && <Link href={`/jinji/staff/${encodeURIComponent(v.staff.id)}`} target="_blank" rel="noopener" title="別のタブで開く（この一覧はそのまま）" className="inline-flex min-h-9 items-center gap-1 rounded-[10px] border border-field px-3 text-[12.5px] font-semibold text-muted">社員ページ<ExternalLink size={13} /></Link>}
+              {v?.proper && <Link href={`/eigyo/proper/${encodeURIComponent(v.proper.id)}`} target="_blank" rel="noopener" title="別のタブで開く（この一覧はそのまま）" className="inline-flex min-h-9 items-center gap-1 rounded-[10px] border border-field px-3 text-[12.5px] font-semibold text-muted">要員ページ<ExternalLink size={13} /></Link>}
               {v?.proper?.sukishiUrl && <a href={v.proper.sukishiUrl} target="_blank" rel="noopener" className="inline-flex min-h-9 items-center gap-1 rounded-[10px] border border-field px-3 text-[12.5px] font-semibold text-muted">スキシ<ExternalLink size={13} /></a>}
               <button aria-label="閉じる" onClick={close} className="flex size-9 items-center justify-center rounded-[10px] border border-line"><X size={16} /></button>
             </div>

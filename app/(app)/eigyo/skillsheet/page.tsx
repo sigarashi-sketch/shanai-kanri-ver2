@@ -32,6 +32,7 @@ export default function SkillsheetPage() {
   const size = 20;
   const [data, setData] = useState<SsList | null>(null);
   const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);   // 続きを下に足しているあいだ（一覧は薄くしない）
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState<Busy>(null);
   const [ask, setAsk] = useState<{ row: SsRow; existing?: string } | null>(null);
@@ -40,20 +41,29 @@ export default function SkillsheetPage() {
   const [firstNo, setFirstNo] = useState<number | null>(null);   // 開いたときの未生成の数（残りリング用）
   const seq = useRef(0);
 
-  const load = useCallback(async (ff: F, pg: number) => {
+  // 下までスクロールしたら次の20人を下に足す（10-25 shoya「ページボタン押すと更新して上からになるのやめて」）。
+  //   pg ページ目まで出す：append＝pg ページ目だけ読んで下に足す／それ以外＝1〜pg ページ目を読み直して置き換える（更新・作ったあと）
+  const load = useCallback(async (ff: F, pg: number, append = false) => {
     const my = ++seq.current;
-    setLoading(true);
-    const p = new URLSearchParams({ limit: String(size), offset: String((pg - 1) * size), sort: ff.sort });
-    for (const k of ['q', 'gender', 'pref', 'tantou', 'sukishi', 'roster'] as const) if (ff[k]) p.set(k, ff[k]);
+    const on = append ? setAdding : setLoading;
+    on(true);
+    const one = async (n: number) => {
+      const p = new URLSearchParams({ limit: String(size), offset: String((n - 1) * size), sort: ff.sort });
+      for (const k of ['q', 'gender', 'pref', 'tantou', 'sukishi', 'roster'] as const) if (ff[k]) p.set(k, ff[k]);
+      return (await (await fetch(`/api/skillsheet?${p}`, { cache: 'no-store' })).json()) as SsList;
+    };
     try {
-      const j = (await (await fetch(`/api/skillsheet?${p}`, { cache: 'no-store' })).json()) as SsList;
+      const list = append ? [await one(pg)] : await Promise.all(Array.from({ length: Math.max(1, pg) }, (_, i) => one(i + 1)));
       if (my !== seq.current) return;   // あとから出した読み込みが先に返っていたら古いほうは捨てる
-      if (j.error && !(j.rows && j.rows.length)) { setErr(j.error); setLoading(false); return; }
-      setErr(''); setData(j);
-      if (typeof j.offset === 'number') setPage(Math.floor(j.offset / size) + 1);
-      setFirstNo((n) => (n == null && !ff.q && !ff.gender && !ff.pref && !ff.tantou && !ff.sukishi && !ff.roster ? j.stats.noSukishi : n));
+      const j = list[list.length - 1];
+      if (j.error && !(j.rows && j.rows.length)) { setErr(j.error); on(false); return; }
+      const rows = list.flatMap((x) => x.rows || []);
+      setErr('');
+      setData((prev) => ({ ...list[0], rows: append && prev ? [...prev.rows, ...rows] : rows }));
+      setPage(pg);
+      setFirstNo((n) => (n == null && !ff.q && !ff.gender && !ff.pref && !ff.tantou && !ff.sukishi && !ff.roster ? list[0].stats.noSukishi : n));
     } catch (e) { if (my === seq.current) setErr(`読み込めませんでした（${(e as Error).message}）`); }
-    if (my === seq.current) setLoading(false);
+    if (my === seq.current) { setLoading(false); setAdding(false); }
   }, []);
 
   useEffect(() => {
@@ -70,7 +80,6 @@ export default function SkillsheetPage() {
     if (timer.current) clearTimeout(timer.current);
     if (debounce) timer.current = setTimeout(() => load(ff, 1), 300); else load(ff, 1);
   };
-  const go = (pg: number) => { setPage(pg); load(f, pg); };
 
   const post = async (body: object): Promise<SsResult> => {
     try { return (await (await fetch('/api/skillsheet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json()) as SsResult; }
@@ -119,19 +128,14 @@ export default function SkillsheetPage() {
 
   const s = data?.stats;
   const total = data?.total ?? 0, grand = data?.grandTotal ?? 0;
-  const pages = Math.max(1, Math.ceil(total / size));
   const noOnly = f.sukishi === 'no';
   const synced = data?.syncedAt ? new Date(data.syncedAt) : null;
   const denied = !canEdit ? needText('edit') : undefined;
 
+  const more = data ? data.rows.length < total : false;
   const Pager = () => (
     <div className="flex flex-wrap items-center gap-2 px-1 py-2 text-[12px] text-muted">
-      <span className="tabular-nums">{total ? `${(page - 1) * size + 1}〜${Math.min(page * size, total)}件目` : '0件'}（{total.toLocaleString()}件中）</span>
-      <div className="ml-auto flex items-center gap-1">
-        <button disabled={page <= 1 || loading} onClick={() => go(page - 1)} className="min-h-8 rounded-lg border border-field bg-surface px-2.5 disabled:opacity-40">前へ</button>
-        <span className="tabular-nums px-1">{page} / {pages}</span>
-        <button disabled={page >= pages || loading} onClick={() => go(page + 1)} className="min-h-8 rounded-lg border border-field bg-surface px-2.5 disabled:opacity-40">次へ</button>
-      </div>
+      <span className="tabular-nums">{total ? `${(data?.rows.length ?? 0).toLocaleString()}件を表示中` : '0件'}（{total.toLocaleString()}件中）{more && '・下までスクロールすると続きが出ます'}</span>
     </div>
   );
 
@@ -237,6 +241,7 @@ export default function SkillsheetPage() {
               })}
             </tbody>
           </table>
+          {more && <MoreSentinel busy={loading || adding} onMore={() => load(f, page + 1, true)} />}
         </div>
         <Pager />
       </section>
@@ -319,4 +324,19 @@ function DetailBody({ d }: { d?: SsDetail }) {
       {d.formError && <div className="text-faint">※ フォーム：{d.formError}</div>}
     </>
   );
+}
+
+// 一覧の下の見張り：見えてきたら続きを読む（読み込み中は待つ）
+function MoreSentinel({ busy, onMore }: { busy: boolean; onMore: () => void }) {
+  const el = useRef<HTMLDivElement>(null);
+  const cb = useRef(onMore);
+  cb.current = onMore;
+  useEffect(() => {
+    const n = el.current;
+    if (!n || busy) return;
+    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) cb.current(); }, { rootMargin: '400px 0px' });
+    io.observe(n);
+    return () => io.disconnect();
+  }, [busy]);
+  return <div ref={el} className="py-3 text-center text-[12px] text-faint">{busy ? '続きを読み込み中…' : '続きを読む'}</div>;
 }
