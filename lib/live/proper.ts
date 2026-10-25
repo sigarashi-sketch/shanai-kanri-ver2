@@ -6,7 +6,7 @@
 import type { Proper } from '../sample';
 import { cellsOf, properStatus, type EngineerRows } from './eigyo-common';
 
-export type LiveProper = Proper & { recruiter: string; gakumen: string; sukishiUrl: string; pdfUrl: string; summary: string; flag: string };
+export type LiveProper = Omit<Proper, 'status'> & { status: string; recruiter: string; gakumen: string; sukishiUrl: string; pdfUrl: string; summary: string; flag: string };
 
 export function liveProperRows(d: EngineerRows | null): LiveProper[] {
   if (!d) return [];
@@ -14,7 +14,7 @@ export function liveProperRows(d: EngineerRows | null): LiveProper[] {
   for (const r of d.rows) {
     const c = cellsOf(d, r);
     const st = properStatus(r, c);
-    if (st === '止め・辞退') continue;   // 営業止め・辞退の人は出さない（今のリストでは灰色の行）
+    // 10-25 営業止め・辞退の人も返す（出す・出さないは画面の絞り込み「営業中のみ／全員…」で決める）
     const ini = /(?:^|\n)\s*氏\s*名\s*[：:]\s*([^\s(（\n]+)/.exec(c.summary)?.[1] ?? '';
     const age = /(\d{2})\s*歳/.exec(c.summary)?.[1];
     out.push({

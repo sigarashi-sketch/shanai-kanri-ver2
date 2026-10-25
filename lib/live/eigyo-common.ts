@@ -7,7 +7,7 @@
 export type EngineerCol = { idx: number; col: string; label: string; type: 'text' | 'bool' };
 export type EngineerRow = {
   row: string; name: string; active: boolean; needsReview?: boolean; kanagawa?: boolean; kansai?: boolean;
-  cells: (string | boolean)[]; beforeSales?: boolean; dropout?: boolean;
+  cells: (string | boolean)[]; beforeSales?: boolean; dropout?: boolean; dropoutAt?: string; dropoutPhase?: string; hearingDue?: boolean;
   pdfUrl?: string; pdfAnonUrl?: string; xlsxUrl?: string; xlsxAnonUrl?: string;
 };
 export type EngineerRows = { columns: EngineerCol[]; rows: EngineerRow[]; total: number };

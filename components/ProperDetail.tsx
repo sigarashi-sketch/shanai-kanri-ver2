@@ -12,19 +12,23 @@ import { ChatSummary } from '@/components/ChatSummary';
 import { ChatLog } from '@/components/ChatLog';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { LIVERS, PEOPLE, PROPERS } from '@/lib/sample';
 import { Pill } from '@/components/ui';
+import { ScoreLine } from '@/components/ProperScore';
+import { PersonBasic } from '@/components/PersonBasic';
+import { PersonMemo } from '@/components/PersonMemo';
 import { useMotivation } from '@/components/Motivation';
 import { LiveBanner, NotInLegacy, useIke } from '@/components/Live';
 import type { EngineerRows } from '@/lib/live/eigyo-common';
 import type { LiverList, PartnerList } from '@/lib/live/proper';
 import {
-  CAN_ALL, contactsOf, groupBubbles, groupsOf, livePerson, logView, memberOf, threadBubbles,
+  CAN_ALL, memoOf, contactsOf, groupBubbles, groupsOf, livePerson, logView, memberOf, threadBubbles,
   type Bubble, type ContactsRes, type Fact, type GroupsRes, type GroupThreadRes, type LivePersonView, type MemberRow, type MembersRes, type PersonCan, type ThreadRes,
 } from '@/lib/live/person';
 
-const TABS = ['基本・希望条件', 'スキシ・サマリ', '送った案件', 'チャット'] as const;
+// 社員ページ（StaffDetail）と同じ型のタブ（10-25 shoya「写真で出したやつにして」）。チャットは一番右
+const TABS = ['基本情報', '希望条件', 'スキシ・サマリ', '送った案件', '面談メモ', 'チャット'] as const;
 type Tab = (typeof TABS)[number];
 type View = { id: string; name: string; status: string; facts: Fact[]; summary: string; career: string; sukishiUrl: string; source: string };
 
@@ -64,8 +68,8 @@ export type ProperInitial = { view: LivePersonView; everyone: string[]; can: Per
 
 /** 要員ページの中身。ページ（/eigyo/proper/[id]）と名前の小窓（embedded＝上のパンくずを出さない・送れない）で使う */
 export function ProperDetail({ id, liver = false, embedded = false, initial }: { id: string; liver?: boolean; embedded?: boolean; initial?: ProperInitial }) {
-  const [tab, setTab] = useState<Tab>('基本・希望条件');
-  const [seen, setSeen] = useState<Tab[]>(['基本・希望条件']);
+  const [tab, setTab] = useState<Tab>('希望条件');
+  const [seen, setSeen] = useState<Tab[]>(['希望条件']);
 
   const er = useIke<EngineerRows>(initial ? null : 'roster?action=getEngineerRows&area=main');
   const live = !!initial || er.live;
@@ -79,18 +83,16 @@ export function ProperDetail({ id, liver = false, embedded = false, initial }: {
   const erRows = er.data?.rows;
   const everyone = useMemo(() => initial?.everyone ?? (erRows ?? []).map((r) => r.name), [initial, erRows]);
   const can = initial?.can ?? CAN_ALL;
-  const tabs = TABS.filter((t) => t !== 'チャット' || can.chat);
+  const tabs = TABS.filter((t) => (t === 'チャット' ? can.chat : t === '基本情報' ? can.basic && !liver : t === '面談メモ' ? !liver : true));
   const waiting = erState === 'loading' || (needPl && pl.state === 'loading') || (live && liver && lv.state === 'loading');
   const ext = embedded ? { target: '_blank', rel: 'noopener' } : {};
-  const hasMemo = !!p?.facts.some(([k, x]) => k === 'メモ' && x && x !== '—');
 
-  // 見たことを残す（本物のときだけ）：最初のタブ（メモが入っている）＝面談メモ、チャット＝チャット
+  // 見たことを残す（本物のときだけ）：基本情報・面談メモ・チャットを開いたとき
   const pname = p?.name ?? '';
-  useEffect(() => { if (live && pname && hasMemo) logView('memo', pname); }, [live, pname, hasMemo]);
   const select = (t: Tab) => {
     setTab(t);
     setSeen((s) => (s.includes(t) ? s : [...s, t]));
-    if (live && pname) { if (t === 'チャット') logView('chat', pname); else if (t === '基本・希望条件' && hasMemo) logView('memo', pname); }
+    if (live && pname) { if (t === 'チャット') logView('chat', pname); else if (t === '面談メモ') logView('memo', pname); else if (t === '基本情報') logView('basic', pname); }
   };
 
   if (!p) {
@@ -126,6 +128,7 @@ export function ProperDetail({ id, liver = false, embedded = false, initial }: {
             <div className="text-[12px] text-faint">{p.source}</div>
             <div className="text-[22px] font-bold tracking-tight">{p.name}</div>
             <div className="mt-2 flex gap-1.5"><Pill>{p.status}</Pill></div>
+            {!liver && p.source === 'プロパー' && <ScoreLine id={p.id} name={p.name} live={live} />}
           </div>
           <dl className="grid min-w-0 flex-1 basis-full grid-cols-2 gap-x-5 gap-y-2.5 text-[13px] sm:basis-[480px] sm:grid-cols-4">
             {p.facts.slice(0, 8).map(([k, val]) => <div key={k} className="min-w-0"><dt className="text-[11.5px] text-faint">{k}</dt><dd className="break-words">{val}</dd></div>)}
@@ -143,7 +146,9 @@ export function ProperDetail({ id, liver = false, embedded = false, initial }: {
       <main className="mo-axis flex flex-col gap-4 px-4 pb-12 pt-[18px] sm:px-6">
         {seen.filter((t) => tabs.includes(t)).map((t) => (
           <div key={t} hidden={t !== tab} className="flex flex-col gap-4">
-            {t === '基本・希望条件' && <Facts facts={p.facts} />}
+            {t === '基本情報' && <section className="w-full rounded-xl border border-line bg-surface px-5 py-4 text-[13px]"><PersonBasic name={p.name} live={live} /></section>}
+            {t === '希望条件' && <Facts facts={p.facts.filter(([k]) => k !== 'メモ')} />}
+            {t === '面談メモ' && <section className="w-full rounded-xl border border-line bg-surface px-5 py-4 text-[13px]"><PersonMemo name={p.name} live={live} id={p.id} initial={live ? memoOf(p as LivePersonView) : { memo: p.facts.find(([k]) => k === 'メモ')?.[1] ?? '', summary: p.summary }} /></section>}
             {t === 'スキシ・サマリ' && <Sukishi p={p} liver={liver} ext={ext} />}
             {t === '送った案件' && <SentCases name={p.name} live={live} liver={liver} />}
             {t === 'チャット' && <Chat name={p.name} live={live} everyone={everyone} embedded={embedded} canSummary={can.summary} />}
@@ -165,7 +170,7 @@ function Card({ title, sub, children }: { title: string; sub?: string; children:
 
 function Facts({ facts }: { facts: Fact[] }) {
   return (
-    <Card title="基本・希望条件" sub="今のリストに入っている値のまま">
+    <Card title="希望条件" sub="今のプロパーリストに入っている値のまま（直すのは要員リストの表から）">
       <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-[13px] sm:grid-cols-2 lg:grid-cols-3">
         {facts.map(([k, val]) => <div key={k}><dt className="text-[11.5px] text-faint">{k}</dt><dd className="whitespace-pre-wrap break-words">{val}</dd></div>)}
       </dl>

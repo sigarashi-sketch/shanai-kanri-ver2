@@ -41,6 +41,7 @@ export const NAV: NavGroup[] = [
       { href: '/eigyo/cases', label: '案件', built: true, badge: 6 },
       { href: '/eigyo/progress', label: '案件進捗', built: true, badge: 4 }, // 単独のまま。作り込み（カスタム）はあとで詰める（10-23 shoya）
       { href: '/eigyo/proper', label: '要員リスト（プロパー・スキシ）', built: true },
+      { href: '/eigyo/sales-list', label: '営業リスト一覧', built: true }, // 今の sales.html（読むだけ・10-25）
       { href: '/eigyo/skillsheet', label: 'スキルシート作成', built: true },
       { href: '/eigyo/haken', label: '派遣契約', built: true, badge: 3 }, // 労務の派遣契約と同じ画面（10-25 shoya「同じもの営業にいれたい」）
       { href: '/eigyo/taiki', label: '待機・再アサイン', built: true, badge: 7 },

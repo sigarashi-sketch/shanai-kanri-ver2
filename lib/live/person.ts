@@ -34,7 +34,7 @@ export function livePerson(id: string, er: EngineerRows | null, pl: PartnerList 
       facts: [
         ['最寄駅', v(c.eki)], ['希望職種', v(c.kibou_shokushu)], ['採用担当', v(c.tantou)], ['所属', v(c.shozoku)],
         ['稼働できる日', v(c.shoudaku_nyusha_bi || c.kadou)], ['額面', v(c.gakumen)], ['シフト', yn(c.shift)], ['夜勤', yn(c.yakin)],
-        ['出張', yn(c.shucchou)], ['並行', v(c.heikou)], ['通勤', v(c.tsuukin)], ['メモ', v(c.memo)],
+        ['出張', yn(c.shucchou)], ['並行', v(c.heikou_suu)], ['通勤', v(c.tsuukin)], ['メモ', v(c.memo)],
       ],
     };
   }
