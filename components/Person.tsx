@@ -63,7 +63,9 @@ export function PersonHost() {
           : !r.ok ? { name, live: true, error: j.error || '読めませんでした' }
           : { name, live: true, view: liveView(j.proper ?? null, j.staff ?? null) };
         setGot((g) => (g?.name === name ? v : g));
-        setTab(v.view && !v.view.proper && v.view.staff ? 'staff' : 'proper');
+        // 人事の画面から開いたら社員（人事）を先に（10-25 shoya「人事は上に出てた情報を維持したい」）
+        const jinji = location.pathname.startsWith('/jinji');
+        setTab(v.view && v.view.staff && (jinji || !v.view.proper) ? 'staff' : 'proper');
       } catch (er) { setGot((g) => (g?.name === name ? { name, live: true, error: (er as Error).message } : g)); }
     };
     const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setGot(null); };
