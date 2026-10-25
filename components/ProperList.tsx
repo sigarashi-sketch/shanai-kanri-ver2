@@ -457,7 +457,7 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
         </div>}
       </div>
       {mode === 'list' && selP && (
-        <aside aria-label={`${selP.r.name} の詳細`} className="sticky top-3 flex max-h-[calc(100vh-24px)] w-[440px] shrink-0 flex-col overflow-hidden rounded-xl border border-line bg-surface">
+        <aside aria-label={`${selP.r.name} の詳細`} className="sticky top-3 flex max-h-[calc(100vh-24px)] w-[420px] shrink-0 flex-col overflow-hidden rounded-xl border border-line bg-surface">
           <div className="border-b border-line px-4 py-3">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0"><div className="truncate text-md font-bold">{selP.r.name}</div>
@@ -789,7 +789,8 @@ function man(v: string): string {
   if (!n) return '';
   return `${n >= 1000 ? Math.round(n / 1000) / 10 : n}万`;
 }
-const LIST_GRID = 'grid grid-cols-[84px_minmax(100px,1.3fr)_64px_44px_minmax(72px,1fr)_96px_minmax(72px,1fr)_60px] @4xl:grid-cols-[84px_minmax(100px,1.3fr)_64px_44px_minmax(72px,1fr)_96px_minmax(72px,1fr)_60px_minmax(80px,1.4fr)] items-center gap-x-2';
+// 一覧の幅で列を減らす（右に詳細を出して狭くなっても横にはみ出さない）：狭い＝6列 → @2xl で属性・担当 → @4xl でメモ
+const LIST_GRID = 'grid grid-cols-[76px_minmax(96px,1.3fr)_60px_44px_minmax(64px,1fr)_88px] @2xl:grid-cols-[76px_minmax(96px,1.3fr)_60px_44px_minmax(64px,1fr)_88px_minmax(64px,1fr)_56px] @4xl:grid-cols-[76px_minmax(96px,1.3fr)_60px_44px_minmax(64px,1fr)_88px_minmax(64px,1fr)_56px_minmax(80px,1.4fr)] items-center gap-x-2';
 function ProperListView({ rows, sel, onPick, aux }: {
   rows: PRow[]; sel: string | null; onPick: (id: string) => void;
   aux: { lastReply: (n: string) => number | null | undefined; form: (n: string) => string; line: (n: string) => string };
@@ -803,7 +804,7 @@ function ProperListView({ rows, sel, onPick, aux }: {
   return (
     <div className="border-t border-line text-sm">
       <div className={`${LIST_GRID} th-row px-3 py-2 font-semibold`}>
-        <span>状態</span><span>要員名 ／ 所属</span><span>稼働</span><span className="text-right">額面</span><span>最寄駅</span><span>連絡</span><span>属性・希望</span><span>担当</span><span className="hidden @4xl:block">メモ</span>
+        <span>状態</span><span>要員名 ／ 所属</span><span>稼働</span><span className="text-right">額面</span><span>最寄駅</span><span>連絡</span><span className="hidden @2xl:block">属性・希望</span><span className="hidden @2xl:block">担当</span><span className="hidden @4xl:block">メモ</span>
       </div>
       {groups.map((g) => (
         <div key={g.k}>
@@ -825,8 +826,8 @@ function ProperListView({ rows, sel, onPick, aux }: {
                   <span className={f === '未回答' ? 'font-semibold text-bad' : 'text-muted'}>{f === '未回答' ? 'フォーム未' : 'フォーム'}</span>
                   <span className={ln === '未作成' ? 'font-semibold text-bad' : 'text-muted'}>{ln === '未作成' ? 'LINE無' : 'LINE'}</span>
                 </span>
-                <span className={`truncate ${zok ? '' : 'text-faint'}`}>{zok || '—'}</span>
-                <span className="truncate">{s(p.v.tantou) || '—'}</span>
+                <span className={`hidden truncate @2xl:block ${zok ? '' : 'text-faint'}`}>{zok || '—'}</span>
+                <span className="hidden truncate @2xl:block">{s(p.v.tantou) || '—'}</span>
                 <span className="hidden truncate text-muted @4xl:block">{s(p.v.memo).split('\n')[0]}</span>
               </button>
             );
