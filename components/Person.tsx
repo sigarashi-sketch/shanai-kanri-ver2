@@ -7,10 +7,13 @@ import { PEOPLE, PROPERS } from '@/lib/sample';
 import type { LivePersonView } from '@/lib/live/person';
 import type { LiveStaff } from '@/lib/live/staff';
 import { DrawerPortal } from './DrawerPortal';
+import { PersonChat } from './PersonChat';
+import { PersonBasic } from './PersonBasic';
 
 // 人の名前を押すと、どの画面からでも「この人の情報」が右に出る（10-25 shoya「全部共通で人の名前押すとプロパーリストだったり人事だったりの情報見れる」）。
 //   ・<PersonName name="…" /> を名前の代わりに置くだけ。押すと window に 'person:open' を投げ、Shell の <PersonHost /> が受けて開く
 //   ・タブは「要員（営業）」と「社員（人事）」。どちらにもいれば両方、片方だけならその片方。そこから要員ページ・社員ページへ
+//   ・「チャット」「基本情報」のタブも（10-25 shoya「名前クリックしたらチャットと基本情報の回答もだして」）。開いたタブだけ読む
 //   ・ログインしていれば本物（/api/live/person・読むだけ）、していなければ見本から名前で探す
 const norm = (s: string) => s.replace(/[\s　]+/g, '');
 
@@ -26,6 +29,7 @@ export function PersonName({ name, className, children }: { name: string; classN
 
 type Fact = [string, string];
 type View = { proper: { id: string; status: string; facts: Fact[]; summary?: string; sukishiUrl?: string } | null; staff: { id: string; status: string; facts: Fact[] } | null };
+type Tab = 'proper' | 'staff' | 'chat' | 'basic';
 type Got = { name: string; live: boolean; view?: View; error?: string };
 
 function sampleView(name: string): View {
@@ -46,7 +50,7 @@ function liveView(p: LivePersonView | null, s: LiveStaff | null): View {
 /** Shell に1つだけ置く。'person:open' を受けて右にこの人の情報を出す。 */
 export function PersonHost() {
   const [got, setGot] = useState<Got | null>(null);
-  const [tab, setTab] = useState<'proper' | 'staff'>('proper');
+  const [tab, setTab] = useState<Tab>('proper');
   useEffect(() => {
     const open = async (e: Event) => {
       const name = (e as CustomEvent<{ name: string }>).detail?.name;
@@ -69,28 +73,32 @@ export function PersonHost() {
   }, []);
   if (!got) return null;
   const v = got.view;
-  const cur = v ? (tab === 'proper' ? v.proper : v.staff) : null;
+  const side = tab === 'chat' || tab === 'basic';
+  const cur = v && !side ? (tab === 'proper' ? v.proper : v.staff) : null;
   return (
     <DrawerPortal>
       <div className="fixed inset-0 z-[45]" onClick={() => setGot(null)} />
-      <aside aria-label={`${got.name} さんの情報`} className="mo-drawer fixed bottom-0 right-0 top-[var(--hdr,58px)] z-[46] flex w-[min(440px,100vw)] flex-col border-l border-line bg-surface shadow-[-12px_0_28px_rgba(25,27,46,.14)]">
+      <aside aria-label={`${got.name} さんの情報`} className="mo-drawer fixed bottom-0 right-0 top-[var(--hdr,58px)] z-[46] flex w-[min(480px,100vw)] flex-col border-l border-line bg-surface shadow-[-12px_0_28px_rgba(25,27,46,.14)]">
         <div className="flex items-center gap-3 px-5 pb-2 pt-4">
           <div aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-full text-[15px] font-bold" style={{ background: 'var(--as)', color: 'var(--ad)' }}>{got.name.replace(/[\s　]/g, '').slice(0, 1)}</div>
           <div className="min-w-0 flex-1"><div className="truncate text-[17px] font-bold">{got.name}</div><div className="text-[11.5px] text-faint">{got.live ? '本物のデータ・見るだけ' : '見本データ'}</div></div>
           <button aria-label="閉じる" onClick={() => setGot(null)} className="flex size-[34px] items-center justify-center rounded-[10px] border border-line"><X size={16} /></button>
         </div>
-        <div role="tablist" className="flex gap-1 border-b border-line px-4 text-[13.5px]">
-          {([['proper', '要員（営業）'], ['staff', '社員（人事）']] as const).map(([k, l]) => (
-            <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className="px-3 py-2.5"
+        <div role="tablist" className="flex gap-0.5 overflow-x-auto border-b border-line px-4 text-[13.5px]">
+          {([['proper', '要員（営業）'], ['staff', '社員（人事）'], ['chat', 'チャット'], ['basic', '基本情報']] as const).map(([k, l]) => (
+            <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className="whitespace-nowrap px-2.5 py-2.5"
               style={tab === k ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>
-              {l}{v && !(k === 'proper' ? v.proper : v.staff) && <span className="ml-1 text-[11px] text-faint">なし</span>}
+              {l}{v && (k === 'proper' || k === 'staff') && !(k === 'proper' ? v.proper : v.staff) && <span className="ml-1 text-[11px] text-faint">なし</span>}
             </button>
           ))}
         </div>
         <div key={tab} className="mo-axis flex-1 overflow-y-auto px-5 py-4 text-[13px]">
-          {!v && !got.error && <div className="py-10 text-center text-faint">読み込み中…</div>}
-          {got.error && <div className="py-10 text-center text-bad">{got.error}{got.error.includes('ログイン') && <a href="/api/ike-auth/start" className="ml-2 underline">もう一度ログイン</a>}</div>}
-          {v && !cur && <div className="py-10 text-center text-faint">{tab === 'proper' ? '要員リスト（プロパー）にはいません' : '従業員名簿にはいません'}</div>}
+          {side && !v && !got.error && <div className="py-10 text-center text-faint">読み込み中…</div>}
+          {tab === 'chat' && (v || got.error) && <PersonChat name={got.name} live={got.live} />}
+          {tab === 'basic' && (v || got.error) && <PersonBasic name={got.name} live={got.live} />}
+          {!side && !v && !got.error && <div className="py-10 text-center text-faint">読み込み中…</div>}
+          {!side && got.error && <div className="py-10 text-center text-bad">{got.error}{got.error.includes('ログイン') && <a href="/api/ike-auth/start" className="ml-2 underline">もう一度ログイン</a>}</div>}
+          {!side && v && !cur && <div className="py-10 text-center text-faint">{tab === 'proper' ? '要員リスト（プロパー）にはいません' : '従業員名簿にはいません'}</div>}
           {cur && (
             <>
               <span className="chip" style={{ background: 'var(--as)', color: 'var(--ad)' }}>{cur.status}</span>
