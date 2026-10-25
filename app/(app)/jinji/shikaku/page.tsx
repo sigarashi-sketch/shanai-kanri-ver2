@@ -8,8 +8,9 @@ import { needText, usePerms } from '@/components/Perms';
 import { CountUp, RemainRing, useMotivation } from '@/components/Motivation';
 import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
-import { shikakuFromIke, type IkeShikakuList, type LiveShikakuApp } from '@/lib/live/shikaku';
+import { shikakuFromIke, type IkeShikakuList, type LiveMonthly, type LiveShikakuApp } from '@/lib/live/shikaku';
 import { PersonName } from '@/components/Person';
+import { ShikakuLiveActions } from '@/components/jinji/ShikakuLiveActions';
 
 // 資格手当（人事管理）＝本人の申請を 合格証の確認 → 承認 → 給与に反映 の順に片づける。
 //   ・手当の額は資格から決まる（本人は額を入れない）。「現場経験で加算」は承認のときに選ぶだけ
@@ -69,7 +70,7 @@ export default function ShikakuPage() {
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="資格手当" sub={`本人の申請（LINE の資格手当申請から）を、合格証の確認 → 承認 → 給与に反映 の順に片づけます${live ? '' : '・見本データ'}`} />
-      <LiveBanner state={ike.state} error={ike.error} onReload={ike.reload} note="今の社内システムの段階は「未確認・承認・却下」だけです。未確認を確認待ちに、承認ずみを毎月の手当に出しています（見るだけ）" />
+      <LiveBanner state={ike.state} error={ike.error} onReload={ike.reload} note="今の社内システムの段階は「未確認・承認・却下」だけです。未確認を確認待ちに、承認ずみを毎月の手当に出しています。段階・確定手当額はプルダウン／欄から選ぶとすぐ保存されます" />
       <MikeikenNote mk={mk} live={ike.live} />
       {live && <NotInLegacy what="「承認待ち」「給与に反映」の段と現場経験の加算" />}
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 1 }}>
@@ -131,7 +132,8 @@ export default function ShikakuPage() {
                           </td>
                           <td className="px-2 py-2.5"><span className="chip" style={{ background: `var(--tone-${t}-bg)`, color: `var(--tone-${t}-fg)` }}>{a.state}</span></td>
                           <td className="px-4 py-2.5">
-                            {a.state === '確認待ち' && (
+                            {live && (a as LiveShikakuApp).ike && <ShikakuLiveActions row={(a as LiveShikakuApp).ike!} onDone={ike.reload} />}
+                            {!live && a.state === '確認待ち' && (
                               <div className="flex flex-wrap items-center gap-1.5">
                                 <button onClick={() => confirm(a)} disabled={live || !canEdit || noCert} title={noW ?? (!canEdit ? needText('edit') : noCert ? '合格証が無いので確かめられません' : undefined)} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><FileCheck2 size={14} />合格証を確かめた</button>
                                 <select aria-label="差し戻しの理由" value={reason[a.id] ?? defReason(a)} disabled={live || !canEdit} title={noW} onChange={(e) => setReason((r) => ({ ...r, [a.id]: e.target.value }))} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-[12px] disabled:opacity-50">
@@ -140,8 +142,8 @@ export default function ShikakuPage() {
                                 <button onClick={() => reject(a)} disabled={live || !canEdit} title={noW ?? (!canEdit ? needText('edit') : undefined)} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-[12.5px] text-muted disabled:opacity-40"><CornerUpLeft size={14} />差し戻す</button>
                               </div>
                             )}
-                            {a.state === '承認待ち' && <button onClick={() => approve(a)} disabled={live || !canApprove} title={noW ?? (!canApprove ? needText('approve') : undefined)} className="btn-primary inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg px-3 text-[12.5px] font-bold disabled:opacity-40"><Check size={14} />承認する</button>}
-                            {a.state === '反映待ち' && <button onClick={() => reflect(a)} disabled={live || !canEdit} title={noW ?? (!canEdit ? needText('edit') : undefined)} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>{PAY_MONTH}の給与に反映</button>}
+                            {!live && a.state === '承認待ち' && <button onClick={() => approve(a)} disabled={live || !canApprove} title={noW ?? (!canApprove ? needText('approve') : undefined)} className="btn-primary inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg px-3 text-[12.5px] font-bold disabled:opacity-40"><Check size={14} />承認する</button>}
+                            {!live && a.state === '反映待ち' && <button onClick={() => reflect(a)} disabled={live || !canEdit} title={noW ?? (!canEdit ? needText('edit') : undefined)} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>{PAY_MONTH}の給与に反映</button>}
                           </td>
                         </tr>
                       );
@@ -159,7 +161,7 @@ export default function ShikakuPage() {
               <span className="text-[12.5px] text-muted">{monthly.length}人</span>
             </div>
             <table className="w-full border-collapse text-[13px]">
-              <thead><tr className="th-row text-left"><th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">資格</th><th className="px-2 py-2.5 font-semibold">{live ? '申請した月' : 'いつから'}</th><th className="px-4 py-2.5 text-right font-semibold">月の手当</th></tr></thead>
+              <thead><tr className="th-row text-left"><th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">資格</th><th className="px-2 py-2.5 font-semibold">{live ? '申請した月' : 'いつから'}</th><th className="px-4 py-2.5 text-right font-semibold">月の手当</th>{live && <th className="px-4 py-2.5 font-semibold">段階・確定額</th>}</tr></thead>
               <tbody>
                 {monthly.map((m, i) => (
                   <tr key={`${m.personId || m.name}-${m.cert}-${m.since}`} className="row mo-fade-in border-t border-line-soft" style={{ ['--i' as string]: i }}>
@@ -167,6 +169,7 @@ export default function ShikakuPage() {
                     <td className="px-2 py-2.5">{m.cert}</td>
                     <td className="num px-2 py-2.5 text-muted">{m.since}〜</td>
                     <td className="num px-4 py-2.5 text-right font-semibold">{yen(m.amount)}</td>
+                    {live && <td className="px-4 py-2.5">{(m as LiveMonthly).ike && <ShikakuLiveActions row={(m as LiveMonthly).ike!} onDone={ike.reload} />}</td>}
                   </tr>
                 ))}
               </tbody>

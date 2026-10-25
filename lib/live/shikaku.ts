@@ -13,8 +13,8 @@ export type IkeShikakuRow = {
 };
 export type IkeShikakuList = { ok: boolean; rows?: IkeShikakuRow[]; error?: string };
 
-export type LiveShikakuApp = ShikakuApp & { amount: number; certUrl?: string; receiptUrl?: string; masterUnknown?: boolean };
-export type LiveMonthly = { personId: string; name: string; cert: string; amount: number; since: string };
+export type LiveShikakuApp = ShikakuApp & { amount: number; certUrl?: string; receiptUrl?: string; masterUnknown?: boolean; ike?: IkeShikakuRow };
+export type LiveMonthly = { personId: string; name: string; cert: string; amount: number; since: string; ike?: IkeShikakuRow };
 
 const jst = (iso: string) => { const t = Date.parse(iso); return Number.isFinite(t) ? new Date(t + 9 * 3600e3).toISOString() : ''; };
 const md = (s: string) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s); return m ? `${m[2]}/${m[3]}` : s || '—'; };
@@ -27,10 +27,10 @@ export function shikakuFromIke(j: IkeShikakuList | null): { apps: LiveShikakuApp
     id: r.id, personId: '', name: r.name || '（氏名なし）', cert: r.cert || '（資格なし）',
     passedOn: md(r.exam_date), filedAt: md(jst(r.created_at)), years: -1,
     files: [...(r.cert_url ? ['合格証' as const] : []), ...(r.receipt_url ? ['領収書' as const] : [])],
-    state: '確認待ち', amount: amountOfRow(r), certUrl: r.cert_url || undefined, receiptUrl: r.receipt_url || undefined, masterUnknown: !r.master_known,
+    state: '確認待ち', amount: amountOfRow(r), certUrl: r.cert_url || undefined, receiptUrl: r.receipt_url || undefined, masterUnknown: !r.master_known, ike: r,
   }));
   const monthly: LiveMonthly[] = rows.filter((r) => r.status === '承認').map((r) => ({
-    personId: '', name: r.name || '（氏名なし）', cert: r.cert || '（資格なし）', amount: amountOfRow(r), since: ym(jst(r.created_at)),
+    personId: '', name: r.name || '（氏名なし）', cert: r.cert || '（資格なし）', amount: amountOfRow(r), since: ym(jst(r.created_at)), ike: r,
   }));
   return { apps, monthly };
 }

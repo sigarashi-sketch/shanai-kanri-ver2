@@ -12,14 +12,21 @@ export type IkeRosterRow = {
   name: string; kana?: string; rep?: string; joi?: string; shozoku?: string; shozokuKadou?: string; keiyaku?: string;
   joukyou?: string; start?: string; end?: string; tanka?: string; homeEki?: string; siteEki?: string;
   provisional?: boolean; carriedFrom?: string; nyusha?: string;
+  hasLine?: boolean; lineGroup?: string; lineGroupId?: string; shokaiEnd?: string;
 };
 export type IkeRosterData = { success?: boolean; error?: string; rows?: IkeRosterRow[]; selected?: { name?: string } };
-export type IkeRosterStatus = { normalized_name: string; taisha?: boolean; taisha_bi?: string; taiki?: boolean; status_override?: string };
+export type IkeRosterStatus = { normalized_name: string; name?: string; taisha?: boolean; taisha_bi?: string; taiki?: boolean; status_override?: string; taiki_yotei_bi?: string | null; taisha_yotei_bi?: string | null };
 export type IkeSalesOverlay = Record<string, {
   tantou?: string; saiAssign?: boolean; sankakuKettei?: boolean; jitai?: boolean; poa?: boolean;
   nyuujouBi?: string; updatedAt?: string; mnmKakutei?: boolean; mnmJoined?: string;
 }>;
 export type IkeNyushaOverlay = Record<string, { nyushaBi?: string; shokaiEnd?: string; taijouBi?: string }>;
+/** 名簿で直せる印の今の値（10-25 書く口を足した。画面のチェック・日付の初めの値と、取り消し用の元の値） */
+export type StaffEdit = {
+  taisha: boolean; taiki: boolean; override: string; taikiYotei: string; taishaYotei: string;
+  sai: boolean; sankaku: boolean; jitai: boolean; poa: boolean;
+  nyushaManual: string; shokaiEnd: string; nyuujouRaw: string; hasLine: boolean; lineGroup: string; lineGroupId: string;
+};
 
 // ---- この画面の形 ----------------------------------------------------------------
 export type RosterStatusKey = 'kadou' | 'yotei' | 'zaiseki' | 'taiki' | 'kyushoku' | 'taisha';
@@ -39,6 +46,7 @@ export type LiveStaff = {
   personId: string;
   /** 前の形の id（氏名から作ったもの）。古いリンク（/jinji/staff/r…）から来たときに、この人を探すため */
   nameId: string;
+  edit?: StaffEdit;
 };
 export type LiveStaffList = { ok: true; month: string; today: string; rows: LiveStaff[]; warnings: string[] };
 
@@ -161,6 +169,12 @@ export function buildStaffList(
       taijou: parseDateIso(ny.taijouBi), taishaBi: parseDateIso(st?.taisha_bi),
       station: r.homeEki || '—', price: shortYen(r.tanka || ''), sales: r.rep || '—', recruiter: s.tantou || '—',
       company: r.shozokuKadou || r.shozoku || '', provisional: !!r.provisional, carriedFrom: r.carriedFrom || '',
+      edit: {
+        taisha: !!st?.taisha, taiki: !!st?.taiki, override: st?.status_override || '', taikiYotei: parseDateIso(st?.taiki_yotei_bi), taishaYotei: parseDateIso(st?.taisha_yotei_bi),
+        sai: !!s.saiAssign, sankaku: !!s.sankakuKettei, jitai: !!s.jitai, poa: !!s.poa,
+        nyushaManual: parseDateIso(ny.nyushaBi), shokaiEnd: parseDateIso(ny.shokaiEnd) || parseDateIso(r.shokaiEnd), nyuujouRaw: String(s.nyuujouBi || ''),
+        hasLine: !!r.hasLine, lineGroup: r.lineGroup || '', lineGroupId: r.lineGroupId || '',
+      },
     };
   });
   return { ok: true, month: roster.selected?.name || '', today, rows, warnings };

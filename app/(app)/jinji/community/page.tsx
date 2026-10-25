@@ -10,6 +10,7 @@ import { LiveBanner, NotInLegacy, useIke } from '@/components/Live';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { communitiesFromIke, type IkeTeams } from '@/lib/live/community';
 import { PersonName } from '@/components/Person';
+import { TeamsEditor } from '@/components/jinji/TeamsEditor';
 
 // コミュニティ（人事管理）＝勉強会・イベントの予定と参加者、参加の呼びかけ。
 //   ・呼びかけは「誰に」を選ぶだけ → LINE 配信の下書きに入る（送るのは配信の画面で、送れる人だけ）
@@ -34,6 +35,7 @@ export default function CommunityPage() {
   const live = ike.live;
   // 本物は未経験の人だけ（今のプロパーリストに入っている人）：人数はメンバーのうち未経験の人・リーダーも未経験でなければ出さない
   const mk = useMikeiken();
+  const liveTeams = useMemo(() => (ike.data?.teams || []).map((t) => ({ ...t, members: mk.keep(t.members || [], (m) => m.name || m.norm_name) })).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)), [ike.data, mk]);
   const liveComms = useMemo(() => communitiesFromIke(ike.data ? {
     ...ike.data,
     teams: (ike.data.teams || []).map((t) => ({
@@ -59,7 +61,7 @@ export default function CommunityPage() {
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="コミュニティ" sub={`勉強会・イベントの予定と参加者。呼びかけは「誰に」を選ぶだけ${live ? '' : '・見本データ'}`} />
-      <LiveBanner state={ike.state} error={ike.error} onReload={ike.reload} note="コミュニティの名前・リーダー・人数は今の社内システムから（見るだけ）。勉強会・イベントの予定と出欠は見本のままです" />
+      <LiveBanner state={ike.state} error={ike.error} onReload={ike.reload} note="コミュニティの名前・リーダー・人数は今の社内システムから。「班分けを直す」で班の人・リーダー・班名を直せます（すぐ保存）。勉強会・イベントの予定と出欠は見本のままです" />
       <MikeikenNote mk={mk} live={ike.live} />
       {live && <NotInLegacy what="勉強会・イベントの予定・出欠・コミュニティ面談の件数" />}
 
@@ -76,6 +78,9 @@ export default function CommunityPage() {
         ))}
         {!live && <div className="rounded-xl border border-line bg-surface px-4 py-3 text-[12.5px]"><div className="text-muted">今週のコミュニティ面談</div><div className="num text-[20px] font-bold">{MENDAN_THIS_WEEK}<span className="text-[12px] text-muted">件</span></div></div>}
       </div>
+
+      {/* 班分けを直す（今のコミュニティの画面と同じ口・本物のときだけ・10-25） */}
+      {live && mk.state === 'ready' && <TeamsEditor teams={liveTeams} onDone={ike.reload} />}
 
       {remain === 0 && <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-6 text-center"><Check className="mx-auto text-ok" size={22} /><div className="mt-1.5 text-[14px] font-bold">予定の呼びかけはぜんぶ済みました</div></div>}
 
