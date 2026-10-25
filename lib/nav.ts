@@ -96,6 +96,18 @@ export const NAV_HORYU: NavItem[] = [
   { href: '/horyu/links', label: 'LINEの紐付け管理', built: true },
   { href: '/horyu/dropout', label: 'dropout した人', built: true },
   { href: '/horyu/orphans', label: '営業リスト外グループ', built: true },
+  { href: '/horyu/freee', label: 'freee 請求書', built: true },
+  { href: '/horyu/keiyaku', label: '契約報告の雛形', built: true },
+  { href: '/horyu/arari', label: '粗利試算', built: true },
+  { href: '/horyu/bikkura', label: 'たまげたポン 管理', built: true },
+  { href: '/horyu/kashitsuke', label: '貸付管理', built: true },
+  { href: '/horyu/ippass', label: 'アイパス管理', built: true },
+  { href: '/horyu/page-access', label: 'ロール別ページ表示', built: true },
+  { href: '/horyu/ops-log', label: '操作ログ', built: true },
+  { href: '/horyu/access-log', label: 'アクセス元IP', built: true },
+  { href: '/horyu/custom-pages', label: 'カスタムページ', built: true },
+  { href: '/horyu/calendar', label: 'カレンダー設定', built: true },
+  { href: '/horyu/settings-center', label: '設定センター', built: true },
 ];
 
 export function findNav(pathname: string): { group?: NavGroup; item?: NavItem } {

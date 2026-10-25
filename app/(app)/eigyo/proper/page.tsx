@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AlertTriangle, Search, X } from 'lucide-react';
 import { LIVERS, PEOPLE, PROPERS, type Proper } from '@/lib/sample';
 import { StaffList } from '@/components/lists/StaffList';
+import { LiverLive } from '@/components/lists/LiverLive';
 import { PageTitle, Pill, PrimaryButton } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
@@ -211,32 +212,7 @@ function SharedTab({ live }: { live: boolean }) {
 
 function LiverTab({ live }: { live: boolean }) {
   const tone: Record<string, { bg: string; fg: string }> = { 連絡中: { bg: 'var(--tone-info-bg)', fg: 'var(--tone-info-fg)' }, 面談予定: { bg: 'var(--tone-warn-bg)', fg: 'var(--tone-warn-fg)' }, 見送り: { bg: 'var(--tone-mute-bg)', fg: 'var(--tone-mute-fg)' } };
-  const lv = useIke<LiverList>(live ? 'livers' : null);
-  if (live) return (
-    <div className="flex flex-col gap-2">
-      <p className="text-[12.5px] text-muted">今のライバーリスト（プロパーには入れない別のリスト・全体管理者だけ）。状態・メモを直すのは今の画面から。</p>
-      {lv.state === 'error' && <div className="rounded-xl px-4 py-2.5 text-[12.5px]" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>{lv.error}</div>}
-      <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-        <table className="w-full min-w-[720px] border-collapse text-[13px]">
-          <thead><tr className="th-row text-left">
-            <th className="px-4 py-2.5 font-semibold">名前</th><th className="px-2 py-2.5 font-semibold">承諾日</th><th className="px-2 py-2.5 font-semibold">入社日</th><th className="px-2 py-2.5 font-semibold">採用担当</th><th className="px-2 py-2.5 font-semibold">状態</th><th className="px-4 py-2.5 font-semibold">メモ</th>
-          </tr></thead>
-          <tbody>
-            {lv.state === 'loading' && <tr><td colSpan={6} className="px-4 py-8 text-center text-muted">読み込み中…</td></tr>}
-            {(lv.data?.rows ?? []).map((l, i) => (
-              <tr key={l.id} className="row mo-fade-in border-t border-line-soft" style={{ ['--i' as string]: Math.min(i, 20) }}>
-                <td className="px-4 py-2.5 font-semibold"><Link href={`/eigyo/proper/${l.id}?list=liver`} className="hover:underline">{l.name}</Link>{lv.data?.inProper.includes(l.id) && <span className="ml-1.5 text-[11px] font-normal text-warn">プロパーにも居る</span>}</td>
-                <td className="px-2 py-2.5">{l.shoudaku_bi || '—'}</td><td className="px-2 py-2.5">{l.nyusha_bi || '—'}</td><td className="px-2 py-2.5">{l.tantou || '—'}</td>
-                <td className="px-2 py-2.5">{l.status ? <Pill>{l.status}</Pill> : <span className="text-faint">—</span>}</td>
-                <td className="max-w-[320px] px-4 py-2.5 text-muted"><span className="line-clamp-2">{l.memo || ''}</span></td>
-              </tr>
-            ))}
-            {lv.state === 'live' && !(lv.data?.rows ?? []).length && <tr><td colSpan={6} className="px-4 py-8 text-center text-muted">まだいません</td></tr>}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+  if (live) return <LiverLive />; // 本物＝足す・直す・消す（10-25・components/lists/LiverLive.tsx）
   return (
     <div className="flex flex-col gap-2">
       <p className="text-[12.5px] text-muted">プロパーには入れない別のリストです（全体管理者だけ）。</p>
