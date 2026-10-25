@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 
 // 名前の小窓の「基本情報」タブ（10-25 shoya）。基本情報フォームの回答（健康・連絡先・住所・生年月日は出さない）を読むだけ
 //   読むのは /api/live/basic-info（今の GET basic-info?action=detail&health=0 を小窓用に削ったもの）。タブを開いたときだけ読む
+//   名前は URL に出さない（POST・10-25）。見られるのは管理者と採用の担当だけ（ほかは理由の文が返る）
 type Res = {
   answered?: boolean; facts?: [string, string][]; analysis?: { label: string; value: string }[];
   work?: { company: string; from: string; to: string; emp: string; job: string; description: string }[]; note?: string; error?: string;
@@ -21,7 +22,7 @@ export function PersonBasic({ name, live }: { name: string; live: boolean }) {
     let on = true;
     setRes(null);
     if (!live) { setRes(SAMPLE); return; }
-    fetch(`/api/live/basic-info?name=${encodeURIComponent(name)}`)
+    fetch('/api/live/basic-info', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
       .then(async (r) => (await r.json().catch(() => ({ error: `読めませんでした（${r.status}）` }))) as Res)
       .then((j) => { if (on) setRes(j); })
       .catch((e) => { if (on) setRes({ error: (e as Error).message }); });

@@ -6,11 +6,13 @@
 //   ・チャットだけは送れる（長押し）。送る口は /api/live/chat（今の POST /api/chat の send / groupSend だけ通す）
 //     グループに送ってよいかは今の API が決める。断られたら理由をそのまま出す。見本のときは送らない
 //   ・それ以外の書き込み（スキシを作る・メモを直す 等）はここには置かない
+//   ・名前の小窓（embedded）では送れない（送る欄を出さない・10-25）。小窓が読んだ分（initial）を使い、プロパーリストを読み直さない
+//     読めなかったときも 404 にしない（後ろの画面まで「見つからない」にしない）。リンクは別タブで開く
 import { ChatSummary } from '@/components/ChatSummary';
 import { ChatLog } from '@/components/ChatLog';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { LIVERS, PEOPLE, PROPERS } from '@/lib/sample';
 import { Pill } from '@/components/ui';
 import { useMotivation } from '@/components/Motivation';
@@ -18,8 +20,8 @@ import { LiveBanner, NotInLegacy, useIke } from '@/components/Live';
 import type { EngineerRows } from '@/lib/live/eigyo-common';
 import type { LiverList, PartnerList } from '@/lib/live/proper';
 import {
-  contactsOf, groupBubbles, groupsOf, livePerson, memberOf, threadBubbles,
-  type Bubble, type ContactsRes, type Fact, type GroupsRes, type GroupThreadRes, type MemberRow, type MembersRes, type ThreadRes,
+  CAN_ALL, contactsOf, groupBubbles, groupsOf, livePerson, logView, memberOf, threadBubbles,
+  type Bubble, type ContactsRes, type Fact, type GroupsRes, type GroupThreadRes, type LivePersonView, type MemberRow, type MembersRes, type PersonCan, type ThreadRes,
 } from '@/lib/live/person';
 
 const TABS = ['基本・希望条件', 'スキシ・サマリ', '送った案件', 'チャット'] as const;
@@ -57,28 +59,55 @@ const SAMPLE_GROUP_MSGS: Bubble[] = [
   { key: 'g2', out: false, who: '本人', text: 'ありがとうございます、ぜひ進めたいです', at: '10/21 12:15' },
 ];
 
-/** 要員ページの中身。ページ（/eigyo/proper/[id]）と名前の小窓（embedded＝上のパンくずを出さない）で使う */
-export function ProperDetail({ id, liver = false, embedded = false }: { id: string; liver?: boolean; embedded?: boolean }) {
+/** 名前の小窓が /api/live/person で読んだ分 */
+export type ProperInitial = { view: LivePersonView; everyone: string[]; can: PersonCan };
+
+/** 要員ページの中身。ページ（/eigyo/proper/[id]）と名前の小窓（embedded＝上のパンくずを出さない・送れない）で使う */
+export function ProperDetail({ id, liver = false, embedded = false, initial }: { id: string; liver?: boolean; embedded?: boolean; initial?: ProperInitial }) {
   const [tab, setTab] = useState<Tab>('基本・希望条件');
+  const [seen, setSeen] = useState<Tab[]>(['基本・希望条件']);
 
-  const er = useIke<EngineerRows>('roster?action=getEngineerRows&area=main');
-  const live = er.live;
-  const needPl = live && !liver && !er.data?.rows?.some((r) => r.row === id) && !id.startsWith('n:');
+  const er = useIke<EngineerRows>(initial ? null : 'roster?action=getEngineerRows&area=main');
+  const live = !!initial || er.live;
+  const erState = initial ? 'live' : er.state;
+  const needPl = !initial && live && !liver && !er.data?.rows?.some((r) => r.row === id) && !id.startsWith('n:');
   const pl = useIke<PartnerList>(needPl ? 'partner-list?action=list' : null);
-  const lv = useIke<LiverList>(live && liver ? 'livers' : null);
+  const lv = useIke<LiverList>(!initial && live && liver ? 'livers' : null);
 
-  const lp = live ? livePerson(id, er.data, pl.data, lv.data, liver) : null;
+  const lp = initial ? initial.view : live ? livePerson(id, er.data, pl.data, lv.data, liver) : null;
   const p: View | null = live ? lp : samplePerson(id, liver);
-  const everyone = useMemo(() => (er.data?.rows ?? []).map((r) => r.name), [er.data]);
-  const waiting = er.state === 'loading' || (needPl && pl.state === 'loading') || (live && liver && lv.state === 'loading');
+  const erRows = er.data?.rows;
+  const everyone = useMemo(() => initial?.everyone ?? (erRows ?? []).map((r) => r.name), [initial, erRows]);
+  const can = initial?.can ?? CAN_ALL;
+  const tabs = TABS.filter((t) => t !== 'チャット' || can.chat);
+  const waiting = erState === 'loading' || (needPl && pl.state === 'loading') || (live && liver && lv.state === 'loading');
+  const ext = embedded ? { target: '_blank', rel: 'noopener' } : {};
+  const hasMemo = !!p?.facts.some(([k, x]) => k === 'メモ' && x && x !== '—');
+
+  // 見たことを残す（本物のときだけ）：最初のタブ（メモが入っている）＝面談メモ、チャット＝チャット
+  const pname = p?.name ?? '';
+  useEffect(() => { if (live && pname && hasMemo) logView('memo', pname); }, [live, pname, hasMemo]);
+  const select = (t: Tab) => {
+    setTab(t);
+    setSeen((s) => (s.includes(t) ? s : [...s, t]));
+    if (live && pname) { if (t === 'チャット') logView('chat', pname); else if (t === '基本・希望条件' && hasMemo) logView('memo', pname); }
+  };
 
   if (!p) {
     if (waiting) return <div className="px-6 py-10 text-[13px] text-muted">読み込み中…</div>;
-    if (!live) notFound();
+    if (er.state === 'error') return (
+      <div className="flex flex-wrap items-center gap-2 px-6 py-10 text-[13px]">
+        <span className="text-bad">{er.error || '読めませんでした'}</span>
+        {er.error?.includes('ログイン') ? <a href="/api/ike-auth/start" className="font-semibold underline">もう一度ログイン</a>
+          : <button type="button" onClick={er.reload} className="min-h-8 rounded-lg border border-field px-3 font-semibold">もう一度読む</button>}
+      </div>
+    );
+    if (!live && !embedded) notFound();
+    if (!live) return <div className="px-6 py-10 text-[13px] text-muted">見本のリストにこの人はいません。ログインすると本物が見られます。</div>;
     return (
       <div className="px-6 py-10 text-[13px]">
         <p>この人は今のリストに見つかりませんでした（営業止め・辞退になったか、ほかのエリアの人かもしれません）。</p>
-        <Link href="/eigyo/proper" className="mt-2 inline-block font-semibold hover:underline" style={{ color: 'var(--ad)' }}>要員リストへ戻る</Link>
+        <Link href="/eigyo/proper" {...ext} className="mt-2 inline-block font-semibold hover:underline" style={{ color: 'var(--ad)' }}>要員リストへ戻る</Link>
       </div>
     );
   }
@@ -89,32 +118,37 @@ export function ProperDetail({ id, liver = false, embedded = false }: { id: stri
       {!embedded && <div className="flex items-center gap-2 border-b border-line bg-surface px-6 py-2.5 text-[13px]">
         <Link href="/eigyo/proper" className="text-muted hover:underline">{back}</Link><span className="text-faint">/</span><b>{p.name}</b>
       </div>}
-      <section className="mo-fade-up border-b border-line bg-surface px-6 pt-5">
-        <LiveBanner state={er.state} error={er.error} onReload={er.reload} note={live ? `${p.source}の値です（読むだけ）。チャットだけは長押しで送れます` : undefined} />
+      <section className="mo-fade-up border-b border-line bg-surface px-4 pt-5 sm:px-6">
+        <LiveBanner state={erState} error={er.error} onReload={er.reload} note={live ? (embedded ? `${p.source}の値です（見るだけ）` : `${p.source}の値です（読むだけ）。チャットだけは長押しで送れます`) : undefined} />
         <div className="mt-2 flex flex-wrap items-start gap-5">
           <div aria-hidden className="flex size-[72px] shrink-0 items-center justify-center rounded-full text-[26px] font-bold" style={{ background: 'var(--as)', color: 'var(--ad)', boxShadow: '0 0 0 3px var(--color-surface), 0 0 0 5px var(--al)' }}>{p.name[0]}</div>
-          <div className="w-[210px]">
+          <div className="min-w-0 flex-1 sm:w-[210px] sm:flex-none">
             <div className="text-[12px] text-faint">{p.source}</div>
             <div className="text-[22px] font-bold tracking-tight">{p.name}</div>
             <div className="mt-2 flex gap-1.5"><Pill>{p.status}</Pill></div>
           </div>
-          <dl className="grid min-w-[480px] flex-1 grid-cols-4 gap-x-5 gap-y-2.5 text-[13px]">
-            {p.facts.slice(0, 8).map(([k, val]) => <div key={k}><dt className="text-[11.5px] text-faint">{k}</dt><dd className="break-words">{val}</dd></div>)}
+          <dl className="grid min-w-0 flex-1 basis-full grid-cols-2 gap-x-5 gap-y-2.5 text-[13px] sm:basis-[480px] sm:grid-cols-4">
+            {p.facts.slice(0, 8).map(([k, val]) => <div key={k} className="min-w-0"><dt className="text-[11.5px] text-faint">{k}</dt><dd className="break-words">{val}</dd></div>)}
           </dl>
         </div>
         <div role="tablist" className="mt-4 flex gap-1 overflow-x-auto text-[13.5px]">
-          {TABS.map((t) => (
-            <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className="whitespace-nowrap px-3 py-2.5"
+          {tabs.map((t) => (
+            <button key={t} role="tab" aria-selected={tab === t} onClick={() => select(t)} className="whitespace-nowrap px-3 py-2.5"
               style={tab === t ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>{t}</button>
           ))}
         </div>
       </section>
 
-      <main key={tab} className="mo-axis flex flex-col gap-4 px-6 pb-12 pt-[18px]">
-        {tab === '基本・希望条件' && <Facts facts={p.facts} />}
-        {tab === 'スキシ・サマリ' && <Sukishi p={p} liver={liver} />}
-        {tab === '送った案件' && <SentCases name={p.name} live={live} liver={liver} />}
-        {tab === 'チャット' && <Chat name={p.name} live={live} everyone={everyone} />}
+      {/* 一度開いたタブは出したまま（切り替えで読み直さない・10-25） */}
+      <main className="mo-axis flex flex-col gap-4 px-4 pb-12 pt-[18px] sm:px-6">
+        {seen.filter((t) => tabs.includes(t)).map((t) => (
+          <div key={t} hidden={t !== tab} className="flex flex-col gap-4">
+            {t === '基本・希望条件' && <Facts facts={p.facts} />}
+            {t === 'スキシ・サマリ' && <Sukishi p={p} liver={liver} ext={ext} />}
+            {t === '送った案件' && <SentCases name={p.name} live={live} liver={liver} />}
+            {t === 'チャット' && <Chat name={p.name} live={live} everyone={everyone} embedded={embedded} canSummary={can.chat} />}
+          </div>
+        ))}
       </main>
     </div>
   );
@@ -139,7 +173,7 @@ function Facts({ facts }: { facts: Fact[] }) {
   );
 }
 
-function Sukishi({ p, liver }: { p: View; liver: boolean }) {
+function Sukishi({ p, liver, ext }: { p: View; liver: boolean; ext: { target?: string; rel?: string } }) {
   if (liver) return <NotInLegacy what="ライバーのスキルシート" />;
   return (
     <>
@@ -151,7 +185,7 @@ function Sukishi({ p, liver }: { p: View; liver: boolean }) {
       </Card>
       <div className="flex flex-wrap gap-2">
         {p.sukishiUrl && <a href={p.sukishiUrl} target="_blank" rel="noreferrer" className="btn inline-flex min-h-10 items-center rounded-[10px] border border-field px-4 text-[13.5px] font-semibold">スキルシートを開く</a>}
-        <Link href={`/eigyo/skillsheet?q=${encodeURIComponent(p.name)}`} className="btn inline-flex min-h-10 items-center rounded-[10px] border border-field px-4 text-[13.5px] font-semibold">スキルシートの画面で見る</Link>
+        <Link href={`/eigyo/skillsheet?q=${encodeURIComponent(p.name)}`} {...ext} className="btn inline-flex min-h-10 items-center rounded-[10px] border border-field px-4 text-[13.5px] font-semibold">スキルシートの画面で見る</Link>
       </div>
     </>
   );
@@ -212,7 +246,7 @@ function HoldButton({ label, onDone, disabled, title }: { label: string; onDone:
   );
 }
 
-function Chat({ name, live, everyone }: { name: string; live: boolean; everyone: string[] }) {
+function Chat({ name, live, everyone, embedded, canSummary }: { name: string; live: boolean; everyone: readonly string[]; embedded: boolean; canSummary: boolean }) {
   const [sub, setSub] = useState<'個人' | 'グループ'>('個人');
   const contacts = useIke<ContactsRes>(live && sub === '個人' ? 'chat?action=contacts' : null);
   const groups = useIke<GroupsRes>(live && sub === 'グループ' ? 'chat?action=groups' : null);
@@ -220,7 +254,9 @@ function Chat({ name, live, everyone }: { name: string; live: boolean; everyone:
   const myGroups = live ? groupsOf(groups.data, name, everyone) : SAMPLE_GROUPS;
   const [uid, setUid] = useState('');
   const [gid, setGid] = useState('');
-  const userId = uid || mine[0]?.line_user_id || '';
+  // 同じ名前の LINE の相手が2人以上なら勝手に選ばない（送り先を間違えないように・10-25）
+  const userId = uid || (mine.length === 1 ? mine[0].line_user_id : '');
+  const mustPick = live && sub === '個人' && mine.length > 1 && !uid;
   const groupId = gid || myGroups[0]?.groupId || '';
   const th = useIke<ThreadRes>(live && sub === '個人' && userId ? `chat?action=thread&userId=${encodeURIComponent(userId)}` : null);
   const gt = useIke<GroupThreadRes>(live && sub === 'グループ' && groupId ? `chat?action=groupThread&groupId=${encodeURIComponent(groupId)}` : null);
@@ -230,7 +266,7 @@ function Chat({ name, live, everyone }: { name: string; live: boolean; everyone:
   const loading = live && (list.state === 'loading' || (sub === '個人' ? !!userId && th.state === 'loading' : !!groupId && gt.state === 'loading'));
   const err = live ? list.error || (sub === '個人' ? th.error : gt.error) : '';
   const target = sub === '個人' ? userId : groupId;
-  const none = live && list.state === 'live' && !target;
+  const none = live && list.state === 'live' && !target && !mustPick;
 
   return (
     <section className="overflow-hidden rounded-xl border border-line bg-surface">
@@ -243,26 +279,31 @@ function Chat({ name, live, everyone }: { name: string; live: boolean; everyone:
           </button>
         ))}
         {sub === '個人' && mine.length > 1 && (
-          <select value={userId} onChange={(e) => setUid(e.target.value)} aria-label="LINE の相手" className="ml-auto min-h-9 rounded-full border border-field bg-surface px-3 text-[12.5px]">
+          <select value={userId} onChange={(e) => setUid(e.target.value)} aria-label="LINE の相手" className="ml-auto min-h-9 min-w-0 max-w-full rounded-full border border-field bg-surface px-3 text-[12.5px]">
+            {!uid && <option value="">相手を選んでください</option>}
             {mine.map((c) => <option key={c.line_user_id} value={c.line_user_id}>{c.display_name || 'LINE の相手'}</option>)}
           </select>
         )}
+        {sub === '個人' && mine.length > 1 && <span className="chip" style={{ background: 'var(--tone-caution-bg)', color: 'var(--tone-caution-fg)' }}>同じ名前の相手が{mine.length}人います</span>}
         {sub === 'グループ' && myGroups.length > 1 && (
-          <select value={groupId} onChange={(e) => setGid(e.target.value)} aria-label="LINE グループ" className="ml-auto min-h-9 max-w-[320px] rounded-full border border-field bg-surface px-3 text-[12.5px]">
+          <select value={groupId} onChange={(e) => setGid(e.target.value)} aria-label="LINE グループ" className="ml-auto min-h-9 min-w-0 max-w-full sm:max-w-[320px] rounded-full border border-field bg-surface px-3 text-[12.5px]">
             {myGroups.map((g) => <option key={g.groupId} value={g.groupId}>{g.name}</option>)}
           </select>
         )}
         {sub === 'グループ' && myGroups.length === 1 && <span className="ml-auto text-[12.5px] text-muted">{myGroups[0].name}</span>}
-        {(!live || target) && <span className={(sub === '個人' ? mine.length > 1 : myGroups.length >= 1) ? '' : 'ml-auto'}><ChatSummary kind={sub === '個人' ? 'user' : 'group'} id={target || 'sample0'} name={sub === '個人' ? name : myGroups.find((g) => g.groupId === groupId)?.name || name} live={live} /></span>}
+        {(!live || target) && canSummary && <span className={(sub === '個人' ? mine.length > 1 : myGroups.length >= 1) ? '' : 'ml-auto'}><ChatSummary kind={sub === '個人' ? 'user' : 'group'} id={target || 'sample0'} name={sub === '個人' ? name : myGroups.find((g) => g.groupId === groupId)?.name || name} live={live} /></span>}
       </div>
       <ChatLog bubbles={loading ? [] : bubbles} className="max-h-[520px] min-h-[260px]" resetKey={`${sub}:${target}`}>
         {!live && <p className="text-center text-[12px] text-faint">見本のトークです</p>}
         {loading && <p className="text-[13px] text-muted">読み込み中…</p>}
         {err && <p className="text-[13px] text-bad">{err}</p>}
+        {mustPick && <p className="text-[13px] text-muted">同じ名前の LINE の相手が{mine.length}人います。表示名を見て、上で選んでください</p>}
         {none && <p className="text-[13px] text-muted">{sub === '個人' ? 'この人に紐付いた LINE の相手がいません（今のチャット画面で紐付けると出ます）' : 'グループ名にこの人の名前が入った LINE グループがありません'}</p>}
       </ChatLog>
-      <Composer kind={sub === '個人' ? 'person' : 'group'} target={target} live={live} disabled={live && !target}
-        onSent={() => (sub === '個人' ? th.reload() : gt.reload())} />
+      {embedded
+        ? <p className="border-t border-line-soft px-[18px] py-3 text-[12px] text-faint">見るだけです。送るのは要員ページのチャットから。パスワードらしい文字は伏せています</p>
+        : <Composer kind={sub === '個人' ? 'person' : 'group'} target={target} live={live} disabled={live && !target}
+          onSent={() => (sub === '個人' ? th.reload() : gt.reload())} />}
     </section>
   );
 }

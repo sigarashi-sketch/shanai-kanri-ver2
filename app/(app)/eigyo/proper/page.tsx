@@ -88,7 +88,7 @@ function ProperTab({ rows, setRows, live }: { rows: (Proper & Partial<LiveProper
                   const s = SK_STYLE[p.sukishi.state];
                   return (
                     <tr key={p.id} className={`mo-fade-in border-t border-line-soft ${flash === p.id ? 'mo-flash' : open?.id === p.id ? '' : 'row'}`} style={{ ['--i' as string]: i + 3, background: open?.id === p.id ? 'var(--as)' : undefined }}>
-                      <td className="px-4 py-2.5 font-semibold"><PersonName name={p.name} className="hover:underline underline-offset-2" />{p.flag && <span className="ml-1.5 text-[11px] font-normal text-warn">{p.flag}</span>}</td>
+                      <td className="px-4 py-2.5 font-semibold"><PersonName name={p.name} id={p.id} className="hover:underline underline-offset-2" />{p.flag && <span className="ml-1.5 text-[11px] font-normal text-warn">{p.flag}</span>}</td>
                       <td className="whitespace-nowrap px-2 py-2.5"><Pill>{p.status === '営業中' ? '待機' : p.status === '参画決定' ? '入場予定' : '稼働中'}</Pill> <span className="text-[11.5px] text-muted">{p.status}</span></td>
                       <td className="px-2 py-2.5">{p.station}</td>
                       <td className="px-2 py-2.5">{p.want}</td>

@@ -122,7 +122,7 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
                   <td className="px-3.5 py-2"><input type="checkbox" checked={sel.has(p.id)} onChange={() => toggle(p.id)} aria-label={`${p.name}を選ぶ`} /></td>
                   <td className="px-2 py-2"><div className="flex items-center gap-2.5">
                     <div aria-hidden className="flex size-[30px] items-center justify-center rounded-full text-[12px] font-bold" style={{ background: 'var(--as)', color: 'var(--ad)' }}>{p.name[0]}</div>
-                    <div><PersonName name={p.name} />
+                    <div><PersonName name={p.name} id={p.id} />
                       {p.tag && <span className="chip ml-1.5" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }} title={p.tag === '仮' ? '稼働管理情報一覧にまだ載っていない人（営業リストから立てた行）' : '当月の行が無いので、前の月の行を出しています'}>{p.tag}</span>}
                       <div className="text-[11.5px] text-faint">{p.sub}</div>
                       {tmarks.get(normName(p.name)) && <Link href="/jinji/yoyaku" className="block text-[11.5px] font-semibold hover:underline" style={{ color: tmarks.get(normName(p.name))!.pending ? 'var(--ad)' : 'var(--color-muted)' }}>{tmarks.get(normName(p.name))!.text}</Link>}</div>

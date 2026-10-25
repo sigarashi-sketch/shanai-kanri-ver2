@@ -2,12 +2,15 @@
 
 import { useState } from 'react';
 import { AlertTriangle, Hourglass, MessageCircle, Sparkles, X } from 'lucide-react';
-import { DrawerPortal } from './DrawerPortal';
+import { Dialog } from './Dialog';
+import { Z_MODAL } from '@/lib/layers';
+import { logView } from '@/lib/live/person';
 
 // チャットの「要約」ボタン（10-25 shoya）。押した人だけ・押したときだけ要約する（使い回しはサーバー側）。
 //   ・直近3日が基本、7日も選べる。結果は小窓（ポップ）で出す
 //   ・中身は決まった形（ひとこと・起きたこと〔主語つき〕・待っていること・気をつけること）。主語は LINE の相手＝緑の LINE の印、自社＝スタッフの印（10-25 shoya「要約見ずらい」「主語は LINE アイコンとか」）
 //   ・ログインしていない（見本）ときは見本の文を出すだけで、要約の API は呼ばない
+//   ・窓は Dialog（Escape はこの窓だけを閉じる＝後ろの名前の小窓は閉じない・z は lib/layers.ts）。作れたら「見た」を残す（10-25）
 type Ev = { date: string; actor: 'self' | 'them' | 'member'; who: string; text: string };
 type Data = { headline: string; events: Ev[]; waiting: string[]; cautions: string[] };
 const SAMPLE: Data = {
@@ -34,7 +37,9 @@ export function ChatSummary({ kind, id, name, live }: { kind: 'user' | 'group'; 
     if (!live) { await new Promise((r) => setTimeout(r, 700)); setRes({ ok: true, data: SAMPLE, count: 6 }); setBusy(false); return; }
     try {
       const r = await fetch('/api/live/summary', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, id, days: d }) });
-      setRes((await r.json().catch(() => ({ error: `読めませんでした（${r.status}）` }))) as Res);
+      const j = (await r.json().catch(() => ({ error: `読めませんでした（${r.status}）` }))) as Res;
+      setRes(j);
+      if (j.ok) logView('summary', name);
     } catch (e) { setRes({ error: (e as Error).message }); }
     setBusy(false);
   };
@@ -48,16 +53,15 @@ export function ChatSummary({ kind, id, name, live }: { kind: 'user' | 'group'; 
         </select>
       </span>
       {open && (
-        <DrawerPortal>
-          <div className="fixed inset-0 z-[60] bg-black/30" onClick={() => setOpen(false)} />
-          <div role="dialog" aria-label={`${name} の要約`} className="mo-scale-in fixed left-1/2 top-[12vh] z-[61] flex max-h-[76vh] w-[min(560px,92vw)] -translate-x-1/2 flex-col rounded-2xl border border-line bg-surface shadow-[0_18px_48px_rgba(25,27,46,.22)]">
+        <Dialog label={`${name} の要約`} onClose={() => setOpen(false)} z={Z_MODAL} backdropClassName="bg-black/30"
+          className="mo-scale-in fixed left-1/2 top-[12vh] flex max-h-[76vh] w-[min(560px,92vw)] -translate-x-1/2 flex-col rounded-2xl border border-line bg-surface shadow-[0_18px_48px_rgba(25,27,46,.22)]">
             <div className="flex items-center gap-2 border-b border-line px-5 py-3">
               <Sparkles size={16} style={{ color: 'var(--a)' }} />
               <div className="min-w-0 flex-1"><div className="truncate text-[15px] font-bold">{name} の要約</div><div className="text-[11.5px] text-faint">直近{days}日{res?.count ? `・${res.count}件` : ''}{res?.cached ? '・前の要約（新しい書き込みなし）' : ''}{!live ? '・見本' : ''}</div></div>
               {([3, 7] as const).map((d) => (
                 <button key={d} onClick={() => run(d)} disabled={busy} className="rounded-lg border px-2 py-1 text-[12px] font-semibold disabled:opacity-40" style={d === days ? { borderColor: 'var(--a)', color: 'var(--ad)' } : { borderColor: 'var(--color-field)', color: 'var(--color-muted)' }}>{d}日</button>
               ))}
-              <button aria-label="閉じる" onClick={() => setOpen(false)} className="flex size-8 items-center justify-center rounded-lg border border-line"><X size={15} /></button>
+              <button aria-label="閉じる" data-dialog-close onClick={() => setOpen(false)} className="flex size-8 items-center justify-center rounded-lg border border-line"><X size={15} /></button>
             </div>
             <div className="overflow-y-auto px-5 py-4 text-[13.5px] leading-relaxed">
               {busy && <p className="text-muted">要約しています…</p>}
@@ -66,8 +70,7 @@ export function ChatSummary({ kind, id, name, live }: { kind: 'user' | 'group'; 
               {!busy && !res?.data && res?.text && <p className="whitespace-pre-wrap">{res.text}</p>}
             </div>
             <div className="border-t border-line px-5 py-2 text-[11px] text-faint">AI の要約です。大事なところは会話そのものを確かめてください。</div>
-          </div>
-        </DrawerPortal>
+        </Dialog>
       )}
     </>
   );

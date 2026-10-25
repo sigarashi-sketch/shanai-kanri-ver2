@@ -8,6 +8,7 @@
 //                    → /api/chat?action=groupThread&groupId=…
 import { cellsOf, matchGroupName, normName, properStatus, type EngineerRows } from './eigyo-common';
 import type { LiverList, PartnerList } from './proper';
+import type { LiveStaff } from './staff';
 
 export type Fact = [string, string];
 export type LivePersonView = { id: string; name: string; status: string; facts: Fact[]; summary: string; career: string; sukishiUrl: string; source: 'プロパー' | '営業共有リスト' | 'ライバー' };
@@ -83,6 +84,54 @@ const at = (iso: string) => { const t = Date.parse(iso); if (!t) return ''; cons
 const body = (text?: string | null, type?: string) => text || (type && type !== 'text' ? `（${type === 'image' ? '画像' : type === 'sticker' ? 'スタンプ' : type === 'file' ? 'ファイル' : type}）` : '');
 
 export const threadBubbles = (d: ThreadRes | null): Bubble[] =>
-  (d?.messages ?? []).map((m) => ({ key: String(m.id), out: m.direction === 'out', who: m.direction === 'out' ? (m.sender_name || 'あおい') : '', text: body(m.text, m.message_type), at: at(m.sent_at) }));
+  (d?.messages ?? []).map((m) => ({ key: String(m.id), out: m.direction === 'out', who: m.direction === 'out' ? (m.sender_name || 'あおい') : '', text: maskSecrets(body(m.text, m.message_type)), at: at(m.sent_at) }));
 export const groupBubbles = (d: GroupThreadRes | null): Bubble[] =>
-  (d?.messages ?? []).map((m, i) => ({ key: m.key || `${m.sent_at}-${i}`, out: m.direction === 'out', who: m.sender || (m.direction === 'out' ? '自社' : ''), text: body(m.text) || '（文字のない投稿）', at: at(m.sent_at) }));
+  (d?.messages ?? []).map((m, i) => ({ key: m.key || `${m.sent_at}-${i}`, out: m.direction === 'out', who: m.sender || (m.direction === 'out' ? '自社' : ''), text: maskSecrets(body(m.text)) || '（文字のない投稿）', at: at(m.sent_at) }));
+
+// ---- パスワードらしい文字を伏せる（10-25：トークに現場のログイン情報が貼られていることがある） ----
+//   ・「パスワード／PW／pass／暗証番号」のすぐ後ろの値（英数字・記号 4 文字以上）を伏せる
+//   ・見出しだけの行（「PW：」など）の次の行も伏せる
+//   ・見出しが出てきたあとの行では、英字と数字がまざった 8 文字以上のかたまり（URL・メールは除く）も伏せる
+export const SECRET_MASK = '••••（伏せています）';
+const LABEL = '(?:パスワード|ﾊﾟｽﾜｰﾄﾞ|暗証番号|パス(?=\\s*[:：=＝])|(?<![A-Za-z])(?:password|passwd|pass|pwd|pw)(?![A-Za-z]))';
+const RE_LABEL = new RegExp(LABEL, 'i');
+const RE_LABEL_ONLY = new RegExp(`^\\s*[【\\[(（<＜]?\\s*${LABEL}\\s*[】\\])）>＞]?\\s*[:：=＝]?\\s*$`, 'i');
+const RE_LABEL_VAL = new RegExp(`(${LABEL}\\s*[】\\])）>＞]?\\s*(?:[:：=＝]|は|→)?\\s*)([\\x21-\\x7E]{4,})`, 'gi');
+const RE_MIXED = /(?<![\x21-\x7E])(?=[\x21-\x7E]*[A-Za-z])(?=[\x21-\x7E]*\d)[\x21-\x7E]{8,}/g;
+export function maskSecrets(text: string): string {
+  if (!text || !RE_LABEL.test(text)) return text;
+  let seen = false;
+  let nextMask = false;
+  return text.split('\n').map((line) => {
+    if (nextMask && line.trim()) { nextMask = false; return SECRET_MASK; }
+    if (RE_LABEL_ONLY.test(line)) { seen = true; nextMask = true; return line; }
+    let out = line;
+    if (RE_LABEL.test(line)) { seen = true; out = out.replace(RE_LABEL_VAL, (_m, lab: string) => `${lab}${SECRET_MASK}`); }
+    if (seen) out = out.replace(RE_MIXED, (t) => (t.includes('://') || t.includes('@') || t.includes(SECRET_MASK) ? t : SECRET_MASK));
+    return out;
+  }).join('\n');
+}
+
+// ---- 名前の小窓（/api/live/person の返り） ----
+export type PersonCan = { chat: boolean; basic: boolean; price: boolean };
+export const CAN_ALL: PersonCan = { chat: true, basic: true, price: true };
+/** 小窓の候補1人ぶん。同姓同名なら複数（採用担当・所属・最寄駅で見分ける） */
+export type PersonCandidate = {
+  key: string; name: string; staff: LiveStaff | null; proper: LivePersonView | null;
+  hint: { recruiter: string; company: string; station: string };
+};
+export type PersonRes = {
+  ok: true; name: string; month: string; candidates: PersonCandidate[]; everyone: string[]; can: PersonCan; notMikeiken?: boolean;
+};
+export const memoOf = (p: LivePersonView | null) => ({ memo: (p?.facts.find(([k]) => k === 'メモ')?.[1] || '').replace(/^—$/, ''), summary: p?.summary || '' });
+
+// ---- 見たことを残す（チャット・基本情報・面談メモ・要約）。画面は待たない ----
+export function logView(kind: 'chat' | 'basic' | 'memo' | 'summary', target: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    void fetch('/api/live/view-log', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+      body: JSON.stringify({ kind, target: String(target || '').slice(0, 80), page: window.location.pathname }),
+    }).catch(() => {});
+  } catch { /* 残せなくても画面は止めない */ }
+}
