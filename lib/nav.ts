@@ -40,6 +40,9 @@ export const NAV: NavGroup[] = [
       { href: '/home/eigyo', label: 'ホーム営業', built: true },
       { href: '/eigyo/cases', label: '案件', built: true, badge: 6 },
       { href: '/eigyo/progress', label: '案件進捗', built: true, badge: 4 }, // 単独のまま。作り込み（カスタム）はあとで詰める（10-23 shoya）
+      { href: '/eigyo/mendan', label: '面談管理', built: true }, // 今の面談管理（カンバン・カレンダーにも書く・10-25）
+      { href: '/eigyo/availability', label: '面談可能日の承認', built: true },
+      { href: '/eigyo/keisai', label: '案件掲載・応募', built: true }, // 掲載する／応募管理／案件ページの反応 をタブで
       { href: '/eigyo/proper', label: '要員リスト（プロパー・スキシ）', built: true },
       { href: '/eigyo/skillsheet', label: 'スキルシート作成', built: true },
       { href: '/eigyo/haken', label: '派遣契約', built: true, badge: 3 }, // 労務の派遣契約と同じ画面（10-25 shoya「同じもの営業にいれたい」）
