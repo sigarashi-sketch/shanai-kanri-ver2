@@ -45,6 +45,9 @@ export const LEGACY_COLUMNS: readonly ProperColDef[] = [
   { field: 'applicant_id', label: 'applicant_id', type: 'text' },
   { field: 'shoudaku_nyusha_bi', label: '稼働可能日', type: 'text' },
   { field: 'kansai', label: '関西要員', type: 'bool' },
+  // 辞退日・営業止め日（今のシステムの 0366・末尾に足した順のまま＝idx をずらさない）
+  { field: 'jitai_bi', label: '辞退日', type: 'text' },
+  { field: 'poa_bi', label: '営業止め日', type: 'text' },
 ];
 
 /** ver2 から直してよい列（氏名・ミンミカの ID・検索用の列は直させない） */

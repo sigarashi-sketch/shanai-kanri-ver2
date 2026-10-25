@@ -292,6 +292,8 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
       txt('shoudaku_bi', '承諾日', '日付', false, 100),
       txt('shoudaku_nyusha_bi', '稼働可能日', '日付', true, 100),
       txt('hearing_booking', '初回ヒアリング予約', '日付', false, 140),
+      txt('jitai_bi', '辞退日', '日付', false, 100),
+      txt('poa_bi', '営業止め日', '日付', false, 100),
       chk('poa', '営業止め', true),
       chk('jitai', '辞退', true),
       { key: 'dropout', label: 'dropout', group: 'チェック', def: true, filter: 'bool', text: (p) => (p.drop.on ? '✓' : ''),
