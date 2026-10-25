@@ -80,7 +80,8 @@ export function PersonHost() {
   return (
     <DrawerPortal>
       <div className="fixed inset-0 z-[45]" onClick={() => setGot(null)} />
-      <aside aria-label={`${got.name} さんの情報`} className="mo-drawer fixed bottom-0 right-0 top-[var(--hdr,58px)] z-[46] flex w-[min(480px,100vw)] flex-col border-l border-line bg-surface shadow-[-12px_0_28px_rgba(25,27,46,.14)]">
+      <aside aria-label={`${got.name} さんの情報`} className="mo-drawer fixed bottom-0 right-0 top-[var(--hdr,58px)] z-[46] flex w-[min(1040px,100vw)] border-l border-line bg-surface shadow-[-12px_0_28px_rgba(25,27,46,.14)]">
+        <div className="flex min-w-0 flex-1 flex-col md:w-[460px] md:flex-none">
         <div className="flex items-center gap-3 px-5 pb-2 pt-4">
           <div aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-full text-[15px] font-bold" style={{ background: 'var(--as)', color: 'var(--ad)' }}>{got.name.replace(/[\s　]/g, '').slice(0, 1)}</div>
           <div className="min-w-0 flex-1"><div className="truncate text-[17px] font-bold">{got.name}</div><div className="text-[11.5px] text-faint">{got.live ? '本物のデータ・見るだけ' : '見本データ'}</div></div>
@@ -88,7 +89,7 @@ export function PersonHost() {
         </div>
         <div role="tablist" className="flex gap-0.5 overflow-x-auto border-b border-line px-4 text-[13.5px]">
           {([['proper', '要員（営業）'], ['staff', '社員（人事）'], ['chat', 'チャット'], ['basic', '基本情報']] as const).map(([k, l]) => (
-            <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className="whitespace-nowrap px-2.5 py-2.5"
+            <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={`whitespace-nowrap px-2.5 py-2.5 ${k === 'chat' ? 'md:hidden' : ''}`}
               style={tab === k ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>
               {l}{v && (k === 'proper' || k === 'staff') && !(k === 'proper' ? v.proper : v.staff) && <span className="ml-1 text-[11px] text-faint">なし</span>}
             </button>
@@ -96,7 +97,7 @@ export function PersonHost() {
         </div>
         <div key={tab} className="mo-axis flex-1 overflow-y-auto px-5 py-4 text-[13px]">
           {side && !v && !got.error && <div className="py-10 text-center text-faint">読み込み中…</div>}
-          {tab === 'chat' && (v || got.error) && <PersonChat name={got.name} live={got.live} />}
+          {tab === 'chat' && (v || got.error) && <div className="md:hidden"><PersonChat name={got.name} live={got.live} /></div>}
           {tab === 'basic' && (v || got.error) && <PersonBasic name={got.name} live={got.live} />}
           {!side && !v && !got.error && <div className="py-10 text-center text-faint">読み込み中…</div>}
           {!side && got.error && <div className="py-10 text-center text-bad">{got.error}{got.error.includes('ログイン') && <a href="/api/ike-auth/start" className="ml-2 underline">もう一度ログイン</a>}</div>}
@@ -116,6 +117,14 @@ export function PersonHost() {
               </div>
             </>
           )}
+        </div>
+        </div>
+        {/* 広い画面は右にチャットを並べる（10-25 shoya「押したら面談メモ、右にチャット置けばいい」）。狭い画面はチャットのタブで */}
+        <div className="hidden min-w-0 flex-1 flex-col border-l border-line md:flex">
+          <div className="flex min-h-[46px] items-center border-b border-line px-5 text-[13.5px] font-bold">チャット</div>
+          <div className="flex-1 overflow-y-auto px-5 py-3 text-[13px]">
+            {!v && !got.error ? <div className="py-10 text-center text-faint">読み込み中…</div> : <PersonChat name={got.name} live={got.live} />}
+          </div>
         </div>
       </aside>
     </DrawerPortal>
