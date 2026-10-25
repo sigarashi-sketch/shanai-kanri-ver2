@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Columns3, FileSpreadsheet, GripVertical, RefreshCw, Search, X } from 'lucide-react';
+import { ChevronRight, Columns3, FileSpreadsheet, GripVertical, RefreshCw, Search, X } from 'lucide-react';
 import { Pill } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
@@ -425,6 +426,7 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
                 <tr key={p.r.row} className="row border-t border-line-soft align-middle" style={!p.r.active ? { opacity: 0.72 } : undefined}>
                   <td className="sticky left-0 z-[1] whitespace-nowrap bg-surface px-3 py-2 font-semibold">
                     <PersonName name={p.r.name} id={p.r.row} className="hover:underline underline-offset-2" />
+                    <Link href={`/eigyo/proper/${encodeURIComponent(p.r.row)}`} className="ml-0.5 inline-flex rounded p-0.5 align-middle hover:bg-soft" aria-label={`${p.r.name}の要員ページを開く`}><ChevronRight size={14} className="text-faint" /></Link>
                     {p.r.kanagawa && <span className="ml-1 rounded bg-sunken px-1 text-[10.5px] font-normal text-muted">かな西</span>}
                     {p.r.kansai && <span className="ml-1 rounded bg-sunken px-1 text-[10.5px] font-normal text-muted">関西</span>}
                     {p.v.needs_review === true && <span className="ml-1 text-[10.5px] font-normal text-warn">要確認</span>}

@@ -176,7 +176,7 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
   return (
     <Wrap className={`flex flex-col gap-3.5 ${embedded ? 'pb-[120px]' : 'px-4 pb-[120px] pt-[22px] sm:px-6'}`}>
       {!embedded && (
-        <PageTitle title="社員一覧" sub={live ? '今の従業員名簿と同じ判定で状態を出しています。チェックはその場で保存されます。名前か右の矢印を押すと社員ページを小窓で出します（小窓の「別タブで開く」でページ全体）' : '状態は日付つきの履歴から自動で決まります。名前か右の矢印を押すと社員ページを小窓で出します（小窓の「別タブで開く」でページ全体）'}>
+        <PageTitle title="社員一覧" sub={live ? '今の従業員名簿と同じ判定で状態を出しています。チェックはその場で保存されます。名前を押すと小窓、右の矢印を押すと社員ページに移ります' : '状態は日付つきの履歴から自動で決まります。名前を押すと小窓、右の矢印を押すと社員ページに移ります'}>
           {live
             ? <button disabled title={LIVE_WRITE_BLOCKED} className="min-h-10 cursor-not-allowed rounded-[10px] border border-field bg-surface px-3.5 text-[13.5px] font-semibold opacity-40">CSV</button>
             : <GhostButton onClick={() => toast({ text: `${rows.length}人を CSV に書き出しました（見本）`, sub: '→ ダウンロードに入る想定です（いまは見本なのでファイルは作りません）' })}>CSV</GhostButton>}
@@ -259,7 +259,7 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
                       {tmarks.get(normName(p.name)) && <Link href="/jinji/yoyaku" className="block text-[11.5px] font-semibold hover:underline" style={{ color: tmarks.get(normName(p.name))!.pending ? 'var(--ad)' : 'var(--color-muted)' }}>{tmarks.get(normName(p.name))!.text}</Link>}</div>
                   </div></td>
                   {colDefs.map((c) => <td key={c.k} className={`px-2 py-2 ${c.k === 'price' ? 'text-right' : ''} ${CHECK_COLS.has(c.k) ? 'text-center' : ''}`}>{cell(p, c.k)}</td>)}
-                  <td className="px-3.5 py-2"><PersonName name={p.name} id={p.id} className="inline-flex rounded p-1 hover:bg-soft"><ChevronRight size={16} className="text-faint" aria-label={`${p.name}の社員ページを小窓で開く`} /></PersonName></td>
+                  <td className="px-3.5 py-2"><Link href={`/jinji/staff/${encodeURIComponent(p.id)}`} className="inline-flex rounded p-1 hover:bg-soft" aria-label={`${p.name}の社員ページを開く`}><ChevronRight size={16} className="text-faint" /></Link></td>
                 </tr>
               ))}
               {state !== 'loading' && rows.length === 0 && <tr><td colSpan={nCols} className="px-4 py-10 text-center text-[13px] text-muted">この条件の社員はいません{live ? '' : '（見本データは一部の人だけです）'}</td></tr>}

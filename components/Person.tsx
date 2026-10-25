@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ExternalLink, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { PEOPLE, PROPERS } from '@/lib/sample';
 import type { PersonCandidate, PersonRes } from '@/lib/live/person';
 import { Z_POPUP } from '@/lib/layers';
@@ -80,11 +80,11 @@ export function PersonHost() {
       <div className="flex flex-wrap items-center gap-2 border-b border-line bg-surface px-4 py-2 text-[12.5px]">
         {many && c && <button type="button" onClick={() => setGot({ ...got, pick: undefined })} className="inline-flex min-h-8 items-center gap-0.5 rounded-lg border border-field px-2 font-semibold text-muted"><ChevronLeft size={13} />選び直す</button>}
         <span className="text-faint">{c?.staff ? '社員ページ' : c?.proper ? '要員ページ' : ''}</span>
-        {c?.staff && c.proper && <a href={`/eigyo/proper/${encodeURIComponent(c.proper.id)}`} target="_blank" rel="noopener" className="inline-flex items-center gap-1 font-semibold" style={{ color: 'var(--ad)' }}>要員ページ<ExternalLink size={12} /></a>}
+        {c?.staff && c.proper && <a href={`/eigyo/proper/${encodeURIComponent(c.proper.id)}`} className="inline-flex items-center gap-1 font-semibold" style={{ color: 'var(--ad)' }}>要員ページ<ChevronRight size={12} /></a>}
         {/* 社員ページを出しているときも、要員のスコア（スキル・参画見込・辞退リスク・営業止め見込）をここに出す（10-25） */}
         {c?.staff && c.proper && <ScoreLine id={c.proper.id} name={c.proper.name || got.name} live={got.live} compact />}
         <span className="ml-auto" />
-        {page && <a href={page} target="_blank" rel="noopener" title="別のタブで開く（この一覧はそのまま）" className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-field px-2.5 font-semibold text-muted">別タブで開く<ExternalLink size={12} /></a>}
+        {page && <a href={page} title="この画面からページに移る" className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-field px-2.5 font-semibold text-muted">ページで開く<ChevronRight size={12} /></a>}
         <button aria-label="閉じる" data-dialog-close onClick={close} className="flex size-8 items-center justify-center rounded-lg border border-line"><X size={15} /></button>
       </div>
       <div className="flex-1 overflow-y-auto">
