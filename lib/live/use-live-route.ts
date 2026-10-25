@@ -1,11 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { LiveState } from '@/components/Live';
+import { usePoll, type LiveState } from '@/components/Live';
 
 // useIke（components/Live.tsx）と同じ動きで、/api/live/<画面> を読む（今の API を複数まとめた口・GET だけ）。
 //   ・401 + not_logged_in なら state='sample'（画面は見本のまま）
-export function useLiveRoute<T>(url: string | null) {
+//   ・pollMs を渡すと読み直す（見えていない・15分さわっていないあいだは止める＝usePoll・10-25）
+export function useLiveRoute<T>(url: string | null, opts?: { pollMs?: number }) {
   const [data, setData] = useState<T | null>(null);
   const [state, setState] = useState<LiveState>('loading');
   const [error, setError] = useState('');
@@ -23,5 +24,6 @@ export function useLiveRoute<T>(url: string | null) {
     } catch (e) { if (my === seq.current) { setError((e as Error).message); setState('error'); } }
   }, [url]);
   useEffect(() => { load(); }, [load]);
+  usePoll(url ? load : null, opts?.pollMs);
   return { data, state, error, reload: load, live: state === 'live' };
 }

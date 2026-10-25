@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Maximize2, MessageSquare, Minimize2, X } from 'lucide-react';
 import type { ModuleKey } from '@/lib/theme';
-import { LiveBanner, NotInLegacy, useIke } from './Live';
+import { LiveBanner, NotInLegacy, pollAwake, useIke, type LiveState } from './Live';
 import { usePerms } from './Perms';
 import { DrawerPortal } from './DrawerPortal';
 import { contactRows, type LiveContactsRes } from '@/lib/live/renraku';
@@ -29,6 +29,44 @@ export const accountFor = (m: ModuleKey | 'home'): Account => (m === 'jinji' ? '
 type Tab = 'chat' | 'case' | 'manual' | 'annai';
 const TABS: [Tab, string][] = [['chat', 'チャット'], ['case', '案件配信'], ['manual', '手動配信'], ['annai', '案内配信']];
 
+// ---- 右上の「要対応」の数（10-25 作り直し） ----
+//   今の社内システムに軽い数えるだけの口は無い（今の左メニューの未読も chat?action=contacts の全員ぶんを読んでいる）。
+//   なので、パネルを閉じているあいだは 5分に1回まで・見えているタブだけ読む。控えはこのファイルに1つだけ置き、
+//   ページを移って（Shell の key={module} で）ボタンが作り直されても取り直さない。サーバー側も60秒控える（/api/ike）
+//   パネルを開いたら、中で20秒ごとに読み直す（見えていない・15分さわっていないあいだは止まる）。その答えで数も直す
+const BADGE_MS = 5 * 60_000;
+type Badge = { at: number; state: LiveState; data: LiveContactsRes | null };
+let badge: Badge = { at: 0, state: 'loading', data: null };
+let badgeBusy = false;
+const badgeSubs = new Set<() => void>();
+const setBadge = (b: Badge) => { badge = b; badgeSubs.forEach((f) => f()); };
+const subBadge = (f: () => void) => { badgeSubs.add(f); return () => { badgeSubs.delete(f); }; };
+async function loadBadge() {
+  if (badgeBusy || document.hidden || Date.now() - badge.at < BADGE_MS) return;
+  badgeBusy = true;
+  try {
+    const r = await fetch('/api/ike/chat?action=contacts', { cache: 'no-store' });
+    const j = (await r.json().catch(() => ({}))) as LiveContactsRes & { error?: string };
+    if (r.status === 401 && j.error === 'not_logged_in') setBadge({ at: Date.now(), state: 'sample', data: null });
+    else if (!r.ok) setBadge({ at: Date.now(), state: badge.data ? 'live' : 'error', data: badge.data });
+    else setBadge({ at: Date.now(), state: 'live', data: j });
+  } catch { setBadge({ ...badge, at: Date.now(), state: badge.data ? 'live' : 'error' }); }
+  finally { badgeBusy = false; }
+}
+function useBadge(on: boolean): Badge {
+  const b = useSyncExternalStore(subBadge, () => badge, () => badge);
+  useEffect(() => {
+    if (!on) return;
+    loadBadge();
+    // 1分ごとに「5分たったか」だけ見る（読むのは5分に1回まで・見えていて15分以内にさわっているときだけ）
+    const t = setInterval(() => { if (pollAwake()) loadBadge(); }, 60_000);
+    const vis = () => { if (!document.hidden) loadBadge(); };
+    document.addEventListener('visibilitychange', vis);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', vis); };
+  }, [on]);
+  return b;
+}
+
 export function RenrakuButton({ module }: { module: ModuleKey | 'home' }) {
   // ?renraku=1 で開いた状態から始める（画面の見本を撮るとき用）
   const [open, setOpen] = useState(false);
@@ -36,24 +74,31 @@ export function RenrakuButton({ module }: { module: ModuleKey | 'home' }) {
   const account = accountFor(module);
   const info = account === 'インフォメーション';
   // 本物かどうかは、あおいの 1:1 一覧が読めるかで決める（今の社内システムの左のメニューの未読と同じ口）
-  const contacts = useIke<LiveContactsRes>(info ? null : 'chat?action=contacts', { pollMs: open ? 20000 : 0 });
-  const live = !info && contacts.live;
-  const ball = info ? SAMPLE_CHAT.info.filter((x) => x.ball).length : live ? contactRows(contacts.data).filter((x) => x.ball).length : SAMPLE_CHAT.aoi.filter((x) => x.ball).length;
+  const bd = useBadge(!info);
+  const live = !info && bd.state === 'live';
+  const ball = info ? SAMPLE_CHAT.info.filter((x) => x.ball).length : live ? contactRows(bd.data).filter((x) => x.ball).length : SAMPLE_CHAT.aoi.filter((x) => x.ball).length;
   return (
     <>
       <button onClick={() => setOpen((v) => !v)} aria-expanded={open} title={ball ? `要対応 ${ball}件` : undefined} className="relative flex min-h-10 items-center gap-2 rounded-[10px] border border-line px-3 text-[13px] font-semibold text-muted">
         <MessageSquare size={17} strokeWidth={1.8} />連絡<span className="rounded-full bg-sunken px-2 py-0.5 text-[11px] font-medium text-muted">{account}</span>
         {ball > 0 && <span className="num absolute -right-1.5 -top-1.5 rounded-full bg-bad px-1.5 text-[11px] font-bold" style={{ color: 'var(--color-surface)' }}>{ball > 99 ? '99+' : ball}</span>}
       </button>
-      {open && <DrawerPortal><RenrakuPanel account={account} module={module} contacts={contacts} live={live} onClose={() => setOpen(false)} /></DrawerPortal>}
+      {open && <DrawerPortal><RenrakuPanel account={account} module={module} badge={bd} onClose={() => setOpen(false)} /></DrawerPortal>}
     </>
   );
 }
 
-function RenrakuPanel({ account, module, contacts, live, onClose }: { account: Account; module: ModuleKey | 'home'; contacts: ReturnType<typeof useIke<LiveContactsRes>>; live: boolean; onClose: () => void }) {
+function RenrakuPanel({ account, module, badge: bd, onClose }: { account: Account; module: ModuleKey | 'home'; badge: Badge; onClose: () => void }) {
   const { can } = usePerms();
   const canSend = module === 'home' ? (['roumu', 'eigyo', 'keiri'] as ModuleKey[]).some((m) => can(m, 'edit')) : can(module, 'edit');
   const info = account === 'インフォメーション';
+  // 開いているあいだだけ 1:1 の一覧を読む（20秒ごと・見えていない／15分さわっていないあいだは止まる）。読めたら右上の数も直す
+  const own = useIke<LiveContactsRes>(info ? null : 'chat?action=contacts', { pollMs: 20000 });
+  useEffect(() => { if (own.live && own.data) setBadge({ at: Date.now(), state: 'live', data: own.data }); }, [own.live, own.data]);
+  // 読み終えるまでは右上の数を出したときの一覧をそのまま見せる（開いた瞬間に空にしない）
+  const early = own.state === 'loading' && bd.state === 'live';
+  const contacts = early ? { ...own, data: bd.data, state: 'live' as LiveState, live: true } : own;
+  const live = !info && contacts.live;
   const [tab, setTab] = useState<Tab>('chat');
   const [wide, setWide] = useState(false);
   useEffect(() => { const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);

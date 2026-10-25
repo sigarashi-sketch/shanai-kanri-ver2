@@ -51,12 +51,15 @@ export function mikeikenShoudaku(j: IkeShoudakuList, people: IkeShoudakuPerson[]
 //   読めなかった材料（null）は「兆しなし」ではなく「わからない」＝兆しに出さない
 export type SaiyouSignal = {
   norm: string;
+  sameName: boolean;           // 同じ名前の承諾者が2人以上（名前で当てられないので兆しを出さない・10-25）
   lastInDays: number | null;   // 本人の最後の受信から何日（LINE が見つからない・一度も受信が無いときは null）
+  noReplyDays: number | null;  // 受信が1回も見つからないときの、承諾日からの日数（LINE が読めないときは null・10-25）
   formDone: boolean | null;    // 基本情報フォームに答えたか（読めなかったら null）
   joinDate: string | null;     // 入社日 'YYYY-MM-DD'（決まっていない・読めないときは null）
 };
 export type SaiyouSignalsLive = {
   people: SaiyouSignal[];
+  shoudaku: IkeShoudakuList;   // 承諾者の一覧（未経験の人だけに絞って数え直したもの・画面は別に読まない・10-25）
   sources: { line: boolean; form: boolean; join: boolean };   // それぞれの材料が読めたか
   warnings: string[]; generatedAt: string;
 };
@@ -66,9 +69,15 @@ export type SignalLine = { text: string; strong: boolean };
 export function liveSignalLines(s: SaiyouSignal | undefined, src: SaiyouSignalsLive['sources'] | undefined): SignalLine[] {
   const out: SignalLine[] = [];
   if (!s || !src) return out;
+  // 同姓同名は名前で当てると別の人の返信・回答を数えてしまう＝判定しない（10-25）
+  if (s.sameName) return [{ text: '同姓同名のため判定できません', strong: false }];
   if (src.line && s.lastInDays != null) {
     if (s.lastInDays >= 5) out.push({ text: `本人の返信が ${s.lastInDays}日 止まっている`, strong: true });
     else if (s.lastInDays >= 3) out.push({ text: `本人の返信が ${s.lastInDays}日 空いている`, strong: false });
+  }
+  // 受信が1回も無い人：承諾から3日たったら出す（5日で強い）。LINE の相手に紐付いていない人もここに入る
+  if (src.line && s.lastInDays == null && s.noReplyDays != null && s.noReplyDays >= 3) {
+    out.push({ text: `承諾してから一度も返信なし（承諾から ${s.noReplyDays}日）`, strong: s.noReplyDays >= 5 });
   }
   if (src.form && s.formDone === false) out.push({ text: '基本情報フォームがまだ', strong: false });
   if (src.join && !s.joinDate) out.push({ text: '入社日が決まっていない', strong: false });

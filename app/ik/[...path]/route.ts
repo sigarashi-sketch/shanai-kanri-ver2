@@ -38,9 +38,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ path: string[] 
   const type = ASSET_TYPES[ext];
   if (!type) return new NextResponse('not found', { status: 404 });
   try {
-    const r = await fetch(`${IKE_ORIGIN}/${name}${qs}`, { cache: 'no-store', signal: AbortSignal.timeout(20000) });
-    if (!r.ok) return new NextResponse('not found', { status: r.status === 404 ? 404 : 502 });
-    const headers = { 'content-type': type, 'cache-control': 'no-store' };
+    // 画面のコード・画像はデータを含まない（今のシステムでもログインなしで読める）。ブラウザに5分だけ控えてもらう（10-25）
+    //   ＝ページを移るたびに今のシステムから取り直さない。直した画面のコードは長くても5分で届く。HTML は no-store のまま
+    const r = await fetch(`${IKE_ORIGIN}/${name}${qs}`, { next: { revalidate: 300 }, signal: AbortSignal.timeout(20000) });
+    if (!r.ok) return new NextResponse('not found', { status: r.status === 404 ? 404 : 502, headers: { 'cache-control': 'no-store' } });
+    const headers = { 'content-type': type, 'cache-control': 'public, max-age=300' };
     // コード（JS・CSS）は行き先だけ書き換える。画像・字体はそのまま
     if (ext === 'js' || ext === 'css') return new NextResponse(rewritePaths(await r.text()), { headers });
     return new NextResponse(r.body, { headers });

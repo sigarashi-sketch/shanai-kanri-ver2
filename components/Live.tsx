@@ -28,12 +28,48 @@ export function useIke<T>(path: string | null, opts?: { pollMs?: number }) {
     } catch (e) { if (my === seq.current) { setError((e as Error).message); setState('error'); } }
   }, [path]);
   useEffect(() => { load(); }, [load]);
-  useEffect(() => {
-    if (!opts?.pollMs) return;
-    const t = setInterval(load, opts.pollMs);
-    return () => clearInterval(t);
-  }, [load, opts?.pollMs]);
+  usePoll(path ? load : null, opts?.pollMs);
   return { data, state, error, reload: load, live: state === 'live' };
+}
+
+// ---- 読み直し（pollMs）の止め方（10-25・今の live.js と同じ考え方） ----
+//   ・タブが見えていないあいだは読まない。見えたら1回だけすぐ読む
+//   ・15分さわらなければ（マウス・キーボード）止める。さわったら1回すぐ読んで続ける
+//   ＝開きっぱなしのタブが今の社内システム（Supabase）を叩き続けない
+const IDLE_MS = 15 * 60_000;
+let lastInput = Date.now();
+const wakers = new Set<() => void>();
+let watching = false;
+function watchInput() {
+  if (watching || typeof window === 'undefined') return;
+  watching = true;
+  const on = () => {
+    const slept = Date.now() - lastInput >= IDLE_MS;
+    lastInput = Date.now();
+    if (slept && !document.hidden) wakers.forEach((f) => f());
+  };
+  window.addEventListener('pointerdown', on, { passive: true, capture: true });
+  window.addEventListener('keydown', on, { capture: true });
+}
+/** いま読み直してよいか（見えている・15分以内にさわった） */
+export const pollAwake = () => typeof document !== 'undefined' && !document.hidden && Date.now() - lastInput < IDLE_MS;
+
+/** fn を ms ごとに呼ぶ。ただし見えていない・15分さわっていないあいだは呼ばない（上の説明） */
+export function usePoll(fn: (() => void) | null, ms: number | undefined) {
+  const ref = useRef(fn);
+  useEffect(() => { ref.current = fn; }, [fn]);
+  const on = !!fn && !!ms;
+  useEffect(() => {
+    if (!on || !ms) return;
+    watchInput();
+    const run = () => ref.current?.();
+    const t = setInterval(() => { if (pollAwake()) run(); }, ms);
+    // タブに戻ってきた＝さわったのと同じ扱い（すぐ1回読んで、また続ける）
+    const vis = () => { if (!document.hidden) { lastInput = Date.now(); run(); } };
+    document.addEventListener('visibilitychange', vis);
+    wakers.add(run);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', vis); wakers.delete(run); };
+  }, [on, ms]);
 }
 
 /** 画面の上に出す「見本／本物」。note はその画面で本物に無いもの・違うところの一言。 */
