@@ -11,7 +11,8 @@ import type { GroupThreadRes, ThreadRes } from '@/lib/live/person';
 export const maxDuration = 60;
 
 type Line = { at: string; who: string; text: string };
-const memo = new Map<string, { text: string; count: number }>();
+type Data = { headline: string; events: { date: string; actor: 'self' | 'them' | 'member'; who: string; text: string }[]; waiting: string[]; cautions: string[] };
+const memo = new Map<string, { text: string; data: Data | null; count: number }>();
 const MEMO_MAX = 500;
 
 const jst = (iso: string) => {
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
   } else {
     const d = (await r.json()) as GroupThreadRes;
     const ms = (d.messages || []).filter((m) => Date.parse(m.sent_at) >= since).sort((a, c) => Date.parse(a.sent_at) - Date.parse(c.sent_at));
-    lines = ms.map((m) => ({ at: jst(m.sent_at), who: m.sender || (m.direction === 'out' ? '自社' : 'メンバー'), text: kindText(m.text) || '（文字のない投稿）' }));
+    lines = ms.map((m) => ({ at: jst(m.sent_at), who: m.direction === 'out' ? `自社${m.sender ? `（${m.sender}）` : ''}` : m.sender || 'メンバー', text: kindText(m.text) || '（文字のない投稿）' }));
     lastKey = ms.length ? `${ms[ms.length - 1].key || ms[ms.length - 1].sent_at}` : '';
   }
   if (!lines.length) return NextResponse.json({ ok: true, text: `直近${days}日のやり取りはありません。`, count: 0, cached: false });
@@ -63,9 +64,9 @@ export async function POST(req: Request) {
     body: JSON.stringify({ kind, days, lines: lines.map((l) => `[${l.at}] ${l.who}: ${l.text}`) }),
   }, 58000);
   if (r2.status === 401) return NextResponse.json({ error: 'ログインが切れました。もう一度ログインしてください' }, { status: 401 });
-  const j = (await r2.json().catch(() => ({}))) as { ok?: boolean; text?: string; error?: string };
+  const j = (await r2.json().catch(() => ({}))) as { ok?: boolean; text?: string; data?: Data | null; error?: string };
   if (!r2.ok || !j.ok || !j.text) return NextResponse.json({ error: j.error && j.error !== 'empty' ? j.error : `要約に失敗しました（${r2.status}）` }, { status: r2.status >= 400 ? r2.status : 502 });
   if (memo.size >= MEMO_MAX) memo.delete(memo.keys().next().value as string);
-  memo.set(key, { text: j.text, count: lines.length });
-  return NextResponse.json({ ok: true, text: j.text, count: lines.length, cached: false, key });
+  memo.set(key, { text: j.text, data: j.data ?? null, count: lines.length });
+  return NextResponse.json({ ok: true, text: j.text, data: j.data ?? null, count: lines.length, cached: false, key });
 }
