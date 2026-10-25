@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ikeFetch, ikeToken } from '@/lib/ike';
+import { cached, userKey } from '@/lib/cache';
 import { loadMikeikenSet } from '@/lib/live/mikeiken-server';
 import { mikeikenKey } from '@/lib/live/mikeiken';
 import {
@@ -13,6 +14,7 @@ import {
 //     月ごとの口は 申請に出てくる月（最大3つ）× 2本だけ。1日ずつは呼ばない
 //   ★名前は URL に載せない（月だけ受け取り、返すのは未経験の人の分だけ）。理由・メモ・時間は返さない
 //   ★どれかが読めない（権限が無い等）ときは、その種類の印を出さないだけ（read[kind]=false で画面に「確かめられていない」と出す）
+//   ★10-25 答えはその人だけ3分控える（lib/cache.ts・キーに月が入る）。?refresh=1 で読み直す
 class AuthGone extends Error {}
 
 async function getJson<T>(path: string): Promise<T> {
@@ -25,10 +27,24 @@ const soft = <T,>(p: Promise<T>) => p.catch((e) => { if (e instanceof AuthGone) 
 const YM = /^\d{4}-\d{2}$/;
 
 export async function GET(req: Request) {
-  if (!(await ikeToken())) return NextResponse.json({ error: 'not_logged_in' }, { status: 401 });
-  const months = [...new Set((new URL(req.url).searchParams.get('ym') || '').split(',').filter((m) => YM.test(m)))].sort().reverse().slice(0, 3);
+  const token = await ikeToken();
+  if (!token) return NextResponse.json({ error: 'not_logged_in' }, { status: 401 });
+  const sp = new URL(req.url).searchParams;
+  const months = [...new Set((sp.get('ym') || '').split(',').filter((m) => YM.test(m)))].sort().reverse().slice(0, 3);
   if (!months.length) return NextResponse.json({ ok: true, months: [], people: {}, read: { dakoku: false, shift: false, kekkin: false, zure: false } } satisfies KeihiFlagsResp);
   try {
+    const { v } = await cached(`${userKey(token)}|keihi-flags|${months.join(',')}`, 3 * 60_000, () => build(months), {
+      refresh: sp.get('refresh') === '1',
+      keep: (x) => Object.values(x.read).every(Boolean),   // 読めなかった材料がある答えは控えない（次に開いたときにもう一度読む）
+    });
+    return NextResponse.json(v);
+  } catch (e) {
+    if (e instanceof AuthGone || (e as Error).message.startsWith('ログインが切れ')) return NextResponse.json({ error: 'ログインが切れました。もう一度ログインしてください' }, { status: 401 });
+    return NextResponse.json({ error: `今の社内システムから読めませんでした（${(e as Error).message}）` }, { status: 502 });
+  }
+}
+
+async function build(months: string[]): Promise<KeihiFlagsResp> {
     const [mk, habits, today, shime, shiftL, kekkinL] = await Promise.all([
       loadMikeikenSet(),
       soft(getJson<IkeHabits>('/api/attendance-board?action=habits')),
@@ -46,9 +62,5 @@ export async function GET(req: Request) {
       kekkin: kekkinL.every((x) => x?.ok),
       zure: !!shime?.ok,
     };
-    return NextResponse.json({ ok: true, months, people, read, habitsFrom: habits?.from, habitsTo: habits?.to } satisfies KeihiFlagsResp);
-  } catch (e) {
-    if (e instanceof AuthGone || (e as Error).message.startsWith('ログインが切れ')) return NextResponse.json({ error: 'ログインが切れました。もう一度ログインしてください' }, { status: 401 });
-    return NextResponse.json({ error: `今の社内システムから読めませんでした（${(e as Error).message}）` }, { status: 502 });
-  }
+    return { ok: true, months, people, read, habitsFrom: habits?.from, habitsTo: habits?.to } satisfies KeihiFlagsResp;
 }

@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
-import { ikeFetch, ikeToken } from '@/lib/ike';
+import { ikeFetchCached, ikeToken } from '@/lib/ike';
+import { cached, userKey } from '@/lib/cache';
 import { matchGroupName, normName, type EngineerRows } from '@/lib/live/eigyo-common';
 import { mikeikenSetOf, onlyMikeiken } from '@/lib/live/mikeiken';
 import { parseDateIso } from '@/lib/live/staff';
 import type { IkeJimuLite, IkeNyushaOverlay } from '@/lib/live/nyusha';
-import type { IkeShoudakuList, SaiyouSignal, SaiyouSignalsLive } from '@/lib/live/saiyou';
+import { mikeikenShoudaku, type IkeShoudakuList, type SaiyouSignal, type SaiyouSignalsLive } from '@/lib/live/saiyou';
 
 // 採用（承諾者・面談）の「辞退しそうな兆し」の材料（本物）。lib/live/saiyou.ts の liveSignalLines を参照。
 //   ★材料は4つだけ（2026-10-25 shoya）。面談メモの言葉・ML の点数は使わない
@@ -18,14 +19,18 @@ import type { IkeShoudakuList, SaiyouSignal, SaiyouSignalsLive } from '@/lib/liv
 //   ★読むだけ。どれも今のシステム側で SELECT しかしない GET（roster?op=nyusha は action=save が GET でも書くので list 以外は呼ばない）
 //   ★返すのは 日数・はい/いいえ・入社日だけ。トーク本文・メール・健康の情報は返さない（読んだ返りからも持ち出さない）
 //   ★未経験の人だけ（今のプロパーリストに入っている人）。プロパーリストが読めなければ人の行は返さない
-//   ★人の当て方は名前（normName）。承諾者の一覧に ID が無いので、同姓同名は区別できない（画面は「同姓同名」の印を出す）
+//   ★人の当て方は名前（normName）。承諾者の一覧に ID が無いので、同姓同名は区別できない
+//     → 10-25 同じ名前の承諾者が2人以上いたら、その名前の人には兆しを出さず「同姓同名のため判定できません」だけ（別の人の返信を数えない）
+//   ★10-25 LINE の受信が1回も見つからない人は「承諾してから一度も返信なし」（承諾日からの日数で強さを決める）
+//   ★10-25 承諾者の一覧（shoudaku-story）もここで返す（未経験の人だけに絞って数え直したもの）。画面は別に読まない
+//   ★答えはその人だけ3分控える（lib/cache.ts）。?refresh=1 で読み直す。LINE の一覧は /api/ike と同じ60秒の控えを使う
 class AuthGone extends Error {}
 
-async function getJson<T>(path: string): Promise<T> {
-  const r = await ikeFetch(path);
+async function getJson<T>(path: string, ttlMs = 0): Promise<T> {
+  const r = await ikeFetchCached<T>(path, ttlMs);
   if (r.status === 401) throw new AuthGone();
   if (!r.ok) throw new Error(`${path.split('?')[0]}（${r.status}）`);
-  return (await r.json()) as T;
+  return r.data;
 }
 const soft = <T,>(p: Promise<T>) => p.catch((e) => { if (e instanceof AuthGone) throw e; return null; });
 
@@ -35,20 +40,36 @@ type IkeFormNames = { success?: boolean; names?: string[] | null };
 
 const DAY = 86400000;
 
-export async function GET() {
-  if (!(await ikeToken())) return NextResponse.json({ error: 'not_logged_in' }, { status: 401 });
+export async function GET(req: Request) {
+  const token = await ikeToken();
+  if (!token) return NextResponse.json({ error: 'not_logged_in' }, { status: 401 });
   try {
+    const refresh = new URL(req.url).searchParams.get('refresh') === '1';
+    const { v } = await cached(`${userKey(token)}|saiyou-signals`, 3 * 60_000, build, { refresh, keep: (x) => !x.warnings.length });   // 読めなかった材料がある答えは控えない
+    return NextResponse.json(v);
+  } catch (e) {
+    if (e instanceof AuthGone) return NextResponse.json({ error: 'ログインが切れました。もう一度ログインしてください' }, { status: 401 });
+    return NextResponse.json({ error: `今の社内システムから読めませんでした（${(e as Error).message}）` }, { status: 502 });
+  }
+}
+
+async function build(): Promise<SaiyouSignalsLive> {
     const [list, eng, contacts, groups, form, ny, jimu] = await Promise.all([
       getJson<IkeShoudakuList>('/api/shoudaku-story?list=1&days=90'),
       getJson<EngineerRows>('/api/roster?action=getEngineerRows'),
-      soft(getJson<IkeContacts>('/api/chat?action=contacts')),
+      soft(getJson<IkeContacts>('/api/chat?action=contacts', 60_000)),
       soft(getJson<IkeGroups>('/api/chat?action=groups')),
       soft(getJson<IkeFormNames>('/api/basic-info?action=names')),
       soft(getJson<{ success?: boolean; overlay?: IkeNyushaOverlay }>('/api/roster?op=nyusha&action=list')),
       soft(getJson<IkeJimuLite>('/api/roster?op=jimu&action=list')),
     ]);
     const warnings: string[] = [];
-    const open = onlyMikeiken(mikeikenSetOf(eng), (list.people || []).filter((p) => p.outcome === 'open'), (p) => p.name || p.norm);
+    const mk = mikeikenSetOf(eng);
+    const mkPeople = onlyMikeiken(mk, list.people || [], (p) => p.name || p.norm);
+    const open = mkPeople.filter((p) => p.outcome === 'open');
+    // 同じ名前（normName）の承諾者が何人いるか（決着した人も数える＝LINE・フォーム・入社日を名前で当てると取り違える）
+    const nameN = new Map<string, number>();
+    for (const p of list.people || []) { const k = normName(p.name || p.norm); if (k) nameN.set(k, (nameN.get(k) || 0) + 1); }
 
     // ① LINE の最後の受信（名前ごとに新しい方）
     const lastIn = new Map<string, number>();
@@ -84,20 +105,20 @@ export async function GET() {
     if (!join) warnings.push('入社日（名簿の入社日）が読めませんでした');
 
     const now = Date.now();
+    const days = (t: number) => Math.max(0, Math.floor((now - t) / DAY));
     const people: SaiyouSignal[] = open.map((p) => {
       const k = normName(p.name || p.norm);
+      if ((nameN.get(k) || 0) > 1) return { norm: p.norm, sameName: true, lastInDays: null, noReplyDays: null, formDone: null, joinDate: null };
       const t = lastIn.get(k);
+      const acc = Date.parse(p.shoudaku_at);
       return {
-        norm: p.norm,
-        lastInDays: line && t ? Math.max(0, Math.floor((now - t) / DAY)) : null,
+        norm: p.norm, sameName: false,
+        lastInDays: line && t ? days(t) : null,
+        // LINE が読めて、この人の受信が1回も見つからない＝承諾してから一度も返信なし（承諾日からの日数）
+        noReplyDays: line && !t && Number.isFinite(acc) ? days(acc) : null,
         formDone: formOk ? answered.has(k) : null,
         joinDate: overlayJoin.get(k) || jimuJoin.get(k) || null,
       };
     });
-    const body: SaiyouSignalsLive = { people, sources: { line, form: formOk, join }, warnings, generatedAt: new Date().toISOString() };
-    return NextResponse.json(body);
-  } catch (e) {
-    if (e instanceof AuthGone) return NextResponse.json({ error: 'ログインが切れました。もう一度ログインしてください' }, { status: 401 });
-    return NextResponse.json({ error: `今の社内システムから読めませんでした（${(e as Error).message}）` }, { status: 502 });
-  }
+    return { people, shoudaku: mikeikenShoudaku(list, mkPeople), sources: { line, form: formOk, join }, warnings, generatedAt: new Date().toISOString() };
 }

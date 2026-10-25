@@ -6,9 +6,9 @@ import { ACCEPTORS, FOLLOW_BY, SLOTS, type Acceptor, type FollowState } from '@/
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
-import { LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { LiveBanner, NotInLegacy } from '@/components/Live';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
-import { acceptorsFromIke, liveSignalLines, mikeikenShoudaku, shoudakuNote, type IkeShoudakuList, type SaiyouSignal, type SaiyouSignalsLive } from '@/lib/live/saiyou';
+import { acceptorsFromIke, liveSignalLines, shoudakuNote, type SaiyouSignal, type SaiyouSignalsLive } from '@/lib/live/saiyou';
 import { useLiveRoute } from '@/lib/live/use-live-route';
 import { PersonName } from '@/components/Person';
 
@@ -44,18 +44,17 @@ export default function SaiyouPage() {
   const canEdit = usePerms().can('jinji', 'edit');
   const { hit, toast } = useMotivation();
   const [sRows, setRows] = useState<Acceptor[]>(ACCEPTORS);
-  // 本物：今の社内システムの承諾者（決着前の人）。兆し・フォロー面談は今のシステムに無いので出さない（入れる・済みにするも無し）
-  const ike = useIke<IkeShoudakuList>('shoudaku-story?list=1&days=90');
-  const live = ike.live;
-  // 本物は未経験の人だけ（今のプロパーリストに入っている人）。決着までの人数・中央値も絞ったあとの人で数え直す
+  // 本物：今の社内システムの承諾者（決着前の人）と兆しの材料（返信の日数・フォーム・入社日）を1本で読む（/api/live/saiyou-signals・10-25）
+  //   承諾者の一覧は未経験の人だけに絞って、決着までの人数・中央値も絞ったあとの人で数え直してある（サーバー側）
+  //   フォロー面談は今のシステムに無いので出さない（入れる・済みにするも無し）
+  const sg = useLiveRoute<SaiyouSignalsLive>('/api/live/saiyou-signals');
+  const live = sg.live;
   const mk = useMikeiken();
-  const shoudaku = useMemo(() => (ike.data ? mikeikenShoudaku(ike.data, mk.keep(ike.data.people || [], (p) => p.name || p.norm)) : null), [ike.data, mk]);
+  const shoudaku = sg.data?.shoudaku ?? null;
   const liveRows = useMemo(() => acceptorsFromIke(shoudaku), [shoudaku]);
   const rows = live ? liveRows : sRows;
-  // 本物の兆しの材料（返信の日数・フォーム・入社日）。読めなければ兆しは出さない（「兆しなし」とは言わない）
-  const sg = useLiveRoute<SaiyouSignalsLive>(live ? '/api/live/saiyou-signals' : null);
   const sigBy = useMemo(() => new Map<string, SaiyouSignal>((sg.data?.people || []).map((p) => [p.norm, p])), [sg.data]);
-  const sigReady = live && sg.live;
+  const sigReady = live;
   const sig = (a: Acceptor): Sig[] => (live ? liveSignalLines(sigBy.get(a.norm || ''), sg.data?.sources) : signals(a));
   const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
   const since = (d: string) => Math.max(0, Math.round((Date.parse(today) - Date.parse(d)) / 86400000));
@@ -89,10 +88,10 @@ export default function SaiyouPage() {
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="採用（承諾者・面談）" sub={`内定を承諾した人の、入社までのフォロー面談と辞退の兆し${live ? '' : '・見本データ'}`} />
-      <LiveBanner state={ike.state} error={ike.error} onReload={ike.reload} note={`承諾者は今の社内システムから（見るだけ）。${shoudakuNote(shoudaku)}`} />
-      <MikeikenNote mk={mk} live={ike.live} />
+      <LiveBanner state={sg.state} error={sg.error} onReload={sg.reload} note={`承諾者は今の社内システムから（見るだけ）。${shoudakuNote(shoudaku)}`} />
+      <MikeikenNote mk={mk} live={live} />
+      <div className="rounded-xl border border-line bg-soft px-4 py-2.5 text-[12.5px] text-muted">兆しはフォローの面談のきっかけにだけ使います。案件から外すなど本人に不利な扱いには使いません。</div>
       {live && <NotInLegacy what="辞退の兆しのうち 面談の日程変更・メモの言葉と、フォロー面談の記録" />}
-      {live && sg.state === 'error' && <div className="rounded-xl border border-line bg-soft px-4 py-2.5 text-[12.5px] text-bad">辞退の兆しの材料が読めませんでした（{sg.error}）<button onClick={sg.reload} className="ml-2 underline">読み直す</button></div>}
       {sigReady && (sg.data?.warnings.length ?? 0) > 0 && <div className="rounded-xl border border-line bg-soft px-4 py-2.5 text-[12.5px] text-muted">{sg.data!.warnings.join('／')}。読めなかった材料は兆しに出していません。</div>}
 
       {live ? (
@@ -146,7 +145,7 @@ export default function SaiyouPage() {
           </tbody>
         </table>
       </div>
-      <p className="text-[11.5px] leading-relaxed text-faint">承諾日は承諾の記録の日時です。名前は基本情報フォームの表記で、同じ名前の人は応募IDで見分けます。トークの本文は出していません（共有のログイン情報などが流れていることがあるため）。{live && '辞退の兆しは LINE の最後の受信からの日数・基本情報フォームの回答・名簿の入社日だけで出しています（名前で当てるので、同姓同名の人は同じ兆しになります）。'}今のシステムの承諾者一覧シートには書き戻しません。</p>
+      <p className="text-[11.5px] leading-relaxed text-faint">承諾日は承諾の記録の日時です。名前は基本情報フォームの表記で、同じ名前の人は応募IDで見分けます。トークの本文は出していません（共有のログイン情報などが流れていることがあるため）。{live && '辞退の兆しは LINE の最後の受信からの日数（一度も受信が無い人は承諾からの日数）・基本情報フォームの回答・名簿の入社日だけで出しています。名前で当てるので、同じ名前の承諾者がいる人は判定しません。'}今のシステムの承諾者一覧シートには書き戻しません。</p>
     </main>
   );
 }
