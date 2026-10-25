@@ -1,9 +1,9 @@
 // 組織表（ver2 の中だけ・10-25 shoya「組織表も作りたい 一旦手打ちする ログインできてるやつ全員分 ロール定義・権限付与」）
 //   ・人＝今の社内システムにログインできる全員（名前・メールは毎回そこから読む＝ここには保存しない）
-//   ・組織（部署→チーム）・役職・ロール・個別の段階を、この端末の localStorage に自動保存。JSON で書き出し／読み込み
+//   ・組織（部署→チーム）・役職・ロール・個別の段階は、今の社内システムの v2-settings に置いて全員で共有（10-25〜）。
+//     保存できるのは全体管理者（super_admin）だけ。この端末の localStorage は控え（ログインしていない・読めないときはこれで動く）。JSON で書き出し／読み込みも残す
 //   ・今の社内システムのロール（staff など）は参考に出すだけ。変えない
-//   ・DB に置く（みんなで共有）のは shoya の承認後
-import { LEVELS, ROLES, type Level, type Perms } from './access';
+import { LEVELS, ROLES, type Level, type Member, type Perms } from './access';
 import { MODULES } from './theme';
 
 export type OrgRole = { id: string; label: string; perms: Perms; manageAccess: boolean };
@@ -65,6 +65,35 @@ export function loadOrg(): OrgState {
 export function saveOrg(s: OrgState): boolean {
   try { localStorage.setItem(ORG_STORAGE_KEY, JSON.stringify(s)); return true; } catch { return false; }
 }
+
+// ---- 全員で共有する設定（v2-settings・10-25）。/api/live/v2-settings が今の社内システムに読み書きする ----
+export const V2_SETTING_KEYS = ['org', 'members'] as const;
+export type V2SettingKey = (typeof V2_SETTING_KEYS)[number];
+export type V2Settings = { org?: unknown; members?: Member[]; updatedAt?: string; updatedBy?: string };
+/** 共有の状態。sample＝ログインしていない（この端末だけ）／missing＝今のシステムに置き場がまだ無い */
+export type SharedState = 'loading' | 'live' | 'sample' | 'missing' | 'error';
+export type SharedLoad = { state: SharedState; value: V2Settings | null; canSave: boolean; error?: string };
+
+export async function loadShared(): Promise<SharedLoad> {
+  try {
+    const r = await fetch('/api/live/v2-settings', { cache: 'no-store' });
+    const j = (await r.json().catch(() => ({}))) as { ok?: boolean; value?: V2Settings | null; canSave?: boolean; missing?: boolean; error?: string };
+    if (r.status === 401 && j.error === 'not_logged_in') return { state: 'sample', value: null, canSave: false };
+    if (!r.ok) return { state: 'error', value: null, canSave: false, error: j.error || `読めませんでした（${r.status}）` };
+    if (j.missing) return { state: 'missing', value: null, canSave: false };
+    return { state: 'live', value: j.value ?? null, canSave: !!j.canSave };
+  } catch (e) { return { state: 'error', value: null, canSave: false, error: (e as Error).message }; }
+}
+
+/** key の分だけ全員の設定に保存（super_admin だけ。だめなら error に理由） */
+export async function saveShared(key: V2SettingKey, value: unknown): Promise<{ ok: boolean; error?: string; status: number }> {
+  try {
+    const r = await fetch('/api/live/v2-settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key, value }) });
+    const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    return r.ok && j.ok ? { ok: true, status: r.status } : { ok: false, error: j.error || `保存できませんでした（${r.status}）`, status: r.status };
+  } catch (e) { return { ok: false, error: (e as Error).message, status: 0 }; }
+}
+export const SAVED_SHARED = '保存しました（全員に効きます）';
 
 export const roleOf = (s: OrgState, a?: Assign) => s.roles.find((r) => r.id === (a?.role ?? NO_ROLE)) ?? s.roles.find((r) => r.id === NO_ROLE)!;
 

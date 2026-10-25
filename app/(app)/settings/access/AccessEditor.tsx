@@ -1,20 +1,33 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { atLeast, canUseApp, effectivePerms, LEVELS, ROLES, type Level, type Member, type RoleKey } from '@/lib/access';
 import { MODULES } from '@/lib/theme';
 import { PageTitle } from '@/components/ui';
 import { useMotivation } from '@/components/Motivation';
+import { SAVED_SHARED, loadShared, saveShared, type SharedLoad } from '@/lib/org';
 
 // 人ごとに「ロール」と「分類ごとの段階」を付ける。
 //   実際の段階＝ロールの段階と個別の段階の高いほう。ロールで既に持っている段階より下は選べない（灰色）。
 //   何も付いていない分類は「見ない」＝その人のメニューに出ない。
+//   変えたら今の社内システムの v2-settings（members）にも保存＝全員で共有（全体管理者 super_admin だけ・10-25）。
 export function AccessEditor({ initial, meId }: { initial: Member[]; meId: string }) {
   const router = useRouter();
   const { toast, hit } = useMotivation();
   const [members, setMembers] = useState(initial);
   const [shake, setShake] = useState<string | null>(null);
+  const [shared, setShared] = useState<SharedLoad>({ state: 'loading', value: null, canSave: false });
+  const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const toShared = shared.state === 'live' && shared.canSave;
+  const membersRef = useRef(members);
+  useEffect(() => { membersRef.current = members; }, [members]);
+  useEffect(() => { void loadShared().then(setShared); }, []);
+  const pushShared = async (ms: Member[]) => {
+    if (!toShared) return;
+    const r = await saveShared('members', ms);
+    setSaveMsg(r.ok ? { ok: true, text: SAVED_SHARED } : { ok: false, text: r.error || '保存できませんでした' });
+  };
 
   type Patch = { role?: RoleKey; own?: Member['own'] };
   const put = async (id: string, patch: Patch, msg: string, back?: Patch) => {
@@ -29,7 +42,9 @@ export function AccessEditor({ initial, meId }: { initial: Member[]; meId: strin
       return;
     }
     hit();
-    toast({ text: msg, sub: '→ その人のメニューとボタンに、次に開いたときから反映', undo: back ? () => { void put(id, back, `${beforeM.name}を元に戻しました`); } : undefined });
+    const next = membersRef.current.map((m) => (m.id === id ? { ...m, ...(patch.role ? { role: patch.role } : {}), own: { ...m.own, ...(patch.own || {}) } } : m));
+    void pushShared(next);
+    toast({ text: msg, sub: toShared ? '→ 保存しました（全員に効きます）。その人のメニューとボタンに、次に開いたときから反映' : '→ その人のメニューとボタンに、次に開いたときから反映', undo: back ? () => { void put(id, back, `${beforeM.name}を元に戻しました`); } : undefined });
     router.refresh();
   };
 
@@ -103,6 +118,10 @@ export function AccessEditor({ initial, meId }: { initial: Member[]; meId: strin
           </table>
         </div>
       </section>
+      <p className="text-[12px] text-faint">
+        {toShared ? '変えると全員の分（今の社内システムの共有の設定）にも保存します。' : shared.state === 'live' ? '全員の分を保存できるのは全体管理者（super_admin）だけです。' : shared.state === 'loading' ? '' : '共有の設定には保存していません（ログインしていない・置き場がまだ無い）。'}
+        {saveMsg && <span className={saveMsg.ok ? 'ml-1 font-semibold text-ok' : 'ml-1 text-bad'}>{saveMsg.text}</span>}
+      </p>
       <p className="text-[12px] text-faint">見本の名簿です。本物のログインと名簿をつないだら、未経験事業部の内勤かどうかは名簿から自動で決まります。</p>
     </main>
   );

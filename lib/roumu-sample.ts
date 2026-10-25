@@ -75,20 +75,48 @@ export function leaveLevel(l: Leave, dangerDays = 60, warnGap = 0.25): Level {
   return 'ok';
 }
 
-// 派遣契約の終了通知（準委任は対象外）。抵触日＝同じ派遣先の同じ組織で働ける3年の期限（個人単位）。
+// 派遣契約の終了通知（準委任は通知の対象外・行は出す）。抵触日＝同じ派遣先の同じ組織で働ける3年の期限（個人単位）。
+//   事業所単位の抵触日＝派遣先の事業所が派遣を受け入れられる3年の期限。延ばすなら派遣先が抵触日の1か月前までに意見聴取（10-25）
+//   書類＝個別契約書・派遣元管理台帳・就業条件明示（労働者への明示）があるか。準委任は派遣ではないので抵触日・書類は対象外
+//   更新の意向：営業は「提案」まで。確定（confirmed）は労務の権限の人だけ（10-25）
 export type Intent = '未確認' | '更新' | '終了' | '派遣先と調整中';
-export type DispatchContract = {
-  personId: string; name: string; site: string; sales: string;
-  start: string; end: string; daysLeft: number; conflictOn: string; conflictDays: number;
-  intent: Intent; asked?: string;
-};
-export const CONTRACTS: DispatchContract[] = [
-  { personId: 's0388', name: '伊藤 誠', site: 'C社（新宿）', sales: '小林', start: '2024/10/01', end: '2026/11/30', daysLeft: 38, conflictOn: '2027/10/01', conflictDays: 343, intent: '未確認' },
-  { personId: 's0410', name: '渡辺 涼', site: 'F社（横浜）', sales: '小林', start: '2025/03/01', end: '2026/11/30', daysLeft: 38, conflictOn: '2028/03/01', conflictDays: 495, intent: '派遣先と調整中', asked: '10/20 営業が確認中' },
-  { personId: 's0399', name: '高橋 健', site: 'G社（品川）', sales: '田中', start: '2024/11/01', end: '2026/12/31', daysLeft: 69, conflictOn: '2027/11/01', conflictDays: 374, intent: '未確認' },
-  { personId: 's0455', name: '加藤 葵', site: 'E社（川崎）', sales: '田中', start: '2026/11/01', end: '2027/01/31', daysLeft: 100, conflictOn: '2029/11/01', conflictDays: 1105, intent: '更新' },
-  { personId: 's0474', name: '林 さくら', site: 'J社（池袋）', sales: '田中', start: '2023/12/01', end: '2026/11/30', daysLeft: 38, conflictOn: '2026/12/01', conflictDays: 39, intent: '未確認' },
+export type ContractKind = '派遣' | '準委任';
+export type ContractDocs = { kobetsu: boolean; daicho: boolean; meiji: boolean };
+export const DOC_LABELS: { key: keyof ContractDocs; label: string }[] = [
+  { key: 'kobetsu', label: '個別契約書' }, { key: 'daicho', label: '派遣元管理台帳' }, { key: 'meiji', label: '就業条件明示' },
 ];
+export type DispatchContract = {
+  personId: string; name: string; site: string; sales: string; kind: ContractKind;
+  start: string; end: string; daysLeft: number;
+  conflictOn: string; conflictDays: number;                 // 個人単位（準委任は空・使わない）
+  officeConflictOn: string; officeConflictDays: number;     // 事業所単位（準委任は空・使わない）
+  docs: ContractDocs | null;                                 // 準委任は null
+  intent: Intent; confirmed?: boolean; asked?: string;
+};
+const NA = { conflictOn: '', conflictDays: 99999, officeConflictOn: '', officeConflictDays: 99999, docs: null };
+export const CONTRACTS: DispatchContract[] = [
+  { personId: 's0388', name: '伊藤 誠', site: 'C社（新宿）', sales: '小林', kind: '派遣', start: '2024/10/01', end: '2026/11/30', daysLeft: 38, conflictOn: '2027/10/01', conflictDays: 343, officeConflictOn: '2026/12/15', officeConflictDays: 53, docs: { kobetsu: true, daicho: true, meiji: false }, intent: '未確認' },
+  { personId: 's0410', name: '渡辺 涼', site: 'F社（横浜）', sales: '小林', kind: '派遣', start: '2025/03/01', end: '2026/11/30', daysLeft: 38, conflictOn: '2028/03/01', conflictDays: 495, officeConflictOn: '2027/04/01', officeConflictDays: 160, docs: { kobetsu: true, daicho: true, meiji: true }, intent: '派遣先と調整中', asked: '10/20 営業が確認中' },
+  { personId: 's0399', name: '高橋 健', site: 'G社（品川）', sales: '田中', kind: '派遣', start: '2024/11/01', end: '2026/12/31', daysLeft: 69, conflictOn: '2027/11/01', conflictDays: 374, officeConflictOn: '2027/11/01', officeConflictDays: 374, docs: { kobetsu: true, daicho: false, meiji: true }, intent: '未確認' },
+  { personId: 's0455', name: '加藤 葵', site: 'E社（川崎）', sales: '田中', kind: '派遣', start: '2026/11/01', end: '2027/01/31', daysLeft: 100, conflictOn: '2029/11/01', conflictDays: 1105, officeConflictOn: '2028/06/01', officeConflictDays: 587, docs: { kobetsu: true, daicho: true, meiji: true }, intent: '更新', confirmed: true },
+  { personId: 's0474', name: '林 さくら', site: 'J社（池袋）', sales: '田中', kind: '派遣', start: '2023/12/01', end: '2026/11/30', daysLeft: 38, conflictOn: '2026/12/01', conflictDays: 39, officeConflictOn: '2027/02/01', officeConflictDays: 101, docs: { kobetsu: true, daicho: true, meiji: true }, intent: '未確認' },
+  { personId: 's0481', name: '山本 拓', site: 'K社（渋谷）', sales: '小林', kind: '準委任', start: '2025/10/01', end: '2027/03/31', daysLeft: 159, ...NA, intent: '未確認' },
+  { personId: 's0492', name: '中島 結衣', site: 'L社（大手町）', sales: '田中', kind: '準委任', start: '2026/07/01', end: '2026/12/31', daysLeft: 69, ...NA, intent: '派遣先と調整中' },
+];
+
+const ymd = (s: string) => { const [y, m, d] = s.split('/').map(Number); return { y, m, d }; };
+const dayMs = (s: string) => { const { y, m, d } = ymd(s); return Date.UTC(y, m - 1, d); };
+/** 事業所単位の抵触日の1か月前の日（意見聴取の期限）。31日→その月の末日に寄せる */
+export function ikenOf(c: DispatchContract): { on: string; days: number } | null {
+  if (c.kind !== '派遣' || !c.officeConflictOn) return null;
+  const { y, m, d } = ymd(c.officeConflictOn);
+  const py = m === 1 ? y - 1 : y, pm = m === 1 ? 12 : m - 1;
+  const last = new Date(Date.UTC(py, pm, 0)).getUTCDate();
+  const on = `${py}/${String(pm).padStart(2, '0')}/${String(Math.min(d, last)).padStart(2, '0')}`;
+  return { on, days: c.officeConflictDays - Math.round((dayMs(c.officeConflictOn) - dayMs(on)) / 86400000) };
+}
+/** 更新・終了が確定した（営業の提案だけでは止めない） */
+export const contractDecided = (c: DispatchContract) => (c.intent === '更新' || c.intent === '終了') && !!c.confirmed;
 // 何日前に知らせるか（段階）の既定。実際の日数と宛先はアラート設定（lib/alert-rules.ts）を読む。
 export const CONTRACT_STEPS = [
   { days: 60, level: 'caution' as Level, label: '60日前', to: ['担当営業'] },
@@ -96,8 +124,8 @@ export const CONTRACT_STEPS = [
   { days: 14, level: 'danger' as Level, label: '14日前', to: ['担当営業', '労務', '全体管理者'] },
 ];
 export function contractLevel(c: DispatchContract, days: [number, number, number] = [60, 30, 14]): Level {
-  if (c.intent === '更新' || c.intent === '終了') return 'ok';
-  const d = Math.min(c.daysLeft, c.conflictDays);
+  if (c.kind === '準委任' || contractDecided(c)) return 'ok';
+  const d = Math.min(c.daysLeft, c.conflictDays, ikenOf(c)?.days ?? Infinity);
   if (d <= days[2]) return 'danger';
   if (d <= days[1]) return 'warn';
   if (d <= days[0]) return 'caution';

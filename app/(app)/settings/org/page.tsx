@@ -6,7 +6,7 @@ import { PageTitle } from '@/components/ui';
 import { LiveBanner, useIke } from '@/components/Live';
 import { RemainRing, useMotivation } from '@/components/Motivation';
 import { NoAccess, usePerms } from '@/components/Perms';
-import { INNAI_DOMAIN, loadOrg, parseOrg, peopleFromAdmin, personKind, saveOrg, type AdminList, type OrgState } from '@/lib/org';
+import { INNAI_DOMAIN, SAVED_SHARED, loadOrg, loadShared, parseOrg, peopleFromAdmin, personKind, saveOrg, saveShared, type AdminList, type OrgState, type SharedLoad } from '@/lib/org';
 import { ORG_SAMPLE_PEOPLE } from '@/lib/org-sample';
 import { OrgChart } from './OrgChart';
 import { PeopleTable } from './PeopleTable';
@@ -15,7 +15,8 @@ import type { Commit, Ctl } from './shared';
 
 // 組織表（設定の中）。人＝今の社内システムにログインできる全員（ログインしていなければ見本の人）。
 //   組織・役職・ロール・個別の段階は ver2 の中だけの話なので、本物のデータのときも止めずに動かす（今のシステムには書かない・読むのは GET だけ）。
-//   保存はこの端末の localStorage（入力したらすぐ）。JSON の書き出し／読み込みで PC と iPhone の間を移す。
+//   保存は今の社内システムの v2-settings（全員で共有・全体管理者だけ・10-25〜）。この端末の localStorage は控え。
+//   ログインしていない・置き場がまだ無いときは、この端末にだけ保存（JSON の書き出し／読み込みで移す）。
 type Tab = 'chart' | 'table' | 'roles';
 const TABS: { key: Tab; label: string; icon: typeof Network }[] = [
   { key: 'chart', label: '組織図', icon: Network },
@@ -38,18 +39,44 @@ export default function OrgPage() {
   const [saveNg, setSaveNg] = useState(false);
   const orgRef = useRef<OrgState | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // 全員で共有する置き場（v2-settings）。dirty＝この画面で変えた（読み込んだだけでは保存しない）
+  const [shared, setShared] = useState<SharedLoad>({ state: 'loading', value: null, canSave: false });
+  const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const dirty = useRef(false);
+  const toShared = shared.state === 'live' && shared.canSave;
 
-  useEffect(() => { setOrg(loadOrg()); }, []);
+  useEffect(() => {
+    setOrg(loadOrg());
+    let alive = true;
+    void loadShared().then((s) => {
+      if (!alive) return;
+      setShared(s);
+      const remote = s.value?.org ? parseOrg(s.value.org) : null;
+      if (remote && !dirty.current) setOrg(remote);
+    });
+    return () => { alive = false; };
+  }, []);
   useEffect(() => { orgRef.current = org; if (org) setSaveNg(!saveOrg(org)); }, [org]);
+  // 変えたら少し待ってから全員の分に保存（続けて触っても1回にまとめる）
+  useEffect(() => {
+    if (!org || !dirty.current || !toShared) return;
+    const t = setTimeout(async () => {
+      const r = await saveShared('org', org);
+      if (r.ok) dirty.current = false;
+      setSaveMsg(r.ok ? { ok: true, text: SAVED_SHARED } : { ok: false, text: `${r.error}（この端末には保存しています）` });
+    }, 800);
+    return () => clearTimeout(t);
+  }, [org, toShared]);
 
   const commit: Commit = useCallback((fn, text, opts) => {
     const before = orgRef.current;
     if (!before) return;
+    dirty.current = true;
     setOrg(fn(before));
     if (opts?.flash) { setFlash(null); requestAnimationFrame(() => setFlash(opts.flash!)); }
     hit();
-    toast({ text, sub: opts?.sub ?? '→ この端末の組織表に保存', undo: () => setOrg(before) });
-  }, [hit, toast]);
+    toast({ text, sub: opts?.sub ?? (toShared ? '→ 組織表に保存（全員に効きます）' : '→ この端末の組織表に保存'), undo: () => { dirty.current = true; setOrg(before); } });
+  }, [hit, toast, toShared]);
 
   const people = useMemo(() => (live ? peopleFromAdmin(data) : ORG_SAMPLE_PEOPLE).slice().sort((a, b) => a.name.localeCompare(b.name, 'ja')), [live, data]);
   const match = (p: { name: string; email: string }) => !q || p.name.includes(q) || p.email.toLowerCase().includes(q.toLowerCase());
@@ -79,7 +106,7 @@ export default function OrgPage() {
     try {
       const next = parseOrg(JSON.parse(await f.text()));
       if (!next) { toast({ text: '組織表のファイルではないようです', sub: 'この画面で書き出した .json を選んでください' }); return; }
-      commit(() => next, '組織表を読み込みました', { sub: `→ この端末の組織表を置き換え（部署・チーム${next.units.length}・ロール${next.roles.length}）` });
+      commit(() => next, '組織表を読み込みました', { sub: `→ ${toShared ? '組織表（全員）' : 'この端末の組織表'}を置き換え（部署・チーム${next.units.length}・ロール${next.roles.length}）` });
     } catch { toast({ text: '読めませんでした', sub: 'この画面で書き出した .json を選んでください' }); }
   };
 
@@ -92,7 +119,16 @@ export default function OrgPage() {
       </PageTitle>
       <LiveBanner state={state} error={error} onReload={reload}
         note={`人は今の社内システムから読んでいます（${people.length}人・読むだけ）。組織・役職・ロールはこの画面の中だけの話なので変えられます。今のシステムのロールは変わりません`} />
-      <p className="text-[12px] text-faint">いまはこの端末にだけ保存。みんなで共有するには DB に置く（shoya の承認後）。{saveNg && <span className="text-bad">　この端末に保存できませんでした（書き出すで控えを取ってください）</span>}</p>
+      <p className="text-[12px] text-faint">
+        {shared.state === 'loading' ? '共有の設定を読んでいます…'
+          : toShared ? '変えるとすぐ全員の分に保存します（全体管理者だけ）。'
+          : shared.state === 'live' ? '全員の分を保存できるのは全体管理者（super_admin）だけです。いまはこの端末にだけ保存します。'
+          : shared.state === 'missing' ? '今の社内システムに共有の置き場がまだ無いので、この端末にだけ保存します。'
+          : shared.state === 'error' ? `共有の設定を読めませんでした（${shared.error}）。この端末にだけ保存します。`
+          : 'ログインしていないので、この端末にだけ保存します。'}
+        {saveMsg && <span className={saveMsg.ok ? 'ml-1 font-semibold text-ok' : 'ml-1 text-bad'}>{saveMsg.text}</span>}
+        {saveNg && <span className="text-bad">　この端末に保存できませんでした（書き出すで控えを取ってください）</span>}
+      </p>
 
       <section className="mo-fade-up flex flex-wrap items-center gap-4 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         {unassigned > 0 ? (

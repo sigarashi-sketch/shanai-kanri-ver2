@@ -71,6 +71,8 @@ export const NAV_EXTRA: NavItem[] = [
 export const NAV_KANRI: NavItem[] = [
   { href: '/settings/org', label: '組織表', built: true }, // 組織・ロール・権限付与（この端末に保存・10-25）
   { href: '/settings/access', label: '権限管理', built: true },
+  { href: '/settings/view-log', label: '閲覧ログ', built: true }, // だれが、だれのチャット・基本情報・面談メモ・要約を見たか（super_admin だけ・10-25）
+  { href: '/settings/cutover', label: '本番切り替えの突き合わせ', built: true }, // 今と ver2 の数が同じか（10-25）
 ];
 
 export function findNav(pathname: string): { group?: NavGroup; item?: NavItem } {
