@@ -6,6 +6,7 @@
 //   ・チャットだけは送れる（長押し）。送る口は /api/live/chat（今の POST /api/chat の send / groupSend だけ通す）
 //     グループに送ってよいかは今の API が決める。断られたら理由をそのまま出す。見本のときは送らない
 //   ・それ以外の書き込み（スキシを作る・メモを直す 等）はここには置かない
+import { ChatSummary } from '@/components/ChatSummary';
 import Link from 'next/link';
 import { notFound, useParams, useSearchParams } from 'next/navigation';
 import { Suspense, useMemo, useRef, useState } from 'react';
@@ -257,6 +258,7 @@ function Chat({ name, live, everyone }: { name: string; live: boolean; everyone:
           </select>
         )}
         {sub === 'グループ' && myGroups.length === 1 && <span className="ml-auto text-[12.5px] text-muted">{myGroups[0].name}</span>}
+        {(!live || target) && <span className={(sub === '個人' ? mine.length > 1 : myGroups.length >= 1) ? '' : 'ml-auto'}><ChatSummary kind={sub === '個人' ? 'user' : 'group'} id={target || 'sample0'} name={sub === '個人' ? name : myGroups.find((g) => g.groupId === groupId)?.name || name} live={live} /></span>}
       </div>
       <div className="flex max-h-[460px] min-h-[220px] flex-col gap-2 overflow-y-auto px-[18px] py-3" style={{ background: 'var(--color-sunken)' }}>
         {!live && <p className="text-center text-[12px] text-faint">見本のトークです</p>}

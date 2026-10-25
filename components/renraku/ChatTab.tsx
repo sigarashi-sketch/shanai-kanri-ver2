@@ -5,6 +5,7 @@ import { Search } from 'lucide-react';
 import { useIke } from '../Live';
 import { useMotivation } from '../Motivation';
 import { needText } from '../Perms';
+import { ChatSummary } from '@/components/ChatSummary';
 import { groupBubbles, threadBubbles, type Bubble, type GroupThreadRes, type ThreadRes } from '@/lib/live/person';
 import { SEG_LABEL, contactRows, filterChat, groupRows, segCounts, type ChatRow, type ChatSeg, type LiveContactsRes, type LiveGroupsRes } from '@/lib/live/renraku';
 import { SAMPLE_CHAT, sampleBubbles } from '@/lib/live/renraku-sample';
@@ -111,7 +112,10 @@ function Thread({ row, live, canSend, info, onBack }: { row: ChatRow; live: bool
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <button onClick={onBack} className="border-b border-line-soft px-4 py-2 text-left text-[12.5px] text-muted">← トーク一覧 ／ <b className="text-ink">{row.name}</b>{row.kind === 'group' && <span className="ml-1 text-faint">（グループ）</span>}</button>
+      <div className="flex items-center gap-2 border-b border-line-soft px-4 py-1.5">
+        <button onClick={onBack} className="min-w-0 flex-1 truncate py-0.5 text-left text-[12.5px] text-muted">← トーク一覧 ／ <b className="text-ink">{row.name}</b>{row.kind === 'group' && <span className="ml-1 text-faint">（グループ）</span>}</button>
+        <ChatSummary kind={one ? 'user' : 'group'} id={row.id} name={row.name} live={live} />
+      </div>
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 py-3" style={{ background: 'var(--color-sunken)' }}>
         {!live && <p className="text-center text-[11.5px] text-faint">見本のトークです</p>}
         {live && st.state === 'loading' && !bubbles.length && <p className="text-[13px] text-muted">読み込み中…</p>}
