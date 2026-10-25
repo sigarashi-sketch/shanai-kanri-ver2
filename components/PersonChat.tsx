@@ -48,7 +48,7 @@ export function PersonChat({ name, live }: { name: string; live: boolean }) {
           {myGroups.map((g) => <option key={g.groupId} value={g.groupId}>{g.name}</option>)}
         </select>
       )}
-      <ChatLog bubbles={loading ? [] : bubbles.slice(-200)} className="-mx-5 max-h-[calc(100vh-300px)] min-h-[240px]" resetKey={`${name}:${sub}:${target}`}>
+      <ChatLog bubbles={loading ? [] : bubbles.slice(-200)} className="-mx-5 max-h-[calc(100vh-430px)] min-h-[240px]" resetKey={`${name}:${sub}:${target}`}>
         {loading && <p className="text-[13px] text-muted">読み込み中…</p>}
         {err && <p className="text-[13px] text-bad">{err}</p>}
         {!loading && !err && !target && <p className="text-[13px] text-muted">{sub === '個人' ? 'この人に紐付いた LINE の相手がいません（今のチャット画面で紐付けると出ます）' : 'グループ名にこの人の名前が入った LINE グループがありません'}</p>}
