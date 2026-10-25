@@ -9,12 +9,14 @@ import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
 import { useAlerts } from '@/components/AlertStore';
+import { KintaiAlertLive } from './live';
 
 // アラート設定（労務/営業管理）＝知らせの「いつ」「だれに」「どうやって」を段階ごとに選ぶ。
 //   ・決まりは 残業（36協定）・有給の年5日・派遣契約・未打刻・退勤の打ち忘れ。値は全部選ぶだけ
 //   ・ここで変えると、残業・有給・現場契約の画面の「知らせる」宛先と段階もすぐ変わる（同じ置き場を読む）
 //   ・法令に関わる知らせは、警告より上の段階で労務を外せない（鍵マーク）。宛先・届け方は最低1つ
 //   ・変えられるのは労務/営業管理の「承認」を持つ人だけ
+//   ・本物（10-25）：今の社内システムの未打刻のお知らせの状態と、今日の判定（送らない）を上に出す（./live.tsx）。段階・宛先の決まりは ver2 の中だけ
 const MODE_STYLE: Record<Mode, { bg: string; fg: string }> = {
   送る: { bg: 'var(--tone-ok-bg)', fg: 'var(--tone-ok-fg)' },
   'ためし（送らない）': { bg: 'var(--tone-caution-bg)', fg: 'var(--tone-caution-fg)' },
@@ -59,6 +61,7 @@ export default function AlertsPage() {
         <button onClick={() => { const before = rules; reset(); hit(); toast({ text: 'アラート設定をはじめの決まりに戻しました', sub: '→ 残業・有給・現場契約・当日の出勤状況の知らせに反映しました', undo: () => setRules(() => before) }); }} disabled={!canSet} title={!canSet ? needText('approve') : undefined} className="inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border border-field bg-surface px-3 text-[12.5px] font-semibold text-muted disabled:opacity-40"><RotateCcw size={14} />はじめの決まりに戻す</button>
       </PageTitle>
       {!canSet && <div className="rounded-xl border border-line bg-soft px-4 py-2.5 text-[12.5px] text-muted">見るだけです。変えるには労務/営業管理の{needText('approve')}</div>}
+      <KintaiAlertLive />
 
       {rules.map((rule, ri) => {
         const order = rule.key === 'contract' && !(numOf(rule.stages[0].when) > numOf(rule.stages[1].when) && numOf(rule.stages[1].when) > numOf(rule.stages[2].when));

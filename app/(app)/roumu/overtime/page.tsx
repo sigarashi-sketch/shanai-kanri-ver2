@@ -10,6 +10,7 @@ import { NotInLegacy } from '@/components/Live';
 import { stageTo, useRule } from '@/components/AlertStore';
 import { numOf } from '@/lib/alert-rules';
 import { PersonName } from '@/components/Person';
+import { OtLive, useOtProbe } from './live';
 
 // 残業・36協定・有給（労務/営業管理）。
 //   ・残業：締め日時点の見込み（実績÷経過した所定日×今月の所定日）で、36協定の上限に近い人を色分けする
@@ -57,19 +58,22 @@ export default function OvertimePage() {
   useEffect(() => { if (new URLSearchParams(window.location.search).get('tab') === 'leave') setTab('leave'); }, []);
   const go = (k: 'ot' | 'leave') => { setTab(k); window.history.replaceState(null, '', `/roumu/overtime${k === 'ot' ? '' : '?tab=leave'}`); };
   const notify = useNotify();
+  // 本物（10-25）：ログイン中は残業のタブを当日の出勤状況の「当月の合計」から出す（./live.tsx）。有給の年5日は今のシステムに無いので見本のまま
+  const probe = useOtProbe();
+  const live = !!probe.date && probe.names.state !== 'sample';
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="残業・36協定・有給" sub={`${MONTH.label}（締め ${MONTH.closeOn}）・所定 ${MONTH.workdays}日のうち ${MONTH.passed}日経過・見本データ`} />
+      <PageTitle title="残業・36協定・有給" sub={live ? '残業は今の社内システムの当月の合計（freee の月次）から出した目安です。有給の年5日は見本データ' : `${MONTH.label}（締め ${MONTH.closeOn}）・所定 ${MONTH.workdays}日のうち ${MONTH.passed}日経過・見本データ`} />
       {/* 今の社内システムには残業の見込み・36協定の段階・有給の年5日を出す画面が無い。freee の月次の残業は1人ずつ freee を読む口（freee-kintai?action=monthly）しか無く、全員分の一覧の口は無いのでつながない */}
-      <NotInLegacy what="残業の見込み・36協定・有給の年5日" />
+      <NotInLegacy what={live ? '有給の年5日・残業の年の累計と45h超えの回数' : '残業の見込み・36協定・有給の年5日'} />
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 1 }}>
         {([['ot', '残業・36協定'], ['leave', '有給の年5日']] as const).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="px-3.5 py-2.5 text-[14px]"
             style={tab === k ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>{l}</button>
         ))}
       </div>
-      <div key={tab} className="mo-axis">{tab === 'ot' ? <OtTab n={notify} /> : <LeaveTab n={notify} />}</div>
+      <div key={tab} className="mo-axis">{tab === 'ot' ? <OtTab n={notify} probe={live ? probe : null} /> : <LeaveTab n={notify} />}</div>
       <p className="text-[11.5px] text-faint">36協定の数字は新宿事業所の協定届（令和7年11月1日〜令和8年10月31日）のものです。社員の数字は見本です。扱いに迷うものは社労士に確認してください。</p>
     </main>
   );
@@ -119,7 +123,7 @@ function Filters({ counts, value, onChange }: { counts: Record<string, number>; 
   );
 }
 
-function OtTab({ n }: { n: Notify }) {
+function OtTab({ n, probe }: { n: Notify; probe: ReturnType<typeof useOtProbe> | null }) {
   const { flash } = n;
   const rule = useRule('overtime');
   const dangerRatio = ratioOf(rule.stages[2].when);
@@ -129,6 +133,7 @@ function OtTab({ n }: { n: Notify }) {
   const counts: Record<string, number> = { all: rows.length };
   rows.forEach((r) => { counts[r.level] = (counts[r.level] ?? 0) + 1; });
   const yearCap = KYOTEI.special ? KYOTEI.spYearly : KYOTEI.yearly;
+  if (probe?.date) return probe.names.state === 'loading' ? null : <OtLive date={probe.date} names={probe.names} caution={ratioOf(rule.stages[0].when)} danger={dangerRatio} />;
 
   return (
     <div className="flex flex-col gap-3">

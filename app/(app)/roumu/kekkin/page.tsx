@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
+import { postLive } from '@/lib/live/post';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
-import { kekkinFromIke, monthLabel, ymOfOffset, type IkeKekkin } from '@/lib/live/kekkin';
+import { EVIDENCE_MAX, EVIDENCE_MAX_BYTES, kekkinFromIke, monthLabel, ymOfOffset, type IkeKekkin, type IkeKekkinRow } from '@/lib/live/kekkin';
 import Link from 'next/link';
-import { AlertTriangle, Check } from 'lucide-react';
+import { AlertTriangle, Check, Paperclip, Trash2, X } from 'lucide-react';
 import { ABSENCES, KINDS, REASONS, STEPS, type Absence, type Kind } from '@/lib/kekkin-sample';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
@@ -37,8 +39,41 @@ export default function KekkinPage() {
   const liveRows = live && ike.data ? kekkinFromIke({ ...ike.data, rows: mk.keep(ike.data.rows || [], 'name') }, month) : [];
   const ruleCount = (rs: Absence[]) => rs.filter((r) => r.kind === '欠勤' && !(r as { beforeRule?: boolean }).beforeRule).length;
   const todoOf = (a: Absence) => (live ? a.reason === '未分類' : todo(a));
-  const okEdit = canEdit && !live;
-  const block = live ? LIVE_WRITE_BLOCKED : !canEdit ? needText('edit') : undefined;
+  const okEdit = canEdit;
+  const block = !canEdit ? needText('edit') : undefined;
+  // 本物（10-25）：理由・エビデンス・行を消す を今の欠勤管理に書く。行は id（日付|氏名）で今の行を引く
+  const rawOf = (id: string): IkeKekkinRow | undefined => (ike.data?.rows || []).find((r) => `${r.date}|${r.nn}` === id);
+  const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState('');
+  const liveDo = async (a: Absence, fn: () => Promise<unknown>, text: string, sub: string) => {
+    setBusy(a.id); setErr('');
+    try { await fn(); setFlash(a.id); setTimeout(() => setFlash(null), 1300); hit(); toast({ text, sub }); ike.reload(); }
+    catch (e) { setErr(`${a.name} の ${a.day}：${(e as Error).message}`); }
+    finally { setBusy(null); }
+  };
+  const saveReason = (a: Absence, v: string) => { const r = rawOf(a.id); if (r) liveDo(a, () => postLive('/api/live/kekkin', { action: 'save', date: r.date, name: r.name, reason: v === '未分類' ? '' : v }), `${a.name} の理由を「${v}」にしました`, '→ 今の欠勤管理に残しました'); };
+  const attach = (a: Absence, f: File) => {
+    const r = rawOf(a.id); if (!r) return;
+    if (f.size > EVIDENCE_MAX_BYTES) { setErr(`ファイルは ${EVIDENCE_MAX_BYTES / 1048576}MB までです`); return; }
+    if (!/^(image\/|application\/pdf)/.test(f.type) && !/\.(jpe?g|png|gif|webp|heic|pdf)$/i.test(f.name)) { setErr('画像か PDF だけ付けられます'); return; }
+    liveDo(a, async () => {
+      const u = await postLive<{ path: string; signedUrl: string }>('/api/live/kekkin', { action: 'uploadUrl', filename: f.name, contentType: f.type, size: f.size });
+      const put = await fetch(u.signedUrl, { method: 'PUT', body: f, headers: { 'Content-Type': f.type || 'application/octet-stream' } });
+      if (!put.ok) throw new Error(`ファイルを上げられませんでした（${put.status}）`);
+      await postLive('/api/live/kekkin', { action: 'attach', date: r.date, name: r.name, path: u.path, filename: f.name });
+    }, `${a.name} の ${a.day} にエビデンスを付けました`, '→ 今の欠勤管理に残しました（中身は今の欠勤管理の画面で開けます）');
+  };
+  const detach = (a: Absence, path: string, n: number) => {
+    const r = rawOf(a.id); if (!r?.id) return;
+    setConfirm({ title: `${a.name} の ${a.day} の添付${n}を外す`, okLabel: '外す', danger: true, lines: ['添付のファイルも消えます（元に戻せません）'],
+      run: async () => { await postLive('/api/live/kekkin', { action: 'detach', id: r.id, path }); hit(); toast({ text: `${a.name} の添付を外しました` }); ike.reload(); } });
+  };
+  const removeRow = (a: Absence) => {
+    const r = rawOf(a.id); if (!r?.id) return;
+    setConfirm({ title: `${a.name} の ${a.day} の行を消す`, okLabel: '行を消す', danger: true, lines: ['手で追加した欠勤の行を消します', '添付が残っている行は消せません（先に外してください）'],
+      run: async () => { await postLive('/api/live/kekkin', { action: 'remove', id: r.id }); hit(); toast({ text: `${a.name} の ${a.day} の行を消しました` }); ike.reload(); } });
+  };
 
   const inMonth = live ? liveRows : rows.filter((r) => r.month === month);
   const people = [...new Set(inMonth.map((r) => r.personId))].map((id) => {
@@ -66,9 +101,10 @@ export default function KekkinPage() {
         </div>
       </PageTitle>
       <LiveBanner state={ike.live && !ike.data?.ok ? 'error' : ike.state} error={ike.error || ike.data?.error} onReload={ike.reload}
-        note={`見るだけです。理由・メモ・エビデンスは今の社内システムの「欠勤管理」から。${ike.data?.unresolved ? `氏名が引けなかった連絡 ${ike.data.unresolved}件は載っていません。` : ''}`} />
+        note={`理由・エビデンスは本物の欠勤管理に書きます。ファイルの中身（診断書など）はここでは開きません。${ike.data?.unresolved ? `氏名が引けなかった連絡 ${ike.data.unresolved}件は載っていません。` : ''}`} />
       <MikeikenNote mk={mk} live={live} />
       {live && <NotInLegacy what="連絡の本文・遅刻や後日の相談の見分け・現場に連絡済みの印" />}
+      {err && <div className="rounded-xl px-4 py-2.5 text-[12.5px]" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>{err}</div>}
 
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <RemainRing remain={open.length} total={Math.max(initialOpen, open.length, 1)} />
@@ -102,18 +138,37 @@ export default function KekkinPage() {
                 <div className="text-[12.5px]"><div className="num font-semibold">{a.day}</div><div className="text-[11.5px] text-faint">{a.route}{a.at !== '—' && `・${a.at}`}</div></div>
                 <div className="rounded-[10px] bg-soft px-3 py-2 text-[12.5px]">{a.text}{live && (a as { evidence?: number }).evidence ? <span className="ml-2 text-[11.5px] text-faint">添付 {(a as { evidence?: number }).evidence}件</span> : null}{live && (a as { beforeRule?: boolean }).beforeRule && <span className="ml-2 text-[11.5px] text-faint">（数え始める前の日）</span>}</div>
                 <div className="flex flex-wrap items-center gap-1.5 md:col-start-2 xl:col-start-auto">
-                  <select aria-label="この連絡は" value={a.kind} disabled={!okEdit} title={block} className={sel}
+                  {!live && <select aria-label="この連絡は" value={a.kind} disabled={!okEdit} title={block} className={sel}
                     style={{ background: `var(--tone-${KIND_TONE[a.kind]}-bg)`, color: `var(--tone-${KIND_TONE[a.kind]}-fg)` }}
                     onChange={(e) => change(a, { kind: e.target.value as Kind }, `${a.name} の ${a.day} を「${e.target.value}」にしました`, e.target.value === '欠勤' ? '→ 名簿の欠勤の回数と、離職リスクの材料に反映しました' : '→ 欠勤の回数には数えません')}>
                     {KINDS.map((k) => <option key={k}>{k}</option>)}
-                  </select>
+                  </select>}
                   {a.kind === '欠勤' && <>
-                    <select aria-label="理由" value={a.reason} disabled={!okEdit} title={block} className={sel} onChange={(e) => change(a, { reason: e.target.value }, `${a.name} の理由を「${e.target.value}」にしました`, '→ 欠勤の記録に反映しました')}>
+                    <select aria-label="理由" value={a.reason} disabled={!okEdit || busy === a.id} title={block} className={sel} onChange={(e) => live ? saveReason(a, e.target.value) : change(a, { reason: e.target.value }, `${a.name} の理由を「${e.target.value}」にしました`, '→ 欠勤の記録に反映しました')}>
                       {(live ? [...new Set(['未分類', ...(ike.data?.reasons || []), a.reason])] : REASONS).map((x) => <option key={x}>{x}</option>)}
                     </select>
                     {!live && <label title={!canEdit ? needText('edit') : undefined} className={`inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2 text-[12px] ${a.siteNotified ? 'border-line text-ok' : 'border-field text-bad'}`}>
                       <input type="checkbox" checked={a.siteNotified} disabled={!canEdit} onChange={(e) => change(a, { siteNotified: e.target.checked }, e.target.checked ? `${a.name} の欠勤を現場に伝えた印を付けました` : '現場に伝えた印を外しました', e.target.checked ? '→ 担当営業の「要対応」から外れました' : '→ 担当営業の「要対応」に戻しました')} />現場に連絡済み
                     </label>}
+                    {live && (() => {
+                      const r = rawOf(a.id);
+                      if (!r) return null;
+                      return <>
+                        {r.evidence.map((ev, ei) => (
+                          <span key={ev.path} className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-line px-2 text-[11.5px] text-muted">
+                            <Paperclip size={12} />添付{ei + 1}（{/\.pdf$/i.test(ev.path) ? 'PDF' : '画像'}・{Math.max(1, Math.round(ev.size / 1024))}KB）
+                            <button aria-label={`添付${ei + 1}を外す`} disabled={!okEdit || busy === a.id} title={block} onClick={() => detach(a, ev.path, ei + 1)} className="disabled:opacity-40"><X size={12} /></button>
+                          </span>
+                        ))}
+                        {r.evidence.length < EVIDENCE_MAX && (
+                          <label title={block} className={`inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-lg border border-field px-2 text-[12px] font-semibold ${!okEdit || busy === a.id ? 'pointer-events-none opacity-40' : ''}`}>
+                            <Paperclip size={12} />{busy === a.id ? '書いています…' : 'エビデンスを付ける'}
+                            <input type="file" accept="image/*,application/pdf" hidden disabled={!okEdit || busy === a.id} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) attach(a, f); }} />
+                          </label>
+                        )}
+                        {r.manual && r.id && !r.evidence.length && <button onClick={() => removeRow(a)} disabled={!okEdit} title={block} className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-field px-2 text-[12px] text-bad disabled:opacity-40"><Trash2 size={12} />行を消す</button>}
+                      </>;
+                    })()}
                   </>}
                 </div>
               </li>
@@ -121,6 +176,7 @@ export default function KekkinPage() {
           </ul>
         </section>
       ))}
+      {confirm && <ConfirmWrite spec={confirm} onClose={() => setConfirm(null)} />}
       <p className="text-[11.5px] text-faint">回数の数え方と段階の対応は今のシステムの決まり（10/5 から数える・診断書のある日は数えない）に合わせています。④は目安で、処分は人が決めます。欠勤控除・懲戒など最終判断は社労士・法務に確認してください。</p>
     </main>
   );

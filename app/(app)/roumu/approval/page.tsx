@@ -7,7 +7,9 @@ import { REJECT_REASONS, REQUESTS, type Check as Chk, type Req, type ReqKind } f
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
-import { NotInLegacy } from '@/components/Live';
+import { LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
+import { ApprovalLive } from './live';
 import { PersonName } from '@/components/Person';
 
 // 申請の承認（労務/営業管理）＝打刻修正・残業・有給・欠勤・遅刻早退を、上から順に1件ずつ片づける。
@@ -35,6 +37,10 @@ function CheckLine({ c }: { c: Chk }) {
 export default function ApprovalPage() {
   const canApprove = usePerms().can('roumu', 'approve');
   const { hit, toast } = useMotivation();
+  // 本物（10-25）：ログインしているかを交通費の承認待ち（ありえない月で軽く）で見る。中身は ./live.tsx が集める
+  const probe = useIke<{ ok?: boolean }>(`keihi?action=adminList&status=${encodeURIComponent('申請中')}&ym=1900-01`);
+  const mk = useMikeiken();
+  const isLive = probe.state !== 'sample';
   const [view, setView] = useState<'focus' | 'list'>('focus');
   const [done, setDone] = useState<Record<string, Done>>({});
   const [skipped, setSkipped] = useState<string[]>([]);
@@ -80,7 +86,7 @@ export default function ApprovalPage() {
 
   // キーボード：A=承認・R=差し戻し・S=あとで（入力中・選択中は効かない）
   useEffect(() => {
-    if (view !== 'focus') return;
+    if (view !== 'focus' || isLive) return;
     const on = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement;
       const typing = ['SELECT', 'TEXTAREA'].includes(t.tagName) || (t.tagName === 'INPUT' && (t as HTMLInputElement).type !== 'checkbox');
@@ -94,6 +100,15 @@ export default function ApprovalPage() {
     window.addEventListener('keydown', on);
     return () => window.removeEventListener('keydown', on);
   });
+
+  if (isLive) return (
+    <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
+      <PageTitle title="申請の承認" sub="今の社内システムにある承認待ちを集めています。片づけはそれぞれの画面で" />
+      <LiveBanner state={probe.state === 'error' && /ログイン/.test(probe.error) ? 'error' : probe.state === 'loading' ? 'loading' : 'live'} error={probe.error} onReload={probe.reload} note="見るだけの一覧です。交通費・経費と稟議は「交通費・経費」の画面から本物に承認できます" />
+      <MikeikenNote mk={mk} live />
+      {probe.state !== 'loading' && <ApprovalLive mk={mk} />}
+    </main>
+  );
 
   const listRows = pending.filter((r) => kind === 'すべて' || r.kind === kind);
   const okRows = listRows.filter((r) => TONE_OF(r.checks) === 'ok');

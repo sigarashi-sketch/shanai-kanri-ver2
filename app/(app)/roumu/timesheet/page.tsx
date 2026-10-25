@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Check, Send } from 'lucide-react';
+import { Check, RefreshCw, Send } from 'lucide-react';
 import { READ_FIX, TS_MONTH, TS_ROWS, type TsRow, type TsState } from '@/lib/timesheet-sample';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
-import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
+import { postLive } from '@/lib/live/post';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { tsFromIke, type IkeTimesheet } from '@/lib/live/timesheet';
 import { PersonName } from '@/components/Person';
@@ -46,7 +48,16 @@ export default function TimesheetPage() {
   const L = live && ike.data ? tsFromIke({ ...ike.data, items: tsItems, counts: { ...ike.data.counts, na: tsItems.filter((r) => r.arrival === 'na').length } }) : null;
   const all = L ? L.rows : rows;
   const okEdit = canEdit && !live;
-  const block = live ? LIVE_WRITE_BLOCKED : !canEdit ? needText('edit') : undefined;
+  // 本物で「お願い（あおい）」を送る口は今の社内システムに無い（勤務表の口は 一覧・元メールを読む・取り直す だけ）＝押せない
+  const NO_ASK = '今の社内システムに勤務表のお願いを送る口が無いので、ここからは送れません（本人・取引先への連絡はチャットから）';
+  const block = live ? NO_ASK : !canEdit ? needText('edit') : undefined;
+  // ミンミカからいま取り直す（10-25）：今の POST roster?op=timesheet&action=refresh。メールは送らない
+  const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
+  const askRefresh = () => setConfirm({
+    title: 'ミンミカから勤務表の届き具合を取り直す', okLabel: '取り直す',
+    lines: ['直近3か月の届き具合と、直近2日ぶんの元メールをミンミカから読み直します（1分ほどかかることがあります）', 'ふだんは1時間ごとに自動で取り込んでいます。メールは送りません'],
+    run: async () => { await postLive('/api/live/timesheet', { action: 'refresh' }); hit(); toast({ text: 'ミンミカから取り直しました', sub: '→ 一覧を読み直しました' }); ike.reload(); },
+  });
   const missingOf = (name: string) => all.filter((r) => r.partner === name && r.state !== '届いた').length;
 
   const open = all.filter((r) => isOpen(r, asked));
@@ -117,7 +128,7 @@ export default function TimesheetPage() {
           {([['partner', '取引先ごと'], ['person', '人ごと']] as const).map(([k, l]) => <button key={k} onClick={() => setView(k)} className={`min-h-8 rounded-lg px-3 ${view === k ? 'text-white' : 'text-muted'}`} style={view === k ? { background: 'var(--a)' } : undefined}>{l}</button>)}
         </div>
       </PageTitle>
-      <LiveBanner state={ike.live && !ike.data?.ok ? 'error' : ike.state} error={ike.error || ike.data?.error} onReload={ike.reload} note="見るだけです。お願いの連絡・ミンミカからの取り直しは今の社内システムの画面から" />
+      <LiveBanner state={ike.live && !ike.data?.ok ? 'error' : ike.state} error={ike.error || ike.data?.error} onReload={ike.reload} note="「ミンミカから取り直す」は本物で動きます。お願いの連絡（あおい）は今の社内システムに口が無いので押せません" />
       <MikeikenNote mk={mk} live={live} />
       {live && <NotInLegacy what="勤務表が「読めない」の見分けと freee の打刻との差（今は勤怠の締めの画面にあります）" />}
 
@@ -128,6 +139,7 @@ export default function TimesheetPage() {
           {!canEdit && <div className="text-[12px] text-bad">{needText('edit')}</div>}
         </div>
         <button onClick={() => waitingAsk.length && ask(waitingAsk)} disabled={!okEdit || waitingAsk.length === 0} title={block} className="btn-primary ml-auto inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-[10px] px-4 text-[13px] font-bold disabled:opacity-40"><Send size={15} />未着 {waitingAsk.length}人にまとめてお願い</button>
+        {live && <button onClick={askRefresh} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-[10px] border border-field bg-surface px-3 text-[13px] font-semibold disabled:opacity-40"><RefreshCw size={14} />ミンミカから取り直す</button>}
         <Link href="/roumu/shime" className="text-[12px] font-semibold" style={{ color: 'var(--ad)' }}>勤怠の締めへ</Link>
       </div>
 
@@ -149,6 +161,7 @@ export default function TimesheetPage() {
           <div className="overflow-x-auto"><table className="w-full min-w-[860px] border-collapse text-[13px]">{head(true)}<tbody>{[...all].sort((a, b) => (live ? Number(b.state !== '届いた') - Number(a.state !== '届いた') : Number(FIRST_OPEN[b.id]) - Number(FIRST_OPEN[a.id]))).map((r) => row(r, true))}</tbody></table></div>
         </div>
       )}
+      {confirm && <ConfirmWrite spec={confirm} onClose={() => setConfirm(null)} />}
       <p className="text-[11.5px] text-faint">取引先の「送付不要」は、こちらから上位に送らなくてよいという意味で、届かない理由にはしていません。勤務表は届いたものを毎晩読み、1日30分未満のずれは合っている扱いにしています（見本の中だけで動きます）。</p>
     </main>
   );

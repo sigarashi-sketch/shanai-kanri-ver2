@@ -9,7 +9,7 @@ export type IkeTodayRow = {
   key: string; name: string; rep: string; shozoku: string; kind: string; status: IkeTodayStatus; detail: string;
   clockIn: string; clockOut: string; late: number; early: number;
   startTime: string; endTime: string; shiftPlan: 'work' | 'off' | ''; shiftStart: string; shiftEnd: string; shiftImplied?: boolean;
-  note: string; noteCarried: boolean; noteDate: string;
+  note: string; noteCarried: boolean; noteDate: string; kubun?: string;
   issues: { code: string; label: string; detail: string }[];
 };
 export type IkeToday = {
@@ -68,3 +68,7 @@ export function withTodayRows(t: IkeToday | null, keep: (rows: IkeTodayRow[]) =>
   counts.total = rows.length; counts.issues = rows.filter((r) => r.issues?.length).length;
   return { ...t, rows, counts };
 }
+
+// 勤務区分の選択肢（今のシステム api/_kintai_alert.ts の KINMU_KUBUN と同じ並び・同じ表記。''＝未設定）
+export const KINMU_CHOICES = ['平日', '土日休（祝日あり）', 'シフト', '夜勤', '対象外'] as const;
+export const TODAY_NOTE_MAX = 2000;
