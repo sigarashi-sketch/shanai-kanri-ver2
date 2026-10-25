@@ -425,14 +425,14 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
               {(sort?.key === '__name' ? [...shown].sort((a, b) => a.r.name.localeCompare(b.r.name, 'ja') * sort.dir) : shown).slice(0, limit).map((p) => (
                 <tr key={p.r.row} className="row cursor-pointer border-t border-line-soft align-middle" style={!p.r.active ? { opacity: 0.72 } : undefined}
                   onClick={(e) => { if ((e.target as HTMLElement).closest('button,a,input,select,textarea,label')) return; window.dispatchEvent(new CustomEvent('person:open', { detail: { name: p.r.name, id: p.r.row } })); }}>
-                  <td className="sticky left-0 z-[1] whitespace-nowrap bg-surface px-3 py-2 font-semibold">
+                  <td className="sticky left-0 z-[1] max-w-[150px] bg-surface px-3 py-2 font-semibold">
                     <PersonName name={p.r.name} id={p.r.row} className="hover:underline underline-offset-2" />
                     <Link href={`/eigyo/proper/${encodeURIComponent(p.r.row)}`} className="ml-0.5 inline-flex rounded p-0.5 align-middle hover:bg-soft" aria-label={`${p.r.name}の要員ページを開く`}><ChevronRight size={14} className="text-faint" /></Link>
                     {p.r.kanagawa && <span className="ml-1 rounded bg-sunken px-1 text-xs font-normal text-muted">かな西</span>}
                     {p.r.kansai && <span className="ml-1 rounded bg-sunken px-1 text-xs font-normal text-muted">関西</span>}
                     {p.v.needs_review === true && <span className="ml-1 text-xs font-normal text-warn">要確認</span>}
                   </td>
-                  {visible.map((c) => <td key={c.key} className="max-w-[140px] px-2 py-1.5 [&>button.block]:truncate">{c.cell(p)}</td>)}
+                  {visible.map((c) => <td key={c.key} className="max-w-[112px] px-1.5 py-1.5 [&>button.block]:truncate">{c.cell(p)}</td>)}
                 </tr>
               ))}
               {shown.length > limit && <tr><td colSpan={visible.length + 1} className="px-4 py-3 text-center text-sm text-muted">はじめの{limit}人を出しています <button type="button" onClick={() => setLimit((l) => l + 300)} className="ml-2 font-semibold underline" style={{ color: 'var(--ad)' }}>もっと出す</button></td></tr>}
