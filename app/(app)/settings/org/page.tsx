@@ -27,6 +27,9 @@ export default function OrgPage() {
   const { manageAccess } = usePerms();
   const { hit, toast } = useMotivation();
   const { data, state, error, reload, live } = useIke<AdminList>(manageAccess ? 'admin?action=list' : null);
+  // 要員のログインが誰か＝教育（bdsh）で Google アカウントと人を紐づけたもの（今のシステム admin?action=googleLinks・super_admin だけ）
+  const gl = useIke<{ links?: { email: string; kind: string; name: string }[] }>(manageAccess ? 'admin?action=googleLinks' : null);
+  const links = useMemo(() => new Map((gl.data?.links || []).map((l) => [l.email, { kind: l.kind, name: l.name }])), [gl.data]);
   const [org, setOrg] = useState<OrgState | null>(null);
   const [tab, setTab] = useState<Tab>('chart');
   const [who, setWho] = useState<'内勤' | '要員'>('内勤');
@@ -118,7 +121,7 @@ export default function OrgPage() {
 
       <div key={tab} className="mo-fade-in">
         {tab === 'chart' && (who === '内勤' ? <OrgChart ctl={ctl} list={active} /> : <p className="rounded-xl border border-line bg-surface px-4 py-6 text-center text-[13px] text-muted">組織図は内勤（会社のメール {INNAI_DOMAIN}）の人だけです。要員は「一覧」で見られます。</p>)}
-        {tab === 'table' && <PeopleTable ctl={ctl} list={active} retired={retired} />}
+        {tab === 'table' && <PeopleTable ctl={ctl} list={active} retired={retired} links={who === '要員' ? links : undefined} />}
         {tab === 'roles' && <RolesEditor ctl={ctl} />}
       </div>
       {tab === 'chart' && retired.length > 0 && <p className="text-[12px] text-faint">退職の{retired.length}人は組織図に出していません（一覧の下に畳んであります）。</p>}

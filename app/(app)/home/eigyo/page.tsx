@@ -5,15 +5,16 @@ import { Check, Crown, Lock, TrendingDown, TrendingUp } from 'lucide-react';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { CountUp, RemainRing, useMotivation } from '@/components/Motivation';
-import { NotInLegacy } from '@/components/Live';
+import { LiveBanner, useIke } from '@/components/Live';
 import { PersonName } from '@/components/Person';
 import { HE_ACTS, HE_ACT_LABELS, HE_GOAL, HE_LINES, HE_MONTH, HE_PREV, HE_PROPER_NAMES, HE_REPS, HE_REP_OF_MEMBER } from '@/lib/home-eigyo-sample';
-import { SHUSSHA_LABEL, grossOf, manOf, onlyProper, rate, repOf, yen, type HeRep } from '@/lib/live/home-eigyo';
+import { SHUSSHA_LABEL, grossOf, manOf, onlyProper, rate, repOf, yen, type HeLine, type HeRep, type HeRepPrev, type IkePlReps } from '@/lib/live/home-eigyo';
 
 // ホーム営業（10-25 shoya「当月の営業に属する人たちの成約数・売上・粗利」「営業は自分の成約してる人だけ見れる。関係ない人は見ない」）。
 //   ・上：チーム合計と、担当営業ごとの順位（成約数・売上・粗利で並べ替え）。前月比つき
 //   ・下：担当営業ひとりの「成約した人」。営業の人は自分の分だけ／管理者は担当を選んで見る／それ以外は出さない
-//   ・本物には つないでいない（lib/live/home-eigyo.ts の冒頭：全員分を読める口が無く、本人の口は駅すぱあとを使うため）
+//   ・ログイン中は今のシステムの GET /api/nippo?action=pl-reps（10-25 足した口・駅すぱあとは呼ばない＝交通費は辞書にある分だけ）。
+//     担当ごとの合計は全員分、成約した人の明細は super_admin・admin は全員分／ほかは自分の分だけ（今のシステムが絞って返す）
 type SortKey = 'count' | 'uriage' | 'gross';
 const SORTS: { k: SortKey; label: string }[] = [{ k: 'count', label: '成約数' }, { k: 'uriage', label: '売上' }, { k: 'gross', label: '粗利' }];
 const ymLabel = (ym: string) => `${Number(ym.slice(5))}月`;
@@ -27,8 +28,8 @@ const diff = (now: number, prev: number, unit: string) => {
 export default function HomeEigyoPage() {
   const { me, can } = usePerms();
   const { hit, toast } = useMotivation();
-  const isAdmin = me.role === 'owner' || me.role === 'manager';
-  const myRep = HE_REP_OF_MEMBER[me.id] ?? null;
+  const isAdmin0 = me.role === 'owner' || me.role === 'manager';
+  const myRep0 = HE_REP_OF_MEMBER[me.id] ?? null;
   const [preview, setPreview] = useState('');           // 管理者が「営業の人の見え方」を試す
   const [sort, setSort] = useState<SortKey>('count');
   const [picked, setPicked] = useState(HE_REPS[0]);
@@ -41,21 +42,32 @@ export default function HomeEigyoPage() {
     const s = q.get('sort') as SortKey | null; if (s && SORTS.some((x) => x.k === s)) setSort(s);
   }, []);
 
+  const ike = useIke<IkePlReps>('nippo?action=pl-reps');
+  const L = ike.live && ike.data?.ok ? ike.data : null;
+  const MONTH = L ? L.ym : HE_MONTH;
+  const REPS: string[] = L ? [...new Set(L.reps.filter((x) => x.ym === L.ym).map((x) => x.tantou))] : HE_REPS;
+  const PREV: Record<string, HeRepPrev> = L ? Object.fromEntries(L.reps.filter((x) => x.ym === L.prev).map((x) => [x.tantou, { count: x.count, uriage: x.uriage, gross: x.gross }])) : HE_PREV;
+  const ACT_LABELS = L ? L.actLabels : HE_ACT_LABELS;
+  const ACTS: Record<string, Record<string, number>> = L ? Object.fromEntries(L.reps.filter((x) => x.ym === L.ym).map((x) => [x.tantou, x.acts || {}])) : HE_ACTS;
+  const isAdmin = L ? L.all : isAdmin0;
+  const myRep = L ? (L.all ? null : L.me || null) : myRep0;
   const asRep = myRep ?? (isAdmin && preview ? preview : null);
-  const shown = asRep ?? (isAdmin ? picked : null);       // 成約した人の一覧を出す担当（出せなければ null）
-  const { kept: ALL, dropped } = onlyProper(HE_LINES, HE_PROPER_NAMES);   // 未経験の正＝プロパーリストに名前がある人だけ
-  const reps: HeRep[] = HE_REPS.map((t) => repOf(t, ALL));
+  const shown = asRep ?? (isAdmin ? (REPS.includes(picked) ? picked : REPS[0] ?? null) : null);       // 成約した人の一覧を出す担当（出せなければ null）
+  const { kept: ALL, dropped } = L
+    ? { kept: L.lines.map((l): HeLine => ({ tantou: l.tantou, name: l.name, joui: l.joui, status: l.status as HeLine['status'], md: l.md, uriage: l.uriage, gakumen: l.gakumenKnown ? 0 : null, fare: l.fareMissing ? null : 0, shussha: (l.shussha || 'jouchuu') as HeLine['shussha'], noBill: l.noBill, gross: l.gross })), dropped: 0 }
+    : onlyProper(HE_LINES, HE_PROPER_NAMES);   // 未経験の正＝プロパーリストに名前がある人だけ
+  const reps: HeRep[] = L ? L.reps.filter((x) => x.ym === L.ym) : HE_REPS.map((t) => repOf(t, ALL));
   const ranked = [...reps].sort((a, b) => b[sort] - a[sort] || b.count - a.count);
   const rankOf = (r: HeRep) => 1 + ranked.filter((x) => x[sort] > r[sort]).length;
   const team = reps.reduce((s, r) => ({ count: s.count + r.count, uriage: s.uriage + r.uriage, gross: s.gross + r.gross, base: s.base + r.grossBase, nb: s.nb + r.noBillUriage }), { count: 0, uriage: 0, gross: 0, base: 0, nb: 0 });
-  const prev = Object.values(HE_PREV).reduce((s, p) => ({ count: s.count + p.count, uriage: s.uriage + p.uriage, gross: s.gross + p.gross }), { count: 0, uriage: 0, gross: 0 });
+  const prev = Object.values(PREV).reduce((s, p) => ({ count: s.count + p.count, uriage: s.uriage + p.uriage, gross: s.gross + p.gross }), { count: 0, uriage: 0, gross: 0 });
   const max = Math.max(1, ...reps.map((r) => r[sort]));
   const fmt = (r: HeRep) => (sort === 'count' ? `${r.count}件` : `${manOf(r[sort]).toLocaleString('ja-JP')}万`);
 
   const me1 = shown ? reps.find((r) => r.tantou === shown)! : null;
   const lines = shown ? ALL.filter((l) => l.tantou === shown) : [];
-  const goal = shown ? HE_GOAL[shown] ?? 0 : 0;
-  const ckKey = shown ? `${HE_MONTH}:${shown}` : '';
+  const goal = shown && !L ? HE_GOAL[shown] ?? 0 : 0;   // 目標は今のシステムに無い（本物では出さない）
+  const ckKey = shown ? `${MONTH}:${shown}` : '';
   const canEdit = can('eigyo', 'edit') || !!myRep;
 
   const confirm = () => {
@@ -63,22 +75,22 @@ export default function HomeEigyoPage() {
     const k = ckKey, who = shown;
     setChecked((c) => ({ ...c, [k]: true })); setFlash(k); setTimeout(() => setFlash(null), 1300);
     hit();
-    toast({ text: `${who}さんの${ymLabel(HE_MONTH)}の成約を確かめました`, sub: '→ 売上・粗利の「営業別」の確認に反映しました', undo: () => setChecked((c) => ({ ...c, [k]: false })) });
+    toast({ text: `${who}さんの${ymLabel(MONTH)}の成約を確かめました`, sub: '→ 売上・粗利の「営業別」の確認に反映しました', undo: () => setChecked((c) => ({ ...c, [k]: false })) });
   };
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="ホーム営業" sub={`${ymLabel(HE_MONTH)}・担当営業ごとの成約数・売上・粗利（未経験の要員だけ）・見本データ`}>
+      <PageTitle title="ホーム営業" sub={`${ymLabel(MONTH)}・担当営業ごとの成約数・売上・粗利（未経験の要員だけ）${L ? '' : '・見本データ'}`}>
         {isAdmin && !myRep && (
           <label className="flex items-center gap-1.5 text-[12.5px] text-muted">見え方を試す
             <select value={preview} onChange={(e) => setPreview(e.target.value)} className="rounded-lg border border-field bg-surface px-2 py-1.5 text-[12.5px] text-ink">
               <option value="">管理者として</option>
-              {HE_REPS.map((r) => <option key={r} value={r}>{r}さん（営業）として</option>)}
+              {REPS.map((r) => <option key={r} value={r}>{r}さん（営業）として</option>)}
             </select>
           </label>
         )}
       </PageTitle>
-      <NotInLegacy what="担当営業ごとの一覧（今は毎朝スプレッドシートの「営業別」タブに書くだけで、読める口がありません）" />
+      <LiveBanner state={ike.state} error={ike.error} onReload={ike.reload} note={L ? `今のシステムの日報②の契約実績から（スプシ「営業別」と同じ決まり・見るだけ）。交通費は運賃の辞書にある分だけで、無い成約は0円で計算しています${L.all ? '' : '・成約した人は自分の分だけ'}` : undefined} />
 
       <div className="grid gap-3 sm:grid-cols-4">
         {[
@@ -106,7 +118,7 @@ export default function HomeEigyoPage() {
           </div>
         </div>
         {ranked.map((r, i) => {
-          const n = rankOf(r), mine = asRep === r.tantou, on = shown === r.tantou, p = HE_PREV[r.tantou];
+          const n = rankOf(r), mine = asRep === r.tantou, on = shown === r.tantou, p = PREV[r.tantou];
           const pick = isAdmin && !asRep;
           return (
             <div key={r.tantou} onClick={pick ? () => setPicked(r.tantou) : undefined}
@@ -119,7 +131,7 @@ export default function HomeEigyoPage() {
               <span className="w-24 shrink-0 font-semibold">{r.tantou}{mine && <span className="chip ml-1.5" style={{ background: 'var(--tone-info-bg)', color: 'var(--tone-info-fg)' }}>自分</span>}</span>
               <div className="min-w-[160px] flex-1">
                 <div className="h-4 rounded-md bg-sunken"><div className="mo-bar h-4 rounded-md" style={{ width: `${(r[sort] / max) * 100}%`, background: n === 1 ? 'var(--a)' : 'var(--al)', ['--i' as string]: i }} /></div>
-                <div className="mt-0.5 text-[11.5px] text-muted">{HE_ACT_LABELS.map((a) => `${a} ${HE_ACTS[r.tantou]?.[a] ?? 0}`).join('・')}</div>
+                <div className="mt-0.5 text-[11.5px] text-muted">{ACT_LABELS.map((a) => `${a} ${ACTS[r.tantou]?.[a] ?? 0}`).join('・')}</div>
               </div>
               <div className="w-[230px] shrink-0 text-right">
                 <b className="num text-[15px]">{fmt(r)}</b>
@@ -137,20 +149,20 @@ export default function HomeEigyoPage() {
       ) : (
         <section className={`mo-fade-up overflow-hidden rounded-xl border border-line bg-surface ${flash === ckKey ? 'mo-flash' : ''}`} style={{ ['--i' as string]: 10 }}>
           <div className="flex flex-wrap items-center gap-3 px-4 py-3">
-            <RemainRing remain={Math.max(0, goal - me1.count)} total={goal} />
+            {goal > 0 && <RemainRing remain={Math.max(0, goal - me1.count)} total={goal} />}
             <div className="min-w-0 flex-1">
               <h2 className="text-[15px] font-bold">{shown}さんが成約した人 <span className="num text-muted">{lines.length}</span></h2>
-              <div className="text-[12px] text-muted">{me1.count >= goal ? `今月の目標 ${goal}件に届きました` : `今月の目標 ${goal}件まで あと${goal - me1.count}件`}{asRep ? '・ほかの担当の人は出しません' : ''}</div>
+              <div className="text-[12px] text-muted">{!goal ? `成約 ${me1.count}件` : me1.count >= goal ? `今月の目標 ${goal}件に届きました` : `今月の目標 ${goal}件まで あと${goal - me1.count}件`}{asRep ? '・ほかの担当の人は出しません' : ''}</div>
             </div>
             {isAdmin && !asRep && (
               <select aria-label="担当営業" value={picked} onChange={(e) => setPicked(e.target.value)} className="rounded-lg border border-field bg-surface px-2 py-1.5 text-[12.5px]">
-                {HE_REPS.map((r) => <option key={r} value={r}>{r}</option>)}
+                {REPS.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
             )}
             <button onClick={confirm} disabled={!canEdit || !!checked[ckKey]} title={!canEdit ? needText('edit') : checked[ckKey] ? 'この月は確かめてあります' : undefined}
               className="btn-primary inline-flex min-h-9 items-center gap-1.5 rounded-[10px] px-3.5 text-[13px] font-semibold disabled:cursor-not-allowed disabled:opacity-40"><Check size={15} />{checked[ckKey] ? '確かめました' : '数字を確かめた'}</button>
           </div>
-          {me1.count >= goal && <div className="mo-scale-in mx-4 mb-3 rounded-xl border border-ok-line bg-ok-soft px-4 py-3 text-center text-[13px] font-semibold text-ok">{ymLabel(HE_MONTH)}の目標に届きました。おつかれさまです</div>}
+          {goal > 0 && me1.count >= goal && <div className="mo-scale-in mx-4 mb-3 rounded-xl border border-ok-line bg-ok-soft px-4 py-3 text-center text-[13px] font-semibold text-ok">{ymLabel(MONTH)}の目標に届きました。おつかれさまです</div>}
           <div className="overflow-x-auto">
             <table className="w-full min-w-[820px] border-collapse text-[13px]">
               <thead><tr className="th-row text-left">
@@ -159,7 +171,7 @@ export default function HomeEigyoPage() {
               </tr></thead>
               <tbody>
                 {lines.map((l) => {
-                  const { shaho, gross } = grossOf(l);
+                  const g0 = grossOf(l), shaho = g0.shaho, gross = L ? l.gross ?? null : g0.gross;   // 本物は額面を返さない＝粗利は今のシステムの値
                   return (
                     <tr key={l.name} className="row border-t border-line-soft">
                       <td className="px-4 py-2.5"><PersonName name={l.name} />
@@ -168,8 +180,8 @@ export default function HomeEigyoPage() {
                       <td className="px-2 py-2.5">{l.status.replace('未経験', '')}</td>
                       <td className="num px-2 py-2.5">{l.md}</td>
                       <td className="num px-2 py-2.5 text-right">{l.uriage == null ? <span className="text-warn">単価が空</span> : yen(l.uriage)}</td>
-                      <td className="num px-2 py-2.5 text-right">{l.gakumen == null ? <span className="text-warn">額面不明</span> : yen(l.gakumen + (shaho ?? 0))}</td>
-                      <td className="num px-2 py-2.5 text-right">{l.fare == null && l.shussha !== 'remote' ? <span className="text-warn">未取得（0円で計算）</span> : yen(l.fare ?? 0)}<div className="text-[11px] text-faint">{SHUSSHA_LABEL[l.shussha]}</div></td>
+                      <td className="num px-2 py-2.5 text-right">{l.gakumen == null ? <span className="text-warn">額面不明</span> : L ? <span className="text-faint">—</span> : yen(l.gakumen + (shaho ?? 0))}</td>
+                      <td className="num px-2 py-2.5 text-right">{l.fare == null && l.shussha !== 'remote' ? <span className="text-warn">未取得（0円で計算）</span> : L ? <span className="text-faint">—</span> : yen(l.fare ?? 0)}<div className="text-[11px] text-faint">{SHUSSHA_LABEL[l.shussha]}</div></td>
                       <td className={`num px-4 py-2.5 text-right font-semibold ${l.noBill ? 'text-faint line-through' : ''}`}>{yen(gross)}</td>
                     </tr>
                   );
@@ -185,7 +197,7 @@ export default function HomeEigyoPage() {
           </div>
         </section>
       )}
-      <p className="text-[11.5px] text-faint">数字は見本です（名前・会社・金額は作り物）。社保や交通費の扱いなど、最終判断は社労士・税理士・法務に確認してください。</p>
+      <p className="text-[11.5px] text-faint">{L ? '額面・交通費の金額はここには出しません（粗利だけ）。' : '数字は見本です（名前・会社・金額は作り物）。'}社保や交通費の扱いなど、最終判断は社労士・税理士・法務に確認してください。</p>
     </main>
   );
 }

@@ -75,13 +75,13 @@ export default function NippoPage() {
   // 本物：今の GET /api/nippo（init）。as＝出す人（今の画面の「担当名」）・older＝直近7日・k＝経験者の日報。はじめはログインした人で開く
   const [asked, setAsked] = useState(false);
   const ni = useIke<NippoInit>(`nippo?${new URLSearchParams({ ...(asked ? { as: me, k: keiken ? 'keiken' : 'mikeiken' } : {}), ...(older ? { older: '1' } : {}) })}`);
-  // 本物は未経験の人だけ（今のプロパーリストに入っている人）：参画決定・成約の候補・経験者の候補・退場/退職・辞退の候補・空欄の残る成約
+  // 本物は未経験の人だけ（今のプロパーリストに入っている人）：参画決定・成約の候補・退場/退職・辞退の候補（経験者の日報の候補だけは絞らない）・空欄の残る成約
   const mk = useMikeiken();
   const L0 = useMemo(() => {
     const d = ni.data;
     if (!d || !d.ok || mk.state === 'none') return liveNippo(d);
     return liveNippo({
-      ...d, kettei: mk.keep(d.kettei || [], 'name'), seiyakuCand: mk.keep(d.seiyakuCand || [], 'name'), keikenCand: mk.keep(d.keikenCand || [], 'name'),
+      ...d, kettei: mk.keep(d.kettei || [], 'name'), seiyakuCand: mk.keep(d.seiyakuCand || [], 'name'), keikenCand: d.keikenCand || [],   // 経験者の候補は絞らない（経験者の日報なので・10-25 shoya）
       roster: mk.keep(d.roster || [], 'name'), jitaiCand: mk.keep(d.jitaiCand || [], 'name'), pending: mk.keep(d.pending || [], 'name'),
     });
   }, [ni.data, mk]);

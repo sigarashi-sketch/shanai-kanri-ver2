@@ -10,10 +10,11 @@ import { PermChips, type Ctl } from './shared';
 
 const SC = 'rounded-md border border-field bg-surface px-1.5 py-1 text-[12.5px]';
 type SetFn = (uid: string, patch: Partial<Assign>, text: string, sub?: string) => void;
-type RowProps = { p: OrgPerson; ctl: Ctl; set: SetFn; sel: Set<string>; toggle: (id: string, on: boolean) => void; known: Set<string>; unitOpts: React.ReactNode };
+type RowProps = { links?: Map<string, { kind: string; name: string }>; p: OrgPerson; ctl: Ctl; set: SetFn; sel: Set<string>; toggle: (id: string, on: boolean) => void; known: Set<string>; unitOpts: React.ReactNode };
 
 // 一覧（表）。所属・役職・ロール・分類ごとの個別の段階を選ぶだけで付ける。チェックしてまとめてロール／所属。
-export function PeopleTable({ ctl, list, retired }: { ctl: Ctl; list: OrgPerson[]; retired: OrgPerson[] }) {
+// links＝教育（bdsh）で Google アカウントと紐づけた人（メール小文字 → 誰）。要員の名前の下に出す（10-25）
+export function PeopleTable({ ctl, list, retired, links }: { ctl: Ctl; list: OrgPerson[]; retired: OrgPerson[]; links?: Map<string, { kind: string; name: string }> }) {
   const { org, commit } = ctl;
   const [fUnit, setFUnit] = useState('');
   const [fRole, setFRole] = useState('');
@@ -47,7 +48,7 @@ export function PeopleTable({ ctl, list, retired }: { ctl: Ctl; list: OrgPerson[
   const unitOpts = unitOptions.map((u) => <option key={u.id} value={u.id}>{u.parent ? `　└ ${u.name}` : u.name}</option>);
   const sc = SC;
   const toggle = (id: string, on: boolean) => setSel((x) => { const n = new Set(x); if (on) n.add(id); else n.delete(id); return n; });
-  const rp = { ctl, set, sel, toggle, known, unitOpts };
+  const rp = { links, ctl, set, sel, toggle, known, unitOpts };
   const allOn = rows.length > 0 && rows.every((p) => sel.has(p.userId));
 
   return (
@@ -112,7 +113,7 @@ export function PeopleTable({ ctl, list, retired }: { ctl: Ctl; list: OrgPerson[
   );
 }
 
-function Row({ p, ctl, set, sel, toggle, known, unitOpts }: RowProps) {
+function Row({ p, ctl, set, sel, toggle, known, unitOpts, links }: RowProps) {
   const { org, flash } = ctl;
   const sc = SC;
     const a = org.people[p.userId] ?? {};
@@ -123,6 +124,9 @@ function Row({ p, ctl, set, sel, toggle, known, unitOpts }: RowProps) {
         <td className="px-2 py-2">
           <PersonName name={p.name} />{p.isSelf && <span className="ml-1 text-[11px] text-muted">（あなた）</span>}
           {p.mikeiken && <span className="chip ml-1.5" style={{ background: 'var(--tone-info-bg)', color: 'var(--tone-info-fg)' }}>未経験事業部</span>}
+          {links && (() => { const l = links.get(p.email.trim().toLowerCase()); return l
+            ? <div className="text-[11.5px] text-muted">紐づけ：{l.name ? <><PersonName name={l.name} />（{l.kind}）</> : l.kind}</div>
+            : <div className="text-[11.5px] text-faint">教育の紐づけなし</div>; })()}
         </td>
         <td className="px-2 py-2"><span className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }} title="今のシステムのロール（参考・ここでは変わりません）">{legacyRoleLabel(p.legacyRole)}</span></td>
         <td className="px-2 py-2">

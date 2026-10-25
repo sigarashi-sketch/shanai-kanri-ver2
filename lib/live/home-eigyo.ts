@@ -4,9 +4,8 @@
 //   ・額面が分からない成約は売上には入れ、粗利には入れない（粗利率の分母からも外す）。単価が空の成約は売上・粗利に入れない
 //   ・請求の無い退場は売上・粗利から引く（成約数には残す）
 //
-// 本物につないでいない理由：今のシステムには「全員分の営業別」を返す GET が無い（毎朝スプレッドシートの「営業別」タブに書くだけ）。
-//   本人の分の GET /api/nippo?action=self は、呼ぶたびに交通費の計算で駅すぱあと（回数に上限がある有料 API）を最大10回使う
-//   （maxCalls: 10 が固定で 0 にできない）ので、この画面からは呼ばない。読める口ができたら、ここに形の変換を足す。
+// 本物（10-25〜）：今のシステムに足した GET /api/nippo?action=pl-reps を読む。今のシステムが api/_nippo_pl.ts で計算した値をそのまま出す
+//   （駅すぱあとは呼ばない＝交通費は運賃の辞書・キャッシュにある分だけ。無い成約は 0円で fareMissing）。下の純関数は見本のときだけ使う
 //
 // ver2 に出すのは未経験の人だけ（10-25 shoya）。未経験の正＝今のシステムのプロパーリスト（GET /api/roster?action=getEngineerRows・
 //   中身は sales_roster）に名前がある人。空白を外した氏名（normName）で照合する。今のシステムの営業別は
@@ -27,6 +26,7 @@ export type HeLine = {
   fare: number | null;        // 月の交通費（円）。引けなければ null
   shussha: Shussha;
   noBill: boolean;            // 請求の無い退場で差し引いた
+  gross?: number | null;      // 本物は今のシステムが出した粗利（額面・交通費の金額は返さない）
 };
 export type HeRepPrev = { count: number; uriage: number; gross: number };
 export type HeRep = {
@@ -66,3 +66,8 @@ export function repOf(tantou: string, lines: HeLine[]): HeRep {
 export const rate = (gross: number, base: number) => (base > 0 ? (gross / base) * 100 : 0);
 export const manOf = (yen: number) => Math.round(yen / 10000);
 export const yen = (n: number | null) => (n == null ? '—' : `${n.toLocaleString('ja-JP')}円`);
+
+// ---- 本物：今のシステムの GET /api/nippo?action=pl-reps（10-25 足した口）の形 ----
+export type IkePlRep = HeRep & { ym: string; noBillGross: number; acts: Record<string, number> };
+export type IkePlLine = { ym: string; tantou: string; name: string; joui: string; status: string; md: string; uriage: number | null; gross: number | null; gakumenKnown: boolean; fareMissing: boolean; shussha: string; noBill: boolean };
+export type IkePlReps = { ok?: boolean; ym: string; prev: string; me: string; all: boolean; reps: IkePlRep[]; lines: IkePlLine[]; actLabels: string[]; notes: string[] };
