@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { Bell, Briefcase, ChevronsLeft, ChevronsRight, Clock, Home, MessageSquare, Network, ReceiptText, Search, ShieldCheck, SlidersHorizontal, Users } from 'lucide-react';
-import { NAV, NAV_EXTRA, NAV_KANRI, findNav } from '@/lib/nav';
+import { Archive, Bell, Briefcase, ChevronsLeft, ChevronsRight, Clock, Home, MessageSquare, Network, ReceiptText, Search, ShieldCheck, SlidersHorizontal, Users } from 'lucide-react';
+import { NAV, NAV_EXTRA, NAV_HORYU, NAV_KANRI, findNav } from '@/lib/nav';
 import { APP_NAME } from '@/lib/app';
 import type { ModuleKey } from '@/lib/theme';
 import { useColors } from './ColorProvider';
@@ -76,6 +76,23 @@ export function Shell({ members, children }: { members: { id: string; name: stri
               </div>
             );
           })}
+          {/* 保留（あとで決める）＝今の画面を写しただけで、置き場所をまだ決めていないもの（lib/nav.ts NAV_HORYU） */}
+          {NAV_HORYU.length > 0 && (
+            <div className="flex flex-col gap-px">
+              <div className="side-strong flex items-center gap-2 px-2.5 py-1 text-[12.5px] font-semibold">
+                <span className="side-ring flex size-5 shrink-0 items-center justify-center rounded-md ring-1"><Archive size={12} strokeWidth={2.2} /></span>
+                {open && '保留（あとで決める）'}
+              </div>
+              {open && NAV_HORYU.map((it) => {
+                const active = pathname === it.href || pathname.startsWith(it.href + '/');
+                return (
+                  <Link key={it.href} href={it.href} className={`side-hover flex items-center rounded-lg py-1.5 pl-[38px] pr-2.5 ${active ? 'side-on font-semibold' : ''}`}>
+                    <span className="truncate">{it.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
           <div className="side-line mt-auto flex flex-col gap-px border-t pt-2.5">
             {NAV_EXTRA.map((it) => (
               <Link key={it.href} href={it.href} className={`side-hover flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 ${pathname === it.href ? 'side-on' : ''}`}>
