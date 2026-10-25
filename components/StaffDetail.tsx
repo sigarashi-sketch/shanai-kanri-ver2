@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, useRouter } from 'next/navigation';
 import { PersonBasic } from './PersonBasic';
 import { PersonChat } from './PersonChat';
 import { PersonMemo } from './PersonMemo';
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { PEOPLE, SITE_HISTORY, TIMELINE, type Person } from '@/lib/sample';
 import { NEWCOMERS } from '@/lib/nyusha-sample';
 import { KIHON } from '@/lib/kihon-sample';
@@ -18,7 +18,7 @@ import { fmtDate } from '@/lib/yoyaku-sample';
 import { moduleOf, usePersonYoyaku } from '@/components/YoyakuStore';
 import { LiveBanner, NotInLegacy } from '@/components/Live';
 import { useLiveRoute } from '@/lib/live/use-live-route';
-import { isLiveStaffId, slashDate, type LiveStaff, type LiveStaffList } from '@/lib/live/staff';
+import { isLiveStaffId, slashDate, staffIdMatches, type LiveStaff, type LiveStaffList } from '@/lib/live/staff';
 import { CAN_ALL, logView, memoOf, type LivePersonView, type PersonCan } from '@/lib/live/person';
 
 type SiteRow = (typeof SITE_HISTORY)[number] & { key: string; pending?: boolean };
@@ -54,9 +54,9 @@ export function StaffDetail({ id, embedded = false, initial }: { id: string; emb
 }
 
 /** 基本情報・面談メモ・チャットのタブの中身（どちらの人でも同じ） */
-type SideProps = { tab: Tab; name: string; live: boolean; staffId?: string; everyone: readonly string[]; memo?: { memo: string; summary: string }; can: PersonCan };
-function SideTab({ tab, name, live, staffId, everyone, memo, can }: SideProps) {
-  if (tab === '基本情報') return <section className="w-full rounded-xl border border-line bg-surface px-5 py-4 text-[13px]"><PersonBasic name={name} live={live} /></section>;
+type SideProps = { tab: Tab; name: string; live: boolean; staffId?: string; personId?: string; everyone: readonly string[]; memo?: { memo: string; summary: string }; can: PersonCan };
+function SideTab({ tab, name, live, staffId, personId, everyone, memo, can }: SideProps) {
+  if (tab === '基本情報') return <section className="w-full rounded-xl border border-line bg-surface px-5 py-4 text-[13px]"><PersonBasic name={name} live={live} person={personId} /></section>;
   if (tab === '面談メモ') return <section className="w-full rounded-xl border border-line bg-surface px-5 py-4 text-[13px]"><PersonMemo name={name} live={live} id={staffId} initial={memo} /></section>;
   if (tab === 'チャット') return <section className="w-full rounded-xl border border-line bg-surface px-5 py-4 text-[13px]"><PersonChat name={name} live={live} everyone={everyone} canSummary={can.summary} /></section>;
   return null;
@@ -208,7 +208,11 @@ function LivePerson({ id, embedded, initial }: { id: string; embedded: boolean; 
   const r = useLiveRoute<LiveStaffList>(initial ? null : '/api/live/staff');
   const state = initial ? 'live' : r.state;
   const live = !!initial || r.live;
-  const p = initial?.staff ?? (live ? r.data?.rows.find((x) => x.id === id) : undefined);
+  // id は a＋応募ID（人の番号）か r＋氏名の番号（前の形）。古いリンクの r… でもこの人に当たる
+  const p = initial?.staff ?? (live ? r.data?.rows.find((x) => staffIdMatches(x, id)) : undefined);
+  const router = useRouter();
+  // 古いリンク（氏名の番号）で来て、この人の番号がわかっていれば、新しい id のページに置き換える（ページのときだけ）
+  useEffect(() => { if (!embedded && !initial && p && p.id !== id) router.replace(`/jinji/staff/${encodeURIComponent(p.id)}`); }, [embedded, initial, p, id, router]);
   const month = initial?.month ?? r.data?.month ?? '';
   const can = initial?.can ?? CAN_ALL;
   const everyone = initial?.everyone ?? (r.data?.rows ?? []).map((x) => x.name);
@@ -284,7 +288,7 @@ function LivePerson({ id, embedded, initial }: { id: string; embedded: boolean; 
           <section className="w-full rounded-xl border border-dashed border-field bg-surface px-6 py-10 text-center text-[13.5px] text-muted">「{tab}」タブはこれから作ります（今の社内システムの中身を、この型に載せ替えます）</section>
         )}</Fragment>
         {seen.filter((t) => tabsFor(can).includes(t)).map((t) => (
-          <div key={t} hidden={t !== tab} className="w-full"><SideTab tab={t} name={p.name} live staffId={p.id} everyone={everyone} memo={memo} can={can} /></div>
+          <div key={t} hidden={t !== tab} className="w-full"><SideTab tab={t} name={p.name} live staffId={p.id} personId={p.personId} everyone={everyone} memo={memo} can={can} /></div>
         ))}
       </main>
     </div>

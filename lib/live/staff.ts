@@ -35,6 +35,10 @@ export type LiveStaff = {
   joined: string; nyuujou: string; taijou: string; taishaBi: string;
   station: string; price: string; sales: string; recruiter: string; company: string;
   provisional: boolean; carriedFrom: string;
+  /** 人の番号＝応募ID（今のシステムの roster?op=person・0364）。わからなければ ''（同姓同名でまだつないでいない人など） */
+  personId: string;
+  /** 前の形の id（氏名から作ったもの）。古いリンク（/jinji/staff/r…）から来たときに、この人を探すため */
+  nameId: string;
 };
 export type LiveStaffList = { ok: true; month: string; today: string; rows: LiveStaff[]; warnings: string[] };
 
@@ -54,7 +58,14 @@ export function staffIdOf(name: string): string {
   for (const ch of normName(name)) { h ^= ch.codePointAt(0)!; h = Math.imul(h, 0x01000193) >>> 0; }
   return 'r' + h.toString(36).padStart(7, '0');
 }
-export const isLiveStaffId = (id: string) => /^r[0-9a-z]{7}$/.test(id);
+/** 人の番号（応募ID）がわかっている人の id。同姓同名でも人ごとに違う（10-25 shoya「応募IDで進めて」） */
+export const personStaffId = (personId: string) => 'a' + personId;
+/** id の形：a＋応募ID（人の番号）か、r＋氏名から作った番号（前の形・人の番号がまだわからない人）。見本の id（s0412 など）とは形が違う */
+export const isLiveStaffId = (id: string) => /^r[0-9a-z]{7}$/.test(id) || /^a[0-9A-Za-z][0-9A-Za-z_-]{2,63}$/.test(id);
+/** id がこの行のものか（新しい id でも、古いリンクの氏名の id でも当たる） */
+export const staffIdMatches = (s: Pick<LiveStaff, 'id' | 'nameId'>, id: string) => s.id === id || s.nameId === id;
+/** 今のシステムの GET roster?op=person&action=list の返り（使う分だけ）。roster＝氏名キー→人の番号 */
+export type IkePersonMap = { ok?: boolean; ym?: string; roster?: Record<string, string> };
 
 export function jstToday(now = Date.now()): string { return new Date(now + 9 * 3600000).toISOString().slice(0, 10); }
 export function parseDateIso(v: unknown): string {
@@ -125,6 +136,7 @@ export const slashDate = (iso: string) => (iso ? iso.replaceAll('-', '/') : '—
 /** 4つの材料 → 社員一覧の行。info（住所・生年月日など）は受け取らない＝画面に渡さない。 */
 export function buildStaffList(
   roster: IkeRosterData, statusList: IkeRosterStatus[] | null, sales: IkeSalesOverlay | null, nyusha: IkeNyushaOverlay | null, now = Date.now(),
+  persons: IkePersonMap | null = null,
 ): LiveStaffList {
   const warnings: string[] = [];
   if (!statusList) warnings.push('退社・待機の印が読めませんでした（状態は自動の判定だけです）');
@@ -141,8 +153,9 @@ export function buildStaffList(
       sankakuKettei: !!s.sankakuKettei, lastUpdated: String(s.updatedAt || '').slice(0, 10), today, taiki: !!st?.taiki,
       statusOverride: st?.status_override || '', mnmKakutei: !!s.mnmKakutei, nyushaDay: s.mnmJoined || ny.nyushaBi || r.nyusha || '',
     });
+    const personId = persons?.roster?.[nn] || '';
     return {
-      id: staffIdOf(r.name), name: r.name, kana: r.kana || '', status: STATUS_LABEL[key], statusKey: key,
+      id: personId ? personStaffId(personId) : staffIdOf(r.name), nameId: staffIdOf(r.name), personId, name: r.name, kana: r.kana || '', status: STATUS_LABEL[key], statusKey: key,
       site: r.joi || '—', siteEki: r.siteEki || '', contract: r.keiyaku || '—', start: parseDateIso(r.start), end: parseDateIso(r.end),
       joined: parseDateIso(ny.nyushaBi) || parseDateIso(r.nyusha), nyuujou: parseDateIso(s.nyuujouBi) || String(s.nyuujouBi || ''),
       taijou: parseDateIso(ny.taijouBi), taishaBi: parseDateIso(st?.taisha_bi),

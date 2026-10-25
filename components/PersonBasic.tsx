@@ -16,18 +16,19 @@ const SAMPLE: Res = {
   work: [{ company: '見本商事', from: '2022-04', to: '2025-03', emp: '正社員', job: '販売', description: '店舗での接客と在庫管理（見本）' }],
 };
 
-export function PersonBasic({ name, live }: { name: string; live: boolean }) {
+/** person＝人の番号（応募ID）。同姓同名のとき、その人の回答だけを出す（わからなければ氏名で・10-25） */
+export function PersonBasic({ name, live, person }: { name: string; live: boolean; person?: string }) {
   const [res, setRes] = useState<Res | null>(null);
   useEffect(() => {
     let on = true;
     setRes(null);
     if (!live) { setRes(SAMPLE); return; }
-    fetch('/api/live/basic-info', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
+    fetch('/api/live/basic-info', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, person: person || undefined }) })
       .then(async (r) => (await r.json().catch(() => ({ error: `読めませんでした（${r.status}）` }))) as Res)
       .then((j) => { if (on) setRes(j); })
       .catch((e) => { if (on) setRes({ error: (e as Error).message }); });
     return () => { on = false; };
-  }, [name, live]);
+  }, [name, live, person]);
 
   if (!res) return <div className="py-10 text-center text-faint">読み込み中…</div>;
   if (res.error) return <div className="py-10 text-center text-bad">{res.error}{res.error.includes('ログイン') && <a href="/api/ike-auth/start" className="ml-2 underline">もう一度ログイン</a>}</div>;

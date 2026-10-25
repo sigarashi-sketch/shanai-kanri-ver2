@@ -4,7 +4,7 @@ import { livePerson, type LivePersonView, type PersonCandidate, type PersonRes }
 import { cellsOf, normName as eNorm, type EngineerRow, type EngineerRows } from '@/lib/live/eigyo-common';
 import { MIKEIKEN_PATH, isMikeiken, mikeikenSetOf } from '@/lib/live/mikeiken';
 import { canOf, ikeRole } from '@/lib/live/role';
-import { buildStaffList, isLiveStaffId, normName as sNorm, type IkeNyushaOverlay, type IkeRosterData, type IkeRosterStatus, type IkeSalesOverlay, type LiveStaff } from '@/lib/live/staff';
+import { buildStaffList, isLiveStaffId, staffIdMatches, normName as sNorm, type IkePersonMap, type IkeNyushaOverlay, type IkeRosterData, type IkeRosterStatus, type IkeSalesOverlay, type LiveStaff } from '@/lib/live/staff';
 
 // 人の名前を押したときの「この人の情報」（どの画面からでも同じ）。名前は URL に出さないので POST で受ける。読むだけ。
 //   POST { name, id? } → PersonRes（小窓に要るものを1回でまとめて返す＝小窓の中で /api/live/staff や /api/live/person を読み直さない・10-25）
@@ -30,20 +30,22 @@ export async function POST(req: Request) {
   const id = String(b.id || '').trim().slice(0, 80);
   if ((!name && !id) || name.length > 60) return NextResponse.json({ error: '名前がありません' }, { status: 400 });
   try {
-    const [er, roster, status, sales, nyusha, role] = await Promise.all([
+    const [er, roster, status, sales, nyusha, persons, role] = await Promise.all([
       soft(getJson<EngineerRows>(MIKEIKEN_PATH)),
       soft(getJson<IkeRosterData>('/api/proxy?action=getRosterData')),
       soft(getJson<IkeRosterStatus[]>('/api/proxy?action=getRosterStatus')),
       soft(getJson<{ overlay?: IkeSalesOverlay }>('/api/roster?op=extra&action=salesOverlay')),
       soft(getJson<{ overlay?: IkeNyushaOverlay }>('/api/roster?op=nyusha&action=list')),
+      soft(getJson<IkePersonMap>('/api/roster?op=person&action=list')),
       ikeRole(),
     ]);
     if (!er?.rows) return NextResponse.json({ error: 'プロパーリストが読めないので、未経験の人か確かめられませんでした' }, { status: 502 });
     const can = await canOf(role);
-    const list = roster?.success ? buildStaffList(roster, Array.isArray(status) ? status : null, sales?.overlay || null, nyusha?.overlay || null) : null;
+    const list = roster?.success ? buildStaffList(roster, Array.isArray(status) ? status : null, sales?.overlay || null, nyusha?.overlay || null, Date.now(), persons) : null;
 
     // id から名前を決める（id が古い・見本の id なら名前のまま）
-    const byStaffId = id && isLiveStaffId(id) ? list?.rows.filter((s) => s.id === id) ?? [] : [];
+    // 社員の id は a＋応募ID（人の番号）か r＋氏名の番号（前の形）。古いリンクの r… でも当たる
+    const byStaffId = id && isLiveStaffId(id) ? list?.rows.filter((s) => staffIdMatches(s, id)) ?? [] : [];
     const byRow = id && !isLiveStaffId(id) ? er.rows.find((r) => r.row === id) ?? null : null;
     name = byStaffId[0]?.name || byRow?.name || name;
     if (!name) return NextResponse.json({ error: 'この人が見つかりませんでした' }, { status: 404 });
@@ -55,7 +57,7 @@ export async function POST(req: Request) {
     const staffAll = list?.rows.filter((s) => sNorm(s.name) === sNorm(name)) ?? [];
     const properAll = er.rows.filter((r) => eNorm(r.name) === eNorm(name));
     let cands = pair(er, staffAll, properAll, can.price);
-    if (byStaffId.length) cands = cands.filter((c) => c.staff?.id === id);
+    if (byStaffId.length) cands = cands.filter((c) => !!c.staff && staffIdMatches(c.staff, id));
     else if (byRow) cands = cands.filter((c) => c.proper?.id === byRow.row);
     if (!cands.length && (byStaffId.length || byRow)) cands = pair(er, staffAll, properAll, can.price);
 
@@ -79,23 +81,26 @@ function pair(er: EngineerRows, staff: LiveStaff[], propers: EngineerRow[], pric
   };
   staff.forEach((s0, i) => {
     const s = price ? s0 : { ...s0, price: '—' };
-    const pr = staff.length === 1 && propers.length === 1 ? propers[0]
+    // 人の番号（応募ID）がわかっていれば、営業リストの同じ応募の行と組む（同姓同名でも取り違えない・10-25）
+    const byPid = s0.personId ? propers.find((r) => !used.has(r.row) && (cell.get(r.row) || {}).application_id === s0.personId) : undefined;
+    const pr = byPid ?? (staff.length === 1 && propers.length === 1 ? propers[0]
       : propers.find((r) => {
         if (used.has(r.row)) return false;
         const c = cell.get(r.row) || {};
         return (!!v(s.station) && eNorm(c.eki) === eNorm(s.station)) || (!!v(s.recruiter) && eNorm(c.tantou) === eNorm(s.recruiter));
-      });
+      }));
     if (pr) used.add(pr.row);
     const c = pr ? cell.get(pr.row) || {} : {};
     out.push({
       key: `s${i}:${s.id}`, name: s.name, staff: s, proper: pr ? view(pr) : null,
+      personId: s0.personId || (pr ? (cell.get(pr.row) || {}).application_id || '' : ''),
       hint: { recruiter: v(s.recruiter) || v(c.tantou), company: v(s.company) || v(c.shozoku), station: v(s.station) || v(c.eki) },
     });
   });
   for (const r of propers) {
     if (used.has(r.row)) continue;
     const c = cell.get(r.row) || {};
-    out.push({ key: `p:${r.row}`, name: r.name, staff: null, proper: view(r), hint: { recruiter: v(c.tantou), company: v(c.shozoku), station: v(c.eki) } });
+    out.push({ key: `p:${r.row}`, name: r.name, staff: null, proper: view(r), personId: c.application_id || '', hint: { recruiter: v(c.tantou), company: v(c.shozoku), station: v(c.eki) } });
   }
   return out;
 }

@@ -119,6 +119,8 @@ export const CAN_ALL: PersonCan = { chat: true, summary: true, basic: true, pric
 export type PersonCandidate = {
   key: string; name: string; staff: LiveStaff | null; proper: LivePersonView | null;
   hint: { recruiter: string; company: string; station: string };
+  /** 人の番号＝応募ID（わかれば。同姓同名の基本情報をこの人の分だけ出すのに使う・10-25） */
+  personId?: string;
 };
 export type PersonRes = {
   ok: true; name: string; month: string; candidates: PersonCandidate[]; everyone: string[]; can: PersonCan; notMikeiken?: boolean;
