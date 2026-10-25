@@ -38,8 +38,14 @@ const HIDE_SHELL = `<style id="v2-embed">
 body{padding-top:0!important;padding-bottom:0!important}
 </style>`;
 
-export function embedHtml(html: string): string {
+// 請求書作成（seikyu-make.html）の「作成」「格納」を ver2 では別のページに分ける（10-25 shoya「格納ページも作らないと」）。
+//   ?v2pane=make|store で開くと、そのタブを押した状態にして、上の 作成／格納 の切り替えを隠す（画面のコードは変えない）
+const PANE = (pane: 'make' | 'store') => `<script>(function(){var n=0;function go(){var b=document.querySelector('.ptabs [data-pane="${pane}"]');if(!b){if(n++<100)setTimeout(go,100);return}b.click();var t=document.querySelector('.ptabs');if(t)t.style.display='none'}
+if(document.readyState!=='loading')go();else document.addEventListener('DOMContentLoaded',go)})();</script>`;
+
+export function embedHtml(html: string, opts?: { pane?: 'make' | 'store' }): string {
   let out = rewritePaths(html);
+  if (opts?.pane) out = out.includes('</body>') ? out.replace('</body>', PANE(opts.pane) + '</body>') : out + PANE(opts.pane);
   // 保険の script は <head> のいちばん先（今の画面の script より前）に置く
   out = /<head[^>]*>/i.test(out) ? out.replace(/<head[^>]*>/i, (m) => m + PATCH) : PATCH + out;
   out = out.includes('</head>') ? out.replace('</head>', HIDE_SHELL + '</head>') : HIDE_SHELL + out;

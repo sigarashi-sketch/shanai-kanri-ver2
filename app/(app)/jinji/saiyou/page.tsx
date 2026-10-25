@@ -8,11 +8,14 @@ import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
 import { LiveBanner, NotInLegacy, useIke } from '@/components/Live';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
-import { acceptorsFromIke, mikeikenShoudaku, shoudakuNote, type IkeShoudakuList } from '@/lib/live/saiyou';
+import { acceptorsFromIke, liveSignalLines, mikeikenShoudaku, shoudakuNote, type IkeShoudakuList, type SaiyouSignal, type SaiyouSignalsLive } from '@/lib/live/saiyou';
+import { useLiveRoute } from '@/lib/live/use-live-route';
 import { PersonName } from '@/components/Person';
 
 // 採用（承諾者・面談）＝内定を承諾した人の、入社までのフォロー面談と辞退の兆し。
 //   ・兆し：返信が遅い・面談のリスケが重なる・基本情報フォームが未回答・入社日が決まっていない・メモの気になる言葉
+//     本物のときは 返信が遅い・フォーム未回答・入社日未定 の3つだけ（/api/live/saiyou-signals）。
+//     面談のリスケ（フォロー面談の記録が今のシステムに無い）とメモの言葉（使わないと決めた）は出さない
 //   ・フォロー面談は 担当と枠を選ぶだけで入る → 済みにする
 //   地雷：承諾の日時は承諾の記録が正（名簿の作成日は使わない）／同姓同名は応募IDで見分ける／
 //         今のシステムの承諾者一覧シートには書き戻さない（下の方は式の展開で、1セル書くと全部消える）／トーク本文は出さない
@@ -49,7 +52,11 @@ export default function SaiyouPage() {
   const shoudaku = useMemo(() => (ike.data ? mikeikenShoudaku(ike.data, mk.keep(ike.data.people || [], (p) => p.name || p.norm)) : null), [ike.data, mk]);
   const liveRows = useMemo(() => acceptorsFromIke(shoudaku), [shoudaku]);
   const rows = live ? liveRows : sRows;
-  const sig = (a: Acceptor): Sig[] => (live ? [] : signals(a));
+  // 本物の兆しの材料（返信の日数・フォーム・入社日）。読めなければ兆しは出さない（「兆しなし」とは言わない）
+  const sg = useLiveRoute<SaiyouSignalsLive>(live ? '/api/live/saiyou-signals' : null);
+  const sigBy = useMemo(() => new Map<string, SaiyouSignal>((sg.data?.people || []).map((p) => [p.norm, p])), [sg.data]);
+  const sigReady = live && sg.live;
+  const sig = (a: Acceptor): Sig[] => (live ? liveSignalLines(sigBy.get(a.norm || ''), sg.data?.sources) : signals(a));
   const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
   const since = (d: string) => Math.max(0, Math.round((Date.parse(today) - Date.parse(d)) / 86400000));
   const [by, setBy] = useState<Record<string, string>>({});
@@ -58,7 +65,9 @@ export default function SaiyouPage() {
   const [onlySig, setOnlySig] = useState(true);
   const [touched, setTouched] = useState<string[]>([]); // この画面で処理した人（絞り込みで消さない）
 
-  const list = rows.map((a) => ({ a, s: sig(a) })).sort((x, y) => (live ? 0 : RANK[x.a.appId] - RANK[y.a.appId]));
+  // 本物は 兆しの強い順 → 新しく承諾した順（読み直すまで並びは変わらない）
+  const list = rows.map((a) => ({ a, s: sig(a) })).sort((x, y) => (live ? strongN(y.s) - strongN(x.s) || y.s.length - x.s.length : RANK[x.a.appId] - RANK[y.a.appId]));
+  const liveJoin = (a: Acceptor) => (sigReady && sg.data?.sources.join ? sigBy.get(a.norm || '')?.joinDate ?? null : undefined);
   const sameName = (a: Acceptor) => rows.filter((r) => r.name === a.name).length > 1;
   const need = live ? [] : list.filter(({ a, s }) => s.length > 0 && (a.follow === '未設定' || a.follow === '日程調整中'));
   const shown = live ? list : onlySig ? list.filter(({ s, a }) => s.length > 0 || a.follow === '予定あり' || touched.includes(a.appId)) : list;
@@ -82,11 +91,14 @@ export default function SaiyouPage() {
       <PageTitle title="採用（承諾者・面談）" sub={`内定を承諾した人の、入社までのフォロー面談と辞退の兆し${live ? '' : '・見本データ'}`} />
       <LiveBanner state={ike.state} error={ike.error} onReload={ike.reload} note={`承諾者は今の社内システムから（見るだけ）。${shoudakuNote(shoudaku)}`} />
       <MikeikenNote mk={mk} live={ike.live} />
-      {live && <NotInLegacy what="辞退の兆し（返信の間隔・面談の日程変更・メモの言葉）とフォロー面談の記録" />}
+      {live && <NotInLegacy what="辞退の兆しのうち 面談の日程変更・メモの言葉と、フォロー面談の記録" />}
+      {live && sg.state === 'error' && <div className="rounded-xl border border-line bg-soft px-4 py-2.5 text-[12.5px] text-bad">辞退の兆しの材料が読めませんでした（{sg.error}）<button onClick={sg.reload} className="ml-2 underline">読み直す</button></div>}
+      {sigReady && (sg.data?.warnings.length ?? 0) > 0 && <div className="rounded-xl border border-line bg-soft px-4 py-2.5 text-[12.5px] text-muted">{sg.data!.warnings.join('／')}。読めなかった材料は兆しに出していません。</div>}
 
       {live ? (
         <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3 text-[13px]" style={{ ['--i' as string]: 1 }}>
-          <b>決着前の承諾者 {rows.length}人</b><span className="text-muted">新しく承諾した順</span>
+          <b>決着前の承諾者 {rows.length}人</b>
+          {sigReady ? <span className="text-muted">兆しがある人 {list.filter(({ s }) => s.length > 0).length}人（強い兆し {list.filter(({ s }) => strongN(s) > 0).length}人）・兆しの強い順</span> : <span className="text-muted">{sg.state === 'loading' ? '辞退の兆しを読んでいます…' : '新しく承諾した順'}</span>}
         </div>
       ) : (
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
@@ -109,9 +121,9 @@ export default function SaiyouPage() {
                   <div className="flex items-center gap-1.5 font-semibold"><PersonName name={a.name} className="underline-offset-2 hover:underline" />{sameName(a) && <span className="chip" style={{ background: 'var(--tone-caution-bg)', color: 'var(--tone-caution-fg)' }} title="同じ名前の別の人がいます。応募IDで見分けてください">同姓同名</span>}</div>
                   <div className="text-[11.5px] text-faint">{live ? `採用担当 ${a.recruiter}・承諾から ${since(a.acceptedAt)}日` : `${a.appId}・採用担当 ${a.recruiter}・${a.station}`}</div>
                 </td>
-                <td className="num whitespace-nowrap px-2 py-2.5">{fmt(a.acceptedAt)}{!live && <div className="text-[12px] text-muted">入社 {a.joinDate ? fmt(a.joinDate) : '未定'}</div>}</td>
+                <td className="num whitespace-nowrap px-2 py-2.5">{fmt(a.acceptedAt)}{!live ? <div className="text-[12px] text-muted">入社 {a.joinDate ? fmt(a.joinDate) : '未定'}</div> : liveJoin(a) !== undefined && <div className="text-[12px] text-muted">入社 {liveJoin(a) ? fmt(liveJoin(a)!) : '未定'}</div>}</td>
                 <td className="px-2 py-2.5">
-                  {live ? <span className="text-[12px] text-faint">今の社内システムに無い</span> : s.length === 0 ? <span className="text-[12.5px] text-faint">兆しはありません</span> : <ul className="flex flex-col gap-1">{s.map((x) => <li key={x.text} className="flex items-start gap-1.5 text-[12.5px]">{x.strong ? <AlertTriangle size={14} className="mt-0.5 shrink-0 text-bad" /> : <CircleAlert size={14} className="mt-0.5 shrink-0 text-warn" />}<span className={x.strong ? 'font-semibold' : ''}>{x.text}</span></li>)}</ul>}
+                  {live && !sigReady ? <span className="text-[12px] text-faint">{sg.state === 'loading' ? '読んでいます…' : '読めませんでした'}</span> : s.length === 0 ? <span className="text-[12.5px] text-faint">兆しはありません</span> : <ul className="flex flex-col gap-1">{s.map((x) => <li key={x.text} className="flex items-start gap-1.5 text-[12.5px]">{x.strong ? <AlertTriangle size={14} className="mt-0.5 shrink-0 text-bad" /> : <CircleAlert size={14} className="mt-0.5 shrink-0 text-warn" />}<span className={x.strong ? 'font-semibold' : ''}>{x.text}</span></li>)}</ul>}
                 </td>
                 <td className="px-4 py-2.5">
                   {live ? <span className="text-[12px] text-faint">今の社内システムに無い</span> : (<>
@@ -134,7 +146,7 @@ export default function SaiyouPage() {
           </tbody>
         </table>
       </div>
-      <p className="text-[11.5px] leading-relaxed text-faint">承諾日は承諾の記録の日時です。名前は基本情報フォームの表記で、同じ名前の人は応募IDで見分けます。トークの本文は出していません（共有のログイン情報などが流れていることがあるため）。今のシステムの承諾者一覧シートには書き戻しません。</p>
+      <p className="text-[11.5px] leading-relaxed text-faint">承諾日は承諾の記録の日時です。名前は基本情報フォームの表記で、同じ名前の人は応募IDで見分けます。トークの本文は出していません（共有のログイン情報などが流れていることがあるため）。{live && '辞退の兆しは LINE の最後の受信からの日数・基本情報フォームの回答・名簿の入社日だけで出しています（名前で当てるので、同姓同名の人は同じ兆しになります）。'}今のシステムの承諾者一覧シートには書き戻しません。</p>
     </main>
   );
 }

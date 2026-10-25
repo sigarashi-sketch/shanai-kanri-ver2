@@ -3,6 +3,7 @@
 //   承諾の日時は承諾日（shoudaku_bi）が正（名簿の作成日だけでは判断しない＝今のシステムの shoudakuAt のまま）。
 //   ここに出すのは まだ決着していない人（outcome='open'＝参画・辞退・ぽあ のどれでもない）だけ。
 //   応募ID・最寄駅・入社予定日・返信の間隔・フォロー面談の記録は、今のシステムの一覧に無い
+//   （返信の間隔・フォーム・入社日は別の GET から app/api/live/saiyou-signals が集める＝下の liveSignalLines）
 import type { Acceptor } from '@/lib/saiyou-sample';
 
 export type IkeShoudakuPerson = { name: string; norm: string; tantou: string; shoudaku_at: string; outcome: 'open' | 'sankaku' | 'jitai' | 'poa'; outcome_at: string | null; days: number | null };
@@ -17,7 +18,7 @@ const jstDate = (iso: string) => { const t = Date.parse(iso); return Number.isFi
 
 export function acceptorsFromIke(j: IkeShoudakuList | null): Acceptor[] {
   return (j?.people || []).filter((p) => p.outcome === 'open').map((p, i): Acceptor => ({
-    appId: `n:${p.norm}:${i}`, name: p.name || p.norm, recruiter: p.tantou || '—', station: '',
+    appId: `n:${p.norm}:${i}`, norm: p.norm, name: p.name || p.norm, recruiter: p.tantou || '—', station: '',
     acceptedAt: jstDate(p.shoudaku_at), joinDate: null,
     lastReplyDays: 0, reschedules: 0, formDone: true, words: [], follow: '未設定',
   })).sort((a, b) => b.acceptedAt.localeCompare(a.acceptedAt));
@@ -39,4 +40,37 @@ export function mikeikenShoudaku(j: IkeShoudakuList, people: IkeShoudakuPerson[]
   };
   const cnt = (o: IkeShoudakuPerson['outcome']) => people.filter((p) => p.outcome === o).length;
   return { ...j, people, medians: { sankaku: med('sankaku'), jitai: med('jitai'), poa: med('poa') }, counts: { sankaku: cnt('sankaku'), jitai: cnt('jitai'), poa: cnt('poa') } };
+}
+
+// ---- 辞退しそうな兆し（本物・2026-10-25 shoya「材料は4つだけ・メモの言葉と ML の点数は使わない」） ----
+//   出どころは app/api/live/saiyou-signals（今のシステムの GET を読んで、人ごとに 日数・はい/いいえ だけ返す。トーク本文・メールは返さない）
+//   ・本人の返信が止まっている日数 … LINE の最後の受信（1:1 の last_in_at と、名前の入ったグループの lastInAt の新しい方）から何日
+//   ・基本情報フォームが未回答     … 基本情報フォームの回答者（basic-info?action=names）に名前が無い
+//   ・入社日が決まっていない       … 名簿の入社日（roster?op=nyusha&action=list → 無ければ事務ページの入社日）が空
+//   ・フォロー面談の日程変更の回数 … 今のシステムに承諾者のフォロー面談の記録（日程を変えた履歴）が無いので使わない
+//   読めなかった材料（null）は「兆しなし」ではなく「わからない」＝兆しに出さない
+export type SaiyouSignal = {
+  norm: string;
+  lastInDays: number | null;   // 本人の最後の受信から何日（LINE が見つからない・一度も受信が無いときは null）
+  formDone: boolean | null;    // 基本情報フォームに答えたか（読めなかったら null）
+  joinDate: string | null;     // 入社日 'YYYY-MM-DD'（決まっていない・読めないときは null）
+};
+export type SaiyouSignalsLive = {
+  people: SaiyouSignal[];
+  sources: { line: boolean; form: boolean; join: boolean };   // それぞれの材料が読めたか
+  warnings: string[]; generatedAt: string;
+};
+export type SignalLine = { text: string; strong: boolean };
+
+/** 1人分の材料 → 画面に出す兆し（見本の signals と同じ言い方・同じ強さ） */
+export function liveSignalLines(s: SaiyouSignal | undefined, src: SaiyouSignalsLive['sources'] | undefined): SignalLine[] {
+  const out: SignalLine[] = [];
+  if (!s || !src) return out;
+  if (src.line && s.lastInDays != null) {
+    if (s.lastInDays >= 5) out.push({ text: `本人の返信が ${s.lastInDays}日 止まっている`, strong: true });
+    else if (s.lastInDays >= 3) out.push({ text: `本人の返信が ${s.lastInDays}日 空いている`, strong: false });
+  }
+  if (src.form && s.formDone === false) out.push({ text: '基本情報フォームがまだ', strong: false });
+  if (src.join && !s.joinDate) out.push({ text: '入社日が決まっていない', strong: false });
+  return out;
 }

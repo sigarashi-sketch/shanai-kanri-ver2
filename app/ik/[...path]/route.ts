@@ -16,7 +16,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ path: string[] 
   if (!path.length || !path.every((p) => /^[A-Za-z0-9_][A-Za-z0-9_.-]*$/.test(p))) return html(noticeHtml('開けません', '行き先が違います。'), 400);
   const name = path.join('/');
   const ext = (name.split('.').pop() || '').toLowerCase();
-  const qs = new URL(req.url).search;
+  const u = new URL(req.url);
+  const pane = u.searchParams.get('v2pane');
+  u.searchParams.delete('v2pane');
+  const qs = u.search;
 
   if (ext === 'html') {
     // 今の画面がログイン切れで /login.html へ飛ばしたとき（/ik/login.html に向け直してある）
@@ -26,7 +29,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ path: string[] 
     try {
       const r = await fetch(`${IKE_ORIGIN}/${name}${qs}`, { cache: 'no-store', signal: AbortSignal.timeout(20000) });
       if (!r.ok) return html(noticeHtml('読めませんでした', `今の社内システムから画面を読めませんでした（${r.status}）。`), 502);
-      return html(embedHtml(await r.text()));
+      return html(embedHtml(await r.text(), { pane: name === 'seikyu-make.html' && (pane === 'make' || pane === 'store') ? pane : undefined }));
     } catch (e) {
       return html(noticeHtml('読めませんでした', `今の社内システムから画面を読めませんでした（${(e as Error).message}）。`), 502);
     }

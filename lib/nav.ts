@@ -56,6 +56,7 @@ export const NAV: NavGroup[] = [
       { href: '/keiri/seikyu', label: '請求書', built: true, badge: 18 },
       { href: '/keiri/seikyu-zukuri', label: '請求書づくり', built: true }, // 今の画面をそのまま（app/ik・データは今のシステム）
       { href: '/keiri/seikyu-make', label: '請求書作成', built: true },
+      { href: '/keiri/kakunou', label: '請求書・勤務表の格納', built: true }, // 今の請求書作成の「格納」タブ（10-25）
       { href: '/keiri/chingin', label: '想定賃金・粗利', built: true, badge: 5 },
     ],
   },

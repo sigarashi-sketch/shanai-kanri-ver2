@@ -5,6 +5,7 @@
 export type FollowState = '未設定' | '予定あり' | '日程調整中' | '済み';
 export type Acceptor = {
   appId: string; name: string; recruiter: string; station: string;
+  norm?: string; // 本物のときだけ：名前のキー（normName）。兆しの材料と当てるのに使う
   acceptedAt: string; joinDate: string | null;
   lastReplyDays: number; // 本人の最後の返信から何日
   reschedules: number; // フォロー面談のリスケ回数
