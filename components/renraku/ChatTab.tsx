@@ -6,6 +6,7 @@ import { useIke } from '../Live';
 import { useMotivation } from '../Motivation';
 import { needText } from '../Perms';
 import { ChatSummary } from '@/components/ChatSummary';
+import { ChatLog } from '@/components/ChatLog';
 import { groupBubbles, threadBubbles, type Bubble, type GroupThreadRes, type ThreadRes } from '@/lib/live/person';
 import { SEG_LABEL, contactRows, filterChat, groupRows, segCounts, type ChatRow, type ChatSeg, type LiveContactsRes, type LiveGroupsRes } from '@/lib/live/renraku';
 import { SAMPLE_CHAT, sampleBubbles } from '@/lib/live/renraku-sample';
@@ -116,19 +117,11 @@ function Thread({ row, live, canSend, info, onBack }: { row: ChatRow; live: bool
         <button onClick={onBack} className="min-w-0 flex-1 truncate py-0.5 text-left text-[12.5px] text-muted">← トーク一覧 ／ <b className="text-ink">{row.name}</b>{row.kind === 'group' && <span className="ml-1 text-faint">（グループ）</span>}</button>
         <ChatSummary kind={one ? 'user' : 'group'} id={row.id} name={row.name} live={live} />
       </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 py-3" style={{ background: 'var(--color-sunken)' }}>
+      <ChatLog bubbles={bubbles.slice(-200)} className="min-h-0 flex-1" resetKey={row.id}>
         {!live && <p className="text-center text-[11.5px] text-faint">見本のトークです</p>}
         {live && st.state === 'loading' && !bubbles.length && <p className="text-[13px] text-muted">読み込み中…</p>}
         {live && st.error && <p className="text-[13px] text-bad">{st.error}</p>}
-        {bubbles.slice(-120).map((b) => (
-          <div key={b.key} className={`mo-fade-up flex flex-col ${b.out ? 'items-end' : 'items-start'}`}>
-            {b.who && <span className="text-[10.5px] text-faint">{b.who}</span>}
-            <div className={`max-w-[82%] whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-[13px] ${b.out ? 'rounded-br-md' : 'rounded-bl-md border border-line bg-surface'}`}
-              style={b.out ? { background: 'var(--as)', color: 'var(--color-ink)' } : undefined}>{b.text}</div>
-            <span className="text-[10.5px] text-faint">{b.at}</span>
-          </div>
-        ))}
-      </div>
+      </ChatLog>
       <div className="flex flex-wrap gap-1.5 px-4 pt-2">{QUICK.map((x) => <button key={x} type="button" onClick={() => setText((t) => (t ? t + x : x))} className="rounded-full border border-line px-2.5 py-1 text-[12px]">{x}</button>)}</div>
       <div className="flex items-end gap-2 px-4 py-3">
         <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} maxLength={5000} disabled={!canTalk}

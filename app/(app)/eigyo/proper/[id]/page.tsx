@@ -7,6 +7,7 @@
 //     グループに送ってよいかは今の API が決める。断られたら理由をそのまま出す。見本のときは送らない
 //   ・それ以外の書き込み（スキシを作る・メモを直す 等）はここには置かない
 import { ChatSummary } from '@/components/ChatSummary';
+import { ChatLog } from '@/components/ChatLog';
 import Link from 'next/link';
 import { notFound, useParams, useSearchParams } from 'next/navigation';
 import { Suspense, useMemo, useRef, useState } from 'react';
@@ -260,19 +261,12 @@ function Chat({ name, live, everyone }: { name: string; live: boolean; everyone:
         {sub === 'グループ' && myGroups.length === 1 && <span className="ml-auto text-[12.5px] text-muted">{myGroups[0].name}</span>}
         {(!live || target) && <span className={(sub === '個人' ? mine.length > 1 : myGroups.length >= 1) ? '' : 'ml-auto'}><ChatSummary kind={sub === '個人' ? 'user' : 'group'} id={target || 'sample0'} name={sub === '個人' ? name : myGroups.find((g) => g.groupId === groupId)?.name || name} live={live} /></span>}
       </div>
-      <div className="flex max-h-[460px] min-h-[220px] flex-col gap-2 overflow-y-auto px-[18px] py-3" style={{ background: 'var(--color-sunken)' }}>
+      <ChatLog bubbles={loading ? [] : bubbles} className="max-h-[520px] min-h-[260px]" resetKey={`${sub}:${target}`}>
         {!live && <p className="text-center text-[12px] text-faint">見本のトークです</p>}
         {loading && <p className="text-[13px] text-muted">読み込み中…</p>}
         {err && <p className="text-[13px] text-bad">{err}</p>}
         {none && <p className="text-[13px] text-muted">{sub === '個人' ? 'この人に紐付いた LINE の相手がいません（今のチャット画面で紐付けると出ます）' : 'グループ名にこの人の名前が入った LINE グループがありません'}</p>}
-        {!loading && bubbles.map((b) => (
-          <div key={b.key} className={`flex flex-col ${b.out ? 'items-end' : 'items-start'}`}>
-            {b.who && <span className="text-[11px] text-faint">{b.who}</span>}
-            <div className="max-w-[78%] whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-[13px]" style={b.out ? { background: 'var(--as)', color: 'var(--color-ink)' } : { background: 'var(--color-surface)', border: '1px solid var(--color-line)' }}>{b.text}</div>
-            <span className="text-[10.5px] text-faint">{b.at}</span>
-          </div>
-        ))}
-      </div>
+      </ChatLog>
       <Composer kind={sub === '個人' ? 'person' : 'group'} target={target} live={live} disabled={live && !target}
         onSent={() => (sub === '個人' ? th.reload() : gt.reload())} />
     </section>
