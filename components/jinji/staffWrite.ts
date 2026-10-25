@@ -11,7 +11,7 @@ export function staffReq(w: StaffWrite, text: string, o?: { sub?: string; undo?:
     undo: (res) => {
       if (w.kind === 'status') {
         const prev = res.prev as StatusPatch | undefined;
-        return prev && Object.keys(prev).length ? { url: STAFF_WRITE_URL, body: { kind: 'status', name: w.name, patch: prev } } : null;
+        return prev && Object.keys(prev).length ? { url: STAFF_WRITE_URL, body: { kind: 'status', name: w.name, patch: prev, ...(w.personId ? { personId: w.personId } : {}) } } : null;
       }
       return o?.undo ? { url: STAFF_WRITE_URL, body: o.undo } : null;
     },

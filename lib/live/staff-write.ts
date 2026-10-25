@@ -17,7 +17,8 @@ export const FLAG_KEYS = ['辞退', 'ぽあ', '参画決定'] as const;
 
 export type StatusPatch = { taisha?: boolean; taishaBi?: string; taiki?: boolean; override?: string; taikiYotei?: string; taishaYotei?: string };
 export type TaiouFields = Partial<Record<'genba_kenen' | 'kongo_ganbaru' | 'hyouka_ima' | 'benkyou_note' | 'benkyou_unit', string>> & { benkyou_hours?: number };
-export type StaffWrite =
+/** personId（人の番号＝応募ID・任意）: 同姓同名でもその人の分として書く（0365・10-25）。無ければ書く口が名簿の行の人に当てる */
+export type StaffWrite = (
   | { kind: 'status'; name: string; patch: StatusPatch }
   | { kind: 'eki'; name: string; field: 'home_eki' | 'site_eki'; value: string }
   | { kind: 'nyusha'; name: string; field: 'nyusha_bi' | 'shokai_end' | 'taijou_bi'; value: string }
@@ -25,7 +26,10 @@ export type StaffWrite =
   | { kind: 'sales'; name: string; field: 'nyuujou_bi'; value: string }
   | { kind: 'tantou'; name: string; value: string }
   | { kind: 'flag'; name: string; statusKey: (typeof FLAG_KEYS)[number]; value: boolean }
-  | { kind: 'taiou'; name: string; taiouKind: (typeof TAIOU_KINDS)[number]; body: string; fields: TaiouFields };
+  | { kind: 'taiou'; name: string; taiouKind: (typeof TAIOU_KINDS)[number]; body: string; fields: TaiouFields }
+) & { personId?: string };
+/** 人の番号（応募ID）の形（今のシステムの isPersonId と同じ） */
+export const isPersonIdLike = (v: unknown) => typeof v === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{2,63}$/.test(v);
 
 const isDate = (v: unknown) => v === '' || (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`)));
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : null);
@@ -35,6 +39,12 @@ const oneOf = <T extends string>(v: unknown, xs: readonly T[]): v is T => typeof
 export function parseStaffWrite(b: unknown): StaffWrite | string {
   if (!b || typeof b !== 'object') return '送る中身がありません';
   const o = b as Record<string, unknown>;
+  if (o.personId != null && o.personId !== '' && !isPersonIdLike(o.personId)) return '人の番号の形が違います';
+  const w = parseBody(o);
+  return typeof w === 'string' || !o.personId ? w : { ...w, personId: o.personId as string };
+}
+
+function parseBody(o: Record<string, unknown>): StaffWrite | string {
   const name = str(o.name, 60);
   if (!name) return '氏名がありません';
   switch (o.kind) {

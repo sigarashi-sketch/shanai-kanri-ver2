@@ -72,8 +72,22 @@ export const personStaffId = (personId: string) => 'a' + personId;
 export const isLiveStaffId = (id: string) => /^r[0-9a-z]{7}$/.test(id) || /^a[0-9A-Za-z][0-9A-Za-z_-]{2,63}$/.test(id);
 /** id がこの行のものか（新しい id でも、古いリンクの氏名の id でも当たる） */
 export const staffIdMatches = (s: Pick<LiveStaff, 'id' | 'nameId'>, id: string) => s.id === id || s.nameId === id;
-/** 今のシステムの GET roster?op=person&action=list の返り（使う分だけ）。roster＝氏名キー→人の番号 */
-export type IkePersonMap = { ok?: boolean; ym?: string; roster?: Record<string, string> };
+/** 今のシステムの GET roster?op=person&action=list の返り（使う分だけ）。roster＝氏名キー→人の番号
+ *  0365（10-25）: 退社・待機／入社日の手入力も人で分けた。statusOwner / nyushaOwner＝氏名の行（今までの表）がだれの分か、
+ *  statusByPerson / nyushaByPerson＝同姓同名で氏名の行が別の人のときの、その人の分 */
+export type IkePersonMap = {
+  ok?: boolean; ym?: string; roster?: Record<string, string>;
+  statusOwner?: Record<string, string>; nyushaOwner?: Record<string, string>;
+  statusByPerson?: Record<string, Omit<IkeRosterStatus, 'normalized_name'> & { normalized_name?: string }>;
+  nyushaByPerson?: Record<string, { nyushaBi?: string; shokaiEnd?: string; taijouBi?: string }>;
+};
+/** その人の分の印（人の番号があれば：別置きの分 → 氏名の行がその人（かだれかわからない）なら氏名の行 → 無し）。純関数 */
+export function ofPerson<T>(personId: string, byPerson: Record<string, T> | undefined, owner: string | undefined, byName: T | undefined): T | undefined {
+  if (!personId) return byName;
+  const mine = byPerson?.[personId];
+  if (mine) return mine;
+  return owner && owner !== personId ? undefined : byName;
+}
 
 export function jstToday(now = Date.now()): string { return new Date(now + 9 * 3600000).toISOString().slice(0, 10); }
 export function parseDateIso(v: unknown): string {
@@ -154,14 +168,16 @@ export function buildStaffList(
   const stBy = new Map((statusList || []).map((s) => [s.normalized_name, s]));
   const rows = (roster.rows || []).map((r): LiveStaff => {
     const nn = normName(r.name);
-    const s = sales?.[nn] || {}, st = stBy.get(nn), ny = nyusha?.[nn] || {};
+    const personId = persons?.roster?.[nn] || '';
+    // 退社・待機／入社日の手入力はその人の分（同姓同名で氏名の行が別の人のものなら、その人の別置きの分・0365）
+    const st = ofPerson(personId, persons?.statusByPerson as Record<string, IkeRosterStatus> | undefined, persons?.statusOwner?.[nn], stBy.get(nn));
+    const s = sales?.[nn] || {}, ny = ofPerson(personId, persons?.nyushaByPerson, persons?.nyushaOwner?.[nn], nyusha?.[nn]) || {};
     const key = deriveStatus({
       taisha: !!st?.taisha, saiAssign: !!s.saiAssign, taijouBi: ny.taijouBi || '', hasEntry: !r.provisional,
       startDate: r.start || '', endDate: r.end || '', joukyou: r.joukyou || '', jitai: !!s.jitai, poa: !!s.poa,
       sankakuKettei: !!s.sankakuKettei, lastUpdated: String(s.updatedAt || '').slice(0, 10), today, taiki: !!st?.taiki,
       statusOverride: st?.status_override || '', mnmKakutei: !!s.mnmKakutei, nyushaDay: s.mnmJoined || ny.nyushaBi || r.nyusha || '',
     });
-    const personId = persons?.roster?.[nn] || '';
     return {
       id: personId ? personStaffId(personId) : staffIdOf(r.name), nameId: staffIdOf(r.name), personId, name: r.name, kana: r.kana || '', status: STATUS_LABEL[key], statusKey: key,
       site: r.joi || '—', siteEki: r.siteEki || '', contract: r.keiyaku || '—', start: parseDateIso(r.start), end: parseDateIso(r.end),
