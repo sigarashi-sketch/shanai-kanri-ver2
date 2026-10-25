@@ -39,3 +39,9 @@ export async function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>
   try { return { v: await p, hit: false }; } finally { if (inflight.get(key) === p) inflight.delete(key); }
 }
 
+
+/** その人の控えを全部捨てる（書き込んだあと、次に読む画面が古い答えを出さないように・10-25） */
+export function dropUserCache(token: string) {
+  const k = userKey(token);
+  for (const key of store.keys()) if (key.startsWith(k)) store.delete(key);
+}
