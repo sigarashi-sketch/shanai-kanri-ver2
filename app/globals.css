@@ -230,3 +230,25 @@ tr.row:hover, a.row:hover { background: var(--row-hover) }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; animation-delay: 0ms !important; transition-duration: 1ms !important }
 }
+
+/* ホーム人事（/home/jinji）のフィードの絵とストーリー。components/FeedScene.tsx */
+@keyframes hj-sc-bob { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-5px) } }
+@keyframes hj-sc-wave { 0%, 100% { transform: rotate(0) } 50% { transform: rotate(-24deg) } }
+@keyframes hj-sc-flag { 0%, 100% { transform: skewY(0) } 50% { transform: skewY(-7deg) } }
+@keyframes hj-sc-fall { 0% { transform: translateY(-34px) rotate(0); opacity: 0 } 12% { opacity: 1 } 100% { transform: translateY(170px) rotate(240deg); opacity: 0 } }
+@keyframes hj-sc-twinkle { 0%, 100% { transform: scale(1); opacity: 1 } 50% { transform: scale(.72); opacity: .6 } }
+@keyframes hj-sc-dash { to { stroke-dashoffset: -28 } }
+@keyframes hj-sc-dot { 0%, 60%, 100% { transform: translateY(0); opacity: .5 } 30% { transform: translateY(-4px); opacity: 1 } }
+@keyframes hj-story-bar { from { transform: scaleX(0) } to { transform: scaleX(1) } }
+@keyframes hj-heart { 0% { transform: scale(0); opacity: 0 } 30% { transform: scale(1.2); opacity: 1 } 70% { transform: scale(1); opacity: 1 } 100% { transform: scale(1); opacity: 0 } }
+.hj-sc-bob { animation: hj-sc-bob 1.2s ease-in-out infinite }
+.hj-sc-wave { transform-box: fill-box; transform-origin: 0% 100%; animation: hj-sc-wave .9s ease-in-out infinite }
+.hj-sc-flag { transform-box: fill-box; transform-origin: 0% 50%; animation: hj-sc-flag 1.3s ease-in-out infinite }
+.hj-sc-fall { transform-box: fill-box; transform-origin: 50% 50%; animation: hj-sc-fall 2.6s linear infinite }
+.hj-sc-twinkle { transform-box: fill-box; transform-origin: 50% 50%; animation: hj-sc-twinkle 1.8s ease-in-out infinite }
+.hj-sc-dash { animation: hj-sc-dash 1s linear infinite }
+.hj-sc-dot { transform-box: fill-box; animation: hj-sc-dot 1.2s infinite }
+.hj-sc .hj-sc-bob:nth-of-type(2n) { animation-delay: .3s }
+.hj-story-bar { transform-origin: left; animation: hj-story-bar linear both }
+.hj-heart { animation: hj-heart 800ms ease-out both }
+@media (prefers-reduced-motion: reduce) { .hj-sc * { animation: none !important } }

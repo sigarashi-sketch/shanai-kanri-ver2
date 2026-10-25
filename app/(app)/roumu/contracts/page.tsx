@@ -10,6 +10,7 @@ import { RemainRing, useMotivation } from '@/components/Motivation';
 import { NotInLegacy } from '@/components/Live';
 import { stageTo, useRule } from '@/components/AlertStore';
 import { numOf } from '@/lib/alert-rules';
+import { PersonName } from '@/components/Person';
 
 // 現場・契約（労務/営業管理）＝派遣契約の終了が近い人の通知。準委任は対象外。
 //   ・契約の終わり と 抵触日（同じ派遣先の同じ組織で働ける3年の期限・個人単位）の近いほうで段階を付ける
@@ -98,7 +99,7 @@ export default function ContractsPage() {
                 const conflictFirst = c.conflictDays <= c.daysLeft + 31; // 次の更新で抵触日をまたぐ
                 return (
                   <tr key={c.personId} className={`mo-fade-in border-t border-line-soft align-top ${flash === c.personId ? 'mo-flash' : 'row'} ${lv === 'ok' && first[c.personId] !== 'ok' ? 'opacity-60' : ''}`} style={{ ['--i' as string]: i }}>
-                    <td className="px-4 py-2.5"><div className="font-semibold">{c.name}</div><div className="text-[11.5px] text-faint">営業 {c.sales}</div></td>
+                    <td className="px-4 py-2.5"><div className="font-semibold"><PersonName name={c.name} className="underline-offset-2 hover:underline" /></div><div className="text-[11.5px] text-faint">営業 {c.sales}</div></td>
                     <td className="px-2 py-2.5">{c.site}<div className="text-[11.5px] text-faint">{c.start}〜</div></td>
                     <td className="num px-2 py-2.5">{c.end}<span className="ml-1 text-[11.5px]" style={{ color: c.daysLeft <= 45 ? 'var(--color-bad)' : 'var(--color-faint)' }}>あと{c.daysLeft}日</span></td>
                     <td className="num px-2 py-2.5">

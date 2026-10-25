@@ -1,13 +1,13 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { AlertTriangle, CalendarPlus, Check, CircleAlert } from 'lucide-react';
 import { COHORTS, MENDAN_BY, MENDAN_WHEN, RISK_PEOPLE, type RiskPerson } from '@/lib/rishoku-sample';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
 import { LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { PersonName } from '@/components/Person';
 import { pctText, rateFromIke, type IkeRishoku, type LiveRate } from '@/lib/live/rishoku';
 
 // 離職リスク・離職率（人事管理）。
@@ -106,7 +106,7 @@ function RiskTab({ st }: { st: RiskState }) {
           <tbody>
             {shown.map(({ p, s, lv }, i) => (
               <tr key={p.id} className={`mo-fade-in border-t border-line-soft align-top ${flash === p.id ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
-                <td className="px-4 py-2.5"><Link href={`/jinji/staff/${p.id}`} className="font-semibold hover:underline">{p.name}</Link><div className="text-[11.5px] text-faint">{p.site}・入社{p.months}か月・最後の面談 {p.lastMendan}</div></td>
+                <td className="px-4 py-2.5"><PersonName name={p.name} className="font-semibold hover:underline underline-offset-2" /><div className="text-[11.5px] text-faint">{p.site}・入社{p.months}か月・最後の面談 {p.lastMendan}</div></td>
                 <td className="px-2 py-2.5"><span className="chip" style={{ background: `var(--tone-${LV[lv].tone}-bg)`, color: `var(--tone-${LV[lv].tone}-fg)` }}>{LV[lv].label}</span></td>
                 <td className="px-2 py-2.5">
                   {s.length === 0 ? <span className="text-[12.5px] text-faint">気になる材料はありません</span> : (

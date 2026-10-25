@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { AlertTriangle, ArrowRight, CalendarClock, Check, X } from 'lucide-react';
 import { PEOPLE } from '@/lib/sample';
 import { MODULES } from '@/lib/theme';
@@ -12,7 +11,9 @@ import { useMotivation } from '@/components/Motivation';
 import { DrawerPortal } from '@/components/DrawerPortal';
 import { useYoyaku } from '@/components/YoyakuStore';
 import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { yoyakuFromRosterStatus, type IkeRosterStatus } from '@/lib/live/yoyaku';
+import { PersonName } from '@/components/Person';
 
 // 変更の予約（人事管理）。住所・通勤・単価・現場・状態（待機/退社/休職/産休/育休）を「いつから」つきで予約する。
 //   ・予約した日の朝6:00に切り替わり、「一緒に変わるもの」にも同じ日から入る
@@ -50,7 +51,8 @@ export default function YoyakuPage() {
   const { rows: storeRows, setRows } = useYoyaku();
   // 本物：今の社内システムの「待機の予約」「退社の予約」（従業員名簿）だけ。本物のときは予約を作る・承認・取り消しを止める
   const ike = useIke<IkeRosterStatus[]>('proxy?action=getRosterStatus');
-  const liveRows = useMemo(() => yoyakuFromRosterStatus(ike.data), [ike.data]);
+  const mk = useMikeiken();   // 本物は未経験の人だけ（今のプロパーリストに入っている人）
+  const liveRows = useMemo(() => yoyakuFromRosterStatus(ike.data ? mk.keep(ike.data, (r) => r.name || r.normalized_name) : null), [ike.data, mk]);
   const live = ike.live;
   const rows = live ? liveRows : storeRows;
   const [filter, setFilter] = useState<Filter>('これから');
@@ -114,6 +116,7 @@ export default function YoyakuPage() {
         <PrimaryButton onClick={() => setForm('')} disabled={live} title={live ? LIVE_WRITE_BLOCKED : undefined}><span className="inline-flex items-center gap-1.5"><CalendarClock size={16} />変更を予約</span></PrimaryButton>
       </PageTitle>
       <LiveBanner state={ike.state} error={ike.error} onReload={ike.reload} note="今の社内システムにある予約は、従業員名簿の「待機の予約」「退社の予約」だけです（見るだけ・切り替わった予約は残りません）" />
+      <MikeikenNote mk={mk} live={ike.live} />
       {live && <NotInLegacy what="住所・通勤・単価・現場の予約と承認" />}
 
       <section aria-label="これから30日" className="mo-fade-up rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
@@ -169,7 +172,7 @@ export default function YoyakuPage() {
                 return (
                   <tr key={r.id} className={`mo-fade-in border-t border-line-soft align-top ${flash === r.id ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
                     <td className="whitespace-nowrap px-4 py-2.5"><b className="num">{fmtDate(r.date)}</b><div className="text-[11.5px]" style={{ color: left >= 0 && left <= 3 && r.state !== '適用済み' ? 'var(--color-bad)' : 'var(--color-faint)' }}>{r.state === '適用済み' ? `${-left}日前に切り替え` : left === 0 ? '今日の朝に切り替え' : `あと${left}日`}</div></td>
-                    <td className="whitespace-nowrap px-2 py-2.5 font-semibold">{r.personId ? <Link href={`/jinji/staff/${r.personId}`} className="hover:underline">{r.person}</Link> : r.person}<div className="text-[11.5px] font-normal text-faint">登録 {r.by}</div></td>
+                    <td className="whitespace-nowrap px-2 py-2.5 font-semibold">{r.personId ? <PersonName name={r.person} className="hover:underline underline-offset-2" /> : <PersonName name={r.person} className="underline-offset-2 hover:underline" />}<div className="text-[11.5px] font-normal text-faint">登録 {r.by}</div></td>
                     <td className="px-2 py-2.5"><span className="inline-flex items-center gap-1.5 font-semibold"><i className="size-[7px] rounded-full" style={{ background: `var(--c-${rule.module})` }} />{r.field}</span><div className="text-[11.5px] text-faint">{SHORT[rule.module]}</div></td>
                     <td className="px-2 py-2.5"><span className="text-faint line-through">{r.from}</span> <ArrowRight size={13} className="inline text-faint" /> <b>{r.to}</b>{r.note && <div className="mt-0.5 text-[11.5px] text-muted">{r.note}</div>}</td>
                     <td className="max-w-[280px] px-2 py-2.5"><div className="flex flex-wrap gap-1">{rule.with.map((w) => <span key={w} className="rounded-md bg-soft px-1.5 py-0.5 text-[11.5px] text-muted">{w}</span>)}</div></td>

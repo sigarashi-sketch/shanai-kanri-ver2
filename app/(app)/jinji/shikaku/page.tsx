@@ -1,14 +1,15 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { AlertTriangle, Check, CornerUpLeft, FileCheck2, Paperclip } from 'lucide-react';
 import { APPS, MASTER, MONTHLY, PAY_MONTH, S_REJECT, amountOf, yen, type SState, type ShikakuApp } from '@/lib/shikaku-sample';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { CountUp, RemainRing, useMotivation } from '@/components/Motivation';
 import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { shikakuFromIke, type IkeShikakuList, type LiveShikakuApp } from '@/lib/live/shikaku';
+import { PersonName } from '@/components/Person';
 
 // 資格手当（人事管理）＝本人の申請を 合格証の確認 → 承認 → 給与に反映 の順に片づける。
 //   ・手当の額は資格から決まる（本人は額を入れない）。「現場経験で加算」は承認のときに選ぶだけ
@@ -30,7 +31,8 @@ export default function ShikakuPage() {
   // 本物：今の社内システムの資格手当の申請（未確認＝確認待ち・承認＝毎月の手当）。本物のときは確認・差し戻し・承認・反映を止める
   const ike = useIke<IkeShikakuList>('shikaku-apply?action=list');
   const live = ike.live;
-  const L = useMemo(() => shikakuFromIke(ike.data), [ike.data]);
+  const mk = useMikeiken();   // 本物は未経験の人だけ（今のプロパーリストに入っている人）
+  const L = useMemo(() => shikakuFromIke(ike.data ? { ...ike.data, rows: mk.keep(ike.data.rows || [], 'name') } : null), [ike.data, mk]);
   const apps: ShikakuApp[] = live ? L.apps : sApps;
   const monthly = live ? L.monthly : sMonthly;
   const amt = (a: ShikakuApp) => (a as LiveShikakuApp).amount ?? amountOf(a);
@@ -68,6 +70,7 @@ export default function ShikakuPage() {
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="資格手当" sub={`本人の申請（LINE の資格手当申請から）を、合格証の確認 → 承認 → 給与に反映 の順に片づけます${live ? '' : '・見本データ'}`} />
       <LiveBanner state={ike.state} error={ike.error} onReload={ike.reload} note="今の社内システムの段階は「未確認・承認・却下」だけです。未確認を確認待ちに、承認ずみを毎月の手当に出しています（見るだけ）" />
+      <MikeikenNote mk={mk} live={ike.live} />
       {live && <NotInLegacy what="「承認待ち」「給与に反映」の段と現場経験の加算" />}
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 1 }}>
         {([['apps', `申請 ${open.length}`], ['monthly', '毎月の手当']] as const).map(([k, l]) => (
@@ -112,7 +115,7 @@ export default function ShikakuPage() {
                       const t = STAGE_TONE[a.state];
                       return (
                         <tr key={a.id} className={`mo-fade-in border-t border-line-soft align-top ${flash === a.id ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
-                          <td className="px-4 py-2.5">{a.personId ? <Link href={`/jinji/staff/${a.personId}`} className="font-semibold hover:underline">{a.name}</Link> : <span className="font-semibold">{a.name}</span>}<div className="text-[11.5px] text-faint">申請 {a.filedAt}{a.years >= 0 && `・現場経験 ${a.years}年`}</div></td>
+                          <td className="px-4 py-2.5">{a.personId ? <PersonName name={a.name} className="font-semibold hover:underline underline-offset-2" /> : <PersonName name={a.name} className="font-semibold underline-offset-2 hover:underline" />}<div className="text-[11.5px] text-faint">申請 {a.filedAt}{a.years >= 0 && `・現場経験 ${a.years}年`}</div></td>
                           <td className="px-2 py-2.5">{a.cert}<div className="num text-[11.5px] text-faint">{a.passedOn} 合格</div></td>
                           <td className="px-2 py-2.5">
                             <div className="flex flex-wrap gap-1">{a.files.map((f) => { const u = urlOf(a, f); return u ? <a key={f} href={u} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[12px] text-muted underline"><Paperclip size={12} />{f}</a> : <span key={f} className="inline-flex items-center gap-1 text-[12px] text-muted"><Paperclip size={12} />{f}</span>; })}</div>
@@ -160,7 +163,7 @@ export default function ShikakuPage() {
               <tbody>
                 {monthly.map((m, i) => (
                   <tr key={`${m.personId || m.name}-${m.cert}-${m.since}`} className="row mo-fade-in border-t border-line-soft" style={{ ['--i' as string]: i }}>
-                    <td className="px-4 py-2.5">{m.personId ? <Link href={`/jinji/staff/${m.personId}`} className="font-semibold hover:underline">{m.name}</Link> : <span className="font-semibold">{m.name}</span>}</td>
+                    <td className="px-4 py-2.5">{m.personId ? <PersonName name={m.name} className="font-semibold hover:underline underline-offset-2" /> : <PersonName name={m.name} className="font-semibold underline-offset-2 hover:underline" />}</td>
                     <td className="px-2 py-2.5">{m.cert}</td>
                     <td className="num px-2 py-2.5 text-muted">{m.since}〜</td>
                     <td className="num px-4 py-2.5 text-right font-semibold">{yen(m.amount)}</td>

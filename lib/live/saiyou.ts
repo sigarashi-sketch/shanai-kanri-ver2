@@ -28,3 +28,15 @@ export function shoudakuNote(j: IkeShoudakuList | null): string {
   const m = (v: number | null) => (v == null ? '—' : `${v}日`);
   return `直近${j.days}日の承諾者のうち決着前の人だけ。決着までの中央値：参画 ${m(j.medians.sankaku)}（${j.counts.sankaku}人）・辞退 ${m(j.medians.jitai)}（${j.counts.jitai}人）・ぽあ ${m(j.medians.poa)}（${j.counts.poa}人）`;
 }
+
+/** 人を絞ったあとの承諾者一覧（未経験の人だけ）。決着ごとの人数と、決着までの日数の中央値を絞った人で数え直す */
+export function mikeikenShoudaku(j: IkeShoudakuList, people: IkeShoudakuPerson[]): IkeShoudakuList {
+  const med = (o: IkeShoudakuPerson['outcome']) => {
+    const d = people.filter((p) => p.outcome === o && typeof p.days === 'number').map((p) => p.days as number).sort((a, b) => a - b);
+    if (!d.length) return null;
+    const m = Math.floor(d.length / 2);
+    return d.length % 2 ? d[m] : Math.round(((d[m - 1] + d[m]) / 2) * 10) / 10;
+  };
+  const cnt = (o: IkeShoudakuPerson['outcome']) => people.filter((p) => p.outcome === o).length;
+  return { ...j, people, medians: { sankaku: med('sankaku'), jitai: med('jitai'), poa: med('poa') }, counts: { sankaku: cnt('sankaku'), jitai: cnt('jitai'), poa: cnt('poa') } };
+}

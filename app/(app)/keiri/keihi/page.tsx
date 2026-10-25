@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, Check, CircleAlert, CreditCard, Star, Smartphone } from 'lucide-react';
 import { CLAIMS, IC_ROWS, KEIHI_REJECT, ME, PUNCH_DAYS, PURPOSES, ROUTES, ROUTE_LABELS, type Claim, type IcRow, type Route } from '@/lib/keihi-sample';
@@ -9,7 +9,11 @@ import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
 import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { toClaims, type KeihiAdminList } from '@/lib/live/keihi';
+import { PersonName } from '@/components/Person';
+import { useLiveRoute } from '@/lib/live/use-live-route';
+import { FLAG_NAME, KEIHI_FLAGS_SAMPLE, flagsForClaim, type FlagKind, type KeihiFlag, type KeihiFlagsResp } from '@/lib/live/keihi-flags';
 
 // 交通費・経費（経理管理）。
 //   ・経理の確認：申請ごとに 打刻・ICカードの履歴・定期の期間・現場の予約 を先に照らす → 問題なしはまとめて承認
@@ -17,6 +21,9 @@ import { toClaims, type KeihiAdminList } from '@/lib/live/keihi';
 //     出勤の打刻が無い日・交通でない利用（買い物）は選べない（今のシステムと同じ「不備があると申請できない」）
 //   本人の画面は LINE から開くスマホの画面の想定。ここでは内勤が中身を確かめるための見本
 //   本物（ログイン中）：今の GET /api/keihi?action=adminList&status=申請中 を読むだけ。承認・差し戻しは押せない（今の keihi-admin.html から）
+//   勤怠の印（10-25 shoya「打刻漏れ シフト表未提出 欠勤報告などあれば示して欲しい」）：申請の人 × 申請の月に
+//     打刻漏れ・シフト表の未提出/下書き・欠勤の報告・勤務表とのずれ があれば印で出す。押すと日付が開く
+//     本物は /api/live/keihi-flags（読むだけの GET をまとめる・freee は呼ばない）。見本は架空の印
 const yen = (n: number) => `¥${n.toLocaleString('ja-JP')}`;
 const toneOf = (c: Chk[]) => (c.some((x) => x.tone === 'bad') ? 'bad' : c.some((x) => x.tone === 'warn') ? 'warn' : 'ok');
 const CHIP: Record<string, { bg: string; fg: string; label: string }> = {
@@ -38,13 +45,27 @@ export default function KeihiPage() {
   const [done, setDone] = useState<Record<string, Done>>({});
   useEffect(() => { if (new URLSearchParams(window.location.search).get('tab') === 'apply') setTab('apply'); }, []);
   const { data, state, error, reload, live } = useIke<KeihiAdminList>(`keihi?action=adminList&status=${encodeURIComponent('申請中')}`);
-  const list = live ? toClaims(data) : claims;
+  // 本物は未経験の人だけ（今のプロパーリストに入っている人）。氏名がまだ決まらない申請は確かめられないので出さない
+  const mk = useMikeiken();
+  const kept = useMemo(() => (live && data ? mk.keep(data.claims || [], 'linked_name') : []), [live, data, mk]);
+  const list = live ? toClaims(data ? { ...data, claims: kept } : null) : claims;
+  // 勤怠の印：申請に出てくる月だけ読む（名前は送らない）
+  const yms = useMemo(() => [...new Set(kept.map((c) => c.ym))].sort().reverse().slice(0, 3).join(','), [kept]);
+  const fl = useLiveRoute<KeihiFlagsResp>(live && yms ? `/api/live/keihi-flags?ym=${yms}` : null);
+  const flags: FlagInfo = useMemo(() => {
+    if (!live) return { by: KEIHI_FLAGS_SAMPLE, ready: true, unread: [] };
+    if (!fl.live || !fl.data) return { by: {}, ready: !yms, unread: [], error: fl.state === 'error' ? fl.error : '' };
+    const by = Object.fromEntries(kept.map((c) => [c.id, flagsForClaim(fl.data, c)]));
+    const unread = (Object.keys(fl.data.read || {}) as FlagKind[]).filter((k) => !fl.data!.read[k]);
+    return { by, ready: true, unread };
+  }, [live, fl.live, fl.data, fl.state, fl.error, kept, yms]);
   const go = (t: 'check' | 'apply') => { setTab(t); window.history.replaceState(null, '', t === 'apply' ? '?tab=apply' : window.location.pathname); };
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="交通費・経費" sub={`通勤（日ごと）・定期・バス・出張面談。申請は本人が LINE から、ICカードの利用履歴を選ぶだけ${live ? '' : '・見本データ'}`} />
       <LiveBanner state={state} error={error} onReload={reload} note="今の社内システムの「申請中」をそのまま出しています。承認・差し戻しは今の経費の管理画面から（ここでは押せません）" />
+      <MikeikenNote mk={mk} live={live} />
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 1 }}>
         {([['check', '経理の確認'], ['apply', '本人の申請画面（見本）']] as const).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="px-3.5 py-2.5 text-[14px]"
@@ -52,7 +73,7 @@ export default function KeihiPage() {
         ))}
       </div>
       <div key={tab} className="mo-axis">
-        {tab === 'check' ? <CheckTab claims={list} done={done} setDone={setDone} live={live} /> : <ApplyTab live={live} onSubmit={(c) => { setClaims((cs) => [c, ...cs.filter((x) => x.id !== 'c2')]); go('check'); }} />}
+        {tab === 'check' ? <CheckTab claims={list} done={done} setDone={setDone} live={live} flags={flags} /> : <ApplyTab live={live} onSubmit={(c) => { setClaims((cs) => [c, ...cs.filter((x) => x.id !== 'c2')]); go('check'); }} />}
       </div>
     </main>
   );
@@ -60,7 +81,43 @@ export default function KeihiPage() {
 
 // ---------------- 経理の確認 ----------------
 type Done = { result: '承認' | '差し戻し'; reason?: string };
-function CheckTab({ claims, done, setDone, live }: { claims: Claim[]; done: Record<string, Done>; setDone: React.Dispatch<React.SetStateAction<Record<string, Done>>>; live: boolean }) {
+type FlagInfo = { by: Record<string, KeihiFlag[]>; ready: boolean; unread: FlagKind[]; error?: string };
+const FLAG_TONE: Record<KeihiFlag['tone'], { bg: string; fg: string }> = {
+  bad: { bg: 'var(--tone-bad-bg)', fg: 'var(--tone-bad-fg)' },
+  warn: { bg: 'var(--tone-warn-bg)', fg: 'var(--tone-warn-fg)' },
+  caution: { bg: 'var(--tone-caution-bg)', fg: 'var(--tone-caution-fg)' },
+  info: { bg: 'var(--tone-info-bg)', fg: 'var(--tone-info-fg)' },
+};
+
+// 勤怠の印：押すとその印の日付が開く（もう一度押すと閉じる）
+function FlagChips({ flags, ready }: { flags: KeihiFlag[]; ready: boolean }) {
+  const [open, setOpen] = useState<number | null>(null);
+  if (!ready) return <div className="mb-1.5 text-[11px] text-faint">勤怠を照らしています…</div>;
+  if (!flags.length) return <div className="mb-1.5 inline-flex items-center gap-1 text-[11px] text-faint"><Check size={12} className="text-ok" />勤怠の印なし（打刻・シフト・欠勤とも静か）</div>;
+  const f = open != null ? flags[open] : null;
+  return (
+    <div className="mb-2">
+      <div className="flex flex-wrap gap-1">
+        {flags.map((x, i) => (
+          <button key={`${x.kind}-${i}`} type="button" onClick={() => setOpen(open === i ? null : i)} aria-expanded={open === i} title={`${FLAG_NAME[x.kind]}：押すと日付が開きます`}
+            className="chip inline-flex items-center gap-1 font-semibold" style={{ background: FLAG_TONE[x.tone].bg, color: FLAG_TONE[x.tone].fg, boxShadow: open === i ? `inset 0 0 0 1.5px ${FLAG_TONE[x.tone].fg}` : undefined }}>
+            {x.tone === 'bad' ? <AlertTriangle size={11} /> : <CircleAlert size={11} />}{x.label}
+          </button>
+        ))}
+      </div>
+      {f && (
+        <div className="mo-fade-in mt-1.5 rounded-lg border border-line-soft bg-soft px-2.5 py-1.5 text-[11.5px]">
+          <div className="font-semibold" style={{ color: FLAG_TONE[f.tone].fg }}>{FLAG_NAME[f.kind]}</div>
+          <ul className="mt-0.5 flex flex-col gap-0.5">{f.lines.map((l) => <li key={l} className="num">{l}</li>)}</ul>
+          {f.note && <div className="mt-1 text-[11px] text-faint">{f.note}</div>}
+          {f.kind === 'zure' && f.note?.includes('締め') && <Link href="/roumu/shime" className="mt-0.5 inline-block text-[11px] font-semibold" style={{ color: 'var(--ad)' }}>勤怠の締めで日ごとを見る</Link>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CheckTab({ claims, done, setDone, live, flags }: { claims: Claim[]; done: Record<string, Done>; setDone: React.Dispatch<React.SetStateAction<Record<string, Done>>>; live: boolean; flags: FlagInfo }) {
   const permApprove = usePerms().can('keiri', 'approve');
   // 本物のときは今のシステムの中身を変えない＝承認・差し戻しは押せない
   const canApprove = permApprove && !live;
@@ -74,6 +131,7 @@ function CheckTab({ claims, done, setDone, live }: { claims: Claim[]; done: Reco
   const rows = pending.filter((c) => kind === 'すべて' || c.kind === kind);
   const okRows = rows.filter((c) => toneOf(c.checks) === 'ok');
   const kinds = ['すべて', ...Array.from(new Set(claims.map((c) => c.kind)))];
+  const flagged = pending.filter((c) => (flags.by[c.id] || []).length).length;
 
   const settle = (cs: Claim[], d: Done) => {
     const ids = cs.map((c) => c.id);
@@ -95,6 +153,9 @@ function CheckTab({ claims, done, setDone, live }: { claims: Claim[]; done: Reco
         <RemainRing remain={pending.length} total={claims.length} />
         <div className="text-[13px]"><b>承認待ち {pending.length}件</b><span className="ml-2 num text-muted">{yen(pending.reduce((s, c) => s + c.amount, 0))}</span>
           <div className="text-[12px] text-muted">勤怠の打刻・ICカードの履歴・定期の期間・現場の予約を先に照らしています。{!permApprove && <span className="text-bad"> {needText('approve')}</span>}</div>
+          {flags.ready && flagged > 0 && <div className="text-[12px]" style={{ color: 'var(--tone-warn-fg)' }}>打刻漏れ・シフト・欠勤などの勤怠の印がついた申請 {flagged}件（印を押すと日付が出ます）</div>}
+          {flags.unread.length > 0 && <div className="text-[11.5px] text-faint">{flags.unread.map((k) => FLAG_NAME[k]).join('・')} は読めなかったので確かめられていません（印が無い＝問題なし、ではありません）</div>}
+          {flags.error && <div className="text-[11.5px] text-faint">勤怠の印を読めませんでした（{flags.error}）</div>}
         </div>
         <Link href="/keiri/check" className="ml-auto text-[12px] font-semibold" style={{ color: 'var(--ad)' }}>月ごとの交通費チェックへ</Link>
       </div>
@@ -126,13 +187,13 @@ function CheckTab({ claims, done, setDone, live }: { claims: Claim[]; done: Reco
                   const need = t === 'bad' && !ok[c.id];
                   return (
                     <tr key={c.id} className={`mo-fade-in border-t border-line-soft align-top ${flash === c.id ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
-                      <td className="px-4 py-2.5">{c.personId ? <Link href={`/jinji/staff/${c.personId}`} className="font-semibold hover:underline">{c.person}</Link> : <span className="font-semibold">{c.person}</span>}<div className="text-[11.5px] text-faint">{c.site}</div></td>
+                      <td className="px-4 py-2.5">{c.personId ? <PersonName name={c.person} className="font-semibold hover:underline underline-offset-2" /> : <PersonName name={c.person} className="font-semibold underline-offset-2 hover:underline" />}<div className="text-[11.5px] text-faint">{c.site}</div></td>
                       <td className="px-2 py-2.5">
                         <div className="flex flex-wrap items-center gap-1.5"><span className="chip" style={{ background: CHIP[t].bg, color: CHIP[t].fg }}>{c.kind}</span><span className="text-[11.5px] text-faint">{c.month}・{c.source}</span></div>
                         <div className="mt-1 text-[12px] text-muted">{c.detail}</div>
                       </td>
                       <td className="num px-2 py-2.5 text-right font-semibold">{yen(c.amount)}</td>
-                      <td className="px-2 py-2.5"><ul className="flex flex-col gap-1">{c.checks.map((x) => <CheckLine key={x.text} c={x} />)}</ul>
+                      <td className="px-2 py-2.5"><FlagChips flags={flags.by[c.id] || []} ready={flags.ready} /><ul className="flex flex-col gap-1">{c.checks.map((x) => <CheckLine key={x.text} c={x} />)}</ul>
                         {t === 'bad' && <label className="mt-1.5 flex items-center gap-1.5 text-[12px] text-muted"><input type="checkbox" checked={!!ok[c.id]} onChange={(e) => setOk((o) => ({ ...o, [c.id]: e.target.checked }))} />確かめたうえで承認する</label>}
                       </td>
                       <td className="px-4 py-2.5">

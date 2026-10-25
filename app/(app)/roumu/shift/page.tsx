@@ -1,14 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Check, Send } from 'lucide-react';
 import { SHIFT_KINDS, SHIFT_MONTH, SHIFT_PEOPLE, type ShiftKind, type ShiftPerson, type ShiftState } from '@/lib/shift-sample';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
+import { PersonName } from '@/components/Person';
 import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
-import { shiftMonthOf, shiftPeopleOf, type IkeShiftDetail, type IkeShiftList, type IkeShiftMonth } from '@/lib/live/shift';
+import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
+import { shiftMissingOf, shiftMonthOf, shiftPeopleOf, type IkeTodayTargets, type IkeShiftDetail, type IkeShiftList, type IkeShiftMonth } from '@/lib/live/shift';
 
 // シフト表（労務/営業管理）＝シフト勤務の人の月のシフトを「日×人」のマスで見る・直す。
 //   ・マスは選ぶだけ（早番/日勤/遅番/夜勤/休み）。提出済みの月の空欄は休みとみなす（薄く「休」と出す）
@@ -32,12 +34,19 @@ export default function ShiftPage() {
   const mq = useIke<IkeShiftMonth>('shift-calendar?action=month');
   const month = mq.live ? mq.data?.month || '' : '';
   const lq = useIke<IkeShiftList>(month ? `shift-calendar?action=list&month=${month}` : null);
+  // 未提出＝シフト提出が要る勤務区分（シフト・夜勤）の人のうち、この月に1日も入れていない人（今日の出勤状況の対象から）
+  const tq = useIke<IkeTodayTargets>(month ? 'kintai-today?stale=1' : null);
   const live = mq.live && lq.live;
+  // 本物は未経験の人だけ（今のプロパーリストに入っている人）。日ごとも未経験の人の分だけ読む
+  const mk = useMikeiken();
+  const lrows = useMemo(() => mk.keep(lq.data?.rows || [], 'name'), [lq.data, mk]);
+  const lq2 = useMemo(() => (lq.data ? { ...lq.data, rows: lrows } : null), [lq.data, lrows]);
+  const tq2 = useMemo(() => (tq.data ? { ...tq.data, rows: mk.keep(tq.data.rows || [], 'name') } : null), [tq.data, mk]);
   const [details, setDetails] = useState<Record<string, IkeShiftDetail | undefined>>({});
   useEffect(() => {
     if (!live || !lq.data?.rows) return;
     let stop = false;
-    const ids = lq.data.rows.map((r) => r.lineUserId);
+    const ids = lrows.map((r) => r.lineUserId);
     (async () => {
       for (let i = 0; i < ids.length && !stop; i += 6) {
         const got = await Promise.all(ids.slice(i, i + 6).map((u) => fetch(`/api/ike/shift-calendar?action=detail&month=${month}&user=${encodeURIComponent(u)}`, { cache: 'no-store' }).then((r) => r.json()).catch(() => null) as Promise<IkeShiftDetail | null>));
@@ -45,9 +54,9 @@ export default function ShiftPage() {
       }
     })();
     return () => { stop = true; };
-  }, [live, lq.data, month]);
+  }, [live, lq.data, lrows, month]);
   const M = live ? shiftMonthOf(month) : SHIFT_MONTH;
-  const livePeople = live ? shiftPeopleOf(lq.data, details, month) : null;
+  const livePeople = live ? [...(tq.live ? shiftMissingOf(tq2, lq.data?.rows || [], month) : []), ...shiftPeopleOf(lq2, details, month)] : null;
   const rowsP: (ShiftPerson & { times?: string[] })[] = livePeople || people;
   const okEdit = canEdit && !live;
   const block = live ? LIVE_WRITE_BLOCKED : !canEdit ? needText('edit') : undefined;
@@ -76,11 +85,13 @@ export default function ShiftPage() {
         <Link href="/roumu/today" className="inline-flex min-h-9 items-center rounded-[10px] border border-field bg-surface px-3 text-[12.5px] font-semibold">当日の出勤状況へ</Link>
       </PageTitle>
       <LiveBanner state={mq.live ? lq.state : mq.state} error={mq.error || lq.error} onReload={() => { mq.reload(); lq.reload(); }} note="見るだけです。シフトは本人がスマホで入れます（ここからは直せません）。提出のお願いは今の社内システムの配信から" />
-      {live && <NotInLegacy what="まだ1日も入れていない人（未提出）の一覧と、早番・遅番などの名前" />}
+      <MikeikenNote mk={mk} live={live} />
+      {live && <NotInLegacy what="早番・遅番などの名前" />}
+      {live && tq.state === 'loading' && <div className="text-[12px] text-faint">まだ出していない人（未提出）を探しています…</div>}
 
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <RemainRing remain={waiting.length} total={notSubmitted.length || 1} />
-        <div className="text-[13px]"><b>{live ? '下書きのままの人' : 'まだ出していない人'} {notSubmitted.length}人</b><span className="ml-2 text-muted">お願いを送っていない人 {waiting.length}人</span>
+        <div className="text-[13px]"><b>まだ出していない人 {notSubmitted.length}人</b>{live && <span className="ml-2 text-muted">未提出 {rowsP.filter((p) => p.state === '未提出').length}・下書き {rowsP.filter((p) => p.state === '下書き').length}</span>}<span className="ml-2 text-muted">お願いを送っていない人 {waiting.length}人</span>
           {!canEdit && <div className="text-[12px] text-bad">{needText('edit')}</div>}
         </div>
         <button onClick={() => waiting.length && ask(waiting)} disabled={!okEdit || waiting.length === 0} title={block} className="btn-primary ml-auto inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-[10px] px-4 text-[13px] font-bold disabled:opacity-40"><Send size={15} />{waiting.length}人にまとめてお願い（あおい）</button>
@@ -110,7 +121,7 @@ export default function ShiftPage() {
                 return (
                   <tr key={p.personId} className="mo-fade-in row border-t border-line-soft" style={{ ['--i' as string]: pi }}>
                     <td className="sticky left-0 z-10 bg-surface px-3 py-2 align-top">
-                      {live ? <span className="font-semibold">{p.name}</span> : <Link href={`/jinji/staff/${p.personId}`} className="font-semibold hover:underline">{p.name}</Link>}
+                      <PersonName name={p.name} />
                       <div className="text-[11px] text-faint">{p.site}</div>
                       <div className="mt-1 flex items-center gap-1.5">
                         <span className="chip" style={{ background: STATE_STYLE[p.state].bg, color: STATE_STYLE[p.state].fg }}>{p.state}</span>

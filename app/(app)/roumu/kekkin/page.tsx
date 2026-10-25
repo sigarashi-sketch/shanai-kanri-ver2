@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { kekkinFromIke, monthLabel, ymOfOffset, type IkeKekkin } from '@/lib/live/kekkin';
 import Link from 'next/link';
 import { AlertTriangle, Check } from 'lucide-react';
@@ -9,6 +10,7 @@ import { ABSENCES, KINDS, REASONS, STEPS, type Absence, type Kind } from '@/lib/
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
+import { PersonName } from '@/components/Person';
 
 // 欠勤管理（労務/営業管理）＝勤怠の連絡を人ごと・月ごとに並べ、欠勤かどうか・理由・現場への連絡を選ぶだけで残す。
 //   ・言葉で欠勤と決めつけない。連絡の本文をそのまま出し「欠勤／遅刻／後日の相談／欠勤ではない」を人が選ぶ
@@ -31,7 +33,8 @@ export default function KekkinPage() {
   const ym = ymOfOffset(back);
   const ike = useIke<IkeKekkin>(`roster?op=kekkin&action=list&month=${ym}`);
   const live = ike.live && !!ike.data?.ok;
-  const liveRows = live ? kekkinFromIke(ike.data, month) : [];
+  const mk = useMikeiken();   // 本物は未経験の人だけ（今のプロパーリストに入っている人）
+  const liveRows = live && ike.data ? kekkinFromIke({ ...ike.data, rows: mk.keep(ike.data.rows || [], 'name') }, month) : [];
   const ruleCount = (rs: Absence[]) => rs.filter((r) => r.kind === '欠勤' && !(r as { beforeRule?: boolean }).beforeRule).length;
   const todoOf = (a: Absence) => (live ? a.reason === '未分類' : todo(a));
   const okEdit = canEdit && !live;
@@ -64,6 +67,7 @@ export default function KekkinPage() {
       </PageTitle>
       <LiveBanner state={ike.live && !ike.data?.ok ? 'error' : ike.state} error={ike.error || ike.data?.error} onReload={ike.reload}
         note={`見るだけです。理由・メモ・エビデンスは今の社内システムの「欠勤管理」から。${ike.data?.unresolved ? `氏名が引けなかった連絡 ${ike.data.unresolved}件は載っていません。` : ''}`} />
+      <MikeikenNote mk={mk} live={live} />
       {live && <NotInLegacy what="連絡の本文・遅刻や後日の相談の見分け・現場に連絡済みの印" />}
 
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
@@ -86,7 +90,7 @@ export default function KekkinPage() {
       {people.map((p, pi) => (
         <section key={p.id} className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: pi + 2 }}>
           <div className="flex flex-wrap items-center gap-2 border-b border-line-soft px-4 py-2.5">
-            {live ? <span className="text-[14px] font-bold">{p.name}</span> : <Link href={`/jinji/staff/${p.id}`} className="text-[14px] font-bold hover:underline">{p.name}</Link>}
+            <PersonName name={p.name} className="text-[14px] font-bold underline-offset-2 hover:underline" />
             <span className="text-[12px] text-faint">{live ? `採用担当 ${p.sales}` : `${p.site}・担当 ${p.sales}`}</span>
             <span className="chip" style={{ background: p.count >= 2 ? 'var(--tone-bad-bg)' : 'var(--tone-mute-bg)', color: p.count >= 2 ? 'var(--tone-bad-fg)' : 'var(--tone-mute-fg)' }}>{live ? monthLabel(ym) : month}の欠勤 {p.count}回</span>
             {p.count >= 1 && <span className="text-[12px] text-muted">対応の目安：{STEPS[Math.min(p.count, 4)]}</span>}

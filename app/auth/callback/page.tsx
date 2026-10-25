@@ -12,8 +12,8 @@ export default function AuthCallback() {
     if (!access_token) { setMsg(h.get('error_description') || 'ログインできませんでした'); return; }
     fetch('/api/ike-auth/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ access_token, expires_in: Number(h.get('expires_in')) || 3600 }) })
       .then((r) => r.json())
-      .then((j: { ok?: boolean; error?: string }) => { if (j.ok) window.location.replace('/jinji/skillsheet'); else setMsg(j.error || 'ログインできませんでした'); })
+      .then((j: { ok?: boolean; error?: string }) => { if (j.ok) window.location.replace('/eigyo/skillsheet'); else setMsg(j.error || 'ログインできませんでした'); })
       .catch(() => setMsg('ログインできませんでした'));
   }, []);
-  return <main className="grid min-h-screen place-items-center bg-soft text-[14px] text-muted"><div>{msg} <a href="/jinji/skillsheet" className="ml-2 font-semibold underline">戻る</a></div></main>;
+  return <main className="grid min-h-screen place-items-center bg-soft text-[14px] text-muted"><div>{msg} <a href="/eigyo/skillsheet" className="ml-2 font-semibold underline">戻る</a></div></main>;
 }

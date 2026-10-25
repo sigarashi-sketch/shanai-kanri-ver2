@@ -43,3 +43,17 @@ export function shiftPeopleOf(list: IkeShiftList | null, details: Record<string,
     };
   }).sort((a, b) => Number(a.state === '提出済み') - Number(b.state === '提出済み') || a.name.localeCompare(b.name, 'ja'));
 }
+
+/** 今日の出勤状況の対象（勤務区分つき）から、シフト提出が要る人（シフト・夜勤）でその月にまだ1日も入れていない人＝未提出 */
+export type IkeTodayTargets = { ok: boolean; rows: { name: string; kubun: string; shozoku?: string; rep?: string }[] };
+const SHIFT_REQUIRED_KUBUN = ['シフト', '夜勤'];   // 今のシステムの isShiftSubmitRequired と同じ
+const nn = (s: string) => s.replace(/[\s　]+/g, '');
+export function shiftMissingOf(today: IkeTodayTargets | null, submitted: { name: string }[], month: string): ShiftPerson[] {
+  const n = shiftMonthOf(month).days;
+  const have = new Set(submitted.map((r) => nn(r.name)));
+  const seen = new Set<string>();
+  return (today?.rows || [])
+    .filter((r) => SHIFT_REQUIRED_KUBUN.includes(r.kubun) && !have.has(nn(r.name)) && !seen.has(nn(r.name)) && seen.add(nn(r.name)))
+    .map((r) => ({ personId: `missing:${nn(r.name)}`, name: r.name, site: `勤務区分 ${r.kubun}${r.shozoku ? `・${r.shozoku}` : ''}・まだ1日も入れていません`, state: '未提出' as const, days: Array.from({ length: n }, () => '' as ShiftKind) }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+}

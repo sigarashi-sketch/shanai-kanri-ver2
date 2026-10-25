@@ -6,6 +6,7 @@ import { Baby, Check, Send } from 'lucide-react';
 import { CASES, EXTEND, TODAY, TODOS, type Base, type ExtendKey, type SankyuCase, type Todo } from '@/lib/sankyu-sample';
 import { PageTitle } from '@/components/ui';
 import { NotInLegacy } from '@/components/Live';
+import { PersonName } from '@/components/Person';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
 
@@ -104,7 +105,7 @@ export default function SankyuPage() {
 
       <section key={cur.id} className="mo-spring-in rounded-xl border border-line bg-surface" style={{ boxShadow: 'var(--card-shadow)' }}>
         <div className="flex flex-wrap items-center gap-3 border-b border-line-soft px-5 py-3">
-          <Link href={`/jinji/staff/${cur.personId}`} className="text-[17px] font-bold hover:underline">{cur.person}</Link>
+          <PersonName name={cur.person} className="text-[17px] font-bold hover:underline underline-offset-2" />
           <span className="text-[12.5px] text-muted">{cur.site}・担当営業 {cur.sales}</span>
           <label className="ml-auto flex items-center gap-1.5 text-[12.5px] text-muted">予定日
             <input type="date" value={cur.due} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(ev) => setDue(ev.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-[13px] text-ink" />

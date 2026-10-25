@@ -8,7 +8,9 @@ import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { CountUp, RemainRing, useMotivation } from '@/components/Motivation';
 import { LIVE_WRITE_BLOCKED, LiveBanner, useIke, type LiveState } from '@/components/Live';
+import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { toArari, type ArariLive } from '@/lib/live/chingin';
+import { PersonName } from '@/components/Person';
 
 // 想定賃金・粗利（経理管理）。人ごとに 売上（請求・税抜）− 給与 − 交通費 − 法定福利（19%）＝ 粗利 と粗利率。
 //   ・額面の正はミンミカの内定月給（現場の契約単価の欄は使わない）。内定が無い人は 仮21万
@@ -133,7 +135,7 @@ export default function ChinginPage() {
                 const t = rateTone(a.rate);
                 return (
                   <tr key={r.id} className={`mo-fade-in border-t border-line-soft align-top ${flash === r.id ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
-                    <td className="px-4 py-2.5"><Link href={`/jinji/staff/${r.personId}`} className="font-semibold hover:underline">{r.name}</Link>{isTemp(r) && <div><span className="chip" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>仮の値あり</span></div>}</td>
+                    <td className="px-4 py-2.5"><PersonName name={r.name} className="font-semibold hover:underline underline-offset-2" />{isTemp(r) && <div><span className="chip" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>仮の値あり</span></div>}</td>
                     <td className="px-2 py-2.5">{r.client}<div className="text-[11.5px] text-faint">営業 {r.sales}</div></td>
                     <td className="num px-2 py-2.5 text-right">{yen(r.billed)}</td>
                     {srcCell(r, 'salarySrc', a.salary)}
@@ -159,7 +161,9 @@ export default function ChinginPage() {
 // ---------------- 本物（今の「請求書ベースの粗利」の答えをそのまま出す・見るだけ） ----------------
 const ymJa = (ym: string) => `${ym.slice(0, 4)}年${Number(ym.slice(5, 7))}月分`;
 function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym: string; setYm: (v: string) => void; state: LiveState; error: string; reload: () => void }) {
-  const rows = toArari(d);
+  // 未経験の人だけ（今のプロパーリストに入っている人）。売上・原価・粗利の合計も絞った人で出す（計算そのものは今の答えのまま）
+  const mk = useMikeiken();
+  const rows = mk.keep(toArari(d), 'name');
   const [client, setClient] = useState('すべて');
   const [shozoku, setShozoku] = useState('すべて');
   const shown = rows.filter((r) => (client === 'すべて' || r.company === client) && (shozoku === 'すべて' || r.shozoku === shozoku)).sort((a, b) => a.rate - b.rate);
@@ -176,6 +180,7 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
         <Link href="/keiri/seikyu" className="inline-flex min-h-10 items-center rounded-[10px] border border-field bg-surface px-3.5 text-[13px] font-semibold">請求書へ</Link>
       </PageTitle>
       <LiveBanner state={state} error={error} onReload={reload} note="今の「請求書ベースの粗利」の計算そのままです。給与・交通費を手で直すのは今の画面から（ここでは変えられません）" />
+      <MikeikenNote mk={mk} live={true} />
 
       <div className="mo-fade-up grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]" style={{ ['--i' as string]: 1 }}>
         {([['売上（請求）', sum.billed], ['原価（給与＋交通費＋法定福利）', sum.cost], ['粗利', sum.gross]] as const).map(([l, v]) => (
@@ -213,7 +218,7 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
                 const t = rateTone(r.rate);
                 return (
                   <tr key={r.key} className="row mo-fade-in border-t border-line-soft align-top" style={{ ['--i' as string]: i }}>
-                    <td className="px-4 py-2.5"><span className="font-semibold">{r.name}</span>{r.temp && <div><span className="chip" title={LIVE_WRITE_BLOCKED} style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>仮の値あり</span></div>}{r.warn.map((w) => <div key={w} className="text-[11px] text-bad">{w}</div>)}</td>
+                    <td className="px-4 py-2.5"><PersonName name={r.name} className="font-semibold underline-offset-2 hover:underline" />{r.temp && <div><span className="chip" title={LIVE_WRITE_BLOCKED} style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>仮の値あり</span></div>}{r.warn.map((w) => <div key={w} className="text-[11px] text-bad">{w}</div>)}</td>
                     <td className="px-2 py-2.5">{r.company}<div className="text-[11.5px] text-faint">{r.shozoku}</div></td>
                     <td className="num px-2 py-2.5 text-right">{yen(r.sales)}</td>
                     <td className="num px-2 py-2.5 text-right">{yen(r.salary)}<div className="text-[11px] text-faint">{r.salaryLabel}</div></td>

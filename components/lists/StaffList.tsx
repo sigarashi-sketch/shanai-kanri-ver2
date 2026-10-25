@@ -10,6 +10,8 @@ import { needText, usePerms } from '@/components/Perms';
 import { isPending, useYoyaku, yoyakuLine } from '@/components/YoyakuStore';
 import { LIVE_WRITE_BLOCKED, LiveBanner } from '@/components/Live';
 import { useLiveRoute } from '@/lib/live/use-live-route';
+import { MIKEIKEN_NOTE } from '@/lib/live/mikeiken';
+import { PersonName } from '@/components/Person';
 import { STATUS_LABEL, STATUS_ORDER, slashDate, type LiveStaffList } from '@/lib/live/staff';
 
 // 見本（PEOPLE）と本物（今の従業員名簿）を同じ形に揃えて並べる
@@ -57,7 +59,7 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
   return (
     <Wrap className={`flex flex-col gap-3.5 ${embedded ? 'pb-[120px]' : 'px-6 pb-[120px] pt-[22px]'}`}>
       {!embedded && (
-        <PageTitle title="社員一覧" sub={live ? '今の従業員名簿と同じ判定で状態を出しています。名前を押すと社員ページ' : '状態は日付つきの履歴から自動で決まります。名前を押すと社員ページ'}>
+        <PageTitle title="社員一覧" sub={live ? '今の従業員名簿と同じ判定で状態を出しています。名前を押すとこの人の情報（右の矢印で社員ページ）' : '状態は日付つきの履歴から自動で決まります。名前を押すとこの人の情報（右の矢印で社員ページ）'}>
           {live
             ? <button disabled title={LIVE_WRITE_BLOCKED} className="min-h-10 cursor-not-allowed rounded-[10px] border border-field bg-surface px-3.5 text-[13.5px] font-semibold opacity-40">CSV</button>
             : <GhostButton onClick={() => toast({ text: `${rows.length}人を CSV に書き出しました（見本）`, sub: '→ ダウンロードに入る想定です（いまは見本なのでファイルは作りません）' })}>CSV</GhostButton>}
@@ -66,7 +68,7 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
         </PageTitle>
       )}
       <LiveBanner state={state} error={error} onReload={reload}
-        note={live ? `${data?.month || ''}の名簿（見るだけ）。今月の勤怠・変更の予約はここには出していません。操作は今の社内システムの従業員名簿から${data?.warnings.length ? `／${data.warnings.join('・')}` : ''}` : undefined} />
+        note={live ? `${data?.month || ''}の名簿（見るだけ）。${MIKEIKEN_NOTE}。今月の勤怠・変更の予約はここには出していません。操作は今の社内システムの従業員名簿から${data?.warnings.length ? `／${data.warnings.join('・')}` : ''}` : undefined} />
 
       <div className="mo-fade-up flex flex-wrap gap-2" style={{ ['--i' as string]: 1 }} role="tablist">
         {tabs.map((s) => {
@@ -108,7 +110,7 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
                   <td className="px-3.5 py-2"><input type="checkbox" checked={sel.has(p.id)} onChange={() => toggle(p.id)} aria-label={`${p.name}を選ぶ`} /></td>
                   <td className="px-2 py-2"><div className="flex items-center gap-2.5">
                     <div aria-hidden className="flex size-[30px] items-center justify-center rounded-full text-[12px] font-bold" style={{ background: 'var(--as)', color: 'var(--ad)' }}>{p.name[0]}</div>
-                    <div><Link href={`/jinji/staff/${p.id}`} className="font-semibold hover:underline">{p.name}</Link>
+                    <div><PersonName name={p.name} />
                       {p.tag && <span className="chip ml-1.5" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }} title={p.tag === '仮' ? '稼働管理情報一覧にまだ載っていない人（営業リストから立てた行）' : '当月の行が無いので、前の月の行を出しています'}>{p.tag}</span>}
                       <div className="text-[11.5px] text-faint">{p.sub}</div></div>
                   </div></td>

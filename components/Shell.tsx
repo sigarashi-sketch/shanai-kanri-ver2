@@ -3,14 +3,15 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { Bell, Briefcase, ChevronsLeft, ChevronsRight, Clock, Home, MessageSquare, ReceiptText, Search, ShieldCheck, SlidersHorizontal, Users } from 'lucide-react';
-import { NAV, NAV_EXTRA, findNav } from '@/lib/nav';
+import { Bell, Briefcase, ChevronsLeft, ChevronsRight, Clock, Home, MessageSquare, Network, ReceiptText, Search, ShieldCheck, SlidersHorizontal, Users } from 'lucide-react';
+import { NAV, NAV_EXTRA, NAV_KANRI, findNav } from '@/lib/nav';
 import { APP_NAME } from '@/lib/app';
 import type { ModuleKey } from '@/lib/theme';
 import { useColors } from './ColorProvider';
 import { MotivationProvider, TodayPill } from './Motivation';
 import { NoAccess, levelLabel, usePerms } from './Perms';
 import { RenrakuButton } from './Renraku';
+import { PersonHost } from './Person';
 import { ThemeSwitch } from './ThemeSwitch';
 import { YoyakuProvider } from './YoyakuStore';
 import { AlertProvider } from './AlertStore';
@@ -82,9 +83,14 @@ export function Shell({ members, children }: { members: { id: string; name: stri
               </Link>
             ))}
             {manageAccess && (
-              <Link href="/settings/access" className={`side-hover flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 ${pathname === '/settings/access' ? 'side-on' : ''}`}>
-                <ShieldCheck size={17} strokeWidth={1.8} />{open && '権限管理'}
-              </Link>
+              <>
+                {open && <div className="px-2.5 pb-0.5 pt-2 text-[11px] font-semibold text-faint">管理</div>}
+                {NAV_KANRI.map((it) => (
+                  <Link key={it.href} href={it.href} className={`side-hover flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 ${pathname === it.href ? 'side-on' : ''}`}>
+                    {it.href === '/settings/access' ? <ShieldCheck size={17} strokeWidth={1.8} /> : <Network size={17} strokeWidth={1.8} />}{open && it.label}
+                  </Link>
+                ))}
+              </>
             )}
           </div>
         </nav>
@@ -109,6 +115,7 @@ export function Shell({ members, children }: { members: { id: string; name: stri
           {blocked ? <NoAccess label={group!.label} /> : children}
         </div>
         <div id="drawer-root" />
+        <PersonHost />
       </div>
       </AlertProvider>
       </YoyakuProvider>

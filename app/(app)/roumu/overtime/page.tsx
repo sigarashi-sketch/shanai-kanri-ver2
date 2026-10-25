@@ -9,6 +9,7 @@ import { useMotivation } from '@/components/Motivation';
 import { NotInLegacy } from '@/components/Live';
 import { stageTo, useRule } from '@/components/AlertStore';
 import { numOf } from '@/lib/alert-rules';
+import { PersonName } from '@/components/Person';
 
 // 残業・36協定・有給（労務/営業管理）。
 //   ・残業：締め日時点の見込み（実績÷経過した所定日×今月の所定日）で、36協定の上限に近い人を色分けする
@@ -164,7 +165,7 @@ function OtTab({ n }: { n: Notify }) {
                 const key = `ot-${o.personId}`;
                 return (
                   <tr key={o.personId} className={`mo-fade-in border-t border-line-soft align-top ${flash === key ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
-                    <td className="px-4 py-2.5"><div className="font-semibold">{o.name}</div><div className="text-[11.5px] text-faint">{o.site}・営業 {o.sales}</div></td>
+                    <td className="px-4 py-2.5"><div className="font-semibold"><PersonName name={o.name} className="underline-offset-2 hover:underline" /></div><div className="text-[11.5px] text-faint">{o.site}・営業 {o.sales}</div></td>
                     <td className="px-2 py-2.5"><div className="flex items-center gap-2.5"><OtBar actual={o.actual} proj={p} lv={level} /><span className="num whitespace-nowrap"><b>{o.actual}h</b><span className="text-muted"> → {p}h</span></span></div>{o.holiday > 0 && <div className="mt-1 text-[11.5px] text-faint">休日労働 {o.holiday}h を含む</div>}</td>
                     <td className="num px-2 py-2.5">{o.yearTotal}<span className="text-faint">／{yearCap}h</span></td>
                     <td className="num px-2 py-2.5" style={{ color: o.over45 >= KYOTEI.overCount - 1 ? 'var(--color-bad)' : undefined }}>{o.over45}<span className="text-faint">／{KYOTEI.overCount}回</span></td>
@@ -212,7 +213,7 @@ function LeaveTab({ n }: { n: Notify }) {
                 const need = Math.max(0, 5 - l.taken);
                 return (
                   <tr key={l.personId} className={`mo-fade-in border-t border-line-soft ${flash === key ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
-                    <td className="px-4 py-2.5"><div className="font-semibold">{l.name}</div><div className="text-[11.5px] text-faint">{l.site}</div></td>
+                    <td className="px-4 py-2.5"><div className="font-semibold"><PersonName name={l.name} className="underline-offset-2 hover:underline" /></div><div className="text-[11.5px] text-faint">{l.site}</div></td>
                     <td className="num px-2 py-2.5">{l.grantedOn}<span className="text-faint">・{l.granted}日</span></td>
                     <td className="px-2 py-2.5">
                       <div className="flex items-center gap-1" aria-label={`5日のうち${l.taken}日`}>

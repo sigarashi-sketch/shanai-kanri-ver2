@@ -8,6 +8,7 @@ import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
 import { NotInLegacy } from '@/components/Live';
+import { PersonName } from '@/components/Person';
 
 // 申請の承認（労務/営業管理）＝打刻修正・残業・有給・欠勤・遅刻早退を、上から順に1件ずつ片づける。
 //   ・ホームの「上から順に片づける」の行き先。1件ずつのカード（A=承認・R=差し戻し・S=あとで）と一覧の2通り
@@ -137,7 +138,7 @@ export default function ApprovalPage() {
           </div>
           <div className="grid gap-5 px-5 py-4 md:grid-cols-[1fr_1fr]">
             <div>
-              <Link href={`/jinji/staff/${cur.personId}`} className="text-[18px] font-bold hover:underline">{cur.person}</Link>
+              <PersonName name={cur.person} className="text-[18px] font-bold hover:underline underline-offset-2" />
               <div className="text-[12.5px] text-muted">{cur.site}</div>
               <div className="mt-3 rounded-[10px] bg-soft px-3.5 py-3">
                 <div className="num text-[15px] font-bold">{cur.day}　{cur.detail}</div>
@@ -204,7 +205,7 @@ export default function ApprovalPage() {
                   return (
                     <tr key={r.id} className={`mo-fade-in border-t border-line-soft align-top ${flash === r.id ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
                       <td className="px-4 py-2.5"><input type="checkbox" aria-label={`${r.person} を選ぶ`} checked={!!sel[r.id]} onChange={(e) => setSel((s) => ({ ...s, [r.id]: e.target.checked }))} /></td>
-                      <td className="px-2 py-2.5"><Link href={`/jinji/staff/${r.personId}`} className="font-semibold hover:underline">{r.person}</Link><div className="text-[11.5px] text-faint">{r.site}</div></td>
+                      <td className="px-2 py-2.5"><PersonName name={r.person} className="font-semibold hover:underline underline-offset-2" /><div className="text-[11.5px] text-faint">{r.site}</div></td>
                       <td className="px-2 py-2.5"><span className="chip" style={{ background: CHIP[t].bg, color: CHIP[t].fg }}>{r.kind}</span></td>
                       <td className="num px-2 py-2.5">{r.day}<div className="text-[12px] text-muted">{r.detail}・{r.reason}</div></td>
                       <td className="px-2 py-2.5"><ul className="flex flex-col gap-1">{r.checks.filter((c) => c.tone !== 'ok').concat(t === 'ok' ? r.checks.slice(0, 1) : []).map((c) => <CheckLine key={c.text} c={c} />)}</ul></td>

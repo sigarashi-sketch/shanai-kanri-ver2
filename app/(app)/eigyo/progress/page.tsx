@@ -8,8 +8,10 @@ import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
 import { DrawerPortal } from '@/components/DrawerPortal';
 import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { liveProgress } from '@/lib/live/progress';
-import type { ProgressData, ProgressReply } from '@/lib/live/eigyo-common';
+import { matchGroupName, type ProgressData, type ProgressReply } from '@/lib/live/eigyo-common';
+import { PersonName } from '@/components/Person';
 
 // 案件進捗（単独の画面・2026-10-23 shoya）。
 //   ・送った案件 … あおい／グループ直接／手動配信 のどれで送った分も1本で並べる。返信・OK/NG は経路に関係なく同じ扱い
@@ -40,7 +42,13 @@ export default function ProgressPage() {
   const pd = useIke<ProgressData>('proxy?action=getProgressData');
   const pr = useIke<ProgressReply[]>(pd.live ? 'proxy?action=getProgressReplies' : null);
   const live = pd.live;
-  const lp = useMemo(() => liveProgress(pd.data, Array.isArray(pr.data) ? pr.data : null), [pd.data, pr.data]);
+  // 本物は未経験の人だけ：送り先のグループ名に、今のプロパーリストの人の名前が入っている行だけ（今の matchRosterName と同じ当て方）
+  const mk = useMikeiken();
+  const lp0 = useMemo(() => liveProgress(pd.data, Array.isArray(pr.data) ? pr.data : null), [pd.data, pr.data]);
+  const lp = useMemo(() => {
+    const norms = mk.set ? [...mk.set] : null;
+    return { ...lp0, rows: mk.state === 'none' ? lp0.rows : norms ? lp0.rows.filter((r) => matchGroupName(r.group, norms)) : [] };
+  }, [lp0, mk]);
   const canEdit = perm && !live;
   const noEdit = live ? LIVE_WRITE_BLOCKED : needText('edit');
   const caseOf = (no: string) => (live ? lp.cases : CASES).find((c) => c.no === no);
@@ -108,6 +116,7 @@ export default function ProgressPage() {
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="案件進捗" sub="あおい・グループ直接・手動配信で送った案件を1本で。グループに直接書いた案件も回収して載せる" />
       <LiveBanner state={pd.state} error={pd.error} onReload={() => { pd.reload(); pr.reload(); }} note={`直近7日の送信 ${rows.length}件（今の案件進捗と同じ材料）。OK・NG は今の画面で押してください${pr.state === 'error' ? '・返信が読めませんでした' : ''}`} />
+      <MikeikenNote mk={mk} live={live} />
 
       <div className="mo-fade-up grid grid-cols-2 gap-3 lg:grid-cols-4" style={{ ['--i' as string]: 1 }}>
         {kpi.map((k) => (
@@ -152,7 +161,7 @@ export default function ProgressPage() {
                       return (
                         <tr key={r.id} className={`mo-fade-in border-t border-line-soft ${rowFlash === r.id ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
                           <td className="px-4 py-2.5"><div className="font-semibold">{c?.name ?? (live ? r.caseNo : '新しい案件（登録待ち）')}</div><div className="text-[11.5px] text-faint">{r.caseNo}{c?.price && ` ・ ${c.price}`}</div></td>
-                          <td className="px-2 py-2.5">{r.person}</td>
+                          <td className="px-2 py-2.5"><PersonName name={r.person} /></td>
                           <td className="whitespace-nowrap px-2 py-2.5"><Chip s={VIA_STYLE[r.via]}>{r.via}</Chip>{r.via !== 'あおい' && <span className="ml-1.5 text-[11.5px] text-muted">{r.sender}</span>}</td>
                           <td className="num whitespace-nowrap px-2 py-2.5">{r.sentAt}</td>
                           <td className="max-w-[240px] px-2 py-2.5">{r.reply ? <><span className="line-clamp-1">{r.reply}</span><span className="text-[11.5px] text-faint">{r.replyAt}</span></> : <span className="text-[12px] font-semibold text-bad">返信待ち</span>}</td>
@@ -202,7 +211,7 @@ export default function ProgressPage() {
                 <article key={c.id} className={`mo-fade-up rounded-xl border border-line bg-surface ${flash === c.id ? 'mo-flash' : ''}`} style={{ ['--i' as string]: i }}>
                   <div className="flex flex-wrap items-start gap-4 px-4 py-3.5">
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2 text-[12px] text-muted"><b className="text-[13.5px] text-ink">{c.person}</b><span>{c.group}</span><span>・{c.poster} が {c.postedAt} に書き込み</span></div>
+                      <div className="flex flex-wrap items-center gap-2 text-[12px] text-muted"><PersonName name={c.person} className="text-[13.5px] font-bold text-ink underline-offset-2 hover:underline" /><span>{c.group}</span><span>・{c.poster} が {c.postedAt} に書き込み</span></div>
                       <p className="mt-2 whitespace-pre-line rounded-[10px] bg-soft px-3 py-2 text-[13px] leading-relaxed">{msg.text}</p>
                       {c.hint && <div className="mt-1.5 text-[11.5px] text-faint">拾った理由：{c.hint}</div>}
                     </div>

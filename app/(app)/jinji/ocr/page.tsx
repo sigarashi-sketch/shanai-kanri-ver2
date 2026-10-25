@@ -8,6 +8,7 @@ import { PageTitle } from '@/components/ui';
 import { NotInLegacy } from '@/components/Live';
 import { needText, usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
+import { PersonName } from '@/components/Person';
 
 // 身分証の読み取り（保留中）＝流れの見本だけ。実際の読み取りはしない。
 //   ① 写真を選ぶ → ② 読み取った項目を今の基本情報と並べて確かめる（項目ごとに「使う／今のまま」を選ぶだけ）→ ③ 基本情報に入れる
@@ -56,7 +57,7 @@ export default function OcrPage() {
       <section key={step} className="mo-axis rounded-xl border border-line bg-surface px-5 py-4">
         {step === 0 && (
           <div>
-            <div className="text-[13px] text-muted">{PERSON.name} さんが撮った写真（見本）から、身分証の種類を選んでください</div>
+            <div className="text-[13px] text-muted"><PersonName name={PERSON.name} className="underline-offset-2 hover:underline" /> さんが撮った写真（見本）から、身分証の種類を選んでください</div>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               {DOCS.map((d) => (
                 <button key={d.key} onClick={() => choose(d.key)} disabled={reading} className="flex flex-col items-center gap-2 rounded-xl border border-field bg-soft px-4 py-5 disabled:opacity-50" style={doc === d.key ? { borderColor: 'var(--a)' } : undefined}>

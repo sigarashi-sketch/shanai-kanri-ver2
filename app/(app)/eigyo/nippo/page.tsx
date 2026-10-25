@@ -12,7 +12,9 @@ import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { CountUp, useMotivation } from '@/components/Motivation';
 import { LIVE_WRITE_BLOCKED, LiveBanner, useIke } from '@/components/Live';
+import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { liveNippo, type NippoInit } from '@/lib/live/nippo';
+import { PersonName } from '@/components/Person';
 
 // 成約日報。今の社内システムの /nippo（携帯で1問ずつ答える）を、そのままの問いの順番で ver2 に載せ替えたもの。
 //   書き先（本物）：日報②の 契約実績【プロパー】・NN月◯◯組の自分の行・終了者【プロパー】/【退職者】。見本では書かない。
@@ -73,7 +75,16 @@ export default function NippoPage() {
   // 本物：今の GET /api/nippo（init）。as＝出す人（今の画面の「担当名」）・older＝直近7日・k＝経験者の日報。はじめはログインした人で開く
   const [asked, setAsked] = useState(false);
   const ni = useIke<NippoInit>(`nippo?${new URLSearchParams({ ...(asked ? { as: me, k: keiken ? 'keiken' : 'mikeiken' } : {}), ...(older ? { older: '1' } : {}) })}`);
-  const L0 = useMemo(() => liveNippo(ni.data), [ni.data]);
+  // 本物は未経験の人だけ（今のプロパーリストに入っている人）：参画決定・成約の候補・経験者の候補・退場/退職・辞退の候補・空欄の残る成約
+  const mk = useMikeiken();
+  const L0 = useMemo(() => {
+    const d = ni.data;
+    if (!d || !d.ok || mk.state === 'none') return liveNippo(d);
+    return liveNippo({
+      ...d, kettei: mk.keep(d.kettei || [], 'name'), seiyakuCand: mk.keep(d.seiyakuCand || [], 'name'), keikenCand: mk.keep(d.keikenCand || [], 'name'),
+      roster: mk.keep(d.roster || [], 'name'), jitaiCand: mk.keep(d.jitaiCand || [], 'name'), pending: mk.keep(d.pending || [], 'name'),
+    });
+  }, [ni.data, mk]);
   const live = ni.live && !!L0;   // 読めても ok:false（日報②のタブが無い等）なら本物とは扱わない
   const Lv = live ? L0 : null;
   useEffect(() => { if (!L0 || asked) return; if (L0.me) setMe(L0.me); setKeiken(L0.kind === 'keiken'); }, [L0, asked]);
@@ -140,7 +151,7 @@ export default function NippoPage() {
   const head = (k: number) => (
     <div className="mb-4 flex items-center gap-3 rounded-xl border border-line-soft bg-soft px-3 py-2.5">
       <span className="grid size-9 place-items-center rounded-full text-[15px] font-bold" style={{ background: 'var(--al)', color: 'var(--ad)' }}>{p.name[0]}</span>
-      <span className="flex-1"><small className="block text-[11.5px] text-faint">{k + 1}/{STEPS.length}問目　この人について答えてね</small><b className="text-[15px]">{p.name} <i className="text-[12px] font-normal not-italic">さん</i></b><Badge st={p.status} /></span>
+      <span className="flex-1"><small className="block text-[11.5px] text-faint">{k + 1}/{STEPS.length}問目　この人について答えてね</small><b className="text-[15px]"><PersonName name={p.name} className="underline-offset-2 hover:underline" /> <i className="text-[12px] font-normal not-italic">さん</i></b><Badge st={p.status} /></span>
       <span className="text-[12px] text-muted"><b className="num text-[16px] text-ink">{idx + 1}</b>/{n}人目</span>
     </div>
   );
@@ -168,7 +179,7 @@ export default function NippoPage() {
     </>);
     if (s === 'fill') return (<>
       <Q tag="空欄のある成約" q={'決まった？'} hint="わかった分だけでOK。空欄が残る間は毎回ここに出ます" />
-      {PENDING.map((x) => <div key={x.id} className="mt-3 rounded-xl border border-line px-4 py-3"><b className="text-[14px]">{x.name}</b> <small className="text-muted">成約 {x.seiyaku}　{x.joui}</small>
+      {PENDING.map((x) => <div key={x.id} className="mt-3 rounded-xl border border-line px-4 py-3"><b className="text-[14px]"><PersonName name={x.name} className="underline-offset-2 hover:underline" /></b> <small className="text-muted">成約 {x.seiyaku}　{x.joui}</small>
         {x.needNyuujou && <Sel label="入場日" value={fillDate} opts={NYU_DATES} lab={md} onChange={setFillDate} />}</div>)}
       <Go disabled={!fillDate || !canEdit} title={!canEdit ? noEdit : undefined} onClick={() => { setPendingDone(true); hit(); toast({ text: `${PENDING[0].name} さんの入場日を ${md(fillDate)} にしました`, sub: '→ 日報②の契約実績（入場月・入場日）', undo: () => setPendingDone(false) }); reset('home'); }}>保存して日報を更新</Go>
     </>);
@@ -279,7 +290,7 @@ export default function NippoPage() {
           <Sel label="名前（従業員名簿から）" value="" opts={ROSTER.filter((r) => !L.some((t) => t.id === r.id)).map((r) => r.id)} lab={(id) => ROSTER.find((r) => r.id === id)!.name} onChange={(id) => { const r = ROSTER.find((x) => x.id === id); if (r) setTaijou([...L, { ...r, date: '', seikyu: '', until: '', untilDate: '', chk: {}, riyuu: '' }]); }} />
           {L.map((t, i) => { const w = within1m(t); return (
             <div key={t.id} className="mo-fade-up mt-3 rounded-xl border border-line px-4 py-3">
-              <div className="flex items-center"><b className="text-[14px]">{t.name} さん</b><small className="ml-2 text-muted">{t.shozoku}・{t.kubun}</small><button aria-label="外す" onClick={() => setTaijou(L.filter((_, j) => j !== i))} className="ml-auto text-faint"><X size={16} /></button></div>
+              <div className="flex items-center"><b className="text-[14px]"><PersonName name={t.name} className="underline-offset-2 hover:underline" /> さん</b><small className="ml-2 text-muted">{t.shozoku}・{t.kubun}</small><button aria-label="外す" onClick={() => setTaijou(L.filter((_, j) => j !== i))} className="ml-auto text-faint"><X size={16} /></button></div>
               <p className="mt-1 text-[12.5px]">入場日 <b>{t.start ? md(t.start) : '分からない'}</b></p>
               <Sel label="退場日（現場の最終日）" value={t.date} opts={END_DATES} lab={md} onChange={(v) => up(i, { date: v, ...(within1m({ ...t, date: v }) === false ? { seikyu: '' } : {}) })} />
               {t.date && w !== false && <><p className="mt-2.5 text-[12px] font-semibold"><span style={{ color: 'var(--tone-warn-fg)' }}>{w ? '入場から1ヶ月以内の退場です。' : '入場から1ヶ月以内の退場なら、'}</span>請求をかける？</p><div className="mt-1"><Seg opts={(w === null ? ['する', 'しない', '1ヶ月以内ではない'] : ['する', 'しない']).map((o) => [o, o])} value={t.seikyu} onPick={(v) => up(i, { seikyu: v })} /></div></>}
@@ -302,7 +313,7 @@ export default function NippoPage() {
           <Sel label="名前（退場に入れた人が先に出ます）" value="" opts={[...free.filter((r) => outIds.includes(r.id)), ...free.filter((r) => !outIds.includes(r.id))].map((r) => r.id)} lab={(id) => `${ROSTER.find((r) => r.id === id)!.name}${outIds.includes(id) ? '（退場に入れた人）' : ''}`} onChange={(id) => { const r = ROSTER.find((x) => x.id === id); if (r) setTaisha([...L, { ...r, date: (taijou || []).find((t) => t.id === id)?.date || '', honnin: '本人都合', riyuu: '' }]); }} />
           {L.map((t, i) => (
             <div key={t.id} className="mo-fade-up mt-3 rounded-xl border border-line px-4 py-3">
-              <div className="flex items-center"><b className="text-[14px]">{t.name} さん</b><small className="ml-2 text-muted">{t.shozoku}・{t.kubun}</small><button aria-label="外す" onClick={() => setTaisha(L.filter((_, j) => j !== i))} className="ml-auto text-faint"><X size={16} /></button></div>
+              <div className="flex items-center"><b className="text-[14px]"><PersonName name={t.name} className="underline-offset-2 hover:underline" /> さん</b><small className="ml-2 text-muted">{t.shozoku}・{t.kubun}</small><button aria-label="外す" onClick={() => setTaisha(L.filter((_, j) => j !== i))} className="ml-auto text-faint"><X size={16} /></button></div>
               <Sel label="退職日（会社の最終日）" value={t.date} opts={END_DATES} lab={md} onChange={(v) => up(i, { date: v })} />
               <p className="mt-2.5 text-[12px] font-semibold text-muted">区分</p><div className="mt-1"><Seg opts={[['本人都合', '本人都合'], ['会社都合', '会社都合']]} value={t.honnin} onPick={(v) => up(i, { honnin: v as TS['honnin'] })} /></div>
               <Sel label="理由" value={t.riyuu} opts={RIYUU} onChange={(v) => up(i, { riyuu: v })} />
@@ -321,7 +332,7 @@ export default function NippoPage() {
           <Sel label="名前（営業中の人から）" value="" opts={JITAI.filter((r) => !L.some((t) => t.id === r.id)).map((r) => r.id)} lab={(id) => JITAI.find((r) => r.id === id)!.name} onChange={(id) => { const r = JITAI.find((x) => x.id === id); if (r) setJitai([...L, { ...r, how: '' }]); }} />
           {L.map((t, i) => (
             <div key={t.id} className="mo-fade-up mt-3 rounded-xl border border-line px-4 py-3">
-              <div className="flex items-center"><b className="text-[14px]">{t.name} さん</b><small className="ml-2 text-muted">担当 {t.tantou}{t.kettei ? '・参画決定ずみ' : ''}</small><button aria-label="外す" onClick={() => setJitai(L.filter((_, j) => j !== i))} className="ml-auto text-faint"><X size={16} /></button></div>
+              <div className="flex items-center"><b className="text-[14px]"><PersonName name={t.name} className="underline-offset-2 hover:underline" /> さん</b><small className="ml-2 text-muted">担当 {t.tantou}{t.kettei ? '・参画決定ずみ' : ''}</small><button aria-label="外す" onClick={() => setJitai(L.filter((_, j) => j !== i))} className="ml-auto text-faint"><X size={16} /></button></div>
               <div className="mt-2"><Seg opts={[['renraku', '連絡があって辞退'], ['tobi', '飛んだ（連絡なし）']]} value={t.how} onPick={(v) => setJitai(L.map((x, j) => (j === i ? { ...x, how: v as JT['how'] } : x)))} /></div>
               <p className="mt-2 text-[12px] text-muted">→ プロパーリストの「辞退」にチェック{t.kettei ? '・入社手続きの一覧から外す・日報②の成約の行を空に' : ''}{t.how === 'tobi' && <b>・従業員名簿に「飛び」の印</b>}</p>
             </div>))}
@@ -352,7 +363,7 @@ export default function NippoPage() {
       return (<>
         <Q tag="さいごの確認" q={'これで\n日報に書くよ'} />
         {n ? <div className="mt-3 flex flex-col gap-2">{picked.map((x) => (
-          <div key={x.id} className="rounded-xl border border-line px-4 py-3 text-[12.5px] leading-relaxed"><b className="text-[14px]">{x.name}</b><Badge st={x.status} />
+          <div key={x.id} className="rounded-xl border border-line px-4 py-3 text-[12.5px] leading-relaxed"><b className="text-[14px]"><PersonName name={x.name} className="underline-offset-2 hover:underline" /></b><Badge st={x.status} />
             <p>所属 <b>{x.tenseki ? `${x.shozoku} → ${x.tenseki}` : x.shozoku}</b>　上位 <b>{x.co}</b>　現場 <b>{x.site}</b></p>
             <p>入場日 {x.nyuujou ? <b>{md(x.nyuujou)}</b> : <b style={{ color: 'var(--tone-warn-fg)' }}>未定</b>}　売上 {uri(x) ? <b>{yen(uri(x))}円（{UNIT[x.unit].label}）</b> : <b style={{ color: 'var(--tone-warn-fg)' }}>未定</b>}</p>
             {!keiken && <p>勤務の形 {kinmuOk(x) ? <><b>{kinmuText(x)}</b>（名簿の勤務区分へ）</> : <span style={{ color: 'var(--tone-warn-fg)' }}>未定（名簿はそのまま）</span>}</p>}
@@ -365,7 +376,7 @@ export default function NippoPage() {
         {TJ.length ? <Tbl head={['終了者', '所属', '区分', '担当', '終了日', 'ｽｷﾙｼｰﾄ更新', 'ヒアリング', '再営業', '備考']} rows={TJ.map((t) => [t.name, t.shozoku, t.kubun, me, md(t.date), ...TAIJOU_CHK.map(([k]) => (t.chk[k] ? 'TRUE' : 'FALSE')), [t.riyuu, within1m(t) !== false && (t.seikyu === 'する' || t.seikyu === 'しない') ? `1ヶ月以内・請求${t.seikyu}` : '', needUntil(t) ? `請求は${md(untilOf(t))}まで` : ''].filter(Boolean).join('／')])} /> : <p className="text-[12.5px] text-faint">なし</p>}
         <p className="mt-4 text-[12px] font-semibold text-muted">④ 退職＝会社を辞める（終了者タブの退職者欄）</p>
         {TS.length ? <Tbl head={['退職者', '所属', '要員区分', '担当', '退職日', '区分', '理由']} rows={TS.map((t) => [t.name, t.shozoku, t.kubun, me, md(t.date), t.honnin, t.riyuu])} /> : <p className="text-[12.5px] text-faint">なし</p>}
-        {!keiken && <><p className="mt-4 text-[12px] font-semibold text-muted">⑤ 内定辞退・入場前に飛んだ人（プロパーリストの辞退にチェック）</p><p className="text-[12.5px]">{JT.length ? JT.map((t) => <span key={t.id} className="block"><b>{t.name}</b>：{t.how === 'tobi' ? '飛んだ（名簿に「飛び」の印）' : '連絡があって辞退'}</span>) : <span className="text-faint">なし</span>}</p></>}
+        {!keiken && <><p className="mt-4 text-[12px] font-semibold text-muted">⑤ 内定辞退・入場前に飛んだ人（プロパーリストの辞退にチェック）</p><p className="text-[12.5px]">{JT.length ? JT.map((t) => <span key={t.id} className="block"><b><PersonName name={t.name} className="underline-offset-2 hover:underline" /></b>：{t.how === 'tobi' ? '飛んだ（名簿に「飛び」の印）' : '連絡があって辞退'}</span>) : <span className="text-faint">なし</span>}</p></>}
         <div className="mt-4 rounded-xl bg-soft px-4 py-3 text-[12.5px] leading-relaxed"><b className="text-ok">書き込み先 OK（{cells}か所）</b>
           {lines.map((l) => <span key={l} className="block">{l}</span>)}
           {kettei.length > 0 && <span className="block">プロパーリストの参画決定：<b>{kettei.join('、')}</b> にチェックを付けます</span>}
@@ -384,8 +395,8 @@ export default function NippoPage() {
       <div className="mt-3 flex flex-wrap justify-center gap-1.5">{[n ? '契約実績' : '', keiken ? '' : '組シート', TJ.length || TS.length ? '終了者' : ''].filter(Boolean).map((l, i) => <span key={l} className="chip mo-fade-up" style={{ ['--i' as string]: i + 4, background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}>✓ {l}</span>)}</div>
       <p className="mt-1 text-[11.5px] text-faint">書いたあと日報②を読み直して確かめました</p>
       {(TJ.length > 0 || TS.length > 0) && <div className="mt-3 w-full rounded-xl border border-line px-4 py-3 text-left text-[12.5px]"><b>名簿への反映</b>
-        {TJ.map((t) => <span key={`j${t.id}`} className="block"><b>{t.name}</b>：退場日 {md(t.date)} を登録{t.kubun === '未経験' ? '（退場日の翌朝に、待機＋再アサインが自動で付きます）' : '（プロパーリストに居ない人なので、待機は自動では付けません）'}</span>)}
-        {TS.map((t) => <span key={`s${t.id}`} className="block"><b>{t.name}</b>：{t.date > TODAY ? `退社の予約 ${md(t.date)}（当日に自動で退社）` : '退社 ✓'}／営業リストの稼働中を外します</span>)}</div>}
+        {TJ.map((t) => <span key={`j${t.id}`} className="block"><b><PersonName name={t.name} className="underline-offset-2 hover:underline" /></b>：退場日 {md(t.date)} を登録{t.kubun === '未経験' ? '（退場日の翌朝に、待機＋再アサインが自動で付きます）' : '（プロパーリストに居ない人なので、待機は自動では付けません）'}</span>)}
+        {TS.map((t) => <span key={`s${t.id}`} className="block"><b><PersonName name={t.name} className="underline-offset-2 hover:underline" /></b>：{t.date > TODAY ? `退社の予約 ${md(t.date)}（当日に自動で退社）` : '退社 ✓'}／営業リストの稼働中を外します</span>)}</div>}
       <div className="mt-3 w-full rounded-xl border border-line px-4 py-3 text-left"><b className="text-[13.5px]">今月の自分</b>
         <div className="mt-2 flex items-center gap-3"><svg width="72" height="72" viewBox="0 0 72 72" aria-hidden><circle cx="36" cy="36" r={R} fill="none" stroke="var(--color-track)" strokeWidth="7" /><circle cx="36" cy="36" r={R} fill="none" stroke="var(--a)" strokeWidth="7" strokeLinecap="round" strokeDasharray={C} strokeDashoffset={C * (1 - Math.min(1, month / goal))} transform="rotate(-90 36 36)" style={{ transition: 'stroke-dashoffset 900ms cubic-bezier(.22,1,.36,1)' }} /></svg>
           <div><b className="num text-[22px]">{month}</b> / {goal} 件<small className="block text-[11.5px] text-muted">今月の成約（組シートの目標）</small></div></div>
@@ -411,6 +422,7 @@ export default function NippoPage() {
         </label>
       </PageTitle>
       <div className="mx-auto w-full max-w-[560px]"><LiveBanner state={ni.live && !L0 ? 'error' : ni.state} error={ni.error || (ni.data && !ni.data.ok ? ni.data.error : '')} onReload={ni.reload} note={`今の成約日報の中身（今日の参画決定 ${Lv?.kettei.length ?? 0}人・組シートの項目）。答えるところまでは動きますが、日報②には書きません`} /></div>
+      <div className="mx-auto w-full max-w-[560px]"><MikeikenNote mk={mk} live={ni.live} /></div>
       {must && <div className="mo-fade-in mx-auto w-full max-w-[560px] rounded-xl px-4 py-2.5 text-[12.5px]" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}><b>18時を過ぎました。今日の日報を出すまで、ほかの画面は開けません</b><span className="mt-0.5 block text-[11.5px] opacity-90">平日18時以降、組シートに名前がある営業は、出すまでどの画面を開いてもこの日報に戻ります（見本ではこの帯だけ）。</span></div>}
       {!must && !submitted && <p className="mx-auto w-full max-w-[560px] text-[11.5px] text-faint">{me} さんは組シートに名前がないので、18時の締め（出すまで移れない）の対象外です。</p>}
       <section className="mx-auto w-full max-w-[560px] overflow-hidden rounded-xl border border-line bg-surface">

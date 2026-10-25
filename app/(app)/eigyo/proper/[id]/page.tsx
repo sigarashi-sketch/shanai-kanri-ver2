@@ -155,7 +155,7 @@ function Sukishi({ p, liver }: { p: View; liver: boolean }) {
       </Card>
       <div className="flex flex-wrap gap-2">
         {p.sukishiUrl && <a href={p.sukishiUrl} target="_blank" rel="noreferrer" className="btn inline-flex min-h-10 items-center rounded-[10px] border border-field px-4 text-[13.5px] font-semibold">スキルシートを開く</a>}
-        <Link href={`/jinji/skillsheet?q=${encodeURIComponent(p.name)}`} className="btn inline-flex min-h-10 items-center rounded-[10px] border border-field px-4 text-[13.5px] font-semibold">スキルシートの画面で見る</Link>
+        <Link href={`/eigyo/skillsheet?q=${encodeURIComponent(p.name)}`} className="btn inline-flex min-h-10 items-center rounded-[10px] border border-field px-4 text-[13.5px] font-semibold">スキルシートの画面で見る</Link>
       </div>
     </>
   );

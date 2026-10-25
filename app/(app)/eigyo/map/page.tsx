@@ -12,7 +12,9 @@ import { needText, usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
 import { DrawerPortal } from '@/components/DrawerPortal';
 import { LIVE_WRITE_BLOCKED, LiveBanner, useIke } from '@/components/Live';
+import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { estimateAt, liveJobs, liveYouin, type CasesMapList, type MapData } from '@/lib/live/map';
+import { PersonName } from '@/components/Person';
 
 // 案件・要員マップ（営業）。今の社内システムの「案件マップ」と「要員マップ」を1画面の2つのタブにしたもの。中身・操作・言葉は今の画面どおり。
 //   案件マップ：マップ／案件入力（案件文を貼る → AI が欄を埋める）／充足・終了。出発駅を選ぶと通勤の目安で並ぶ（実経路は出さない）
@@ -49,6 +51,7 @@ function BaseMap({ children, overlay, onBg }: { children: React.ReactNode; overl
 export default function MapPage() {
   const [tab, setTab] = useState<'cases' | 'youin'>('cases');
   const cm = useIke<CasesMapList>('cases-map?action=list');
+  const mk = useMikeiken();
   const [from, setFrom] = useState('');
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -60,6 +63,7 @@ export default function MapPage() {
     <main className="flex flex-col gap-3.5 px-6 pb-24 pt-[22px]">
       <PageTitle title="案件・要員マップ" sub={`今の社内システムの「案件マップ」と「要員マップ」です。通勤時間は目安${cm.live ? '' : '・見本データ'}`} />
       <LiveBanner state={cm.state} error={cm.error} onReload={cm.reload} note="今の案件マップ・要員マップの中身です。地図は簡易な地図のまま（枠の外の駅は一覧だけ）。登録・充足・同期・転記は今の画面から" />
+      <MikeikenNote mk={mk} live={cm.live && tab === 'youin'} />
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 1 }}>
         {([['cases', '案件マップ'], ['youin', '要員マップ']] as const).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="px-3.5 py-2.5 text-[14px]"
@@ -368,7 +372,8 @@ function CaseInput({ onSave }: { onSave: (j: Omit<Job, 'id' | 'case_no'>) => voi
 function YouinMap({ live }: { live: boolean }) {
   const md = useIke<MapData>(live ? 'proxy?action=getMapData' : null);
   const ly = useMemo(() => liveYouin(md.live ? md.data : null), [md.live, md.data]);
-  const YOUIN_ = live ? ly.youin : YOUIN, CASES_ = live ? ly.cases : SLACK_CASES;
+  const mk = useMikeiken();   // 要員マップの人は未経験の人だけ（今のプロパーリストに入っている人）
+  const YOUIN_ = live ? mk.keep(ly.youin, 'name') : YOUIN, CASES_ = live ? ly.cases : SLACK_CASES;
   const at = (n?: string) => (n ? (live ? ly.pos.get(n) ?? stationOf(n) : stationOf(n)) : undefined);
   const canEdit = usePerms().can('eigyo', 'edit') && !live;
   const { hit, toast } = useMotivation();
@@ -467,7 +472,7 @@ function YouinMap({ live }: { live: boolean }) {
           <div className="fixed inset-0 z-40 bg-sumi/30" onClick={() => setDetail(null)} />
           <aside className="mo-drawer fixed inset-y-0 right-0 z-50 flex w-full max-w-[380px] flex-col gap-3 overflow-y-auto bg-surface p-5 shadow-xl">
             <div className="flex items-center justify-between"><h2 className="text-[15px] font-bold">要員詳細情報</h2><button onClick={() => setDetail(null)} aria-label="閉じる"><X size={16} /></button></div>
-            {live ? <div className="text-[17px] font-bold">{detail.name}</div> : <Link href={`/jinji/staff/${detail.id}`} className="text-[17px] font-bold hover:underline">{detail.name}</Link>}
+            {live ? <div className="text-[17px] font-bold"><PersonName name={detail.name} className="underline-offset-2 hover:underline" /></div> : <PersonName name={detail.name} className="text-[17px] font-bold hover:underline underline-offset-2" />}
             {live && <p className="text-[12.5px] text-muted">サマリ・前職・面談可能日は要員リストの要員ページで見られます。<Link href={`/eigyo/proper?q=${encodeURIComponent(detail.name)}`} className="font-semibold" style={{ color: 'var(--ad)' }}>要員リストを開く</Link></p>}
             <dl className="grid grid-cols-[84px_1fr] gap-y-2 text-[13px]">
               <dt className="text-faint">最寄駅</dt><dd>{detail.station}</dd>

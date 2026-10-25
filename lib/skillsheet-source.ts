@@ -1,5 +1,7 @@
 import 'server-only';
 import { IKE_TOKEN_COOKIE, ikeFetch, ikeToken } from './ike';
+import { loadMikeikenSet } from './live/mikeiken-server';
+import { isMikeiken } from './live/mikeiken';
 import type { SsDetail, SsList, SsQuery, SsResult, SsRow } from './skillsheet-types';
 
 // スキルシート作成のデータの出どころ。
@@ -17,18 +19,28 @@ async function callIke<T>(path: string, init?: RequestInit, timeoutMs = 25000): 
 
 export async function isLive() { return !!(await ikeToken()); }
 
+// ★本物は未経験の人だけ（今のプロパーリスト＝営業リスト sales_roster に入っている人・10-25 shoya）。
+//   今の /api/basic-info の roster=yes（営業リストに名前がある＝全エリアの sales_roster）で絞る。件数・stats も絞ったあとの数になる
+//   （同じ名前が営業リストに2人いる「要確認」の行も roster=yes に入る＝同姓同名は区別しない）
 export async function listRows(q: SsQuery): Promise<SsList> {
   if (await isLive()) {
     const p = new URLSearchParams({ action: 'list', limit: String(q.limit), offset: String(q.offset), sort: q.sort });
-    for (const k of ['q', 'gender', 'pref', 'tantou', 'sukishi', 'roster'] as const) if (q[k]) p.set(k, q[k]);
+    for (const k of ['q', 'gender', 'pref', 'tantou', 'sukishi'] as const) if (q[k]) p.set(k, q[k]);
+    p.set('roster', 'yes');
+    if (q.roster === 'no') p.set('limit', '1');   // 「リストにいない」＝未経験ではない人なので出さない（件数の材料だけ読む）
     const j = await callIke<SsList>(`/api/basic-info?${p}`);
+    if (q.roster === 'no') return { ...j, rows: [], total: 0, offset: 0, stats: { shown: 0, inRoster: 0, hasSukishi: 0, noSukishi: 0, hasBirth: 0 }, source: 'live' };
     return { ...j, rows: j.rows || [], source: 'live' };
   }
   return { ...sampleList(q), source: 'sample' };
 }
 
 export async function detailOf(name: string): Promise<SsDetail> {
-  if (await isLive()) return callIke<SsDetail>(`/api/basic-info?action=detail&name=${encodeURIComponent(name)}`);
+  if (await isLive()) {
+    const mk = await loadMikeikenSet().catch(() => null);
+    if (!mk || !isMikeiken(mk, name)) return { ok: false, error: mk ? '未経験の人（今のプロパーリストに入っている人）ではないので出していません' : 'プロパーリストが読めないので、未経験の人か確かめられませんでした' };
+    return callIke<SsDetail>(`/api/basic-info?action=detail&name=${encodeURIComponent(name)}`);
+  }
   return sampleDetail(name);
 }
 

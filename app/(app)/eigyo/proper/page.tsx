@@ -12,6 +12,7 @@ import { DrawerPortal } from '@/components/DrawerPortal';
 import { LiveBanner, useIke } from '@/components/Live';
 import { liveProperRows, type LiverList, type LiveProper, type PartnerList } from '@/lib/live/proper';
 import type { EngineerRows } from '@/lib/live/eigyo-common';
+import { PersonName } from '@/components/Person';
 
 // 要員（プロパー）＋スキシ作成（2026-10-23 shoya「プロパーリストの中にスキシ作成をマージ」）。
 //   スキシは客先に出す紙：本名は載せずイニシャル、経歴は古い順、稼働開始に健康情報らしい値は載せない（今のシステムと同じ決まり）。
@@ -33,12 +34,12 @@ function ProperTab({ rows, setRows, live }: { rows: (Proper & Partial<LiveProper
   const SALES_OPTS = useMemo(() => Array.from(new Set(rows.map((p) => (live ? p.recruiter ?? '' : p.sales)))).filter(Boolean).sort(), [rows, live]);
   const START_OPTS = useMemo(() => Array.from(new Set(rows.map((p) => p.sukishi.start))).filter(Boolean).slice(0, 40), [rows]);
   const { hit, toast } = useMotivation();
-  const [chip, setChip] = useState<ChipKey>('すべて');
+  const [chip, setChip] = useState<ChipKey>('営業中');   // 基本は営業中だけ（10-25 shoya）
   const [q, setQ] = useState('');
   const [fSales, setFSales] = useState('');
   const [fStart, setFStart] = useState('');
   const shown = rows.filter((p) => CHIP_TEST[chip](p) && (!q || `${p.name}${p.station}${p.want}`.includes(q)) && (!fSales || (live ? p.recruiter : p.sales) === fSales) && (!fStart || p.sukishi.start === fStart));
-  const filtered = chip !== 'すべて' || q || fSales || fStart;
+  const filtered = chip !== '営業中' || q || fSales || fStart;
   // ?sukishi=<id> でそのスキシを開いた状態から始める（画面の見本を撮るとき用）
   const [open, setOpen] = useState<(Proper & Partial<LiveProper>) | null>(null);
   useEffect(() => { const u = new URLSearchParams(window.location.search); const id = u.get('sukishi'); const p = PROPERS.find((x) => x.id === id); if (p) setOpen(p); const qq = u.get('q'); if (qq) setQ(qq); }, []);
@@ -74,7 +75,7 @@ function ProperTab({ rows, setRows, live }: { rows: (Proper & Partial<LiveProper
                 <option value="">{l}：すべて</option>{opts.map((o) => <option key={o} value={o}>{l}：{o}</option>)}
               </select>
             ))}
-            {filtered && <button onClick={() => { setChip('すべて'); setQ(''); setFSales(''); setFStart(''); }} className="text-[12.5px] text-muted underline">絞り込みを外す</button>}
+            {filtered && <button onClick={() => { setChip('営業中'); setQ(''); setFSales(''); setFStart(''); }} className="text-[12.5px] text-muted underline">絞り込みを外す</button>}
             <span className="ml-auto text-[12.5px] text-muted"><span className="num">{shown.length}</span>人</span>
           </div>
           <div className="overflow-x-auto">
@@ -87,7 +88,7 @@ function ProperTab({ rows, setRows, live }: { rows: (Proper & Partial<LiveProper
                   const s = SK_STYLE[p.sukishi.state];
                   return (
                     <tr key={p.id} className={`mo-fade-in border-t border-line-soft ${flash === p.id ? 'mo-flash' : open?.id === p.id ? '' : 'row'}`} style={{ ['--i' as string]: i + 3, background: open?.id === p.id ? 'var(--as)' : undefined }}>
-                      <td className="px-4 py-2.5 font-semibold"><Link href={`/eigyo/proper/${p.id}`} className="hover:underline">{p.name}</Link>{p.flag && <span className="ml-1.5 text-[11px] font-normal text-warn">{p.flag}</span>}</td>
+                      <td className="px-4 py-2.5 font-semibold"><PersonName name={p.name} className="hover:underline underline-offset-2" />{p.flag && <span className="ml-1.5 text-[11px] font-normal text-warn">{p.flag}</span>}</td>
                       <td className="whitespace-nowrap px-2 py-2.5"><Pill>{p.status === '営業中' ? '待機' : p.status === '参画決定' ? '入場予定' : '稼働中'}</Pill> <span className="text-[11.5px] text-muted">{p.status}</span></td>
                       <td className="px-2 py-2.5">{p.station}</td>
                       <td className="px-2 py-2.5">{p.want}</td>
@@ -114,7 +115,7 @@ function ProperTab({ rows, setRows, live }: { rows: (Proper & Partial<LiveProper
         <DrawerPortal>
         <aside key={open.id} aria-label="スキシ" className="mo-drawer fixed bottom-0 right-0 top-[var(--hdr,58px)] z-20 flex w-[min(420px,100vw)] flex-col border-l border-line bg-surface shadow-[-12px_0_28px_rgba(25,27,46,.10)]">
           <div className="flex items-start justify-between px-5 py-4">
-            <div><div className="text-[12px] text-faint">スキルシート（客先に出す紙）</div><div className="text-[18px] font-bold">{open.name}</div></div>
+            <div><div className="text-[12px] text-faint">スキルシート（客先に出す紙）</div><div className="text-[18px] font-bold"><PersonName name={open.name} className="underline-offset-2 hover:underline" /></div></div>
             <button aria-label="閉じる" onClick={() => setOpen(null)} className="flex size-[34px] items-center justify-center rounded-[10px] border border-line"><X size={16} /></button>
           </div>
           <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-5 pb-4 text-[13px]">
@@ -141,7 +142,7 @@ function ProperTab({ rows, setRows, live }: { rows: (Proper & Partial<LiveProper
           <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
             {live ? (<>
               {open.sukishiUrl && <a href={open.sukishiUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center rounded-[10px] border border-field bg-surface px-3.5 text-[13.5px] font-semibold">スプレッドシートを開く</a>}
-              <Link href={`/jinji/skillsheet?q=${encodeURIComponent(open.name)}`} className="btn-primary inline-flex min-h-10 items-center rounded-[10px] px-4 text-[13.5px] font-semibold">スキルシート作成で作る</Link>
+              <Link href={`/eigyo/skillsheet?q=${encodeURIComponent(open.name)}`} className="btn-primary inline-flex min-h-10 items-center rounded-[10px] px-4 text-[13.5px] font-semibold">スキルシート作成で作る</Link>
             </>) : (<>
             {open.sukishi.state === '作成済み' && <button onClick={() => toast({ text: `${open.sukishi.initial} のスキシを開きます（見本）`, sub: '→ 本物ではスプレッドシートが新しいタブで開きます' })} className="min-h-10 rounded-[10px] border border-field bg-surface px-3.5 text-[13.5px] font-semibold">スプレッドシートを開く</button>}
             <PrimaryButton onClick={() => make(open)} disabled={!canEdit || busy || !!open.sukishi.warn} title={!canEdit ? needText('edit') : open.sukishi.warn ? '先に要確認を直してください' : undefined}>
@@ -226,7 +227,7 @@ function SharedTab({ live }: { live: boolean }) {
               {pl.state === 'loading' && <tr><td colSpan={6} className="px-4 py-8 text-center text-muted">読み込み中…</td></tr>}
               {people.slice(0, 300).map((p, i) => (
                 <tr key={p.id} className="row mo-fade-in border-t border-line-soft" style={{ ['--i' as string]: Math.min(i, 20) }}>
-                  <td className="px-4 py-2.5 font-semibold"><Link href={`/eigyo/proper/${p.id}`} className="hover:underline">{p.name}</Link>{p.tags.length > 0 && <span className="ml-1.5 text-[11px] font-normal text-muted">{p.tags.slice(0, 3).join('・')}</span>}</td>
+                  <td className="px-4 py-2.5 font-semibold"><PersonName name={p.name} className="hover:underline underline-offset-2" />{p.tags.length > 0 && <span className="ml-1.5 text-[11px] font-normal text-muted">{p.tags.slice(0, 3).join('・')}</span>}</td>
                   <td className="px-2 py-2.5">{p.eki || '—'}</td><td className="px-2 py-2.5">{p.kadou || '—'}</td><td className="px-2 py-2.5">{p.kanouBi || '—'}</td>
                   <td className="px-2 py-2.5">{p.kibou || '—'}</td><td className="num px-4 py-2.5 text-right">{p.heikou || '—'}</td>
                 </tr>
@@ -249,7 +250,7 @@ function SharedTab({ live }: { live: boolean }) {
           <tbody>
             {rows.map((p, i) => (
               <tr key={p.id} className="row mo-fade-in border-t border-line-soft" style={{ ['--i' as string]: i }}>
-                <td className="px-4 py-2.5 font-semibold"><Link href={`/eigyo/proper/${p.id}`} className="hover:underline">{p.name}</Link></td>
+                <td className="px-4 py-2.5 font-semibold"><PersonName name={p.name} className="hover:underline underline-offset-2" /></td>
                 <td className="px-2 py-2.5"><Pill>{p.status}</Pill>{p.contractEnd && <span className="ml-1.5 text-[11.5px] text-warn">{p.contractEnd}</span>}</td>
                 <td className="px-2 py-2.5">{p.station}</td>
                 <td className="px-2 py-2.5">{p.status === '待機' ? '即日' : p.contractEnd ? '12/1〜' : '—'}</td>

@@ -8,7 +8,9 @@ import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
 import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { SHIME_LABEL, defaultShimeYm, hhmm, shimeRowsOf, ymLabel, type IkeShimeBoard } from '@/lib/live/shime';
+import { PersonName } from '@/components/Person';
 
 // 勤怠の締め（労務/営業管理）＝月の締めまでにやることを人ごとに並べ、全部0になった人から「締められる」にする。
 //   ・やること4つ：打刻漏れ・未承認の申請・残業の見込み（45h超は理由を選ぶ）・現場の勤務表（未着/読めない）
@@ -41,7 +43,8 @@ export default function ShimePage() {
   const live = ike.live && !!ike.data?.ok;
   const [ym, setYm] = useState('');
   useEffect(() => { if (live && !ym) setYm(defaultShimeYm(ike.data)); }, [live, ym, ike.data]);
-  const lrows = live ? shimeRowsOf(ike.data, ym) : [];
+  const mk = useMikeiken();   // 本物は未経験の人だけ（今のプロパーリストに入っている人）
+  const lrows = live && ike.data ? shimeRowsOf({ ...ike.data, rows: mk.keep(ike.data.rows || [], 'name') }, ym) : [];
   const lopen = lrows.filter((r) => SHIME_LABEL[r.cell.status].todo);
 
   const rows = ROWS;
@@ -78,6 +81,7 @@ export default function ShimePage() {
         <Link href="/roumu/today" className="inline-flex min-h-9 items-center rounded-[10px] border border-field bg-surface px-3 text-[12.5px] font-semibold">当日の出勤状況へ</Link>
       </PageTitle>
       <LiveBanner state={ike.live && !ike.data?.ok ? 'error' : ike.state} error={ike.error || ike.data?.error} onReload={ike.reload} note="見るだけです。締める・開け直すは今の社内システムの「勤怠の締め」の画面から" />
+      <MikeikenNote mk={mk} live={live} />
 
       {live && <>
         <NotInLegacy what="打刻漏れ・未承認の申請・残業の見込み（締めの前のやること）" />
@@ -100,7 +104,7 @@ export default function ShimePage() {
                   const st = SHIME_LABEL[r.cell.status];
                   return (
                     <tr key={r.key} className="mo-fade-in row border-t border-line-soft align-top" style={{ ['--i' as string]: Math.min(i, 30) }}>
-                      <td className="px-4 py-2.5"><span className="font-semibold">{r.name}</span>{r.company && <div className="text-[11.5px] text-faint">{r.company}</div>}</td>
+                      <td className="px-4 py-2.5"><PersonName name={r.name} className="font-semibold underline-offset-2 hover:underline" />{r.company && <div className="text-[11.5px] text-faint">{r.company}</div>}</td>
                       <td className="px-2 py-2.5"><span className="chip" style={{ background: `var(--tone-${st.tone}-bg)`, color: `var(--tone-${st.tone}-fg)` }}>{st.label}</span>{r.cell.status === 'closed' && r.cell.reason && <div className="mt-1 text-[11.5px] text-faint">理由：{r.cell.reason}</div>}</td>
                       <td className="num px-2 py-2.5 text-[12.5px]">{hhmm(r.cell.sheetMins)}／{hhmm(r.cell.freeeMins)}</td>
                       <td className="px-2 py-2.5 text-[12.5px]">{r.cell.diffMins == null ? <span className="text-faint">—</span> : r.cell.diffDays ? <span className="font-semibold text-warn">勤務表のほうが{r.cell.diffMins > 0 ? '長い' : '短い'} {hhmm(r.cell.diffMins)}・ずれた日 {r.cell.diffDays}日</span> : <span className="text-ok">合っている</span>}</td>
@@ -145,7 +149,7 @@ export default function ShimePage() {
                   const f = fix[r.personId] || {}; const l = left(r, f); const ready = total(r, f) === 0;
                   return (
                     <tr key={r.personId} className={`mo-fade-in border-t border-line-soft ${flash === r.personId ? 'mo-flash' : 'row'} ${ready && total(r) > 0 ? 'opacity-60' : ''}`} style={{ ['--i' as string]: i }}>
-                      <td className="px-4 py-2.5 align-top"><Link href={`/jinji/staff/${r.personId}`} className="font-semibold hover:underline">{r.name}</Link><div className="text-[11.5px] text-faint">{r.site}・担当 {r.sales}</div></td>
+                      <td className="px-4 py-2.5 align-top"><PersonName name={r.name} className="font-semibold hover:underline underline-offset-2" /><div className="text-[11.5px] text-faint">{r.site}・担当 {r.sales}</div></td>
                       <Cell n={l.punch}><span className="text-[12px] text-warn">{r.missingPunch}日</span>
                         <button className={btn} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} onClick={() => apply(r, { punch: true }, `${r.name} に打刻の直しをお願いしました`, '→ 本人に知らせました（あおい）・見本では直しが届いたものとして0にします')}>直しをお願い（あおい）</button></Cell>
                       <Cell n={l.req}><span className="text-[12px] text-warn">{r.pendingReq}件</span>

@@ -1,14 +1,15 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import Link from 'next/link';
 import { Check, Megaphone, Users } from 'lucide-react';
 import { COMMUNITIES, EVENTS, MENDAN_THIS_WEEK, TARGETS, type Attendee, type CEvent } from '@/lib/community-sample';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
 import { LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { communitiesFromIke, type IkeTeams } from '@/lib/live/community';
+import { PersonName } from '@/components/Person';
 
 // コミュニティ（人事管理）＝勉強会・イベントの予定と参加者、参加の呼びかけ。
 //   ・呼びかけは「誰に」を選ぶだけ → LINE 配信の下書きに入る（送るのは配信の画面で、送れる人だけ）
@@ -31,7 +32,16 @@ export default function CommunityPage() {
   // 本物：今の社内システムのコミュニティ（名前・リーダー・サブ・人数）だけ。勉強会・イベントと出欠は今のシステムに無いので見本のまま
   const ike = useIke<IkeTeams>('teams?action=list');
   const live = ike.live;
-  const liveComms = useMemo(() => communitiesFromIke(ike.data), [ike.data]);
+  // 本物は未経験の人だけ（今のプロパーリストに入っている人）：人数はメンバーのうち未経験の人・リーダーも未経験でなければ出さない
+  const mk = useMikeiken();
+  const liveComms = useMemo(() => communitiesFromIke(ike.data ? {
+    ...ike.data,
+    teams: (ike.data.teams || []).map((t) => ({
+      ...t, members: mk.keep(t.members || [], (m) => m.name || m.norm_name),
+      leader_name: t.leader_name && mk.has(t.leader_name) ? t.leader_name : null,
+      subleader_name: t.subleader_name && mk.has(t.subleader_name) ? t.subleader_name : null,
+    })),
+  } : null), [ike.data, mk]);
   const comms = live ? liveComms : COMMUNITIES;
 
   const call = (e: CEvent) => {
@@ -50,6 +60,7 @@ export default function CommunityPage() {
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="コミュニティ" sub={`勉強会・イベントの予定と参加者。呼びかけは「誰に」を選ぶだけ${live ? '' : '・見本データ'}`} />
       <LiveBanner state={ike.state} error={ike.error} onReload={ike.reload} note="コミュニティの名前・リーダー・人数は今の社内システムから（見るだけ）。勉強会・イベントの予定と出欠は見本のままです" />
+      <MikeikenNote mk={mk} live={ike.live} />
       {live && <NotInLegacy what="勉強会・イベントの予定・出欠・コミュニティ面談の件数" />}
 
       <div className="mo-fade-up flex flex-wrap items-stretch gap-3" style={{ ['--i' as string]: 1 }}>
@@ -82,7 +93,7 @@ export default function CommunityPage() {
               <ul className="flex-1 px-4 py-2">
                 {e.attendees.map((a) => (
                   <li key={a.id} className="flex items-center gap-2 py-1 text-[12.5px]">
-                    <Link href={`/jinji/staff/${a.id}`} className="flex-1 hover:underline">{a.name}</Link>
+                    <span className="flex-1"><PersonName name={a.name} className="underline-offset-2 hover:underline" /></span>
                     <select aria-label={`${a.name} の出欠`} value={a.state} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(ev) => setState(e, a, ev.target.value as Attendee['state'])} className="min-h-7 rounded-md border border-field px-1 text-[12px] disabled:opacity-60" style={{ background: `var(--tone-${ST_TONE[a.state]}-bg)`, color: `var(--tone-${ST_TONE[a.state]}-fg)` }}>
                       {(['参加', '未定', '不参加'] as const).map((s) => <option key={s}>{s}</option>)}
                     </select>

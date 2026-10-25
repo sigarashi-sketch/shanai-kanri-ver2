@@ -7,6 +7,7 @@ import { DAY_STYLE, judge, MONTHS, REASONS, type DayKind, type Judged } from '@/
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
+import { PersonName } from '@/components/Person';
 
 // 交通費チェック（経理管理）。月ごとに、交通費の申請（日ごと）× freee の打刻を人ごとに照らす。
 //   ・1日ずつ色分け：打刻の無い日の申請／片側だけの打刻／在籍期間外の日／待機中の日／平日に打刻なし
@@ -119,7 +120,7 @@ export default function KeihiCheckPage() {
                 <tr key={j.p.id} className={`mo-fade-in border-t border-line-soft align-top ${flash.includes(j.p.id) ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
                   <td className="px-4 py-2.5">{j.n > 0 && !back[j.p.id] && <input type="checkbox" aria-label={`${j.p.name} を選ぶ`} disabled={!canApprove} title={!canApprove ? needText('approve') : undefined} checked={!!sel[j.p.id]} onChange={(e) => setSel((s) => ({ ...s, [j.p.id]: e.target.checked }))} />}</td>
                   <td className="px-2 py-2.5">
-                    <Link href={`/jinji/staff/${j.p.personId}`} className="font-semibold hover:underline">{j.p.name}</Link>
+                    <PersonName name={j.p.name} className="font-semibold hover:underline underline-offset-2" />
                     <div className="text-[11.5px] text-faint">{j.p.site}</div>
                     {j.shift && <span className="chip mt-1 inline-flex items-center gap-1" style={{ background: 'var(--al)', color: 'var(--ad)' }}><Repeat size={11} />シフト勤務</span>}
                   </td>

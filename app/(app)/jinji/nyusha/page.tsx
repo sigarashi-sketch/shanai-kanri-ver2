@@ -1,161 +1,121 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { Check, CircleDashed, Minus } from 'lucide-react';
-import { NEWCOMERS, STEPS, openRequired, type Newcomer, type StepKey, type StepState } from '@/lib/nyusha-sample';
-import { LIVE_WRITE_BLOCKED, LiveBanner, useIke } from '@/components/Live';
-import { daysUntil, openOf, toNyushaLive, type IkeNyushaProgress, type LiveStep } from '@/lib/live/nyusha';
-import { daysFrom, fmtDate } from '@/lib/yoyaku-sample';
+import { useEffect, useMemo, useState } from 'react';
+import { Check, ExternalLink, FileSpreadsheet } from 'lucide-react';
+import { LiveBanner } from '@/components/Live';
+import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
+import { PersonName } from '@/components/Person';
 import { PageTitle } from '@/components/ui';
-import { needText, usePerms } from '@/components/Perms';
-import { RemainRing, useMotivation } from '@/components/Motivation';
+import { useLiveRoute } from '@/lib/live/use-live-route';
+import { SHEET_SAMPLE } from '@/lib/nyusha-sample';
+import { SHEET_HEADER, SHEET_TAB, SHEET_URL, fmtSheetDate, rowKind, sortSheetRows, type NyushaSheetLive, type SheetFilter, type SheetRow } from '@/lib/live/nyusha';
 
-// 入社手続き（人事管理）＝参画が決まった人・入社予定の人の手続きを、人ごとに進み具合つきで並べる。
-//   ・入社日（＝手続きの期限）が近い順。必須の手続きが全部済んだ人は下の「終わった人」へ
-//   ・印は押すだけ（まだ → 済み）。任意の手続きは「まだ → 済み → 対象外」と回る
-//   ・freee・クラウドサインからは自動で取っていない（今のシステムと同じく手で付ける）
-//   ?p=<社員id> でその人のカードを開いた状態から始める（社員ページから）
-//   ・ログインしていれば今の社内システムの「入社手続きの進み具合」（/api/nyusha-progress?days=60）を読むだけで出す。
-//     項目は今のシステムのもの・印は押せない（今のシステムの画面で付ける）・入社日の欄は営業リストの入場日
-type Filter = 'すべて' | '入社予定' | '参画決定';
-type Card = { id: string; personId: string; name: string; kind: '入社予定' | '参画決定'; joinOn: string; joinRaw?: string; site: string; recruiter: string; notice?: string; steps: Record<string, StepState> };
+// 入社手続き（人事管理）＝労務の「freee送信管理」スプシの「参画決定者」タブと同じ列・同じ名前（A〜L）。
+//   ・freee送信☑の人は「freee送信済み（送信日）」。未送信の人を上に。辞退・入社取消の行はグレー
+//   ・絞り込み：すべて／未送信／送信済み／辞退・取消
+//   ・本物（/api/live/nyusha）はスプシと同じ材料の今の GET から組み立てる。メール・freee送信・送信日・メモ・辞退/入社取消は
+//     スプシにだけある（今の社内システムにスプシを読む口がまだ無い）ので「—」にして、スプシへのリンクを出す
+//   ?p=<社員id> でその人の行に印を付けて送る（社員ページから）
+const FILTERS: SheetFilter[] = ['すべて', '未送信', '送信済み', '辞退・取消'];
+const SHEET_ONLY = 'スプシにだけある列（今の社内システムにスプシを読む口がまだ無い）';
 
-const next = (st: StepState, optional?: boolean): StepState => st === 'まだ' ? '済み' : st === '済み' && optional ? '対象外' : 'まだ';
-const STEP_STYLE: Record<StepState, React.CSSProperties> = {
-  済み: { background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)', borderColor: 'transparent' },
-  対象外: { background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)', borderColor: 'transparent' },
-  まだ: { borderColor: 'var(--color-field)' },
-};
+const fmtWage = (v: string) => (/^\d{5,7}$/.test(v.replace(/[,，円¥\s]/g, '')) ? `${Number(v.replace(/[,，円¥\s]/g, '')).toLocaleString('ja-JP')}円` : v);
 
 export default function NyushaPage() {
-  const canEdit = usePerms().can('jinji', 'edit');
-  const { hit, toast } = useMotivation();
-  const ike = useIke<IkeNyushaProgress>('nyusha-progress?days=60');
-  const lv = ike.live && ike.data ? toNyushaLive(ike.data) : null;
-  const [sampleRows, setRows] = useState<Newcomer[]>(NEWCOMERS);
-  const rows: Card[] = lv ? lv.rows : sampleRows.map((n) => ({ ...n, personId: n.id }));
-  const stepDefs: LiveStep[] = lv ? lv.steps : STEPS;
-  const open = (n: Card) => (lv ? openOf(stepDefs, n) : openRequired(n as Newcomer));
-  const dayLeft = (iso: string) => (lv ? daysUntil(iso, lv.today) : daysFrom(iso));
-  const [filter, setFilter] = useState<Filter>('すべて');
-  const [flash, setFlash] = useState<string | null>(null);
+  const lv = useLiveRoute<NyushaSheetLive>('/api/live/nyusha');
+  const mk = useMikeiken();   // 本物は未経験の人だけ（今のプロパーリストに入っている人）。サーバ側でも絞っている
+  const live = lv.live && !!lv.data;
+  const rows: SheetRow[] = useMemo(() => (live ? mk.keep(lv.data!.rows || [], 'name') : SHEET_SAMPLE), [live, lv.data, mk]);
+  const [filter, setFilter] = useState<SheetFilter>('すべて');
   const [focus, setFocus] = useState<string | null>(null);
 
   useEffect(() => { const p = new URLSearchParams(window.location.search).get('p'); if (p) setFocus(p); }, []);
-  // 社員ページから来たら、その人のカードまで送る
-  useEffect(() => { if (focus) document.getElementById(`nc-${focus}`)?.scrollIntoView({ block: 'center' }); }, [focus, lv?.rows.length]);
+  useEffect(() => { if (focus) document.getElementById(`ny-${focus}`)?.scrollIntoView({ block: 'center' }); }, [focus, rows.length]);
 
-  const totalOpen = lv ? rows.reduce((s, n) => s + open(n), 0) : NEWCOMERS.reduce((s, n) => s + openRequired(n), 0);
-  const remain = rows.reduce((s, n) => s + open(n), 0);
-  // 入社日が近い順（入社日が読めない人は下）
-  const sorted = [...rows].sort((a, b) => (a.joinOn || '9999').localeCompare(b.joinOn || '9999'));
-  const working = sorted.filter((n) => open(n) > 0 && (filter === 'すべて' || n.kind === filter));
-  const finished = sorted.filter((n) => open(n) === 0);
-
-  const mark = (n: Newcomer, key: StepKey) => {
-    if (lv) return; // 本物のときは押せない（ボタンも disabled）
-    const step = STEPS.find((s) => s.key === key)!;
-    const prev = n.steps[key];
-    const nv = next(prev, step.optional);
-    const after = sampleRows.map((r) => (r.id === n.id ? { ...r, steps: { ...r.steps, [key]: nv } } : r));
-    setRows(after);
-    setFlash(n.id); setTimeout(() => setFlash(null), 1300);
-    if (nv === 'まだ') return; // 戻しただけなら数えない
-    hit();
-    const left = openRequired(after.find((r) => r.id === n.id)!);
-    toast({
-      text: nv === '対象外' ? `${n.name} の${step.label}を「対象外」にしました` : left === 0 ? `${n.name} の必須の手続きがぜんぶ済みました` : `${n.name} の${step.label}を済みにしました（残り ${left}）`,
-      sub: nv === '対象外' ? '→ この人の手続きの一覧から外しました' : left === 0 ? '→ 参画決定者の手続き（労務への引き継ぎ）に回しました' : step.to,
-      // その印だけ元に戻す（続けて2つ押してから1つ目を取り消しても、2つ目は残る）
-      undo: () => setRows((rs) => rs.map((r) => (r.id === n.id ? { ...r, steps: { ...r.steps, [key]: prev } } : r))),
-    });
-  };
+  const count = (f: SheetFilter) => (f === 'すべて' ? rows.length : rows.filter((r) => rowKind(r) === f).length);
+  const shown = sortSheetRows(filter === 'すべて' ? rows : rows.filter((r) => rowKind(r) === filter));
+  const unsent = count('未送信');
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="入社手続き" sub={lv ? '参画が決まった人（参画決定の日が60日以内・付けかけの人）の手続き。入社日（入場日）が近い順' : '参画が決まった人・入社予定の人の手続き。入社日が近い順に、終わったものに印を付けます・見本データ'} />
-      <LiveBanner state={ike.state} error={ike.error} onReload={ike.reload} note="今の社内システムの「入社手続きの進み具合」と同じ中身です（見るだけ）。印は今の社内システムの画面で付けてください" />
+      <PageTitle title="入社手続き" sub={`参画が決まった人。労務の「freee送信管理」スプシ（${SHEET_TAB}）と同じ列です${live ? '' : '・見本データ'}`}>
+        <a href={SHEET_URL} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border border-line bg-surface px-3 text-[13px] font-semibold" style={{ color: 'var(--ad)' }}>
+          <FileSpreadsheet size={15} />スプシを開く<ExternalLink size={12} />
+        </a>
+      </PageTitle>
+      <LiveBanner state={lv.state} error={lv.error} onReload={lv.reload} note="今の社内システムから、スプシと同じ材料（参画決定・入社日・入場日・額面）で組み立てています（見るだけ）" />
+      <MikeikenNote mk={mk} live={live} />
+
+      {live && (
+        <div className="rounded-xl border px-4 py-3 text-[12.5px]" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)', borderColor: 'transparent' }}>
+          <b>メールアドレス・freee送信・送信日・メモ・辞退・入社取消・辞退・取消日</b> は労務のスプシにだけあります。
+          今の社内システムにスプシを読む口がまだ無いので、ここでは「—」です。送信したかどうかは
+          <a href={SHEET_URL} target="_blank" rel="noreferrer" className="mx-1 font-semibold underline underline-offset-2">スプシ（{SHEET_TAB}タブ）</a>で見てください。
+          {(lv.data!.warnings || []).length > 0 && <div className="mt-1 opacity-80">{lv.data!.warnings.join('／')}</div>}
+        </div>
+      )}
 
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
-        <RemainRing remain={remain} total={totalOpen} />
-        <div className="text-[13px]"><b>残りの手続き {remain}件</b><span className="ml-2 text-muted">{rows.filter((r) => open(r) > 0).length}人ぶん</span>
-          <div className="text-[12px] text-muted">freee・クラウドサインからは自動で取っていません。確かめたら印を押してください。{!canEdit && <span className="text-bad"> {needText('edit')}</span>}</div>
+        <div className="text-[13px]">
+          {live ? <><b>{rows.length}人</b><span className="ml-2 text-muted">参画決定が 10/1 以降（9月決定で10月以降に入場の人を含む）</span></>
+            : <><b>freee 未送信 {unsent}人</b><span className="ml-2 text-muted">送信済み {count('送信済み')}人・辞退/取消 {count('辞退・取消')}人</span></>}
         </div>
         <div className="ml-auto flex flex-wrap gap-1.5">
-          {(['すべて', '入社予定', '参画決定'] as Filter[]).map((f) => {
-            const n = rows.filter((r) => open(r) > 0 && (f === 'すべて' || r.kind === f)).length;
-            return <button key={f} onClick={() => setFilter(f)} className={`min-h-8 rounded-full border px-3 text-[12.5px] ${filter === f ? 'font-semibold' : 'text-muted'}`} style={filter === f ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>{f} {n}</button>;
+          {FILTERS.map((f) => {
+            const off = live && f !== 'すべて';
+            return (
+              <button key={f} onClick={() => setFilter(f)} disabled={off} title={off ? SHEET_ONLY : undefined}
+                className={`min-h-8 rounded-full border px-3 text-[12.5px] disabled:cursor-not-allowed disabled:opacity-50 ${filter === f ? 'font-semibold' : 'text-muted'}`}
+                style={filter === f ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>
+                {f}{!off && ` ${count(f)}`}
+              </button>
+            );
           })}
         </div>
       </div>
 
-      {remain === 0 ? (
-        <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-10 text-center">
-          <Check className="mx-auto text-ok" size={26} />
-          <div className="mt-2 text-[15px] font-bold">入社の手続きはぜんぶ済みました</div>
-          <div className="mt-1 text-[12.5px] text-muted">新しく参画が決まった人は、ここに自動で並びます。</div>
+      <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1180px] border-collapse text-[13px]">
+            <thead><tr className="th-row text-left">
+              {SHEET_HEADER.map((h, i) => <th key={h} className={`whitespace-nowrap py-2.5 font-semibold ${i === 0 ? 'px-4' : 'px-2'}`}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {shown.length === 0 && <tr><td colSpan={SHEET_HEADER.length} className="px-4 py-10 text-center text-muted">{rows.length === 0 ? 'まだ誰も載っていません' : `「${filter}」の人はいません`}</td></tr>}
+              {shown.map((r, i) => {
+                const grey = !!r.except;
+                const na = <span className="text-faint" title={SHEET_ONLY}>—</span>;
+                return (
+                  <tr key={r.id} id={`ny-${r.personId}`} className={`mo-fade-in border-t border-line-soft align-top ${grey ? '' : 'row'}`}
+                    style={{ ['--i' as string]: i, ...(grey ? { background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' } : {}), ...(focus === r.personId ? { outline: '2px solid var(--a)', outlineOffset: -2 } : {}) }}>
+                    <td className="num whitespace-nowrap px-4 py-2.5">{fmtSheetDate(r.decidedOn)}</td>
+                    <td className="whitespace-nowrap px-2 py-2.5 font-semibold"><PersonName name={r.name} className={`underline-offset-2 hover:underline ${grey ? 'line-through' : ''}`} /></td>
+                    <td className="whitespace-nowrap px-2 py-2.5 text-[12px] text-muted">{r.kana || '—'}</td>
+                    <td className="px-2 py-2.5 text-[12px]">{r.email == null ? na : r.email || <span className="text-faint">—</span>}</td>
+                    <td className="num whitespace-nowrap px-2 py-2.5">{fmtSheetDate(r.nyushaOn) || <span className="text-faint">—</span>}</td>
+                    <td className="num whitespace-nowrap px-2 py-2.5">{fmtSheetDate(r.nyuujouOn) || (r.nyuujouRaw ? r.nyuujouRaw : <span className="text-faint">—</span>)}</td>
+                    <td className="num whitespace-nowrap px-2 py-2.5">{r.wage ? fmtWage(r.wage) : <span className="text-faint">—</span>}</td>
+                    <td className="whitespace-nowrap px-2 py-2.5">
+                      {r.sent == null ? na : r.sent
+                        ? <span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}><Check size={11} />freee送信済み{r.sentOn ? `（${fmtSheetDate(r.sentOn)}）` : ''}</span>
+                        : grey ? <span className="text-faint">—</span>
+                          : <span className="chip" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>未送信</span>}
+                    </td>
+                    <td className="num whitespace-nowrap px-2 py-2.5">{r.sentOn == null ? na : fmtSheetDate(r.sentOn) || <span className="text-faint">—</span>}</td>
+                    <td className="min-w-[160px] px-2 py-2.5 text-[12px]">{r.memo == null ? na : r.memo || <span className="text-faint">—</span>}</td>
+                    <td className="whitespace-nowrap px-2 py-2.5">{r.except == null ? na : r.except ? <b>{r.except}</b> : <span className="text-faint">—</span>}</td>
+                    <td className="num whitespace-nowrap px-2 py-2.5">{r.exceptOn == null ? na : fmtSheetDate(r.exceptOn) || <span className="text-faint">—</span>}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-      ) : working.length === 0 ? (
-        <div className="rounded-xl border border-line bg-surface px-6 py-8 text-center text-[13px] text-muted">「{filter}」で手続きが残っている人はいません。</div>
-      ) : (
-        <div className="grid gap-3 lg:grid-cols-2">
-          {working.map((n, i) => {
-            // 今のシステムと同じ数え方：対象外は分母から外す・任意は印が付いたものだけ数える
-            const req = stepDefs.filter((s) => n.steps[s.key] !== '対象外' && (!s.optional || n.steps[s.key] === '済み'));
-            const done = req.filter((s) => n.steps[s.key] === '済み').length;
-            const d = n.joinOn ? dayLeft(n.joinOn) : null;
-            const tone = d == null ? 'mute' : d <= 5 ? 'bad' : d <= 10 ? 'warn' : 'info';
-            return (
-              <article key={n.id} id={`nc-${n.id}`} className={`mo-fade-up rounded-xl border bg-surface p-4 ${flash === n.id ? 'mo-flash' : ''}`} style={{ ['--i' as string]: i + 2, borderColor: focus === n.id ? 'var(--a)' : 'var(--color-line)' }}>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Link href={`/jinji/staff/${n.personId}`} className="text-[15px] font-bold hover:underline">{n.name}</Link>
-                  <span className="chip" style={{ background: n.kind === '参画決定' ? 'var(--tone-ok-bg)' : 'var(--tone-info-bg)', color: n.kind === '参画決定' ? 'var(--tone-ok-fg)' : 'var(--tone-info-fg)' }}>{n.kind}</span>
-                  <span className="text-[12px] text-faint">{lv ? `所属 ${n.site}` : n.site}・採用 {n.recruiter}{n.notice && `・入社案内 ${n.notice}`}</span>
-                  <span className="num ml-auto whitespace-nowrap text-[12.5px] font-semibold" style={{ color: `var(--tone-${tone}-fg)` }}>{n.joinOn ? `入社 ${fmtDate(n.joinOn)}・${d! < 0 ? `${-d!}日過ぎ` : `あと${d}日`}` : n.joinRaw ? `入社 ${n.joinRaw}` : '入社日 まだ'}</span>
-                </div>
-                <div className="mt-2.5 flex items-center gap-2">
-                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-sunken">
-                    <div key={done} className="mo-bar h-full rounded-full" style={{ width: `${req.length ? (done / req.length) * 100 : 0}%`, background: 'var(--tone-ok-bar)' }} />
-                  </div>
-                  <span className="num text-[12px] text-muted">{done}/{req.length}</span>
-                </div>
-                <ul className="mt-3 flex flex-wrap gap-1.5">
-                  {stepDefs.map((s) => {
-                    const st = n.steps[s.key];
-                    const Icon = st === '済み' ? Check : st === '対象外' ? Minus : CircleDashed;
-                    return (
-                      <li key={s.key}>
-                        <button onClick={() => mark(n as Newcomer, s.key as StepKey)} disabled={!!lv || !canEdit} title={lv ? LIVE_WRITE_BLOCKED : !canEdit ? needText('edit') : s.optional ? '任意：まだ → 済み → 対象外' : 'まだ ⇄ 済み'}
-                          aria-label={`${n.name} の${s.label}（${st}）`} className={`inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2.5 text-[12.5px] disabled:cursor-not-allowed disabled:opacity-50 ${st === 'まだ' ? '' : 'font-semibold'}`} style={STEP_STYLE[st]}>
-                          <Icon size={13} className={st === 'まだ' ? 'text-faint' : ''} />{s.label}{s.optional && <span className="text-[10.5px] opacity-70">任意</span>}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </article>
-            );
-          })}
-        </div>
-      )}
-
-      {finished.length > 0 && (
-        <div className="rounded-xl border border-line bg-surface px-4 py-3">
-          <div className="text-[12px] font-semibold text-muted">必須の手続きが終わった人</div>
-          <ul className="mt-2 flex flex-col gap-1 text-[12.5px]">
-            {finished.map((n) => (
-              <li key={n.id} className={`flex flex-wrap items-center gap-2 rounded-md ${flash === n.id ? 'mo-flash' : ''}`}>
-                <Check size={14} className="text-ok" />
-                <Link href={`/jinji/staff/${n.personId}`} className="font-semibold hover:underline">{n.name}</Link>
-                <span className="text-faint">{n.joinOn ? `入社 ${fmtDate(n.joinOn)}` : '入社日 まだ'}・{n.site}</span>
-                <Link href="/jinji/jimu" className="ml-auto text-[12px] font-semibold" style={{ color: 'var(--ad)' }}>労務への引き継ぎを見る</Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      <p className="text-[11.5px] text-faint">雇用契約・社会保険・雇用保険の手続きの要否や期限は、最終判断は社労士に確認してください。健康診断は受けたかどうかだけを残し、結果の中身は載せません。</p>
+      </div>
+      <p className="text-[11.5px] text-faint">
+        スプシは今の社内システムが15分ごとに書き足しています（参画決定日・氏名・よみがな・メール・入社日・入場日・賃金・辞退は空欄だけ自動で埋める）。
+        freee送信の☑・送信日・メモ・入社取消は労務がスプシで付けます。雇用契約・社会保険などの手続きの要否や期限の最終判断は社労士に確認してください。
+      </p>
     </main>
   );
 }

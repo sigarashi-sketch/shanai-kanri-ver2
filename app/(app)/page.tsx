@@ -10,6 +10,7 @@ import { MODULES } from '@/lib/theme';
 import { CountUp, RemainRing, useMotivation } from '@/components/Motivation';
 import { needText, usePerms } from '@/components/Perms';
 import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, type LiveState } from '@/components/Live';
+import { PersonName } from '@/components/Person';
 
 // 本物（ログイン中）：/api/live/home（今の社内システムの読むだけの GET を3つまとめて件数だけ）。
 //   出せるのは 稼働中・待機（ダッシュボードの workforce）／交通費・経費の承認待ち（keihi adminList）／請求で止まっている人（seikyu list の前回の結果）。
@@ -103,7 +104,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      <LiveBanner state={hl.state} error={hl.error} onReload={hl.reload} note="本物で数えられる件数だけ出しています（稼働中・待機・交通費の承認待ち・請求で止まっている人）。片づけは各画面から" />
+      <LiveBanner state={hl.state} error={hl.error} onReload={hl.reload} note="本物で数えられる件数だけ出しています（稼働中・待機・交通費の承認待ち・請求で止まっている人）。稼働中・待機・交通費は未経験の人だけ（今のプロパーリストに入っている人）で数えています（請求は絞っていません）。片づけは各画面から" />
 
       <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
         {(liveKpis ?? kpis).map((k, i) => (
@@ -174,7 +175,7 @@ export default function HomePage() {
               {myReservations.map((r, i) => (
                 <tr key={r.id} className="row mo-fade-in border-t border-line-soft" style={{ ['--i' as string]: 8 + i }}>
                   <td className="px-[18px] py-2.5"><b>{fmtDate(r.date)}</b><div className="text-[11.5px] text-faint">{daysFrom(r.date) === 0 ? '今日' : `あと${daysFrom(r.date)}日`}</div></td>
-                  <td className="px-2 py-2.5"><Link href={`/jinji/staff/${r.personId}`} className="hover:underline">{r.person}</Link></td>
+                  <td className="px-2 py-2.5"><PersonName name={r.person} className="underline-offset-2 hover:underline" /></td>
                   <td className="px-2 py-2.5"><span className="font-bold"><span style={{ color: `var(--c-${moduleOf(r)})` }}>●</span> {SHORT[moduleOf(r)]}</span> {r.field}{r.state === '承認待ち' && <span className="chip ml-1.5" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>承認待ち</span>}</td>
                   <td className="px-2 py-2.5"><s className="text-faint">{r.from}</s> → <b>{r.to}</b></td>
                   <td className="px-[18px] py-2.5 text-muted">{FIELD_RULES[r.field].with.join('／')}</td>

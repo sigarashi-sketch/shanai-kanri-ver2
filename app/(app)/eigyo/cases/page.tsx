@@ -11,6 +11,7 @@ import { RemainRing, useMotivation } from '@/components/Motivation';
 import { LIVE_WRITE_BLOCKED, LiveBanner, useIke } from '@/components/Live';
 import { liveCandidates, liveStock, type LiveCase } from '@/lib/live/cases';
 import type { EngineerRows, ProgressData } from '@/lib/live/eigyo-common';
+import { PersonName } from '@/components/Person';
 
 // 案件（営業）＝案件ストックの一覧。案件を選ぶと、合いそうな要員（待機中・もうすぐ待機）を点数順に当てる。
 //   ・選んだ要員に送る → 案件進捗の「送った案件」に載る（返信待ち）
@@ -135,7 +136,7 @@ export default function CasesPage() {
                   <li key={p.id} className="flex items-center gap-2.5 rounded-[10px] border border-line-soft px-3 py-2">
                     <input type="checkbox" aria-label={`${p.name} を選ぶ`} disabled={!!ng || done || !canEdit} checked={done || !!pick[p.id]} onChange={(e) => setPick((s) => ({ ...s, [p.id]: e.target.checked }))} />
                     <div className="min-w-0 flex-1">
-                      <Link href={live ? `/eigyo/proper/${p.id}` : `/jinji/staff/${p.id}`} className="text-[13px] font-semibold hover:underline">{p.name}</Link>
+                      <PersonName name={p.name} className="text-[13px] font-semibold underline-offset-2 hover:underline" />
                       <span className="ml-1.5 text-[11.5px] text-faint">{live ? '営業中' : p.kind}・{p.station || '駅なし'}・{p.want}</span>
                       <div className="text-[11.5px] text-muted">{why.join('・')}</div>
                     </div>

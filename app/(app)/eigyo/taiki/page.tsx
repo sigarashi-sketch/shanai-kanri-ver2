@@ -9,9 +9,11 @@ import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
 import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { liveTaiki, type RosterStatus } from '@/lib/live/taiki';
 import { liveStock } from '@/lib/live/cases';
 import { ymdJst, type EngineerRows, type ProgressData } from '@/lib/live/eigyo-common';
+import { PersonName } from '@/components/Person';
 
 // 待機・再アサイン（営業）。待機中の人と、契約終了が近い「もうすぐ待機」の人を、日数つきで並べる。
 //   ・次の案件の候補・担当営業・状態を選ぶだけで変える。参画決定になったら一覧から片づく
@@ -50,7 +52,9 @@ export default function TaikiPage() {
   const today = live ? ymdJst(Date.now()) : undefined;
   const lstock = useMemo(() => liveStock(pd.data), [pd.data]);
   const candOf = live ? candidatesFrom(lstock, (c) => (c as { ng?: string | null }).ng ?? null) : candidatesOf;
-  const lrows = useMemo<Row[]>(() => { const cf = candidatesFrom(lstock, (c) => (c as { ng?: string | null }).ng ?? null); return liveTaiki(rs.data, er.data).map((t) => ({ ...t, next: cf(t)[0]?.c.no ?? '' })); }, [rs.data, er.data, lstock]);
+  // 本物は未経験の人だけ（今のプロパーリストに入っている人）
+  const mk = useMikeiken();
+  const lrows = useMemo<Row[]>(() => { const cf = candidatesFrom(lstock, (c) => (c as { ng?: string | null }).ng ?? null); return mk.keep(liveTaiki(rs.data, er.data), 'name').map((t) => ({ ...t, next: cf(t)[0]?.c.no ?? '' })); }, [rs.data, er.data, lstock, mk]);
   const canEdit = perm && !live;
   const noEdit = live ? LIVE_WRITE_BLOCKED : needText('edit');
   const [rowsS, setRows] = useState<Row[]>(() => TAIKI.map((t) => ({ ...t, next: candidatesOf(t)[0]?.c.no ?? '' })));
@@ -78,6 +82,7 @@ export default function TaikiPage() {
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="待機・再アサイン" sub={`待機中と、契約終了が近い人。次の案件・担当営業・状態を選んで進めます${live ? '' : '・見本データ'}`} />
       <LiveBanner state={rs.state} error={rs.error} onReload={rs.reload} note="今の従業員名簿の「待機」チェックと「待機の予約」。待機に入った日・担当営業・状態は今のシステムに無いので出していません" />
+      <MikeikenNote mk={mk} live={live} />
       {live && <NotInLegacy what="担当営業（成約者）と状態（案件を探す〜参画決定）" />}
 
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
@@ -157,7 +162,7 @@ export default function TaikiPage() {
           <div className="text-[12px] font-semibold text-muted">今日 参画決定にした人</div>
           <ul className="mt-2 flex flex-col gap-1 text-[12.5px]">
             {decided.map((r) => (
-              <li key={r.id} className="flex items-center gap-2"><span className="text-ok">参画決定</span><span>{r.name} → {STOCKS.find((c) => c.no === r.next)?.name ?? '—'}（担当営業 {r.sales}）</span>
+              <li key={r.id} className="flex items-center gap-2"><span className="text-ok">参画決定</span><span><PersonName name={r.name} className="underline-offset-2 hover:underline" /> → {STOCKS.find((c) => c.no === r.next)?.name ?? '—'}（担当営業 {r.sales}）</span>
                 <button disabled={!canEdit} title={!canEdit ? noEdit : '面談調整中に戻して、一覧に出し直します'} onClick={() => change(r, { state: '面談調整中' }, `${r.name} を「面談調整中」に戻しました`, '→ 待機の一覧に戻しました')} className="ml-auto shrink-0 text-[12px] text-muted underline disabled:opacity-40">戻す</button></li>
             ))}
           </ul>

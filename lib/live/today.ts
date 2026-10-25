@@ -58,3 +58,13 @@ export function todayFromIke(t: IkeToday | null, ab: IkeAbsence | null): { rows:
   // dateLabel は今のシステムで '10/23(金)' の形
   return { rows, planned, done, date: (t?.dateLabel || '').replace('(', '（').replace(')', '）'), time: t?.nowJst || '', stale: !!t?.stale };
 }
+
+/** 行を絞ったあと（未経験の人だけ）の当日の出勤状況。件数（counts）も絞った行で数え直す */
+export function withTodayRows(t: IkeToday | null, keep: (rows: IkeTodayRow[]) => IkeTodayRow[]): IkeToday | null {
+  if (!t) return t;
+  const rows = keep(t.rows || []);
+  const st: IkeTodayStatus[] = ['working', 'nightEnd', 'punched', 'unpunched', 'beforeStart', 'off', 'nodata', 'pending', 'error', 'unlinked'];
+  const counts = Object.fromEntries(st.map((k) => [k, rows.filter((r) => r.status === k).length])) as IkeToday['counts'];
+  counts.total = rows.length; counts.issues = rows.filter((r) => r.issues?.length).length;
+  return { ...t, rows, counts };
+}

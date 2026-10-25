@@ -8,7 +8,9 @@ import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
 import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
-import { todayFromIke, type IkeAbsence, type IkeToday } from '@/lib/live/today';
+import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
+import { todayFromIke, withTodayRows, type IkeAbsence, type IkeToday } from '@/lib/live/today';
+import { PersonName } from '@/components/Person';
 
 // 当日の出勤状況（労務/営業管理）＝今の時点で「出勤しているはずなのに打刻が無い人」から片づける。
 //   ・材料は freee の打刻＋提出済みシフト（空欄＝休み）＋勤怠連絡＋出発コール（今のシステムと同じ）
@@ -36,7 +38,9 @@ export default function TodayPage() {
   const absence = useIke<IkeAbsence>(quick.live && date ? `attendance-board?action=absence&date=${date}` : null);
   const live = quick.live;
   const best = full.live && full.data?.ok ? full.data : quick.data;
-  const L = live ? todayFromIke(best, absence.live ? absence.data : null) : null;
+  // 本物は未経験の人だけ（今のプロパーリストに入っている人）。出勤予定・出勤済みの数も絞った人で数え直す
+  const mk = useMikeiken();
+  const L = live ? todayFromIke(withTodayRows(best, (rs) => mk.keep(rs, 'name')), absence.live ? absence.data : null) : null;
   const ALL = L ? L.rows : TODAY_ROWS;
   const TOTAL = L ? { planned: L.planned, done: L.done } : TODAY_TOTAL;
   const AT = L ? { date: L.date, time: L.time } : NOW;
@@ -75,6 +79,7 @@ export default function TodayPage() {
       </PageTitle>
       <LiveBanner state={loadErr ? 'error' : quick.state} error={quick.error || loadErr} onReload={() => { quick.reload(); full.reload(); absence.reload(); }}
         note={`見るだけです。促す・結果の記録・現場への連絡は今の社内システムの画面から。${full.state === 'error' ? 'freee からの取り直しが間に合わなかったので、前に取った打刻で出しています。' : ''}${absence.state === 'error' ? '欠勤・遅刻の連絡は読めませんでした。' : ''}`} />
+      <MikeikenNote mk={mk} live={live} />
       {live && <NotInLegacy what="出発コールの未着" />}
 
       <div className="mo-fade-up grid grid-cols-2 gap-3 md:grid-cols-4" style={{ ['--i' as string]: 1 }}>
@@ -118,7 +123,7 @@ export default function TodayPage() {
                   const tone = STATE_TONE[r.state];
                   return (
                     <tr key={r.personId} className={`mo-fade-in border-t border-line-soft align-top ${flash === r.personId ? 'mo-flash' : 'row'} ${d ? 'opacity-55' : ''}`} style={{ ['--i' as string]: i }}>
-                      <td className="px-4 py-2.5">{live ? <span className="font-semibold">{r.person}</span> : <Link href={`/jinji/staff/${r.personId}`} className="font-semibold hover:underline">{r.person}</Link>}<div className="text-[11.5px] text-faint">営業 {r.sales}</div></td>
+                      <td className="px-4 py-2.5"><PersonName name={r.person} className="font-semibold underline-offset-2 hover:underline" /><div className="text-[11.5px] text-faint">営業 {r.sales}</div></td>
                       <td className="px-2 py-2.5">{r.site}<div className="num text-[11.5px] text-faint">{r.shift}</div></td>
                       <td className="px-2 py-2.5">
                         <span className="chip" style={{ background: `var(--tone-${tone}-bg)`, color: `var(--tone-${tone}-fg)` }}>{r.state}</span>
@@ -159,7 +164,7 @@ export default function TodayPage() {
             {others.map((r) => (
               <li key={r.personId} className="flex flex-wrap items-center gap-3 py-1.5">
                 <span className="chip" style={{ background: `var(--tone-${STATE_TONE[r.state]}-bg)`, color: `var(--tone-${STATE_TONE[r.state]}-fg)` }}>{r.state}</span>
-                {live ? <span className="font-semibold">{r.person}</span> : <Link href={`/jinji/staff/${r.personId}`} className="font-semibold hover:underline">{r.person}</Link>}
+                <PersonName name={r.person} className="font-semibold underline-offset-2 hover:underline" />
                 <span className="text-muted">{r.site}</span>
                 <span className="num text-faint">{r.punch ? `${r.punch} 出勤` : r.contact}</span>
               </li>

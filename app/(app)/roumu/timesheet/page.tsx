@@ -8,7 +8,9 @@ import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
 import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { tsFromIke, type IkeTimesheet } from '@/lib/live/timesheet';
+import { PersonName } from '@/components/Person';
 
 // 勤務表の届き具合（労務/営業管理）＝現場の勤務表（客先の様式）の今月分が届いたかを、取引先ごと・人ごとに見る。
 //   ・届いた／未着／読めない。未着は本人・取引先にお願い（あおい）、読めないは「どうしたか」を選ぶ
@@ -38,7 +40,10 @@ export default function TimesheetPage() {
   const [ym, setYm] = useState('');
   const ike = useIke<IkeTimesheet>(`roster?op=timesheet&action=list${ym ? `&ym=${ym}` : ''}`);
   const live = ike.live && !!ike.data?.ok;
-  const L = live ? tsFromIke(ike.data) : null;
+  // 本物は未経験の人だけ（今のプロパーリストに入っている人）。提出不要の件数も絞った人で数え直す
+  const mk = useMikeiken();
+  const tsItems = live && ike.data ? mk.keep(ike.data.items || [], 'name') : [];
+  const L = live && ike.data ? tsFromIke({ ...ike.data, items: tsItems, counts: { ...ike.data.counts, na: tsItems.filter((r) => r.arrival === 'na').length } }) : null;
   const all = L ? L.rows : rows;
   const okEdit = canEdit && !live;
   const block = live ? LIVE_WRITE_BLOCKED : !canEdit ? needText('edit') : undefined;
@@ -89,7 +94,7 @@ export default function TimesheetPage() {
   // 部品にせず関数で描く（描くたびに行が作り直されて選択中の欄が閉じないように）
   const row = (r: TsRow, showPartner?: boolean) => (
     <tr key={r.id} className={`border-t border-line-soft align-top ${flash === r.id ? 'mo-flash' : 'row'}`}>
-      <td className="px-4 py-2.5">{live ? <span className="font-semibold">{r.name}</span> : <Link href={`/jinji/staff/${r.personId}`} className="font-semibold hover:underline">{r.name}</Link>}<div className="text-[11.5px] text-faint">{r.site}</div></td>
+      <td className="px-4 py-2.5"><PersonName name={r.name} className="font-semibold underline-offset-2 hover:underline" /><div className="text-[11.5px] text-faint">{r.site}</div></td>
       {showPartner && <td className="px-2 py-2.5 text-[12.5px]">{r.partner}</td>}
       <td className="px-2 py-2.5 text-[12px] text-muted">{r.route}</td>
       <td className="px-2 py-2.5"><span className="chip" style={{ background: ST[r.state].bg, color: ST[r.state].fg }}>{r.state}</span>{r.state !== '届いた' && r.unreadable && <div className="mt-1 text-[11.5px] text-muted">{r.unreadable}</div>}</td>
@@ -113,6 +118,7 @@ export default function TimesheetPage() {
         </div>
       </PageTitle>
       <LiveBanner state={ike.live && !ike.data?.ok ? 'error' : ike.state} error={ike.error || ike.data?.error} onReload={ike.reload} note="見るだけです。お願いの連絡・ミンミカからの取り直しは今の社内システムの画面から" />
+      <MikeikenNote mk={mk} live={live} />
       {live && <NotInLegacy what="勤務表が「読めない」の見分けと freee の打刻との差（今は勤怠の締めの画面にあります）" />}
 
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>

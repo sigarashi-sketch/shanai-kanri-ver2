@@ -178,7 +178,7 @@ function LivePerson({ id }: { id: string }) {
         <LiveBanner state={state} error={error} onReload={reload} />
         {state === 'loading' && <div className="text-[13px] text-muted">読み込み中…</div>}
         {state === 'sample' && <div className="rounded-xl border border-line bg-surface px-6 py-8 text-center text-[13px] text-muted">この社員ページは今の社内システムの名簿の人です。ログインすると見られます。</div>}
-        {live && <div className="rounded-xl border border-line bg-surface px-6 py-8 text-center text-[13px] text-muted">{data?.month}の名簿にこの人は見つかりませんでした（名前が変わった・名簿から外れた可能性があります）。<Link href="/jinji/staff" className="ml-1 font-semibold underline">社員一覧へ</Link></div>}
+        {live && <div className="rounded-xl border border-line bg-surface px-6 py-8 text-center text-[13px] text-muted">{data?.month}の名簿（未経験の人だけ＝今のプロパーリストに入っている人）にこの人は見つかりませんでした（名前が変わった・名簿やプロパーリストから外れた可能性があります）。<Link href="/jinji/staff" className="ml-1 font-semibold underline">社員一覧へ</Link></div>}
       </main>
     </div>
   );
@@ -193,7 +193,7 @@ function LivePerson({ id }: { id: string }) {
     <div className="flex flex-col">
       {crumb}
       <section className="mo-fade-up border-b border-line bg-surface px-6 pt-5">
-        <div className="mb-3"><LiveBanner state={state} error={error} onReload={reload} note="今の従業員名簿の行から出しています（見るだけ）。直すのは今の社内システムの名簿から" /></div>
+        <div className="mb-3"><LiveBanner state={state} error={error} onReload={reload} note="今の従業員名簿の行から出しています（見るだけ・未経験の人だけ＝今のプロパーリストに入っている人）。直すのは今の社内システムの名簿から" /></div>
         <div className="flex flex-wrap items-start gap-5">
           <div aria-hidden className="flex size-[72px] shrink-0 items-center justify-center rounded-full text-[26px] font-bold" style={{ background: 'var(--as)', color: 'var(--ad)', boxShadow: '0 0 0 3px var(--color-surface), 0 0 0 5px var(--al)' }}>{p.name[0]}</div>
           <div className="w-[210px]">

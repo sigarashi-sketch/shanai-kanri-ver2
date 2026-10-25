@@ -8,10 +8,10 @@ export type NavGroup = { module: ModuleKey; label: string; items: NavItem[] };
 export const NAV: NavGroup[] = [
   {
     module: 'jinji', label: '人事管理', items: [
+      { href: '/home/jinji', label: 'ホーム人事', built: true },
       { href: '/jinji/staff', label: '社員一覧', built: true },
       { href: '/jinji/yoyaku', label: '変更の予約', built: true, badge: 2 },
       { href: '/jinji/nyusha', label: '入社手続き', built: true, badge: 17 },
-      { href: '/jinji/skillsheet', label: 'スキルシート作成', built: true },
       { href: '/jinji/jimu', label: '参画決定者の手続き', built: true, badge: 5 },
       { href: '/jinji/tenseki', label: '転籍台帳', built: true, badge: 4 },
       { href: '/jinji/shikaku', label: '資格手当', built: true, badge: 6 },
@@ -38,9 +38,11 @@ export const NAV: NavGroup[] = [
   },
   {
     module: 'eigyo', label: '営業', items: [
+      { href: '/home/eigyo', label: 'ホーム営業', built: true },
       { href: '/eigyo/cases', label: '案件', built: true, badge: 6 },
       { href: '/eigyo/progress', label: '案件進捗', built: true, badge: 4 }, // 単独のまま。作り込み（カスタム）はあとで詰める（10-23 shoya）
       { href: '/eigyo/proper', label: '要員リスト（プロパー・スキシ）', built: true },
+      { href: '/eigyo/skillsheet', label: 'スキルシート作成', built: true },
       { href: '/eigyo/taiki', label: '待機・再アサイン', built: true, badge: 7 },
       { href: '/eigyo/nippo', label: '成約日報', built: true, badge: 1 },
       { href: '/eigyo/map', label: '案件・要員マップ', built: true },
@@ -52,6 +54,8 @@ export const NAV: NavGroup[] = [
       { href: '/keiri/keihi', label: '交通費・経費', built: true, badge: 9 },
       { href: '/keiri/check', label: '交通費チェック', built: true, badge: 7 },
       { href: '/keiri/seikyu', label: '請求書', built: true, badge: 18 },
+      { href: '/keiri/seikyu-zukuri', label: '請求書づくり', built: true }, // 今の画面をそのまま（app/ik・データは今のシステム）
+      { href: '/keiri/seikyu-make', label: '請求書作成', built: true },
       { href: '/keiri/chingin', label: '想定賃金・粗利', built: true, badge: 5 },
     ],
   },
@@ -62,8 +66,14 @@ export const NAV_EXTRA: NavItem[] = [
   { href: '/settings', label: '設定', built: true },
 ];
 
+// 管理（左の一番下・権限管理を持つ人だけ）。組織表は人事ではなくここ（10-25 shoya）
+export const NAV_KANRI: NavItem[] = [
+  { href: '/settings/org', label: '組織表', built: true }, // 組織・ロール・権限付与（この端末に保存・10-25）
+  { href: '/settings/access', label: '権限管理', built: true },
+];
+
 export function findNav(pathname: string): { group?: NavGroup; item?: NavItem } {
   for (const g of NAV) for (const it of g.items) if (pathname === it.href || pathname.startsWith(it.href + '/')) return { group: g, item: it };
-  for (const it of NAV_EXTRA) if (pathname === it.href || pathname.startsWith(it.href + '/')) return { item: it };
+  for (const it of [...NAV_EXTRA, ...NAV_KANRI]) if (pathname === it.href || pathname.startsWith(it.href + '/')) return { item: it };
   return {};
 }

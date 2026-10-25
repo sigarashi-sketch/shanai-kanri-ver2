@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { ArrowRight, Check, Plus } from 'lucide-react';
 import { CANDIDATES, COMPANIES, MONTH_STARTS, TENSEKI, T_STATES, T_TO, type Company, type Tenseki, type TState } from '@/lib/tenseki-sample';
 import { daysFrom, fmtDate } from '@/lib/yoyaku-sample';
@@ -10,6 +9,8 @@ import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
 import { LIVE_WRITE_BLOCKED, LiveBanner, useIke } from '@/components/Live';
 import { toTensekiLive, type IkeTensekiList } from '@/lib/live/tenseki';
+import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
+import { PersonName } from '@/components/Person';
 
 // 転籍台帳（人事管理）＝グループ会社のあいだで籍を移す人の台帳。
 //   ・転籍日・元の会社・先の会社・手続きの状態は、ぜんぶ選ぶだけ
@@ -24,7 +25,10 @@ const isClosed = (s: TState) => s === '完了' || s === '取りやめ';
 
 export default function TensekiPage() {
   const ike = useIke<IkeTensekiList>('tenseki?action=list');
-  const lv = ike.live && ike.data ? toTensekiLive(ike.data) : null;
+  // 本物は未経験の人だけ（今のプロパーリストに入っている人・10-25 shoya「転籍台帳は未経験だけね」）
+  const mk = useMikeiken();
+  const lv0 = ike.live && ike.data ? toTensekiLive(ike.data) : null;
+  const lv = lv0 && ike.data ? { ...lv0, rows: mk.keep(lv0.rows, 'name'), retireCount: mk.keep(ike.data.retire || [], (x) => { const l = (x as { link?: { name?: string; normalized_name?: string } })?.link; return l?.name || l?.normalized_name; }).length } : null;
   const canEdit = usePerms().can('jinji', 'edit') && !lv;
   const { hit, toast } = useMotivation();
   // 並びは開いたときの転籍日の順で固定（日付を選び直しても行が逃げない。足した行は下へ）
@@ -73,6 +77,7 @@ export default function TensekiPage() {
       <PageTitle title="転籍台帳" sub={lv ? 'グループ会社のあいだで籍を移した人。freee の写し・ミンミカから見つけた転籍を、確かめて確定します' : 'グループ会社のあいだで籍を移す人。転籍日・元と先の会社・手続きの状態を選んで進めます・見本データ'} />
       <LiveBanner state={ike.state} error={ike.error === 'forbidden' ? '転籍台帳は、今の社内システムで super_admin と労務事務の人だけが見られます（いまは見本を出しています）' : ike.error} onReload={ike.reload}
         note={lv ? `今の社内システムの転籍台帳です（見るだけ）。確定・却下・手直しは今の社内システムの画面から。${lv.snapshotDate ? `freee の写し ${lv.snapshotDate}・` : ''}退職だけの候補 ${lv.retireCount}人` : undefined} />
+      <MikeikenNote mk={mk} live={ike.live} />
 
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <RemainRing remain={open.length} total={total} />
@@ -120,7 +125,7 @@ export default function TensekiPage() {
                   const d = liveDays(r.on);
                   return (
                     <tr key={r.id} className="mo-fade-in row border-t border-line-soft align-top" style={{ ['--i' as string]: Math.min(i, 24) }}>
-                      <td className="px-4 py-2.5"><Link href={`/jinji/staff/${r.personId}`} className="font-semibold hover:underline">{r.name}</Link>{r.reason && <div className="text-[11.5px] text-faint">{r.reason}</div>}</td>
+                      <td className="px-4 py-2.5"><PersonName name={r.name} />{r.reason && <div className="text-[11.5px] text-faint">{r.reason}</div>}</td>
                       <td className="px-2 py-2.5">{r.on ? fmtDate(r.on) : '—'}{!r.closed && r.on && <div className="num mt-1 text-[11.5px]" style={{ color: d <= 14 && d >= 0 ? 'var(--color-bad)' : 'var(--color-faint)' }}>{d >= 0 ? `あと${d}日` : `${-d}日前から`}</div>}</td>
                       <td className="px-2 py-2.5"><div className="flex items-center gap-1.5"><span>{r.from}</span><ArrowRight size={14} className="text-faint" /><b>{r.to}</b></div></td>
                       <td className="px-2 py-2.5">
@@ -142,7 +147,7 @@ export default function TensekiPage() {
                   const lock = !canEdit || isClosed(r.state);
                   return (
                     <tr key={r.id} className={`mo-fade-in border-t border-line-soft align-top ${flash === r.id ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
-                      <td className="px-4 py-2.5"><Link href={`/jinji/staff/${r.personId}`} className="font-semibold hover:underline">{r.name}</Link><div className="text-[11.5px] text-faint">担当 {r.by}</div></td>
+                      <td className="px-4 py-2.5"><PersonName name={r.name} /><div className="text-[11.5px] text-faint">担当 {r.by}</div></td>
                       <td className="px-2 py-2.5">
                         <select aria-label={`${r.name} の転籍日`} value={r.on} disabled={lock} title={!canEdit ? needText('edit') : undefined} onChange={(e) => setOn(r, e.target.value)} className="min-h-8 rounded-lg border border-field bg-surface px-2 text-[12.5px] disabled:opacity-60">
                           {Array.from(new Set([r.on, ...MONTH_STARTS])).map((x) => <option key={x} value={x}>{fmtDate(x)}</option>)}

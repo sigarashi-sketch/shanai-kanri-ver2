@@ -9,6 +9,7 @@ import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
 import { LIVE_WRITE_BLOCKED, LiveBanner, useIke, type LiveState } from '@/components/Live';
 import { SEIKYU_STAGE, SEIKYU_STAGES, toSeikyu, type SeikyuListLive, type SeikyuLive } from '@/lib/live/seikyu';
+import { PersonName } from '@/components/Person';
 
 // 請求書（経理管理）。今月の請求書づくりを 取引先ごと・人ごとに、1社ずつ片づける。
 //   勤務表が届いた → 時間を読んだ → 精算幅で金額 → 請求書の下書き → 送付
@@ -169,7 +170,7 @@ export default function SeikyuPage() {
                     const c = calc(p);
                     return (
                       <tr key={p.id} className={`border-t border-line-soft align-top ${flash === p.id ? 'mo-flash' : 'row'}`}>
-                        <td className="px-5 py-2.5"><Link href={`/jinji/staff/${p.personId}`} className="font-semibold hover:underline">{p.name}</Link><div className="num text-[11.5px] text-faint">月額 {yen(p.price)}</div></td>
+                        <td className="px-5 py-2.5"><PersonName name={p.name} className="font-semibold hover:underline underline-offset-2" /><div className="num text-[11.5px] text-faint">月額 {yen(p.price)}</div></td>
                         <td className="px-2 py-2.5"><Steps stage={p.stage} />{p.issue && <div className="mt-1 text-[12px] font-semibold text-bad">{p.issue}</div>}</td>
                         <td className="num px-2 py-2.5 text-[12.5px]">{p.fixed ? '固定' : `${p.lower}〜${p.upper}h`}<div className="text-muted">{p.stage >= 2 ? `${p.hours}h` : '—'}</div></td>
                         <td className="num px-2 py-2.5 text-right">{p.stage >= 3 ? <><b>{yen(c.amount)}</b><div className={`text-[11.5px] ${c.diff < 0 ? 'text-bad' : c.diff > 0 ? 'text-ok' : 'text-faint'}`}>{c.note}</div></> : <span className="text-faint">—</span>}</td>
@@ -294,7 +295,7 @@ function LiveSeikyu({ L, ym, setYm, state, error, reload }: { L: SeikyuLive; ym:
                   <tbody>
                     {cur.people.map((p, i) => (
                       <tr key={p.key} className="row mo-fade-in border-t border-line-soft align-top" style={{ ['--i' as string]: i }}>
-                        <td className="px-5 py-2.5"><span className="font-semibold">{p.name}</span>{p.genba && <div className="text-[11.5px] text-faint">{p.genba}</div>}</td>
+                        <td className="px-5 py-2.5"><PersonName name={p.name} className="font-semibold underline-offset-2 hover:underline" />{p.genba && <div className="text-[11.5px] text-faint">{p.genba}</div>}</td>
                         <td className="px-2 py-2.5"><StagePill s={p.stage} />{p.reason && <div className={`mt-1 text-[12px] ${p.stage === 'needs' ? 'font-semibold text-bad' : 'text-muted'}`}>{p.reason}{p.more > 0 && <span className="text-faint">（ほか {p.more}件）</span>}</div>}{p.confirmedBy && <div className="mt-0.5 text-[11px] text-faint">確定：{p.confirmedBy}</div>}</td>
                         <td className="num px-2 py-2.5 text-[12.5px]">{p.hours}<div className="text-[11px] text-faint">{p.hoursFrom}</div></td>
                         <td className="num px-2 py-2.5 text-right">{p.total ? <><b>{yen(p.subtotal)}</b><div className="text-[11.5px] text-faint">{yen(p.total)}</div></> : <span className="text-faint">—</span>}</td>
