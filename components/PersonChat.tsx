@@ -35,7 +35,7 @@ export function PersonChat({ name, live, everyone, canSummary = true }: { name: 
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-1.5">
         {(['個人', 'グループ'] as const).map((s) => (
-          <button key={s} onClick={() => setSub(s)} aria-pressed={sub === s} className="min-h-8 rounded-full border px-3 text-[12.5px] font-semibold"
+          <button key={s} onClick={() => setSub(s)} aria-pressed={sub === s} className="min-h-8 rounded-full border px-3 text-sm font-semibold"
             style={sub === s ? { background: 'var(--as)', color: 'var(--ad)', borderColor: 'var(--al)' } : { borderColor: 'var(--color-field)', color: 'var(--color-muted)' }}>
             {s === '個人' ? '個人（あおい）' : 'グループ'}
           </button>
@@ -44,7 +44,7 @@ export function PersonChat({ name, live, everyone, canSummary = true }: { name: 
       </div>
       {sub === '個人' && mine.length > 1 && (
         <div className="flex flex-wrap items-center gap-2">
-          <select value={userId} onChange={(e) => setUid(e.target.value)} aria-label="LINE の相手" className="min-h-8 min-w-0 max-w-full rounded-lg border border-field bg-surface px-2 text-[12.5px]">
+          <select value={userId} onChange={(e) => setUid(e.target.value)} aria-label="LINE の相手" className="min-h-8 min-w-0 max-w-full rounded-lg border border-field bg-surface px-2 text-sm">
             {!uid && <option value="">相手を選んでください</option>}
             {mine.map((c) => <option key={c.line_user_id} value={c.line_user_id}>{c.display_name || 'LINE の相手'}</option>)}
           </select>
@@ -52,17 +52,17 @@ export function PersonChat({ name, live, everyone, canSummary = true }: { name: 
         </div>
       )}
       {sub === 'グループ' && myGroups.length > 1 && (
-        <select value={groupId} onChange={(e) => setGid(e.target.value)} aria-label="LINE グループ" className="min-h-8 min-w-0 max-w-full rounded-lg border border-field bg-surface px-2 text-[12.5px]">
+        <select value={groupId} onChange={(e) => setGid(e.target.value)} aria-label="LINE グループ" className="min-h-8 min-w-0 max-w-full rounded-lg border border-field bg-surface px-2 text-sm">
           {myGroups.map((g) => <option key={g.groupId} value={g.groupId}>{g.name}</option>)}
         </select>
       )}
       <ChatLog bubbles={loading ? [] : bubbles.slice(-200)} className="-mx-5 max-h-[calc(100vh-430px)] min-h-[240px]" resetKey={`${name}:${sub}:${target}`}>
-        {loading && <p className="text-[13px] text-muted">読み込み中…</p>}
-        {err && <p className="text-[13px] text-bad">{err}</p>}
-        {!loading && !err && mustPick && <p className="text-[13px] text-muted">同じ名前の LINE の相手が{mine.length}人います。表示名を見て、上で選んでください</p>}
-        {!loading && !err && !target && !mustPick && <p className="text-[13px] text-muted">{sub === '個人' ? 'この人に紐付いた LINE の相手がいません（今のチャット画面で紐付けると出ます）' : 'グループ名にこの人の名前が入った LINE グループがありません'}</p>}
+        {loading && <p className="text-body text-muted">読み込み中…</p>}
+        {err && <p className="text-body text-bad">{err}</p>}
+        {!loading && !err && mustPick && <p className="text-body text-muted">同じ名前の LINE の相手が{mine.length}人います。表示名を見て、上で選んでください</p>}
+        {!loading && !err && !target && !mustPick && <p className="text-body text-muted">{sub === '個人' ? 'この人に紐付いた LINE の相手がいません（今のチャット画面で紐付けると出ます）' : 'グループ名にこの人の名前が入った LINE グループがありません'}</p>}
       </ChatLog>
-      <p className="text-[11.5px] text-faint">見るだけです。送るのは要員ページのチャットから。パスワードらしい文字は伏せています</p>
+      <p className="text-xs text-faint">見るだけです。送るのは要員ページのチャットから。パスワードらしい文字は伏せています</p>
     </div>
   );
 }

@@ -75,8 +75,7 @@ export default function ShikakuPage() {
       {live && <NotInLegacy what="「承認待ち」「給与に反映」の段と現場経験の加算" />}
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 1 }}>
         {([['apps', `申請 ${open.length}`], ['monthly', '毎月の手当']] as const).map(([k, l]) => (
-          <button key={k} role="tab" aria-selected={tab === k} onClick={() => { setTab(k); window.history.replaceState(null, '', k === 'monthly' ? '?tab=monthly' : window.location.pathname); }} className="whitespace-nowrap px-3.5 py-2.5 text-[14px]"
-            style={tab === k ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>{l}</button>
+          <button key={k} role="tab" aria-selected={tab === k} onClick={() => { setTab(k); window.history.replaceState(null, '', k === 'monthly' ? '?tab=monthly' : window.location.pathname); }} className="tab">{l}</button>
         ))}
       </div>
 
@@ -84,13 +83,13 @@ export default function ShikakuPage() {
         {tab === 'apps' ? (<>
           <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
             <RemainRing remain={open.length} total={apps.length} />
-            <div className="text-[13px]"><b>片づける申請 {open.length}件</b>
-              <div className="text-[12px] text-muted">確認・反映は「直す」、承認は「承認」の権限で押せます。{!canApprove && <span className="text-bad"> 承認には{needText('approve')}</span>}</div>
+            <div className="text-body"><b>片づける申請 {open.length}件</b>
+              <div className="text-sm text-muted">確認・反映は「直す」、承認は「承認」の権限で押せます。{!canApprove && <span className="text-bad"> 承認には{needText('approve')}</span>}</div>
             </div>
             <div className="ml-auto flex flex-wrap gap-1.5">
               {(['すべて', ...STAGES] as const).map((s) => {
                 const n = s === 'すべて' ? open.length : open.filter((a) => a.state === s).length;
-                return <button key={s} onClick={() => setStage(s)} className={`min-h-8 rounded-full border px-3 text-[12.5px] ${stage === s ? 'font-semibold' : 'text-muted'}`} style={stage === s ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>{s} {n}</button>;
+                return <button key={s} onClick={() => setStage(s)} className={`min-h-8 rounded-full border px-3 text-sm ${stage === s ? 'font-semibold' : 'text-muted'}`} style={stage === s ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>{s} {n}</button>;
               })}
             </div>
           </div>
@@ -98,33 +97,33 @@ export default function ShikakuPage() {
           {open.length === 0 ? (
             <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-10 text-center">
               <Check className="mx-auto text-ok" size={26} />
-              <div className="mt-2 text-[15px] font-bold">資格手当の申請はぜんぶ片づきました</div>
-              <div className="mt-1 text-[12.5px] text-muted">合格おめでとうの一言は、担当から本人に届けてください。</div>
+              <div className="mt-2 text-md font-bold">資格手当の申請はぜんぶ片づきました</div>
+              <div className="mt-1 text-sm text-muted">合格おめでとうの一言は、担当から本人に届けてください。</div>
             </div>
           ) : (
             <div className="overflow-hidden rounded-xl border border-line bg-surface">
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[980px] border-collapse text-[13px]">
+                <table className="w-full min-w-[980px] border-collapse text-body">
                   <thead><tr className="th-row text-left">
                     <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">資格・合格日</th><th className="px-2 py-2.5 font-semibold">付いている書類</th><th className="px-2 py-2.5 text-right font-semibold">月の手当</th><th className="px-2 py-2.5 font-semibold">段階</th><th className="px-4 py-2.5 font-semibold">つぎにやること</th>
                   </tr></thead>
                   <tbody>
-                    {rows.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-[12.5px] text-muted">「{stage}」の申請はありません。</td></tr>}
+                    {rows.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-muted">「{stage}」の申請はありません。</td></tr>}
                     {rows.map((a, i) => {
                       const m = MASTER[a.cert];
                       const noCert = !a.files.includes('合格証');
                       const t = STAGE_TONE[a.state];
                       return (
                         <tr key={a.id} className={`mo-fade-in border-t border-line-soft align-top ${flash === a.id ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
-                          <td className="px-4 py-2.5">{a.personId ? <PersonName name={a.name} className="font-semibold hover:underline underline-offset-2" /> : <PersonName name={a.name} className="font-semibold underline-offset-2 hover:underline" />}<div className="text-[11.5px] text-faint">申請 {a.filedAt}{a.years >= 0 && `・現場経験 ${a.years}年`}</div></td>
-                          <td className="px-2 py-2.5">{a.cert}<div className="num text-[11.5px] text-faint">{a.passedOn} 合格</div></td>
+                          <td className="px-4 py-2.5">{a.personId ? <PersonName name={a.name} className="font-semibold hover:underline underline-offset-2" /> : <PersonName name={a.name} className="font-semibold underline-offset-2 hover:underline" />}<div className="text-xs text-faint">申請 {a.filedAt}{a.years >= 0 && `・現場経験 ${a.years}年`}</div></td>
+                          <td className="px-2 py-2.5">{a.cert}<div className="num text-xs text-faint">{a.passedOn} 合格</div></td>
                           <td className="px-2 py-2.5">
-                            <div className="flex flex-wrap gap-1">{a.files.map((f) => { const u = urlOf(a, f); return u ? <a key={f} href={u} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[12px] text-muted underline"><Paperclip size={12} />{f}</a> : <span key={f} className="inline-flex items-center gap-1 text-[12px] text-muted"><Paperclip size={12} />{f}</span>; })}</div>
-                            {noCert && <div className="mt-1 flex items-center gap-1 text-[11.5px] font-semibold text-bad"><AlertTriangle size={12} />合格証が付いていません</div>}
+                            <div className="flex flex-wrap gap-1">{a.files.map((f) => { const u = urlOf(a, f); return u ? <a key={f} href={u} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-muted underline"><Paperclip size={12} />{f}</a> : <span key={f} className="inline-flex items-center gap-1 text-sm text-muted"><Paperclip size={12} />{f}</span>; })}</div>
+                            {noCert && <div className="mt-1 flex items-center gap-1 text-xs font-semibold text-bad"><AlertTriangle size={12} />合格証が付いていません</div>}
                           </td>
-                          <td className="num whitespace-nowrap px-2 py-2.5 text-right font-semibold">{yen(amt(a))}{(a as LiveShikakuApp).masterUnknown && <div className="text-[11px] font-normal text-warn">手当一覧に無い資格（要確認）</div>}
+                          <td className="num whitespace-nowrap px-2 py-2.5 text-right font-semibold">{yen(amt(a))}{(a as LiveShikakuApp).masterUnknown && <div className="text-xs font-normal text-warn">手当一覧に無い資格（要確認）</div>}
                             {m?.plus && a.state === '承認待ち' && (
-                              <select aria-label={`${a.name} の現場経験の加算`} value={a.plus ? 'on' : 'off'} disabled={live || !canApprove} onChange={(e) => setApps((xs) => xs.map((x) => (x.id === a.id ? { ...x, plus: e.target.value === 'on' } : x)))} className="mt-1 block min-h-7 w-full rounded-md border border-field bg-surface px-1 text-[11.5px] font-normal disabled:opacity-50">
+                              <select aria-label={`${a.name} の現場経験の加算`} value={a.plus ? 'on' : 'off'} disabled={live || !canApprove} onChange={(e) => setApps((xs) => xs.map((x) => (x.id === a.id ? { ...x, plus: e.target.value === 'on' } : x)))} className="mt-1 block min-h-7 w-full rounded-md border border-field bg-surface px-1 text-xs font-normal disabled:opacity-50">
                                 <option value="off">加算なし</option>
                                 <option value="on">＋{yen(m.plus.amount)}（{m.plus.label}）</option>
                               </select>
@@ -135,15 +134,15 @@ export default function ShikakuPage() {
                             {live && (a as LiveShikakuApp).ike && <ShikakuLiveActions row={(a as LiveShikakuApp).ike!} onDone={ike.reload} />}
                             {!live && a.state === '確認待ち' && (
                               <div className="flex flex-wrap items-center gap-1.5">
-                                <button onClick={() => confirm(a)} disabled={live || !canEdit || noCert} title={noW ?? (!canEdit ? needText('edit') : noCert ? '合格証が無いので確かめられません' : undefined)} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><FileCheck2 size={14} />合格証を確かめた</button>
-                                <select aria-label="差し戻しの理由" value={reason[a.id] ?? defReason(a)} disabled={live || !canEdit} title={noW} onChange={(e) => setReason((r) => ({ ...r, [a.id]: e.target.value }))} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-[12px] disabled:opacity-50">
+                                <button onClick={() => confirm(a)} disabled={live || !canEdit || noCert} title={noW ?? (!canEdit ? needText('edit') : noCert ? '合格証が無いので確かめられません' : undefined)} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2.5 text-sm font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><FileCheck2 size={14} />合格証を確かめた</button>
+                                <select aria-label="差し戻しの理由" value={reason[a.id] ?? defReason(a)} disabled={live || !canEdit} title={noW} onChange={(e) => setReason((r) => ({ ...r, [a.id]: e.target.value }))} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-sm disabled:opacity-50">
                                   {S_REJECT.map((r) => <option key={r} value={r}>{r}</option>)}
                                 </select>
-                                <button onClick={() => reject(a)} disabled={live || !canEdit} title={noW ?? (!canEdit ? needText('edit') : undefined)} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-[12.5px] text-muted disabled:opacity-40"><CornerUpLeft size={14} />差し戻す</button>
+                                <button onClick={() => reject(a)} disabled={live || !canEdit} title={noW ?? (!canEdit ? needText('edit') : undefined)} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-sm text-muted disabled:opacity-40"><CornerUpLeft size={14} />差し戻す</button>
                               </div>
                             )}
-                            {!live && a.state === '承認待ち' && <button onClick={() => approve(a)} disabled={live || !canApprove} title={noW ?? (!canApprove ? needText('approve') : undefined)} className="btn-primary inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg px-3 text-[12.5px] font-bold disabled:opacity-40"><Check size={14} />承認する</button>}
-                            {!live && a.state === '反映待ち' && <button onClick={() => reflect(a)} disabled={live || !canEdit} title={noW ?? (!canEdit ? needText('edit') : undefined)} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2.5 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>{PAY_MONTH}の給与に反映</button>}
+                            {!live && a.state === '承認待ち' && <button onClick={() => approve(a)} disabled={live || !canApprove} title={noW ?? (!canApprove ? needText('approve') : undefined)} className="btn-primary btn-sm"><Check size={14} />承認する</button>}
+                            {!live && a.state === '反映待ち' && <button onClick={() => reflect(a)} disabled={live || !canEdit} title={noW ?? (!canEdit ? needText('edit') : undefined)} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2.5 text-sm font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>{PAY_MONTH}の給与に反映</button>}
                           </td>
                         </tr>
                       );
@@ -156,11 +155,11 @@ export default function ShikakuPage() {
         </>) : (
           <div className="overflow-hidden rounded-xl border border-line bg-surface">
             <div className="flex flex-wrap items-baseline gap-3 border-b border-line-soft px-4 py-3">
-              <span className="text-[12px] text-muted">{live ? '承認ずみの資格手当（1か月）' : `${PAY_MONTH}の資格手当`}</span>
-              <span className="text-[24px] font-bold">¥<CountUp key={total} to={total} /></span>
-              <span className="text-[12.5px] text-muted">{monthly.length}人</span>
+              <span className="text-sm text-muted">{live ? '承認ずみの資格手当（1か月）' : `${PAY_MONTH}の資格手当`}</span>
+              <span className="text-xl font-bold">¥<CountUp key={total} to={total} /></span>
+              <span className="text-sm text-muted">{monthly.length}人</span>
             </div>
-            <table className="w-full border-collapse text-[13px]">
+            <div className="overflow-x-auto"><table className="w-full border-collapse text-body">
               <thead><tr className="th-row text-left"><th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">資格</th><th className="px-2 py-2.5 font-semibold">{live ? '申請した月' : 'いつから'}</th><th className="px-4 py-2.5 text-right font-semibold">月の手当</th>{live && <th className="px-4 py-2.5 font-semibold">段階・確定額</th>}</tr></thead>
               <tbody>
                 {monthly.map((m, i) => (
@@ -173,11 +172,11 @@ export default function ShikakuPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           </div>
         )}
       </div>
-      <p className="text-[11.5px] text-faint">資格手当は毎月の給与（割増賃金の基礎・社会保険の報酬）に入ります。扱いの最終判断は社労士・税理士に確認してください。</p>
+      <p className="text-xs text-faint">資格手当は毎月の給与（割増賃金の基礎・社会保険の報酬）に入ります。扱いの最終判断は社労士・税理士に確認してください。</p>
     </main>
   );
 }

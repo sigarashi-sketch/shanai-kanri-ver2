@@ -26,14 +26,14 @@ export default function OrphansPage() {
       </PageTitle>
       <HoryuNote>見るだけです。人は未経験の人だけ（グループ名に未経験の人の名前が入っているものは「リスト外」に数えません）。</HoryuNote>
       <LiveBanner state={h.state} error={h.error} onReload={h.reload} note="見るだけです" />
-      {d?.error && <div className="text-[12.5px] text-bad">{d.error}</div>}
+      {d?.error && <div className="text-sm text-bad">{d.error}</div>}
       {d && tab === 'groups' && <Panel title="リスト外グループ" sub={`全 ${d.groupTotal}グループのうち ${d.groups.length}`}>
-        <ul className="flex flex-col text-[12.5px]">{[...d.groups].sort((a, b) => b.lastActivity - a.lastActivity).map((g, i) => <li key={g.name + i} className="flex flex-wrap items-center gap-2 border-t border-line-soft py-1.5 first:border-t-0"><b>{g.name || '（名前なし）'}</b>{g.eki && <span className="text-muted">{g.eki}</span>}{g.tags.map((t) => <span key={t} className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>{t}</span>)}<span className="ml-auto text-faint">{g.lastActivity ? `最後の動き ${fmtDate(new Date(g.lastActivity).toISOString())}` : '動きなし'}</span></li>)}</ul>
-        {!d.groups.length && <div className="py-3 text-center text-[12.5px] text-faint">ありません</div>}
+        <ul className="flex flex-col text-sm">{[...d.groups].sort((a, b) => b.lastActivity - a.lastActivity).map((g, i) => <li key={g.name + i} className="flex flex-wrap items-center gap-2 border-t border-line-soft py-1.5 first:border-t-0"><b>{g.name || '（名前なし）'}</b>{g.eki && <span className="text-muted">{g.eki}</span>}{g.tags.map((t) => <span key={t} className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>{t}</span>)}<span className="ml-auto text-faint">{g.lastActivity ? `最後の動き ${fmtDate(new Date(g.lastActivity).toISOString())}` : '動きなし'}</span></li>)}</ul>
+        {!d.groups.length && <div className="py-3 text-center text-sm text-faint">ありません</div>}
       </Panel>}
       {d && tab === 'unlinked' && <Panel title="グループが見つからない人" sub={`${d.unlinked.length}名`}>
-        <ul className="flex flex-col text-[12.5px]">{unl.map((r) => { const hide = r.status.some((s) => HIDE.includes(s)); return <li key={r.name} className={`flex flex-wrap items-center gap-2 border-t border-line-soft py-1.5 first:border-t-0 ${hide ? 'opacity-60' : ''}`}><PersonName name={r.name} />{r.status.map((s) => <span key={s} className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>{s}</span>)}</li>; })}</ul>
-        {!unl.length && <div className="py-3 text-center text-[12.5px] text-faint">いません</div>}
+        <ul className="flex flex-col text-sm">{unl.map((r) => { const hide = r.status.some((s) => HIDE.includes(s)); return <li key={r.name} className={`flex flex-wrap items-center gap-2 border-t border-line-soft py-1.5 first:border-t-0 ${hide ? 'opacity-60' : ''}`}><PersonName name={r.name} />{r.status.map((s) => <span key={s} className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>{s}</span>)}</li>; })}</ul>
+        {!unl.length && <div className="py-3 text-center text-sm text-faint">いません</div>}
       </Panel>}
     </main>
   );

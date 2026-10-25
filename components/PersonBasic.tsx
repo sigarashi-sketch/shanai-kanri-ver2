@@ -38,26 +38,26 @@ export function PersonBasic({ name, live, person }: { name: string; live: boolea
       {!live && <span className="chip self-start">見本</span>}
       {!!res.facts?.length && (
         <dl className="grid grid-cols-2 gap-x-5 gap-y-2.5">
-          {res.facts.map(([k, v]) => <div key={k} className="min-w-0"><dt className="text-[11.5px] text-faint">{k}</dt><dd className="whitespace-pre-wrap break-words">{v}</dd></div>)}
+          {res.facts.map(([k, v]) => <div key={k} className="min-w-0"><dt className="text-xs text-faint">{k}</dt><dd className="whitespace-pre-wrap break-words">{v}</dd></div>)}
         </dl>
       )}
       {!!res.analysis?.length && (
         <section>
-          <div className="mb-1.5 text-[12px] font-bold text-muted">回答</div>
+          <div className="mb-1.5 text-sm font-bold text-muted">回答</div>
           <dl className="flex flex-col gap-2">
-            {res.analysis.map((a, i) => <div key={i} className="rounded-lg bg-soft px-3 py-2"><dt className="text-[11.5px] text-faint">{a.label}</dt><dd className="mt-0.5 whitespace-pre-wrap break-words text-[12.5px]">{a.value}</dd></div>)}
+            {res.analysis.map((a, i) => <div key={i} className="rounded-lg bg-soft px-3 py-2"><dt className="text-xs text-faint">{a.label}</dt><dd className="mt-0.5 whitespace-pre-wrap break-words text-sm">{a.value}</dd></div>)}
           </dl>
         </section>
       )}
       {!!res.work?.length && (
         <section>
-          <div className="mb-1.5 text-[12px] font-bold text-muted">職歴</div>
+          <div className="mb-1.5 text-sm font-bold text-muted">職歴</div>
           <ul className="flex flex-col gap-2">
             {res.work.map((w, i) => (
               <li key={i} className="rounded-lg border border-line px-3 py-2">
                 <div className="font-semibold">{w.company || '（会社名なし）'}</div>
-                <div className="text-[11.5px] text-faint">{[w.from && `${w.from}〜${w.to || ''}`, w.emp, w.job].filter(Boolean).join('・')}</div>
-                {w.description && <p className="mt-1 whitespace-pre-wrap break-words text-[12.5px]">{w.description}</p>}
+                <div className="text-xs text-faint">{[w.from && `${w.from}〜${w.to || ''}`, w.emp, w.job].filter(Boolean).join('・')}</div>
+                {w.description && <p className="mt-1 whitespace-pre-wrap break-words text-sm">{w.description}</p>}
               </li>
             ))}
           </ul>

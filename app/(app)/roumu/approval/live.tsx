@@ -51,33 +51,33 @@ export function ApprovalLive({ mk }: { mk: Mikeiken }) {
     <>
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <RemainRing remain={total} total={Math.max(total, 1)} />
-        <div className="text-[13px]"><b>承認待ち {total}件</b>{loading && <span className="ml-2 text-faint">読んでいます…</span>}
-          <div className="text-[12px] text-muted">{srcs.filter((s) => s.items.length).map((s) => `${s.label} ${s.items.length}`).join('・') || '今の時点で承認待ちはありません'}</div>
+        <div className="text-body"><b>承認待ち {total}件</b>{loading && <span className="ml-2 text-faint">読んでいます…</span>}
+          <div className="text-sm text-muted">{srcs.filter((s) => s.items.length).map((s) => `${s.label} ${s.items.length}`).join('・') || '今の時点で承認待ちはありません'}</div>
         </div>
       </div>
-      <div className="rounded-xl border border-line bg-soft px-4 py-2.5 text-[12.5px] text-muted">打刻修正・残業・有給・欠勤・遅刻早退の申請は、今の社内システムに一覧が無いので freee の画面で承認してください。</div>
+      <div className="rounded-xl border border-line bg-soft px-4 py-2.5 text-sm text-muted">打刻修正・残業・有給・欠勤・遅刻早退の申請は、今の社内システムに一覧が無いので freee の画面で承認してください。</div>
       {!loading && total === 0 && (
-        <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-8 text-center"><Check className="mx-auto text-ok" size={26} /><div className="mt-2 text-[15px] font-bold">承認待ちはぜんぶ片づいています</div></div>
+        <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-8 text-center"><Check className="mx-auto text-ok" size={26} /><div className="mt-2 text-md font-bold">承認待ちはぜんぶ片づいています</div></div>
       )}
       {srcs.map((s, si) => (
         <section key={s.key} className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: si + 2 }}>
           <div className="flex flex-wrap items-center gap-2 border-b border-line-soft px-4 py-2.5">
-            <b className="text-[14px]">{s.label}</b><span className="chip" style={{ background: s.items.length ? 'var(--tone-warn-bg)' : 'var(--tone-mute-bg)', color: s.items.length ? 'var(--tone-warn-fg)' : 'var(--tone-mute-fg)' }}>{s.state === 'loading' ? '…' : `${s.items.length}件`}</span>
-            <span className="text-[12px] text-faint">{s.where}</span>
-            {s.href && s.items.length > 0 && <Link href={s.href} className="ml-auto text-[12.5px] font-semibold" style={{ color: 'var(--ad)' }}>片づけに行く</Link>}
+            <b className="text-body">{s.label}</b><span className="chip" style={{ background: s.items.length ? 'var(--tone-warn-bg)' : 'var(--tone-mute-bg)', color: s.items.length ? 'var(--tone-warn-fg)' : 'var(--tone-mute-fg)' }}>{s.state === 'loading' ? '…' : `${s.items.length}件`}</span>
+            <span className="text-sm text-faint">{s.where}</span>
+            {s.href && s.items.length > 0 && <Link href={s.href} className="ml-auto text-sm font-semibold" style={{ color: 'var(--ad)' }}>片づけに行く</Link>}
           </div>
-          {s.error && <div className="px-4 py-2 text-[12px]" style={{ color: 'var(--tone-bad-fg)' }}>{s.error}</div>}
+          {s.error && <div className="px-4 py-2 text-sm" style={{ color: 'var(--tone-bad-fg)' }}>{s.error}</div>}
           {s.items.length > 0 && (
-            <ul className="text-[13px]">
+            <ul className="text-body">
               {s.items.slice(0, 30).map((it) => (
                 <li key={it.id} className="row flex flex-wrap items-center gap-3 border-t border-line-soft px-4 py-2 first:border-t-0">
                   {it.person ? <PersonName name={it.name || '（氏名がまだ決まらない）'} className="font-semibold underline-offset-2 hover:underline" /> : <span className="font-semibold">{it.name}</span>}
                   <span className="text-muted">{it.what}</span>
                   {it.amount != null && <span className="num">{yen(it.amount)}</span>}
-                  <span className="num ml-auto text-[12px] text-faint">{it.when}</span>
+                  <span className="num ml-auto text-sm text-faint">{it.when}</span>
                 </li>
               ))}
-              {s.items.length > 30 && <li className="border-t border-line-soft px-4 py-2 text-[12px] text-faint">ほか {s.items.length - 30}件</li>}
+              {s.items.length > 30 && <li className="border-t border-line-soft px-4 py-2 text-sm text-faint">ほか {s.items.length - 30}件</li>}
             </ul>
           )}
         </section>

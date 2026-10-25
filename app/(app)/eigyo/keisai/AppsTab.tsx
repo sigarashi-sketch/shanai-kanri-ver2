@@ -75,44 +75,44 @@ export function AppsTab() {
     <>
       <LiveBanner state={ap.state} error={ap.error} onReload={ap.reload} note="案件ページからの応募（新しい順・最大500件）。ステータスはここで変えられます" />
       <MikeikenNote mk={mk} live={live} />
-      {err && <div role="alert" className="mo-shake flex items-start gap-2 rounded-xl border px-4 py-2.5 text-[12.5px]" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)', borderColor: 'var(--tone-bad-bar)' }}><TriangleAlert size={14} className="mt-0.5" /><span className="flex-1">{err}</span><button onClick={() => setErr('')} aria-label="閉じる"><X size={14} /></button></div>}
+      {err && <div role="alert" className="mo-shake flex items-start gap-2 rounded-xl border px-4 py-2.5 text-sm" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)', borderColor: 'var(--tone-bad-bar)' }}><TriangleAlert size={14} className="mt-0.5" /><span className="flex-1">{err}</span><button onClick={() => setErr('')} aria-label="閉じる"><X size={14} /></button></div>}
       <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
         <Kpi l="今週の応募" v={k ? String(k.thisWeek) : '-'} s={k ? `前週 ${k.lastWeek}` : ''} />
         <div className="flex items-center gap-3 rounded-xl border border-line bg-surface px-3.5 py-2.5">
           <RemainRing remain={cnt.new} total={Math.max(cnt.new, cnt.all)} />
-          <div><div className="text-[12px] font-semibold text-muted">未対応</div><div className="num text-[20px] font-bold" style={{ color: cnt.new ? 'var(--color-bad)' : undefined }}>{cnt.new}</div>
-            <div className="text-[11px] text-faint">{k?.oldestNewAt && now ? `いちばん古いもの ${ago(k.oldestNewAt, now)}` : ''}</div></div>
+          <div><div className="text-sm font-semibold text-muted">未対応</div><div className="num text-xl font-bold" style={{ color: cnt.new ? 'var(--color-bad)' : undefined }}>{cnt.new}</div>
+            <div className="text-xs text-faint">{k?.oldestNewAt && now ? `いちばん古いもの ${ago(k.oldestNewAt, now)}` : ''}</div></div>
         </div>
         <Kpi l="面談調整中" v={k ? String(k.interviewCount) : '-'} />
         <Kpi l="応募 → 面談化率" v={k ? pct(k.interviewRate) : '-'} s={k ? `直近30日 / ${k.last30Total}件中${k.last30Interview}件` : '直近30日'} />
       </div>
       <div className="flex flex-wrap items-center gap-1 border-b border-line">
         {TABS.map((t) => (
-          <button key={t.k} onClick={() => setTab(t.k)} className="whitespace-nowrap px-3 py-2 text-[13.5px]" style={tab === t.k ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>
+          <button key={t.k} onClick={() => setTab(t.k)} aria-pressed={tab === t.k} className="tab">
             {t.label} <span className="num">{cnt[t.k]}</span></button>
         ))}
         <span className="ml-auto flex items-center gap-2 pb-1">
-          {live && <button onClick={ap.reload} className="inline-flex items-center gap-1 text-[12px] text-muted"><RefreshCw size={12} />読み直す</button>}
-          <button onClick={csv} disabled={!vis.length} className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-field px-2.5 text-[12px] font-semibold disabled:opacity-40"><Download size={12} />CSV で出す</button>
+          {live && <button onClick={ap.reload} className="inline-flex items-center gap-1 text-sm text-muted"><RefreshCw size={12} />読み直す</button>}
+          <button onClick={csv} disabled={!vis.length} className="btn-secondary btn-sm"><Download size={12} />CSV で出す</button>
         </span>
       </div>
       <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-        <table className="w-full min-w-[900px] border-collapse text-[13px]">
+        <table className="w-full min-w-[900px] border-collapse text-body">
           <thead><tr className="th-row text-left">{['応募日時', '受付番号', '要員', '案件', 'スキルシート', 'ひとこと', 'ステータス'].map((h) => <th key={h} className="whitespace-nowrap px-3 py-2.5 font-semibold">{h}</th>)}</tr></thead>
           <tbody>
             {vis.map((r) => (
               <tr key={r.id} className="row border-t border-line-soft align-top" style={hl && hl === r.appNo ? { background: 'var(--al)' } : undefined}>
-                <td className="num whitespace-nowrap px-3 py-2">{fmtDt(r.appliedAt)}<div className="text-[11.5px] text-faint">{now ? ago(r.appliedAt, now) : ''}</div></td>
+                <td className="num whitespace-nowrap px-3 py-2">{fmtDt(r.appliedAt)}<div className="text-xs text-faint">{now ? ago(r.appliedAt, now) : ''}</div></td>
                 <td className="num whitespace-nowrap px-3 py-2 text-muted">{r.appNo || '—'}</td>
                 <td className="whitespace-nowrap px-3 py-2">{r.name ? <PersonName name={r.name} /> : <span className="font-semibold">（氏名未確定）</span>}
-                  {r.unlinked && <div className="text-[11.5px]" style={{ color: 'var(--color-warn)' }}>LINE のつなぎが未確定</div>}</td>
-                <td className="px-3 py-2">{r.caseTitle}<div className="text-[11.5px] text-faint">{[r.caseStation, r.caseArea].filter(Boolean).join('・')}</div>
-                  {r.lateApply && <div className="text-[11.5px]" style={{ color: 'var(--color-warn)' }}>締切後の応募</div>}</td>
+                  {r.unlinked && <div className="text-xs" style={{ color: 'var(--color-warn)' }}>LINE のつなぎが未確定</div>}</td>
+                <td className="px-3 py-2">{r.caseTitle}<div className="text-xs text-faint">{[r.caseStation, r.caseArea].filter(Boolean).join('・')}</div>
+                  {r.lateApply && <div className="text-xs" style={{ color: 'var(--color-warn)' }}>締切後の応募</div>}</td>
                 <td className="whitespace-nowrap px-3 py-2"><span className="chip" style={r.skillsheetState === 'submitted' ? { background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' } : { background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>{r.skillsheetLabel}</span></td>
                 <td className="max-w-[240px] px-3 py-2 text-muted">{r.note || '—'}</td>
                 <td className="whitespace-nowrap px-3 py-2">
                   <select value={r.status} disabled={!canEdit} onChange={(e) => void change(r, e.target.value)} title={!canEdit ? needText('edit') : undefined} aria-label="ステータス"
-                    className="min-h-8 rounded-lg border-0 px-2 text-[12.5px] font-semibold disabled:opacity-60" style={{ background: (TONE[r.status] ?? TONE.new).bg, color: (TONE[r.status] ?? TONE.new).fg }}>
+                    className="min-h-8 rounded-lg border-0 px-2 text-sm font-semibold disabled:opacity-60" style={{ background: (TONE[r.status] ?? TONE.new).bg, color: (TONE[r.status] ?? TONE.new).fg }}>
                     {APP_STATUSES.map((s) => <option key={s.v} value={s.v}>{s.label}</option>)}
                   </select>
                 </td>
@@ -127,5 +127,5 @@ export function AppsTab() {
 }
 
 function Kpi({ l, v, s }: { l: string; v: string; s?: string }) {
-  return <div className="rounded-xl border border-line bg-surface px-3.5 py-2.5"><div className="text-[12px] font-semibold text-muted">{l}</div><div className="num mt-0.5 text-[20px] font-bold">{v}</div>{s && <div className="text-[11px] text-faint">{s}</div>}</div>;
+  return <div className="rounded-xl border border-line bg-surface px-3.5 py-2.5"><div className="text-sm font-semibold text-muted">{l}</div><div className="num mt-0.5 text-xl font-bold">{v}</div>{s && <div className="text-xs text-faint">{s}</div>}</div>;
 }

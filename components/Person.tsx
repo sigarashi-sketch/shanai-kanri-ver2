@@ -9,6 +9,7 @@ import { Dialog } from './Dialog';
 import { StaffDetail } from './StaffDetail';
 import { ProperDetail } from './ProperDetail';
 import { ScoreLine } from './ProperScore';
+import { SkeletonRows } from './ui';
 
 // 人の名前を押すと、どの画面からでも「この人の情報」が右に出る（10-25 shoya「全部共通で人の名前押すとプロパーリストだったり人事だったりの情報見れる」）。
 //   ・<PersonName name="…" id="…" /> を名前の代わりに置くだけ。押すと window に 'person:open' を投げ、Shell の <PersonHost /> が受けて開く
@@ -76,8 +77,8 @@ export function PersonHost() {
   const page = c?.staff ? `/jinji/staff/${encodeURIComponent(c.staff.id)}` : c?.proper ? `/eigyo/proper/${encodeURIComponent(c.proper.id)}` : '';
   return (
     <Dialog label={`${got.name} さんの情報`} onClose={close} z={Z_POPUP}
-      className="mo-drawer fixed bottom-0 right-0 top-[var(--hdr,58px)] flex w-[min(1080px,100vw)] flex-col border-l border-line bg-base shadow-[-12px_0_28px_rgba(25,27,46,.14)]">
-      <div className="flex flex-wrap items-center gap-2 border-b border-line bg-surface px-4 py-2 text-[12.5px]">
+      className="mo-drawer drawer w-[min(1080px,100vw)] bg-base">
+      <div className="flex flex-wrap items-center gap-2 border-b border-line bg-surface px-4 py-2 text-sm">
         {many && c && <button type="button" onClick={() => setGot({ ...got, pick: undefined })} className="inline-flex min-h-8 items-center gap-0.5 rounded-lg border border-field px-2 font-semibold text-muted"><ChevronLeft size={13} />選び直す</button>}
         <span className="text-faint">{c?.staff ? '社員ページ' : c?.proper ? '要員ページ' : ''}</span>
         {c?.staff && c.proper && <a href={`/eigyo/proper/${encodeURIComponent(c.proper.id)}`} className="inline-flex items-center gap-1 font-semibold" style={{ color: 'var(--ad)' }}>要員ページ<ChevronRight size={12} /></a>}
@@ -88,10 +89,10 @@ export function PersonHost() {
         <button aria-label="閉じる" data-dialog-close onClick={close} className="flex size-8 items-center justify-center rounded-lg border border-line"><X size={15} /></button>
       </div>
       <div className="flex-1 overflow-y-auto">
-        {!res && !got.error && <div className="py-16 text-center text-[13px] text-faint">読み込み中…</div>}
-        {got.error && <div className="px-4 py-16 text-center text-[13px] text-bad">{got.error}{got.error.includes('ログイン') && <a href="/api/ike-auth/start" className="ml-2 underline">もう一度ログイン</a>}</div>}
-        {res?.notMikeiken && <div className="px-4 py-16 text-center text-[13px] text-faint">{got.name} さんは未経験の人ではないので出していません</div>}
-        {res && !res.notMikeiken && cands.length === 0 && <div className="px-4 py-16 text-center text-[13px] text-faint">{got.name} さんは従業員名簿にも要員リストにもいません</div>}
+        {!res && !got.error && <SkeletonRows rows={8} className="p-4" />}
+        {got.error && <div className="px-4 py-16 text-center text-body text-bad">{got.error}{got.error.includes('ログイン') && <a href="/api/ike-auth/start" className="ml-2 underline">もう一度ログイン</a>}</div>}
+        {res?.notMikeiken && <div className="px-4 py-16 text-center text-body text-faint">{got.name} さんは未経験の人ではないので出していません</div>}
+        {res && !res.notMikeiken && cands.length === 0 && <div className="px-4 py-16 text-center text-body text-faint">{got.name} さんは従業員名簿にも要員リストにもいません</div>}
         {many && !c && <Chooser name={got.name} cands={cands} onPick={(k) => setGot({ ...got, pick: k })} />}
         {c && res && <Body key={c.key} c={c} res={res} live={got.live} />}
       </div>
@@ -103,7 +104,7 @@ export function PersonHost() {
 function Chooser({ name, cands, onPick }: { name: string; cands: PersonCandidate[]; onPick: (key: string) => void }) {
   return (
     <div className="flex flex-col gap-2 px-4 py-5 sm:px-6">
-      <div className="flex flex-wrap items-center gap-2 text-[13px]">
+      <div className="flex flex-wrap items-center gap-2 text-body">
         <b>{name}</b>
         <span className="chip" style={{ background: 'var(--tone-caution-bg)', color: 'var(--tone-caution-fg)' }}>同姓同名</span>
         <span className="text-muted">同じ名前の人が{cands.length}人います。採用担当・所属・最寄駅を見て選んでください</span>
@@ -111,12 +112,12 @@ function Chooser({ name, cands, onPick }: { name: string; cands: PersonCandidate
       <ul className="flex flex-col gap-2">
         {cands.map((x) => (
           <li key={x.key}>
-            <button type="button" onClick={() => onPick(x.key)} className="row flex w-full flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-line bg-surface px-4 py-3 text-left text-[13px]">
+            <button type="button" onClick={() => onPick(x.key)} className="row flex w-full flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-line bg-surface px-4 py-3 text-left text-body">
               <span className="font-bold">{x.name}</span>
               <span className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>{x.staff ? (x.proper ? '社員・要員' : '社員') : '要員'}</span>
               {x.staff?.status && <span className="text-muted">{x.staff.status}</span>}
               {!x.staff && x.proper?.status && <span className="text-muted">{x.proper.status}</span>}
-              <span className="basis-full text-[12px] text-muted sm:basis-auto">採用担当 {x.hint.recruiter || '—'}・所属 {x.hint.company || '—'}・最寄駅 {x.hint.station || '—'}</span>
+              <span className="basis-full text-sm text-muted sm:basis-auto">採用担当 {x.hint.recruiter || '—'}・所属 {x.hint.company || '—'}・最寄駅 {x.hint.station || '—'}</span>
             </button>
           </li>
         ))}

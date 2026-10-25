@@ -61,9 +61,9 @@ export function StaffDetail({ id, embedded = false, initial }: { id: string; emb
 /** 基本情報・面談メモ・チャットのタブの中身（どちらの人でも同じ） */
 type SideProps = { tab: Tab; name: string; live: boolean; staffId?: string; personId?: string; everyone: readonly string[]; memo?: { memo: string; summary: string }; can: PersonCan };
 function SideTab({ tab, name, live, staffId, personId, everyone, memo, can }: SideProps) {
-  if (tab === '基本情報') return <section className="w-full rounded-xl border border-line bg-surface px-5 py-4 text-[13px]"><PersonBasic name={name} live={live} person={personId} /></section>;
-  if (tab === '面談メモ') return <section className="w-full rounded-xl border border-line bg-surface px-5 py-4 text-[13px]"><PersonMemo name={name} live={live} id={staffId} initial={memo} /></section>;
-  if (tab === 'チャット') return <section className="w-full rounded-xl border border-line bg-surface px-5 py-4 text-[13px]"><PersonChat name={name} live={live} everyone={everyone} canSummary={can.summary} /></section>;
+  if (tab === '基本情報') return <section className="w-full rounded-xl border border-line bg-surface px-5 py-4 text-body"><PersonBasic name={name} live={live} person={personId} /></section>;
+  if (tab === '面談メモ') return <section className="w-full rounded-xl border border-line bg-surface px-5 py-4 text-body"><PersonMemo name={name} live={live} id={staffId} initial={memo} /></section>;
+  if (tab === 'チャット') return <section className="w-full rounded-xl border border-line bg-surface px-5 py-4 text-body"><PersonChat name={name} live={live} everyone={everyone} canSummary={can.summary} /></section>;
   return null;
 }
 const SIDE = new Set<Tab>(['基本情報', '面談メモ', 'チャット']);
@@ -115,38 +115,37 @@ function SamplePerson({ id, embedded }: { id: string; embedded: boolean }) {
   ];
 
   const facts: [string, React.ReactNode][] = [
-    ['現場', <span key="s"><b>{asOf('現場', p.site)}</b>{siteNext && base === 'today' && <span className="block text-[11.5px] font-semibold" style={{ color: 'var(--ad)' }}>→ {fmtDate(siteNext.date)}〜 {siteNext.to}</span>}</span>], ['契約・単価', `${p.contract}・${asOf('単価', p.price)}`],
+    ['現場', <span key="s"><b>{asOf('現場', p.site)}</b>{siteNext && base === 'today' && <span className="block text-xs font-semibold" style={{ color: 'var(--ad)' }}>→ {fmtDate(siteNext.date)}〜 {siteNext.to}</span>}</span>], ['契約・単価', `${p.contract}・${asOf('単価', p.price)}`],
     ['担当営業', <span key="e"><span style={{ color: 'var(--c-eigyo)' }}>●</span> {p.sales}</span>], ['採用担当', <span key="j"><span style={{ color: 'var(--c-jinji)' }}>●</span> {p.recruiter}</span>],
     ['入社日', p.joined], ['最寄駅', p.station], ['通勤', base === 'today' ? (inRoster ? '定期 ¥15,840' : '—') : asOf('通勤', inRoster ? '定期 ¥15,840' : '—')], ['今月の勤怠', p.kintai.text],
   ];
 
   return (
     <div className="flex flex-col">
-      {!embedded && <div className="flex items-center gap-2 border-b border-line bg-surface px-6 py-2.5 text-[13px]">
+      {!embedded && <div className="flex items-center gap-2 border-b border-line bg-surface px-6 py-2.5 text-body">
         <Link href="/jinji/staff" className="text-muted hover:underline">社員一覧</Link><span className="text-faint">/</span><b>{p.name}</b>
       </div>}
       <section className="mo-fade-up border-b border-line bg-surface px-6 pt-5">
         <div className="flex flex-wrap items-start gap-5">
-          <div aria-hidden className="flex size-[72px] shrink-0 items-center justify-center rounded-full text-[26px] font-bold" style={{ background: 'var(--as)', color: 'var(--ad)', boxShadow: '0 0 0 3px var(--color-surface), 0 0 0 5px var(--al)' }}>{p.name[0]}</div>
+          <div aria-hidden className="flex size-[72px] shrink-0 items-center justify-center rounded-full text-2xl font-bold" style={{ background: 'var(--as)', color: 'var(--ad)', boxShadow: '0 0 0 3px var(--color-surface), 0 0 0 5px var(--al)' }}>{p.name[0]}</div>
           <div className="w-full min-w-0 sm:w-[210px]">
-            <div className="text-[12px] text-faint">{[p.kana, p.no].filter(Boolean).join('・')}</div>
-            <div className="text-[22px] font-bold tracking-tight">{p.name}</div>
+            <div className="text-sm text-faint">{[p.kana, p.no].filter(Boolean).join('・')}</div>
+            <div className="text-xl font-bold tracking-tight">{p.name}</div>
             <div className="mt-2 flex flex-wrap gap-1.5"><Pill>{asOf('状態', p.status)}</Pill><ContractChip contract={p.contract} />{pend.length > 0 && <Pill>予約</Pill>}</div>
           </div>
-          <dl className="grid min-w-0 flex-1 basis-full grid-cols-2 gap-x-5 gap-y-2.5 text-[13px] sm:basis-[480px] sm:grid-cols-4">
-            {facts.map(([k, v]) => <div key={k} className="min-w-0 break-words"><dt className="text-[11.5px] text-faint">{k}</dt><dd>{v}</dd></div>)}
+          <dl className="grid min-w-0 flex-1 basis-full grid-cols-2 gap-x-5 gap-y-2.5 text-body sm:basis-[480px] sm:grid-cols-4">
+            {facts.map(([k, v]) => <div key={k} className="min-w-0 break-words"><dt className="text-xs text-faint">{k}</dt><dd>{v}</dd></div>)}
           </dl>
-          <label className="flex items-center gap-1 whitespace-nowrap text-[12px] text-muted" title="予約の日を選ぶと、その日の朝に切り替わったあとの姿で出します">基準日
-            <select value={base} onChange={(e) => setBase(e.target.value)} disabled={!baseDates.length} className="min-h-[34px] rounded-full border border-field bg-surface px-3 text-[12.5px] font-semibold text-ink disabled:opacity-60">
+          <label className="flex items-center gap-1 whitespace-nowrap text-sm text-muted" title="予約の日を選ぶと、その日の朝に切り替わったあとの姿で出します">基準日
+            <select value={base} onChange={(e) => setBase(e.target.value)} disabled={!baseDates.length} className="min-h-[34px] rounded-full border border-field bg-surface px-3 text-sm font-semibold text-ink disabled:opacity-60">
               <option value="today">今日</option>
               {baseDates.map((d) => <option key={d} value={d}>{fmtDate(d)}（予約の日）</option>)}
             </select>
           </label>
         </div>
-        <div role="tablist" className="mt-4 flex gap-1 overflow-x-auto text-[13.5px]">
+        <div role="tablist" className="mt-4 flex gap-1 overflow-x-auto text-body">
           {TABS.map((t) => (
-            <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className="whitespace-nowrap px-3 py-2.5"
-              style={tab === t ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>
+            <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className="tab">
               {t}{t === '書類' && <span className="ml-0.5 font-bold text-bad" title="確かめが要る書類があります">!</span>}
             </button>
           ))}
@@ -158,24 +157,24 @@ function SamplePerson({ id, embedded }: { id: string; embedded: boolean }) {
           <>
             <section className="min-w-0 flex-[999_1_640px] overflow-hidden rounded-xl border border-line bg-surface">
               <div className="flex flex-wrap items-center justify-between gap-2.5 px-[18px] py-3.5">
-                <div><h2 className="text-[15px] font-bold">現場の履歴</h2><div className="text-[12px] text-faint">期間ごとに、勤務表の稼働と請求を並べています</div></div>
-                <Link href={`/jinji/yoyaku?new=1&p=${p.id}`} {...(embedded ? { target: '_blank', rel: 'noopener' } : {})} className="btn btn-primary inline-flex min-h-10 items-center rounded-[10px] px-4 text-[13.5px] font-semibold">＋ 適用日つきで変更</Link>
+                <div><h2 className="text-md font-bold">現場の履歴</h2><div className="text-sm text-faint">期間ごとに、勤務表の稼働と請求を並べています</div></div>
+                <Link href={`/jinji/yoyaku?new=1&p=${p.id}`} {...(embedded ? { target: '_blank', rel: 'noopener' } : {})} className="btn btn-primary">＋ 適用日つきで変更</Link>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] border-collapse text-[13px]">
+                <table className="w-full min-w-[760px] border-collapse text-body">
                   <thead><tr className="th-row text-left">
                     <th className="px-[18px] py-2.5 font-semibold">期間</th><th className="px-2 py-2.5 font-semibold">現場</th><th className="px-2 py-2.5 font-semibold">契約・単価</th><th className="px-2 py-2.5 text-right font-semibold">稼働（勤務表）</th><th className="px-2 py-2.5 text-right font-semibold">請求</th><th className="px-[18px] py-2.5 font-semibold">状態</th>
                   </tr></thead>
                   <tbody>
-                    {history.length === 0 && <tr><td colSpan={6} className="px-[18px] py-6 text-center text-[12.5px] text-muted">まだ現場の履歴はありません（入場すると、ここに期間ごとに並びます）</td></tr>}
+                    {history.length === 0 && <tr><td colSpan={6} className="px-[18px] py-6 text-center text-sm text-muted">まだ現場の履歴はありません（入場すると、ここに期間ごとに並びます）</td></tr>}
                     {history.map((h, i) => (
                       <tr key={h.key} className={`mo-fade-in border-t border-line-soft ${h.state === '予約' ? 'bg-warn-soft' : 'row'}`} style={{ ['--i' as string]: i + 3 }}>
                         <td className="whitespace-nowrap px-[18px] py-2.5 font-semibold">{h.period}</td>
                         <td className={`px-2 py-2.5 ${h.terms === '—' ? 'text-muted' : ''}`}>{h.site}</td>
                         <td className="px-2 py-2.5">{h.terms}</td>
-                        <td className="num px-2 py-2.5 text-right">{h.hours ?? <span className="text-faint">—</span>}{h.hoursSub && <div className="text-[11.5px] text-faint">{h.hoursSub}</div>}</td>
-                        <td className="px-2 py-2.5 text-right">{h.bill ?? <span className="text-faint">—</span>}{h.billSub && <div className="text-[11.5px]" style={{ color: h.billTone === 'ok' ? 'var(--color-ok)' : 'var(--color-warn)' }}>{h.billSub}</div>}</td>
-                        <td className="px-[18px] py-2.5"><Pill>{h.state}</Pill>{h.state === '予約' && <span className="ml-1.5 text-[11.5px] text-muted">{h.pending ? '承認待ち' : '通勤・様式も切替'}</span>}</td>
+                        <td className="num px-2 py-2.5 text-right">{h.hours ?? <span className="text-faint">—</span>}{h.hoursSub && <div className="text-xs text-faint">{h.hoursSub}</div>}</td>
+                        <td className="px-2 py-2.5 text-right">{h.bill ?? <span className="text-faint">—</span>}{h.billSub && <div className="text-xs" style={{ color: h.billTone === 'ok' ? 'var(--color-ok)' : 'var(--color-warn)' }}>{h.billSub}</div>}</td>
+                        <td className="px-[18px] py-2.5"><Pill>{h.state}</Pill>{h.state === '予約' && <span className="ml-1.5 text-xs text-muted">{h.pending ? '承認待ち' : '通勤・様式も切替'}</span>}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -183,16 +182,16 @@ function SamplePerson({ id, embedded }: { id: string; embedded: boolean }) {
               </div>
             </section>
             <aside className="min-w-0 flex-[1_1_320px] rounded-xl border border-line bg-surface px-[18px] py-3.5">
-              <div className="mb-2.5 flex items-center justify-between"><h2 className="text-[15px] font-bold">タイムライン</h2>
-                <div className="flex gap-1.5 text-[11.5px]">{MODULES.map((m) => <span key={m.key}><span style={{ color: `var(--c-${m.key})` }}>●</span>{m.short}</span>)}</div></div>
-              <div className="relative flex flex-col gap-3.5 pl-[22px] text-[13px]">
+              <div className="mb-2.5 flex items-center justify-between"><h2 className="text-md font-bold">タイムライン</h2>
+                <div className="flex gap-1.5 text-xs">{MODULES.map((m) => <span key={m.key}><span style={{ color: `var(--c-${m.key})` }}>●</span>{m.short}</span>)}</div></div>
+              <div className="relative flex flex-col gap-3.5 pl-[22px] text-body">
                 <div className="absolute bottom-1.5 left-1.5 top-1.5 w-0.5 bg-track" />
-                {timeline.length === 0 && <div className="text-[12.5px] text-muted">まだできごとはありません</div>}
+                {timeline.length === 0 && <div className="text-sm text-muted">まだできごとはありません</div>}
                 {timeline.map((t, i) => (
                   <div key={t.key} className="mo-fade-up relative" style={{ ['--i' as string]: i + 4 }}>
                     <i className="absolute -left-[21px] top-1 size-3 rounded-full" style={t.future ? { background: 'var(--color-surface)', border: `2.5px dashed var(--c-${t.module})` } : { background: `var(--c-${t.module})` }} />
-                    <div className={`text-[11.5px] ${t.future ? 'font-semibold text-warn' : 'text-faint'}`}>{t.when}</div>
-                    {t.text}{t.sub && <div className="text-[11.5px] text-faint">{t.sub}</div>}
+                    <div className={`text-xs ${t.future ? 'font-semibold text-warn' : 'text-faint'}`}>{t.when}</div>
+                    {t.text}{t.sub && <div className="text-xs text-faint">{t.sub}</div>}
                   </div>
                 ))}
               </div>
@@ -206,7 +205,7 @@ function SamplePerson({ id, embedded }: { id: string; embedded: boolean }) {
         ) : tab === '対応歴' ? (
           <div className="w-full"><TaiouLog name={p.name} live={false} rule={{ ok: true, n: 0 }} /></div>
         ) : SIDE.has(tab) ? null : (
-          <section className="w-full rounded-xl border border-dashed border-field bg-surface px-6 py-10 text-center text-[13.5px] text-muted">「{tab}」タブはこれから作ります（今の社内システムの中身を、この型に載せ替えます）</section>
+          <section className="w-full rounded-xl border border-dashed border-field bg-surface px-6 py-10 text-center text-body text-muted">「{tab}」タブはこれから作ります（今の社内システムの中身を、この型に載せ替えます）</section>
         )}</Fragment>
         {seen.map((t) => <div key={t} hidden={t !== tab} className="w-full"><SideTab tab={t} name={p.name} live={false} everyone={[]} can={CAN_ALL} /></div>)}
       </main>
@@ -233,7 +232,7 @@ function LivePerson({ id, embedded, initial }: { id: string; embedded: boolean; 
   const { tab, select: setTab, seen } = useTabs(p?.name ?? '', live);
   const ext = embedded ? { target: '_blank', rel: 'noopener' } : {};
   const crumb = embedded ? null : (
-    <div className="flex items-center gap-2 border-b border-line bg-surface px-6 py-2.5 text-[13px]">
+    <div className="flex items-center gap-2 border-b border-line bg-surface px-6 py-2.5 text-body">
       <Link href="/jinji/staff" className="text-muted hover:underline">社員一覧</Link><span className="text-faint">/</span><b>{p?.name ?? '社員'}</b>
     </div>
   );
@@ -242,16 +241,16 @@ function LivePerson({ id, embedded, initial }: { id: string; embedded: boolean; 
       {crumb}
       <main className="flex flex-col gap-3 px-4 pb-12 pt-[18px] sm:px-6">
         <LiveBanner state={state} error={r.error} onReload={r.reload} />
-        {state === 'loading' && <div className="text-[13px] text-muted">読み込み中…</div>}
-        {state === 'sample' && <div className="rounded-xl border border-line bg-surface px-6 py-8 text-center text-[13px] text-muted">この社員ページは今の社内システムの名簿の人です。ログインすると見られます。</div>}
-        {live && <div className="rounded-xl border border-line bg-surface px-6 py-8 text-center text-[13px] text-muted">{month}の名簿（未経験の人だけ＝今のプロパーリストに入っている人）にこの人は見つかりませんでした（名前が変わった・名簿やプロパーリストから外れた可能性があります）。<Link href="/jinji/staff" {...ext} className="ml-1 font-semibold underline">社員一覧へ</Link></div>}
+        {state === 'loading' && <div className="text-body text-muted">読み込み中…</div>}
+        {state === 'sample' && <div className="rounded-xl border border-line bg-surface px-6 py-8 text-center text-body text-muted">この社員ページは今の社内システムの名簿の人です。ログインすると見られます。</div>}
+        {live && <div className="rounded-xl border border-line bg-surface px-6 py-8 text-center text-body text-muted">{month}の名簿（未経験の人だけ＝今のプロパーリストに入っている人）にこの人は見つかりませんでした（名前が変わった・名簿やプロパーリストから外れた可能性があります）。<Link href="/jinji/staff" {...ext} className="ml-1 font-semibold underline">社員一覧へ</Link></div>}
       </main>
     </div>
   );
   const hasPrice = !!p.price && p.price !== '—';
   const rule = r.data?.rule ? { ok: r.data.rule.ok, n: r.data.rule.n[normName(p.name)] } : undefined;
   const facts: [string, React.ReactNode][] = [
-    ['現場（上位会社）', <span key="s"><b>{p.site}</b>{p.siteEki && <span className="block text-[11.5px] text-faint">{p.siteEki}</span>}</span>],
+    ['現場（上位会社）', <span key="s"><b>{p.site}</b>{p.siteEki && <span className="block text-xs text-faint">{p.siteEki}</span>}</span>],
     [hasPrice ? '契約・単価' : '契約', hasPrice ? `${p.contract}・${p.price}` : p.contract],
     ['担当営業', <span key="e"><span style={{ color: 'var(--c-eigyo)' }}>●</span> {p.sales}</span>], ['採用担当', <span key="j"><span style={{ color: 'var(--c-jinji)' }}>●</span> {p.recruiter}</span>],
     ['入社日', slashDate(p.joined)], ['最寄駅', p.station], ['所属会社', p.company || '—'],
@@ -263,21 +262,20 @@ function LivePerson({ id, embedded, initial }: { id: string; embedded: boolean; 
       <section className="mo-fade-up border-b border-line bg-surface px-4 pt-5 sm:px-6">
         <div className="mb-3"><LiveBanner state={state} error={r.error} onReload={r.reload} note="今の従業員名簿の行から出しています（未経験の人だけ＝今のプロパーリストに入っている人）。退社・待機・日付・対応歴などは「名簿の入力」「対応歴」タブから入れると今の名簿にすぐ保存されます" /></div>
         <div className="flex flex-wrap items-start gap-5">
-          <div aria-hidden className="flex size-[72px] shrink-0 items-center justify-center rounded-full text-[26px] font-bold" style={{ background: 'var(--as)', color: 'var(--ad)', boxShadow: '0 0 0 3px var(--color-surface), 0 0 0 5px var(--al)' }}>{p.name[0]}</div>
+          <div aria-hidden className="flex size-[72px] shrink-0 items-center justify-center rounded-full text-2xl font-bold" style={{ background: 'var(--as)', color: 'var(--ad)', boxShadow: '0 0 0 3px var(--color-surface), 0 0 0 5px var(--al)' }}>{p.name[0]}</div>
           <div className="min-w-0 flex-1 sm:w-[210px] sm:flex-none">
-            <div className="text-[12px] text-faint">{p.kana || ' '}</div>
-            <div className="text-[22px] font-bold tracking-tight">{p.name}</div>
+            <div className="text-sm text-faint">{p.kana || ' '}</div>
+            <div className="text-xl font-bold tracking-tight">{p.name}</div>
             <div className="mt-2 flex flex-wrap gap-1.5"><Pill>{p.status}</Pill><ContractChip contract={p.contract} />{p.provisional && <span className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>仮</span>}</div>
           </div>
-          <dl className="grid min-w-0 flex-1 basis-full grid-cols-2 gap-x-5 gap-y-2.5 text-[13px] sm:basis-[480px] sm:grid-cols-4">
-            {facts.map(([k, v]) => <div key={k} className="min-w-0 break-words"><dt className="text-[11.5px] text-faint">{k}</dt><dd>{v}</dd></div>)}
+          <dl className="grid min-w-0 flex-1 basis-full grid-cols-2 gap-x-5 gap-y-2.5 text-body sm:basis-[480px] sm:grid-cols-4">
+            {facts.map(([k, v]) => <div key={k} className="min-w-0 break-words"><dt className="text-xs text-faint">{k}</dt><dd>{v}</dd></div>)}
           </dl>
         </div>
         <div className="mt-3"><PersonActions name={p.name} live={live} rule={rule} onTaiou={() => setTab('対応歴')} /></div>
-        <div role="tablist" className="mt-4 flex gap-1 overflow-x-auto text-[13.5px]">
+        <div role="tablist" className="mt-4 flex gap-1 overflow-x-auto text-body">
           {tabsFor(can).map((t) => (
-            <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className="whitespace-nowrap px-3 py-2.5"
-              style={tab === t ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>{t}</button>
+            <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)} className="tab">{t}</button>
           ))}
         </div>
       </section>
@@ -285,14 +283,14 @@ function LivePerson({ id, embedded, initial }: { id: string; embedded: boolean; 
         <Fragment key={tab}>{tab === '現場の履歴' ? (
           <>
             <section className="overflow-hidden rounded-xl border border-line bg-surface">
-              <div className="px-[18px] py-3.5"><h2 className="text-[15px] font-bold">いまの契約</h2><div className="text-[12px] text-faint">{month}の稼働管理情報一覧の行{p.provisional ? '（まだ一覧に載っていないので、営業リストから立てた仮の行です）' : p.carriedFrom ? `（当月の行が無いので ${p.carriedFrom} の行）` : ''}</div></div>
+              <div className="px-[18px] py-3.5"><h2 className="text-md font-bold">いまの契約</h2><div className="text-sm text-faint">{month}の稼働管理情報一覧の行{p.provisional ? '（まだ一覧に載っていないので、営業リストから立てた仮の行です）' : p.carriedFrom ? `（当月の行が無いので ${p.carriedFrom} の行）` : ''}</div></div>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[640px] border-collapse text-[13px]">
+                <table className="w-full min-w-[640px] border-collapse text-body">
                   <thead><tr className="th-row text-left"><th className="px-[18px] py-2.5 font-semibold">期間</th><th className="px-2 py-2.5 font-semibold">上位会社</th><th className="px-2 py-2.5 font-semibold">{hasPrice ? '契約区分・単価' : '契約区分'}</th><th className="px-[18px] py-2.5 font-semibold">状態</th></tr></thead>
                   <tbody><tr className="border-t border-line-soft">
                     <td className="whitespace-nowrap px-[18px] py-2.5 font-semibold">{p.start || p.end ? `${slashDate(p.start)} 〜 ${p.end ? slashDate(p.end) : ''}` : '—'}</td>
                     <td className="px-2 py-2.5">{p.site}</td><td className="px-2 py-2.5">{hasPrice ? `${p.contract}・${p.price}` : p.contract}</td>
-                    <td className="px-[18px] py-2.5"><Pill>{p.status}</Pill>{p.taijou && <span className="ml-1.5 text-[11.5px] text-muted">退場 {slashDate(p.taijou)}</span>}</td>
+                    <td className="px-[18px] py-2.5"><Pill>{p.status}</Pill>{p.taijou && <span className="ml-1.5 text-xs text-muted">退場 {slashDate(p.taijou)}</span>}</td>
                   </tr></tbody>
                 </table>
               </div>
@@ -304,7 +302,7 @@ function LivePerson({ id, embedded, initial }: { id: string; embedded: boolean; 
         ) : tab === '対応歴' ? (
           <TaiouLog name={p.name} live={live} rule={rule} />
         ) : SIDE.has(tab) ? null : (
-          <section className="w-full rounded-xl border border-dashed border-field bg-surface px-6 py-10 text-center text-[13.5px] text-muted">「{tab}」タブはこれから作ります（今の社内システムの中身を、この型に載せ替えます）</section>
+          <section className="w-full rounded-xl border border-dashed border-field bg-surface px-6 py-10 text-center text-body text-muted">「{tab}」タブはこれから作ります（今の社内システムの中身を、この型に載せ替えます）</section>
         )}</Fragment>
         {seen.filter((t) => tabsFor(can).includes(t)).map((t) => (
           <div key={t} hidden={t !== tab} className="w-full"><SideTab tab={t} name={p.name} live staffId={p.id} personId={p.personId} everyone={everyone} memo={memo} can={can} /></div>

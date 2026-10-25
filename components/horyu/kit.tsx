@@ -52,26 +52,26 @@ export function HoryuFrame({ title, sub, state, error, onReload, actions, childr
     <main className="px-6 pb-12 pt-[22px]">
       <div className="mo-fade-up rounded-xl border border-line bg-surface px-8 py-14 text-center">
         <Lock className="mx-auto text-faint" size={28} />
-        <h1 className="mt-3 text-[20px] font-bold">{title}は見られません</h1>
-        <p className="mt-2 text-[13.5px] text-muted">今の社内システムで、この画面の権限が付いていません。</p>
+        <h1 className="mt-3 text-xl font-bold">{title}は見られません</h1>
+        <p className="mt-2 text-body text-muted">今の社内システムで、この画面の権限が付いていません。</p>
       </div>
     </main>
   );
   return (
     <main className="flex flex-col gap-3.5 px-4 pb-12 pt-[22px] sm:px-6">
       <PageTitle title={title} sub={sub}>{actions}</PageTitle>
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-soft px-4 py-2 text-[12.5px] text-muted">
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-soft px-4 py-2 text-sm text-muted">
         <PauseCircle size={14} />保留中の画面です（あとで本採用か決めます）。
-        {state === 'sample' && <><span>いまは見本データです（本物の名前ではありません）。</span><a href="/api/ike-auth/start" className="btn-primary ml-auto inline-flex min-h-8 items-center rounded-lg px-3 text-[12px]">ログインして本物を見る</a></>}
+        {state === 'sample' && <><span>いまは見本データです（本物の名前ではありません）。</span><a href="/api/ike-auth/start" className="btn-primary ml-auto btn-sm">ログインして本物を見る</a></>}
         {state === 'live' && <span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}>本物のデータ</span>}
       </div>
       {state === 'error' && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border px-4 py-2.5 text-[12.5px]" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)', borderColor: 'var(--tone-bad-bar)' }}>
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border px-4 py-2.5 text-sm" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)', borderColor: 'var(--tone-bad-bar)' }}>
           <TriangleAlert size={14} />{error || '読めませんでした'}
           {onReload && <button onClick={onReload} className="ml-auto font-semibold underline">もう一度</button>}
         </div>
       )}
-      {state === 'loading' ? <div className="py-10 text-center text-[13px] text-muted">読んでいます…</div> : children}
+      {state === 'loading' ? <div className="py-10 text-center text-body text-muted">読んでいます…</div> : children}
     </main>
   );
 }
@@ -79,7 +79,7 @@ export function HoryuFrame({ title, sub, state, error, onReload, actions, childr
 export function Card({ title, note, children, right, i = 1 }: { title?: string; note?: string; children: React.ReactNode; right?: React.ReactNode; i?: number }) {
   return (
     <section className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: i }}>
-      {(title || right) && <div className="flex flex-wrap items-center gap-2 px-4 py-3">{title && <h2 className="text-[15px] font-bold">{title}</h2>}{note && <span className="text-[12px] text-muted">{note}</span>}<div className="ml-auto flex flex-wrap items-center gap-2">{right}</div></div>}
+      {(title || right) && <div className="flex flex-wrap items-center gap-2 px-4 py-3">{title && <h2 className="text-md font-bold">{title}</h2>}{note && <span className="text-sm text-muted">{note}</span>}<div className="ml-auto flex flex-wrap items-center gap-2">{right}</div></div>}
       {children}
     </section>
   );
@@ -90,8 +90,8 @@ export function Tabs<K extends string>({ tabs, value, onChange }: { tabs: { key:
     <div role="tablist" className="flex flex-wrap gap-1 border-b border-line">
       {tabs.map((t) => (
         <button key={t.key} role="tab" aria-selected={value === t.key} onClick={() => onChange(t.key)}
-          className={`-mb-px border-b-2 px-3 py-2 text-[13.5px] ${value === t.key ? 'font-semibold' : 'border-transparent text-muted'}`} style={value === t.key ? { borderColor: 'var(--a)' } : undefined}>
-          {t.label}{t.badge ? <span className="num ml-1.5 rounded-full bg-sunken px-1.5 text-[11px]">{t.badge}</span> : null}
+          className="tab">
+          {t.label}{t.badge ? <span className="num ml-1.5 rounded-full bg-sunken px-1.5 text-xs">{t.badge}</span> : null}
         </button>
       ))}
     </div>
@@ -103,12 +103,12 @@ export const fmtAt = (iso: unknown) => {
   const d = new Date(String(iso || ''));
   return Number.isNaN(d.getTime()) ? String(iso || '—') : d.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
-export const inputCls = 'rounded-lg border border-field bg-surface px-2.5 py-1.5 text-[13px] text-ink';
-export const btnCls = 'min-h-9 rounded-[10px] border border-field bg-surface px-3 text-[13px] font-semibold disabled:cursor-not-allowed disabled:opacity-40';
+export const inputCls = 'rounded-lg border border-field bg-surface px-2.5 py-1.5 text-body text-ink';
+export const btnCls = 'btn-secondary';
 export const thCls = 'px-3 py-2.5 text-left font-semibold';
 export const tdCls = 'px-3 py-2.5';
 
 export function Msg({ text, bad }: { text: string; bad?: boolean }) {
   if (!text) return null;
-  return <div role="status" className="rounded-lg px-3 py-2 text-[12.5px]" style={{ background: bad ? 'var(--tone-bad-bg)' : 'var(--tone-ok-bg)', color: bad ? 'var(--tone-bad-fg)' : 'var(--tone-ok-fg)' }}>{text}</div>;
+  return <div role="status" className="rounded-lg px-3 py-2 text-sm" style={{ background: bad ? 'var(--tone-bad-bg)' : 'var(--tone-ok-bg)', color: bad ? 'var(--tone-bad-fg)' : 'var(--tone-ok-fg)' }}>{text}</div>;
 }

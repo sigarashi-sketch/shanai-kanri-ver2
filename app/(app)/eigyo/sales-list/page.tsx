@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
-import { PageTitle } from '@/components/ui';
+import { PageTitle, SkeletonRows } from '@/components/ui';
 import { LiveBanner, useIke } from '@/components/Live';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { PersonName } from '@/components/Person';
@@ -20,7 +20,7 @@ const SAMPLE: SalesRow[] = [
   { name: '佐々木蓮 案件G', eki: '大宮', kadou: ['即日'], zokusei: ['20代'], kibou: ['開発'], parallel: 0, ball: false, summary: '氏名：R.S', sukishi: '', experience: '物流倉庫', availability: [], availUpdated: '' },
   { name: '松本結衣 案件G', eki: '赤羽', kadou: ['即日'], zokusei: ['20代'], kibou: ['テスト'], parallel: 3, ball: false, summary: '', sukishi: '', experience: 'コールセンター', availability: [{ label: '土日', val: '終日' }], availUpdated: '10/20' },
 ];
-const Tag = ({ t, tone }: { t: string; tone: string }) => <span className="mr-1 inline-block rounded-full px-2 py-0.5 text-[11.5px]" style={{ background: `var(--tone-${tone}-bg)`, color: `var(--tone-${tone}-fg)` }}>{t}</span>;
+const Tag = ({ t, tone }: { t: string; tone: string }) => <span className="mr-1 inline-block rounded-full px-2 py-0.5 text-xs" style={{ background: `var(--tone-${tone}-bg)`, color: `var(--tone-${tone}-fg)` }}>{t}</span>;
 
 export default function SalesListPage() {
   const d = useIke<{ rows: SalesRow[]; error?: string }>('proxy?action=getSalesTableData');
@@ -45,27 +45,27 @@ export default function SalesListPage() {
       <LiveBanner state={d.state} error={d.error} onReload={d.reload} note={`今の営業リスト一覧 ${all.length}件`} />
       <MikeikenNote mk={mk} live={live} />
       <div className="flex flex-wrap items-center gap-2">
-        <label className="flex min-h-9 min-w-[220px] flex-1 items-center gap-2 rounded-[10px] border border-field bg-surface px-3 text-faint sm:max-w-[320px]"><Search size={15} /><input value={q} onChange={(e) => setQ(e.target.value)} aria-label="営業リストを検索" placeholder="名前・最寄駅・タグ・サマリ" className="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none" /></label>
-        <label className="flex min-h-9 items-center gap-2 text-[13px]"><input type="checkbox" checked={availOnly} onChange={(e) => setAvailOnly(e.target.checked)} style={{ accentColor: 'var(--a)' }} />面談できる日程ありのみ（{all.filter((r) => r.availability.length).length}）</label>
-        <span className="ml-auto text-[12.5px] text-muted"><span className="num">{shown.length}</span>件</span>
+        <label className="flex min-h-9 min-w-[220px] flex-1 items-center gap-2 rounded-[10px] border border-field bg-surface px-3 text-faint sm:max-w-[320px]"><Search size={15} /><input value={q} onChange={(e) => setQ(e.target.value)} aria-label="営業リストを検索" placeholder="名前・最寄駅・タグ・サマリ" className="min-w-0 flex-1 bg-transparent text-body text-ink outline-none" /></label>
+        <label className="flex min-h-9 items-center gap-2 text-body"><input type="checkbox" checked={availOnly} onChange={(e) => setAvailOnly(e.target.checked)} style={{ accentColor: 'var(--a)' }} />面談できる日程ありのみ（{all.filter((r) => r.availability.length).length}）</label>
+        <span className="ml-auto text-sm text-muted"><span className="num">{shown.length}</span>件</span>
       </div>
       <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-        <table className="w-full min-w-[980px] border-collapse text-[13px]">
+        <table className="w-full min-w-[980px] border-collapse text-body">
           <thead><tr className="th-row text-left">
             {['氏名', '最寄駅', '稼働', '属性 / 希望', '並行', 'サマリ', '前職・スキル', '面談できる日程'].map((h) => <th key={h} className="px-3 py-2.5 font-semibold">{h}</th>)}
           </tr></thead>
           <tbody>
-            {d.state === 'loading' && <tr><td colSpan={8} className="px-4 py-8 text-center text-muted">読み込み中…</td></tr>}
+            {d.state === 'loading' && <tr><td colSpan={8} className="p-0"><SkeletonRows /></td></tr>}
             {shown.slice(0, 400).map((r) => (
               <tr key={r.name} className="row border-t border-line-soft align-top">
-                <td className="whitespace-nowrap px-3 py-2.5 font-semibold"><PersonName name={nameOf(r)} className="hover:underline underline-offset-2">{r.name}</PersonName>{r.ball && <span className="ml-1.5 text-[11px] font-normal" style={{ color: 'var(--tone-info-fg)' }}>ボール</span>}</td>
+                <td className="whitespace-nowrap px-3 py-2.5 font-semibold"><PersonName name={nameOf(r)} className="hover:underline underline-offset-2">{r.name}</PersonName>{r.ball && <span className="ml-1.5 text-xs font-normal" style={{ color: 'var(--tone-info-fg)' }}>ボール</span>}</td>
                 <td className="px-3 py-2.5">{r.eki || <span className="text-faint">—</span>}</td>
                 <td className="px-3 py-2.5">{r.kadou.length ? r.kadou.map((t) => <Tag key={t} t={t} tone="info" />) : <span className="text-faint">—</span>}</td>
                 <td className="px-3 py-2.5">{r.zokusei.map((t) => <Tag key={'z' + t} t={t} tone="purple" />)}{r.kibou.map((t) => <Tag key={'k' + t} t={t} tone="ok" />)}{!r.zokusei.length && !r.kibou.length && <span className="text-faint">—</span>}</td>
                 <td className="num px-3 py-2.5">{r.parallel >= 1 ? r.parallel : <span className="text-faint">—</span>}</td>
-                <td className="max-w-[280px] whitespace-pre-line px-3 py-2.5 text-[12.5px]">{r.summary.replace(/\n{2,}/g, '\n').trim() || <span className="text-faint">—</span>}{/^https?:/.test(r.sukishi) && <a href={r.sukishi} target="_blank" rel="noreferrer" className="mt-1 block underline" style={{ color: 'var(--ad)' }}>スキルシート</a>}</td>
-                <td className="max-w-[240px] whitespace-pre-line px-3 py-2.5 text-[12.5px]">{r.experience || <span className="text-faint">—</span>}</td>
-                <td className="px-3 py-2.5 text-[12.5px]">{r.availability.length ? <>{r.availability.map((a) => <div key={a.label}><b>{a.label}</b> {a.val}</div>)}{r.availUpdated && <div className="text-[11px] text-faint">{r.availUpdated} 取込</div>}</> : <span className="text-faint">—</span>}</td>
+                <td className="max-w-[280px] whitespace-pre-line px-3 py-2.5 text-sm">{r.summary.replace(/\n{2,}/g, '\n').trim() || <span className="text-faint">—</span>}{/^https?:/.test(r.sukishi) && <a href={r.sukishi} target="_blank" rel="noreferrer" className="mt-1 block underline" style={{ color: 'var(--ad)' }}>スキルシート</a>}</td>
+                <td className="max-w-[240px] whitespace-pre-line px-3 py-2.5 text-sm">{r.experience || <span className="text-faint">—</span>}</td>
+                <td className="px-3 py-2.5 text-sm">{r.availability.length ? <>{r.availability.map((a) => <div key={a.label}><b>{a.label}</b> {a.val}</div>)}{r.availUpdated && <div className="text-xs text-faint">{r.availUpdated} 取込</div>}</> : <span className="text-faint">—</span>}</td>
               </tr>
             ))}
             {d.state !== 'loading' && shown.length === 0 && <tr><td colSpan={8} className="px-4 py-8 text-center text-muted">該当なし</td></tr>}

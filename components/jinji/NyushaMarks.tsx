@@ -37,7 +37,7 @@ export function NyushaMarks() {
   const [local, setLocal] = useState<Record<string, Partial<Row>>>({});
   const { send, error, setError } = useLiveWrite(live, () => { setLocal({}); lv.reload(); });
   if (lv.state === 'loading') return null;
-  if (lv.state === 'error') return <div className="rounded-xl border border-line bg-surface px-4 py-3 text-[12.5px] text-muted">入社手続きの印：{lv.error}</div>;
+  if (lv.state === 'error') return <div className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-muted">入社手続きの印：{lv.error}</div>;
   const items = live && lv.data!.items.length ? lv.data!.items : ITEMS;
   const rows = (live ? lv.data!.rows : SAMPLE).map((r) => ({ ...r, ...(local[r.id] || {}) }));
 
@@ -63,12 +63,12 @@ export function NyushaMarks() {
   return (
     <section className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface">
       <div className="px-4 py-3">
-        <h2 className="text-[15px] font-bold">入社手続きの印</h2>
-        <div className="text-[12px] text-faint">参画決定から60日以内の人と、付けかけの人。選んだらすぐ保存されます（源泉徴収票・雇用保険証は要る人だけ）{live ? '' : '・見本'}</div>
+        <h2 className="text-md font-bold">入社手続きの印</h2>
+        <div className="text-sm text-faint">参画決定から60日以内の人と、付けかけの人。選んだらすぐ保存されます（源泉徴収票・雇用保険証は要る人だけ）{live ? '' : '・見本'}</div>
       </div>
       <div className="px-4"><WriteError error={error} onClose={() => setError('')} /></div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[980px] border-collapse text-[13px]">
+        <table className="w-full min-w-[980px] border-collapse text-body">
           <thead><tr className="th-row text-left">
             <th className="px-4 py-2.5 font-semibold">氏名</th><th className="px-2 py-2.5 font-semibold">参画決定</th>
             {items.map((i) => <th key={i.key} className="whitespace-nowrap px-2 py-2.5 font-semibold">{i.label}{i.opt && <span className="font-normal text-faint">（要る人）</span>}</th>)}
@@ -87,7 +87,7 @@ export function NyushaMarks() {
                     return (
                       <td key={i.key} className="px-2 py-2">
                         <select aria-label={`${r.name} の${i.label}`} value={v} disabled={!canEdit} title={canEdit ? r.checks[i.key]?.by : needText('edit')} onChange={(e) => set(r, i.key, e.target.value as '' | 'done' | 'na')}
-                          className="min-h-8 rounded-lg border border-field px-1.5 text-[12.5px] disabled:opacity-50"
+                          className="min-h-8 rounded-lg border border-field px-1.5 text-sm disabled:opacity-50"
                           style={v === 'done' ? { background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' } : v === 'na' ? { background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' } : { background: 'var(--color-surface)' }}>
                           <option value="">まだ</option><option value="done">済み</option><option value="na">対象外</option>
                         </select>
@@ -95,7 +95,7 @@ export function NyushaMarks() {
                     );
                   })}
                   <td className="num whitespace-nowrap px-2 py-2 font-semibold" style={{ color: pg.need && pg.done >= pg.need ? 'var(--color-ok)' : undefined }}>{pg.done}/{pg.need}</td>
-                  <td className="px-4 py-2"><input key={r.memo} defaultValue={r.memo} disabled={!canEdit} onBlur={(e) => memo(r, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} placeholder="メモ" className="min-h-8 w-full min-w-[160px] rounded-lg border border-field bg-surface px-2 text-[12.5px] disabled:opacity-50" /></td>
+                  <td className="px-4 py-2"><input key={r.memo} defaultValue={r.memo} disabled={!canEdit} onBlur={(e) => memo(r, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} placeholder="メモ" className="min-h-8 w-full min-w-[160px] rounded-lg border border-field bg-surface px-2 text-sm disabled:opacity-50" /></td>
                 </tr>
               );
             })}

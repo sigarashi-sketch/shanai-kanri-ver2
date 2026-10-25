@@ -30,7 +30,7 @@ export function PersonMemo({ name, live, id, initial }: { name: string; live: bo
   return (
     <div className="flex flex-col gap-4">
       {res.memo && <p className="whitespace-pre-wrap break-words leading-relaxed">{res.memo}</p>}
-      {res.summary && <div><div className="text-[11.5px] text-faint">サマリ</div><p className="mt-1 whitespace-pre-wrap rounded-lg bg-soft px-3 py-2 text-[12.5px]">{res.summary}</p></div>}
+      {res.summary && <div><div className="text-xs text-faint">サマリ</div><p className="mt-1 whitespace-pre-wrap rounded-lg bg-soft px-3 py-2 text-sm">{res.summary}</p></div>}
     </div>
   );
 }

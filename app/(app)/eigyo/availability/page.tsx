@@ -75,42 +75,42 @@ export default function AvailabilityPage() {
       <PageTitle title="面談可能日の承認" sub={`LINE の返信にある面談可能日を、営業リストに反映する前に確かめます${live ? '' : '・見本データ'}`} />
       <LiveBanner state={av.state} error={av.error} onReload={av.reload} note="今の返信から拾った候補です。承認すると営業リストの「面談可能日」に入ります" />
       <MikeikenNote mk={mk} live={live} />
-      <div className="rounded-xl border border-line bg-soft px-4 py-2.5 text-[12.5px] leading-relaxed text-muted">
+      <div className="rounded-xl border border-line bg-soft px-4 py-2.5 text-sm leading-relaxed text-muted">
         返信に含まれる面談可能日は、届いた時点で<b>自動で反映</b>されます（「自動」のしるし）。ここは<b>確認・修正・取り消し</b>用です。メモ・前職は書き換えません。日程を聞く文面は「連絡」の配信から。
       </div>
-      {live && data && !data.tableReady && <div className="rounded-xl border px-4 py-2.5 text-[12.5px]" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)', borderColor: 'var(--color-warn)' }}>{data.hint}（承認は保存できません・見るだけ）</div>}
-      {err && <div role="alert" className="mo-shake flex items-start gap-2 rounded-xl border px-4 py-2.5 text-[12.5px]" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)', borderColor: 'var(--tone-bad-bar)' }}><TriangleAlert size={14} className="mt-0.5" /><span className="flex-1">{err}</span><button onClick={() => setErr('')} aria-label="閉じる"><X size={14} /></button></div>}
+      {live && data && !data.tableReady && <div className="rounded-xl border px-4 py-2.5 text-sm" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)', borderColor: 'var(--color-warn)' }}>{data.hint}（承認は保存できません・見るだけ）</div>}
+      {err && <div role="alert" className="mo-shake flex items-start gap-2 rounded-xl border px-4 py-2.5 text-sm" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)', borderColor: 'var(--tone-bad-bar)' }}><TriangleAlert size={14} className="mt-0.5" /><span className="flex-1">{err}</span><button onClick={() => setErr('')} aria-label="閉じる"><X size={14} /></button></div>}
 
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <RemainRing remain={pending} total={cands.length} />
-        <div className="text-[13px]"><b>承認待ち {pending}人</b>
+        <div className="text-body"><b>承認待ち {pending}人</b>
           <span className="ml-2 text-muted">新規 {cands.filter((c) => c.status === 'new').length}・更新 {cands.filter((c) => c.status === 'updated').length}・変更なし {cands.filter((c) => c.status === 'same').length}{data ? `（返信 ${data.scannedReplies}件を見ました）` : ''}</span>
-          {!canEdit && <div className="text-[12px] text-bad">{needText('edit')}</div>}
+          {!canEdit && <div className="text-sm text-bad">{needText('edit')}</div>}
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <select value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="期間" className="min-h-9 rounded-[10px] border border-field bg-surface px-2.5 text-[13px]">
+          <select value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="期間" className="min-h-9 rounded-[10px] border border-field bg-surface px-2.5 text-body">
             {RANGES.map((d) => <option key={d} value={d}>直近{d}日の返信</option>)}
           </select>
-          <label className="flex items-center gap-1.5 text-[12.5px] text-muted"><input type="checkbox" checked={showSame} onChange={(e) => setShowSame(e.target.checked)} />変更なしも出す</label>
-          {live && <button onClick={av.reload} className="inline-flex items-center gap-1 text-[12px] text-muted"><RefreshCw size={12} />読み直す</button>}
+          <label className="flex items-center gap-1.5 text-sm text-muted"><input type="checkbox" checked={showSame} onChange={(e) => setShowSame(e.target.checked)} />変更なしも出す</label>
+          {live && <button onClick={av.reload} className="inline-flex items-center gap-1 text-sm text-muted"><RefreshCw size={12} />読み直す</button>}
           <button onClick={() => setAsk({ kind: 'all' })} disabled={!canEdit || !visible.length || !!busy || (live && data?.tableReady === false)} title={!canEdit ? needText('edit') : undefined}
-            className="btn-primary inline-flex min-h-10 items-center gap-1.5 rounded-[10px] px-4 text-[13px] font-bold disabled:opacity-40"><Check size={14} />表示中をすべて承認</button>
+            className="btn-primary"><Check size={14} />表示中をすべて承認</button>
         </div>
       </div>
 
       {ask && (
         <div role="alertdialog" className="mo-scale-in flex flex-wrap items-center gap-2 rounded-xl border px-4 py-3" style={{ borderColor: 'var(--a)', background: 'var(--al)' }}>
-          <span className="text-[13px] font-semibold">{ask.kind === 'all' ? `表示中の ${visible.filter((c) => bodyOf(c).trim()).length}人の面談可能日を営業リストに反映します。よろしいですか？` : `${ask.c.name}さんの面談可能日を営業リストから消します。よろしいですか？`}</span>
-          <button onClick={() => { const a = ask; setAsk(null); if (a.kind === 'all') void approve(visible); else void clear(a.c); }} className="btn-primary ml-auto min-h-9 rounded-[10px] px-3.5 text-[13px] font-bold">{ask.kind === 'all' ? '反映する' : '消す'}</button>
-          <button onClick={() => setAsk(null)} className="min-h-9 rounded-[10px] border border-field bg-surface px-3.5 text-[13px] font-semibold">やめる</button>
+          <span className="text-body font-semibold">{ask.kind === 'all' ? `表示中の ${visible.filter((c) => bodyOf(c).trim()).length}人の面談可能日を営業リストに反映します。よろしいですか？` : `${ask.c.name}さんの面談可能日を営業リストから消します。よろしいですか？`}</span>
+          <button onClick={() => { const a = ask; setAsk(null); if (a.kind === 'all') void approve(visible); else void clear(a.c); }} className="btn-primary ml-auto">{ask.kind === 'all' ? '反映する' : '消す'}</button>
+          <button onClick={() => setAsk(null)} className="btn-secondary">やめる</button>
         </div>
       )}
 
       {visible.length === 0 ? (
         <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-8 text-center">
-          {av.state === 'loading' || (live && mk.state === 'loading') ? <div className="text-[13px] text-muted">読み込み中…</div> : <>
-            <Check className="mx-auto text-ok" size={24} /><div className="mt-1.5 text-[14.5px] font-bold">承認待ちの候補はありません</div>
-            <div className="mt-1 text-[12.5px] text-muted">日程を含む返信は届いた時点で自動で反映されます（「変更なしも出す」で自動の分を見られます）。</div>
+          {av.state === 'loading' || (live && mk.state === 'loading') ? <div className="text-body text-muted">読み込み中…</div> : <>
+            <Check className="mx-auto text-ok" size={24} /><div className="mt-1.5 text-md font-bold">承認待ちの候補はありません</div>
+            <div className="mt-1 text-sm text-muted">日程を含む返信は届いた時点で自動で反映されます（「変更なしも出す」で自動の分を見られます）。</div>
           </>}
         </div>
       ) : (
@@ -118,27 +118,27 @@ export default function AvailabilityPage() {
           {visible.map((c, i) => (
             <article key={c.normalizedName} className={`mo-fade-up rounded-xl border border-line bg-surface px-4 py-3 ${flash === c.normalizedName ? 'mo-flash' : ''}`} style={{ ['--i' as string]: Math.min(i, 10) }}>
               <div className="flex flex-wrap items-center gap-2">
-                <PersonName name={c.name} className="text-[14.5px] font-bold underline-offset-2 hover:underline" />
+                <PersonName name={c.name} className="text-md font-bold underline-offset-2 hover:underline" />
                 {c.status === 'new' ? <span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}>新規</span>
                   : c.status === 'updated' ? <span className="chip" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>更新</span>
                     : c.savedBy === 'auto' ? <span className="chip" style={{ background: 'var(--tone-info-bg)', color: 'var(--tone-info-fg)' }}>自動で反映済み</span>
                       : <span className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>変更なし</span>}
-                <span className="text-[11.5px] text-faint">{c.groupName}・最新の返信 {fmt(c.srcTsMs)}</span>
+                <span className="text-xs text-faint">{c.groupName}・最新の返信 {fmt(c.srcTsMs)}</span>
               </div>
               <div className="mt-2 grid gap-3 md:grid-cols-2">
-                <div><div className="mb-1 text-[11.5px] font-semibold text-muted">いま（営業リスト）</div>
-                  <div className="min-h-[92px] whitespace-pre-wrap rounded-[10px] border border-line-soft bg-soft px-3 py-2 text-[12.5px] text-muted">{c.currentBody || '（まだ入っていません）'}</div></div>
-                <div><div className="mb-1 text-[11.5px] font-semibold text-muted">反映する中身（直せます）</div>
+                <div><div className="mb-1 text-xs font-semibold text-muted">いま（営業リスト）</div>
+                  <div className="min-h-[92px] whitespace-pre-wrap rounded-[10px] border border-line-soft bg-soft px-3 py-2 text-sm text-muted">{c.currentBody || '（まだ入っていません）'}</div></div>
+                <div><div className="mb-1 text-xs font-semibold text-muted">反映する中身（直せます）</div>
                   <textarea value={bodyOf(c)} onChange={(e) => setBodies((s) => ({ ...s, [c.normalizedName]: e.target.value }))} disabled={!canEdit} rows={4}
-                    className="min-h-[92px] w-full rounded-[10px] border border-field bg-surface px-3 py-2 text-[13px]" /></div>
+                    className="min-h-[92px] w-full rounded-[10px] border border-field bg-surface px-3 py-2 text-body" /></div>
               </div>
-              <details className="mt-2 text-[12px] text-muted"><summary className="inline-flex cursor-pointer items-center gap-1"><ChevronDown size={12} />元の返信を見る</summary>
-                <pre className="mt-1.5 whitespace-pre-wrap rounded-[10px] bg-soft px-3 py-2 font-sans text-[12px]">{c.rawText}</pre></details>
+              <details className="mt-2 text-sm text-muted"><summary className="inline-flex cursor-pointer items-center gap-1"><ChevronDown size={12} />元の返信を見る</summary>
+                <pre className="mt-1.5 whitespace-pre-wrap rounded-[10px] bg-soft px-3 py-2 font-sans text-sm">{c.rawText}</pre></details>
               <div className="mt-2.5 flex flex-wrap items-center justify-end gap-2">
                 {c.currentBody && <button onClick={() => setAsk({ kind: 'clear', c })} disabled={!canEdit || !!busy} title={!canEdit ? needText('edit') : undefined}
-                  className="inline-flex min-h-9 items-center gap-1 rounded-[10px] border px-3 text-[12.5px] font-semibold disabled:opacity-40" style={{ color: 'var(--color-bad)', borderColor: 'var(--color-bad-line, var(--color-line))' }}><Undo2 size={13} />反映を取り消す</button>}
+                  className="inline-flex min-h-9 items-center gap-1 rounded-[10px] border px-3 text-sm font-semibold disabled:opacity-40" style={{ color: 'var(--color-bad)', borderColor: 'var(--color-bad-line, var(--color-line))' }}><Undo2 size={13} />反映を取り消す</button>}
                 <button onClick={() => void approve([c])} disabled={!canEdit || !!busy || !bodyOf(c).trim() || (live && data?.tableReady === false)} title={!canEdit ? needText('edit') : undefined}
-                  className="btn-primary inline-flex min-h-9 items-center gap-1 rounded-[10px] px-3.5 text-[12.5px] font-bold disabled:opacity-40"><Check size={13} />{busy === c.normalizedName ? '反映しています…' : '承認して反映'}</button>
+                  className="btn-primary"><Check size={13} />{busy === c.normalizedName ? '反映しています…' : '承認して反映'}</button>
               </div>
             </article>
           ))}

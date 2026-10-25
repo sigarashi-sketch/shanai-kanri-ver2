@@ -136,16 +136,16 @@ export function ManualTab({ live, canSend, info, wide }: { live: boolean; canSen
   const months = L?.kadouMonths ?? [];
   const list2 = (title: string, ps: PartnerPerson[], kind: 'main' | 'na' | 'blocked') => !!ps.length && (
     <div className="mt-2">
-      <div className="mb-1 text-[11.5px] font-semibold text-faint">{title}（{ps.length}）</div>
+      <div className="mb-1 text-xs font-semibold text-faint">{title}（{ps.length}）</div>
       {ps.slice(0, 120).map((p) => {
         const on2 = sel.includes(p.id);
         const kj = judgeKadou(p, kadou, L);
         const cj = commuteJudge(p, L?.commute, ST);
         return (
-          <label key={p.id} className={`flex items-start gap-2.5 rounded-lg px-2 py-1.5 text-[13px] ${kind === 'blocked' ? 'opacity-60' : 'hover:bg-soft'} ${on2 ? 'mo-flash' : ''}`}>
+          <label key={p.id} className={`flex items-start gap-2.5 rounded-lg px-2 py-1.5 text-body ${kind === 'blocked' ? 'opacity-60' : 'hover:bg-soft'} ${on2 ? 'mo-flash' : ''}`}>
             <input type="checkbox" className="mt-1" checked={on2} disabled={kind === 'blocked'} onChange={() => toggle(p)} />
             <span className="min-w-0 flex-1">
-              <span className="flex flex-wrap items-center gap-x-2"><b>{p.name}</b><span className="text-[11.5px] text-faint">{p.eki || '駅—'}・稼働 {p.kadou || '—'}</span></span>
+              <span className="flex flex-wrap items-center gap-x-2"><b>{p.name}</b><span className="text-xs text-faint">{p.eki || '駅—'}・稼働 {p.kadou || '—'}</span></span>
               <span className="mt-0.5 flex flex-wrap gap-1">
                 {(p.tags ?? []).map((t) => <span key={t} className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>{t}</span>)}
                 {cj === 'ok' && <span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}>通勤OK</span>}
@@ -153,7 +153,7 @@ export function ManualTab({ live, canSend, info, wide }: { live: boolean; canSen
                 {kj === 'unknown' && <span className="chip" style={{ background: 'var(--tone-caution-bg)', color: 'var(--tone-caution-fg)' }}>稼働月 不明</span>}
                 {kind === 'blocked' && <span className="chip" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>{fareBlock(p, ST)}</span>}
               </span>
-              {p.kibou && <span className="block truncate text-[11.5px] text-muted">希望：{p.kibou}</span>}
+              {p.kibou && <span className="block truncate text-xs text-muted">希望：{p.kibou}</span>}
             </span>
           </label>
         );
@@ -174,26 +174,26 @@ export function ManualTab({ live, canSend, info, wide }: { live: boolean; canSen
       <Step n={1} title="案件情報を貼る" done={!!caseText.trim()}>
         <textarea value={caseText} onChange={(e) => setCaseText(e.target.value)} rows={wide ? 8 : 5} aria-label="案件情報"
           placeholder="案件の文をそのまま貼り付け（駅・勤務条件・開始月・募集人数・単価を読み取って、②の絞り込みに反映します）"
-          className="w-full resize-y rounded-[10px] border border-field bg-surface px-3 py-2 text-[13px] outline-none" />
-        <div className="mt-1.5 flex flex-col gap-1.5 text-[12px]">
+          className="w-full resize-y rounded-[10px] border border-field bg-surface px-3 py-2 text-body outline-none" />
+        <div className="mt-1.5 flex flex-col gap-1.5 text-sm">
           {on && stLive.busy && <span className="text-faint">案件文から駅を探しています…</span>}
           {ST?.resolved && <Note tone="info">「{ST.station}」（{ST.muni}／{ST.blockName}）に通えそうな人を出しています</Note>}
           {ST && !ST.resolved && ST.reason !== 'too_short' && (ST.hint || ST.error) && <Note tone="warn">{ST.hint || ST.error}</Note>}
           {!!caseNotes.length && <Note tone={lim?.tanka ? 'bad' : 'warn'}>{caseNotes.join('\n')}</Note>}
           <label className="flex items-center gap-2 text-muted">駅を手で直す
-            <input value={station} onChange={(e) => setStation(e.target.value)} placeholder="例：品川" className="min-w-0 flex-1 rounded-lg border border-field bg-surface px-2 py-1 text-[12.5px] text-ink outline-none" /></label>
+            <input value={station} onChange={(e) => setStation(e.target.value)} placeholder="例：品川" className="min-w-0 flex-1 rounded-lg border border-field bg-surface px-2 py-1 text-sm text-ink outline-none" /></label>
         </div>
       </Step>
       <Step n={2} title="人が絞られる（営業中の人）">
-        <div className="flex flex-wrap items-center gap-2 text-[12.5px]">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
           <select value={kadou} onChange={(e) => setKadou(Number(e.target.value))} aria-label="稼働月" className="rounded-lg border border-field bg-surface px-2 py-1.5">
             <option value={0}>稼働月を指定しない</option>{months.map((m) => <option key={m.ym} value={m.ym}>{m.label}稼働</option>)}
           </select>
           <input value={word} onChange={(e) => setWord(e.target.value)} placeholder="言葉で絞る（例：CCNA ヘルプデスク）" aria-label="言葉で絞る" className="min-w-0 flex-1 rounded-lg border border-field bg-surface px-2 py-1.5 outline-none" />
         </div>
-        {on && list.state === 'loading' && <p className="mt-2 text-[12.5px] text-muted">営業中の人を読み込んでいます…</p>}
+        {on && list.state === 'loading' && <p className="mt-2 text-sm text-muted">営業中の人を読み込んでいます…</p>}
         {on && list.error && <Note tone="bad">{list.error}</Note>}
-        <p className="mt-1.5 text-[11.5px] text-faint">{g.main.length + g.na.length}人{kadou ? `・稼働月が違う ${g.kadouNg}人を除外` : ''}{ST?.fare?.pending ? '・交通費を調べています…' : ''}</p>
+        <p className="mt-1.5 text-xs text-faint">{g.main.length + g.na.length}人{kadou ? `・稼働月が違う ${g.kadouNg}人を除外` : ''}{ST?.fare?.pending ? '・交通費を調べています…' : ''}</p>
       </Step>
       <Step n={3} title={`人を選ぶ（${picked.length}人${lim?.cap ? ` / ${lim.cap}人まで` : ''}）`} done={!!picked.length}>
         {why && <Note tone="warn">{why}</Note>}
@@ -201,7 +201,7 @@ export function ManualTab({ live, canSend, info, wide }: { live: boolean; canSen
           {list2('合いそうな人', g.main, 'main')}
           {list2('通勤エリアが未回答の人', g.na, 'na')}
           {list2('交通費・粗利の条件で選べない人', g.blocked, 'blocked')}
-          {!g.main.length && !g.na.length && !g.blocked.length && <p className="py-3 text-center text-[12.5px] text-muted">条件に合う人がいません</p>}
+          {!g.main.length && !g.na.length && !g.blocked.length && <p className="py-3 text-center text-sm text-muted">条件に合う人がいません</p>}
         </div>
       </Step>
     </>
@@ -210,15 +210,15 @@ export function ManualTab({ live, canSend, info, wide }: { live: boolean; canSen
   const right = (
     <Step n={4} title="本文を書いて送る" done={!!text.trim()}>
       <div className="mb-1.5 flex flex-wrap gap-1.5">
-        <button type="button" disabled={!caseText.trim()} onClick={() => setText(ikouMessage(caseText))} className="rounded-full border px-2.5 py-1 text-[12px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>案件文を本文に入れる</button>
-        <button type="button" onClick={() => insert('{名前}')} className="rounded-full border border-line px-2.5 py-1 text-[12px]">名前を差し込む</button>
+        <button type="button" disabled={!caseText.trim()} onClick={() => setText(ikouMessage(caseText))} className="rounded-full border px-2.5 py-1 text-sm font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>案件文を本文に入れる</button>
+        <button type="button" onClick={() => insert('{名前}')} className="rounded-full border border-line px-2.5 py-1 text-sm">名前を差し込む</button>
       </div>
       <textarea ref={box} value={text} onChange={(e) => setText(e.target.value)} rows={wide ? 12 : 7} maxLength={5000} aria-label="本文"
         placeholder="「案件文を本文に入れる」で今の配信画面と同じ文面が入ります。{名前} は一人ずつその人の名前になります"
-        className="w-full resize-y rounded-[10px] border border-field bg-surface px-3 py-2 text-[13px] outline-none" />
-      <div className="mb-2 mt-1 flex flex-wrap gap-1.5">{PHRASES.map((x) => <button key={x} type="button" onClick={() => insert(x)} className="rounded-full border border-line px-2 py-0.5 text-[11.5px] text-muted">{x.length > 16 ? x.slice(0, 15) + '…' : x}</button>)}</div>
+        className="w-full resize-y rounded-[10px] border border-field bg-surface px-3 py-2 text-body outline-none" />
+      <div className="mb-2 mt-1 flex flex-wrap gap-1.5">{PHRASES.map((x) => <button key={x} type="button" onClick={() => insert(x)} className="rounded-full border border-line px-2 py-0.5 text-xs text-muted">{x.length > 16 ? x.slice(0, 15) + '…' : x}</button>)}</div>
       <LinePreview text={text} name={text.includes('{名前}') ? picked[0]?.name || SAMPLE_RECIPIENTS[0].name : undefined} />
-      {text.includes('{名前}') && <p className="mt-1 text-[11.5px] text-faint">{'{名前}'} を使うと、一人ずつ送ります（送った分は同じ案件番号で案件進捗にまとまります）</p>}
+      {text.includes('{名前}') && <p className="mt-1 text-xs text-faint">{'{名前}'} を使うと、一人ずつ送ります（送った分は同じ案件番号で案件進捗にまとまります）</p>}
     </Step>
   );
 
@@ -229,14 +229,14 @@ export function ManualTab({ live, canSend, info, wide }: { live: boolean; canSen
         <div className="flex flex-col gap-3">{left}</div>
         <div className="flex flex-col gap-3">{right}
           {result && (
-            <div className="mo-scale-in rounded-xl border px-3.5 py-3 text-[12.5px]" style={{ background: `var(--tone-${result.ok ? 'ok' : 'bad'}-bg)`, color: `var(--tone-${result.ok ? 'ok' : 'bad'}-fg)`, borderColor: `var(--tone-${result.ok ? 'ok' : 'bad'}-bar)` }}>
-              <b className="text-[13.5px]">{result.title}</b>{result.lines.map((l) => <div key={l} className="mt-0.5">{l}</div>)}
+            <div className="mo-scale-in rounded-xl border px-3.5 py-3 text-sm" style={{ background: `var(--tone-${result.ok ? 'ok' : 'bad'}-bg)`, color: `var(--tone-${result.ok ? 'ok' : 'bad'}-fg)`, borderColor: `var(--tone-${result.ok ? 'ok' : 'bad'}-bar)` }}>
+              <b className="text-body">{result.title}</b>{result.lines.map((l) => <div key={l} className="mt-0.5">{l}</div>)}
             </div>
           )}
         </div>
       </div>
       <div className="flex items-center gap-3 border-t border-line px-4 py-3">
-        {prog ? <SendProgress done={prog.done} total={prog.total} label={prog.label} /> : <span className="flex-1 text-[12.5px] text-muted">{blockSend || `${picked.length}人に 1:1 で送ります（あおいから）`}</span>}
+        {prog ? <SendProgress done={prog.done} total={prog.total} label={prog.label} /> : <span className="flex-1 text-sm text-muted">{blockSend || `${picked.length}人に 1:1 で送ります（あおいから）`}</span>}
         <HoldButton label={`長押しで配信（${picked.length}人）`} disabled={!!blockSend || !!prog} title={blockSend || undefined} onDone={go} />
       </div>
     </div>

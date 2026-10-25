@@ -60,7 +60,7 @@ export function MikeikenNote({ mk, live }: { mk: Mikeiken; live: boolean }) {
     : mk.state === 'loading' ? '未経験の人（今のプロパーリストに入っている人）を確かめています…'
       : `未経験の人に絞れないので、人の行は出していません（${mk.error}）`;
   return (
-    <div className="flex items-center gap-1.5 text-[11.5px] text-faint" style={mk.state === 'error' ? { color: 'var(--tone-bad-fg)' } : undefined}>
+    <div className="flex items-center gap-1.5 text-xs text-faint" style={mk.state === 'error' ? { color: 'var(--tone-bad-fg)' } : undefined}>
       <Users size={12} />{text}
     </div>
   );

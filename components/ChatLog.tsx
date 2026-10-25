@@ -39,18 +39,18 @@ export function ChatLog({ bubbles, className, children, resetKey }: { bubbles: B
         const sameWho = i > 0 && bubbles[i - 1].out === b.out && bubbles[i - 1].who === b.who && !sep;
         return (
           <div key={b.key}>
-            {sep && <div className="my-2 flex justify-center"><span className="rounded-full px-3 py-0.5 text-[11.5px] font-semibold text-muted" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-line)' }}>{day}</span></div>}
+            {sep && <div className="my-2 flex justify-center"><span className="rounded-full px-3 py-0.5 text-xs font-semibold text-muted" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-line)' }}>{day}</span></div>}
             <div className={`flex ${b.out ? 'justify-end' : 'justify-start'} ${sameWho ? '' : 'mt-1.5'}`}>
               <div className={`flex max-w-[78%] flex-col ${b.out ? 'items-end' : 'items-start'}`}>
-                {b.who && !sameWho && <span className="mb-0.5 px-1 text-[11.5px] font-semibold text-muted">{b.who}</span>}
+                {b.who && !sameWho && <span className="mb-0.5 px-1 text-xs font-semibold text-muted">{b.who}</span>}
                 <div className={`flex items-end gap-1.5 ${b.out ? 'flex-row-reverse' : ''}`}>
-                  <div className="whitespace-pre-wrap break-words rounded-[18px] px-3.5 py-2 text-[14px] leading-[1.6]"
+                  <div className="whitespace-pre-wrap break-words rounded-[18px] px-3.5 py-2 text-body leading-[1.6]"
                     style={b.out
                       ? { background: 'var(--a)', color: 'var(--ao)', borderBottomRightRadius: 6 }
                       : { background: 'var(--color-surface)', color: 'var(--color-ink)', border: '1px solid var(--color-line)', borderBottomLeftRadius: 6 }}>
                     {b.text}
                   </div>
-                  <span className="shrink-0 pb-0.5 text-[10.5px] text-faint">{time}</span>
+                  <span className="shrink-0 pb-0.5 text-xs text-faint">{time}</span>
                 </div>
               </div>
             </div>

@@ -52,12 +52,31 @@ export function resolveColors(choice: ColorChoice): { keys: Record<ModuleKey, Co
   return { keys, notes };
 }
 
+// ---- 色の上の文字が読めるように（10-25 見た目の整理）。主の色の上に on の字を乗せて 4.5:1 に届かない色は、同じ色味のまま少しずつ暗くする ----
+const lum = (hex: string) => {
+  const n = parseInt(hex.slice(1), 16);
+  const f = (c: number) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  return 0.2126 * f((n >> 16) & 255) + 0.7152 * f((n >> 8) & 255) + 0.0722 * f(n & 255);
+};
+export const contrast = (a: string, b: string) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+const darken = (hex: string, k: number) => {
+  const n = parseInt(hex.slice(1), 16);
+  const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((x) => Math.round(x * (1 - k)));
+  return '#' + c.map((x) => x.toString(16).padStart(2, '0')).join('').toUpperCase();
+};
+/** 主の色（p）を、上に乗る字（on）が 4.5:1 で読める濃さにして返す（黄×黒のように元から読める色はそのまま） */
+export function readableFill(p: string, on: string): string {
+  if (on.toUpperCase() !== '#FFFFFF') return p;
+  for (let k = 0; k <= 0.5; k += 0.02) { const c = darken(p, k); if (contrast(c, on) >= 4.6) return c; }
+  return darken(p, 0.5);
+}
+
 /** CSS 変数にする。--c-jinji / --d-jinji / --s-jinji / --l-jinji / --o-jinji … */
 export function cssVars(keys: Record<ModuleKey, ColorKey>): Record<string, string> {
   const v: Record<string, string> = {};
   for (const m of MODULES) {
     const s = PALETTE[keys[m.key]];
-    v[`--c-${m.key}`] = s.p;
+    v[`--c-${m.key}`] = readableFill(s.p, s.on);
     v[`--d-${m.key}`] = s.d;
     v[`--s-${m.key}`] = s.s;
     v[`--l-${m.key}`] = s.l;

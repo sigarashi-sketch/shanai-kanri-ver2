@@ -68,8 +68,8 @@ export default function SameNamePage() {
     <main className="px-6 pb-12 pt-[22px]">
       <div className="mo-fade-up rounded-xl border border-line bg-surface px-8 py-14 text-center">
         <Lock className="mx-auto text-faint" size={28} />
-        <h1 className="mt-3 text-[20px] font-bold">同姓同名をつなぐのは全体管理者（super_admin・admin）だけです</h1>
-        <p className="mt-2 text-[13.5px] text-muted">今の社内システムのロールで判定しています。</p>
+        <h1 className="mt-3 text-xl font-bold">同姓同名をつなぐのは全体管理者（super_admin・admin）だけです</h1>
+        <p className="mt-2 text-body text-muted">今の社内システムのロールで判定しています。</p>
       </div>
     </main>
   );
@@ -79,10 +79,10 @@ export default function SameNamePage() {
     <main className="flex flex-col gap-3.5 px-4 pb-12 pt-[22px] sm:px-6">
       <PageTitle title="同姓同名をつなぐ" sub="同じ名前の人が2人以上いるとき、名簿の行と基本情報の回答がどの応募の人かを選びます（採用担当・所属・最寄駅で見分ける）" />
       <LiveBanner state={state} error={error} onReload={load} note="今の社内システムの営業リスト（応募）・名簿・基本情報の回答を読んでいます。選ぶとすぐ保存します" />
-      <div className="text-[12.5px] text-muted">{ym && `${ym}の名簿で見ています・`}同じ名前 {items.length}件{open ? `・まだ決まっていないもの ${open}件` : ''}</div>
+      <div className="text-sm text-muted">{ym && `${ym}の名簿で見ています・`}同じ名前 {items.length}件{open ? `・まだ決まっていないもの ${open}件` : ''}</div>
 
       {state !== 'loading' && items.length === 0 && (
-        <section className="rounded-xl border border-line bg-surface px-6 py-10 text-center text-[13px] text-muted">未経験の人で、同じ名前の応募が2つ以上ある人はいません</section>
+        <section className="rounded-xl border border-line bg-surface px-6 py-10 text-center text-body text-muted">未経験の人で、同じ名前の応募が2つ以上ある人はいません</section>
       )}
 
       {items.map((x, i) => {
@@ -91,47 +91,47 @@ export default function SameNamePage() {
           <section key={x.key} className="mo-fade-up flex flex-col gap-3 rounded-xl border border-line bg-surface px-4 py-4 sm:px-5" style={{ ['--i' as string]: Math.min(i, 10) }}>
             <div className="flex flex-wrap items-center gap-2">
               <Users size={15} className="text-faint" />
-              <b className="text-[15px]">{x.name}</b>
+              <b className="text-md">{x.name}</b>
               <span className="chip" style={{ background: 'var(--tone-caution-bg)', color: 'var(--tone-caution-fg)' }}>応募 {x.candidates.length}つ</span>
               {openCount(x) > 0 && <span className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>未決 {openCount(x)}</span>}
             </div>
-            <ol className="flex flex-col gap-1 text-[12.5px] text-muted">
+            <ol className="flex flex-col gap-1 text-sm text-muted">
               {x.candidates.map((c, k) => <li key={c.personId}><b className="text-ink">応募{k + 1}</b>　{candidateLabel(c)}</li>)}
             </ol>
 
             <div className="flex flex-col gap-1.5 border-t border-line-soft pt-3">
-              <div className="text-[12px] font-bold text-muted">名簿（{ym || '今月'}）の行</div>
+              <div className="text-sm font-bold text-muted">名簿（{ym || '今月'}）の行</div>
               {x.inRoster || x.rosterLink ? (
-                <label className="flex flex-wrap items-center gap-2 text-[13px]">
+                <label className="flex flex-wrap items-center gap-2 text-body">
                   <span>この月の名簿の「{x.name}」は</span>
                   <select value={x.rosterLinkExact ? x.rosterLink : ''} disabled={saving === rk}
                     onChange={(e) => e.target.value && void save(rk, { kind: 'roster', name: x.key, ym, personId: e.target.value })}
-                    className="min-h-9 min-w-0 max-w-full rounded-lg border border-field bg-surface px-2 text-[13px]">
+                    className="min-h-9 min-w-0 max-w-full rounded-lg border border-field bg-surface px-2 text-body">
                     <option value="">{x.rosterLink ? `（前の月から：応募${x.candidates.findIndex((c) => c.personId === x.rosterLink) + 1}）選ぶ…` : 'まだ決まっていません。選ぶ…'}</option>
                     {x.candidates.map((c, k) => <option key={c.personId} value={c.personId}>応募{k + 1}（{candidateLabel(c)}）</option>)}
                   </select>
                 </label>
-              ) : <div className="text-[12.5px] text-faint">この月の名簿にはこの名前の行がありません</div>}
-              {msg?.key === rk && <div className={`text-[12px] ${msg.bad ? 'text-bad' : 'text-muted'}`}>{msg.text}</div>}
+              ) : <div className="text-sm text-faint">この月の名簿にはこの名前の行がありません</div>}
+              {msg?.key === rk && <div className={`text-sm ${msg.bad ? 'text-bad' : 'text-muted'}`}>{msg.text}</div>}
             </div>
 
             <div className="flex flex-col gap-1.5 border-t border-line-soft pt-3">
-              <div className="text-[12px] font-bold text-muted">基本情報フォームの回答</div>
-              {x.answers.length === 0 && <div className="text-[12.5px] text-faint">回答はまだありません</div>}
+              <div className="text-sm font-bold text-muted">基本情報フォームの回答</div>
+              {x.answers.length === 0 && <div className="text-sm text-faint">回答はまだありません</div>}
               {x.answers.map((a) => {
                 const ak = `a:${x.key}:${a.token || 'sheet'}`;
                 return (
                   <div key={ak} className="flex flex-col gap-1">
-                    <label className="flex flex-wrap items-center gap-2 text-[13px]">
+                    <label className="flex flex-wrap items-center gap-2 text-body">
                       <span>{a.submittedAt ? `${ymd(a.submittedAt)}の回答` : '前のシートからの回答'}（最寄駅 {a.eki || '—'}{a.where === 'extra' ? '・同じ名前の人の回答と分けて置いてある分' : ''}）は</span>
                       <select value={a.personId} disabled={saving === ak}
                         onChange={(e) => e.target.value && void save(ak, { kind: 'basic', name: x.key, token: a.token, personId: e.target.value })}
-                        className="min-h-9 min-w-0 max-w-full rounded-lg border border-field bg-surface px-2 text-[13px]">
+                        className="min-h-9 min-w-0 max-w-full rounded-lg border border-field bg-surface px-2 text-body">
                         <option value="">まだ決まっていません。選ぶ…</option>
                         {x.candidates.map((c, k) => <option key={c.personId} value={c.personId}>応募{k + 1}（{candidateLabel(c)}）</option>)}
                       </select>
                     </label>
-                    {msg?.key === ak && <div className={`text-[12px] ${msg.bad ? 'text-bad' : 'text-muted'}`}>{msg.text}</div>}
+                    {msg?.key === ak && <div className={`text-sm ${msg.bad ? 'text-bad' : 'text-muted'}`}>{msg.text}</div>}
                   </div>
                 );
               })}
@@ -139,7 +139,7 @@ export default function SameNamePage() {
           </section>
         );
       })}
-      <p className="text-[11.5px] text-faint">請求（請求書づくり・現場/取引先マスタ・格納）は今までどおり氏名で動きます。ここでつないでも請求は変わりません。</p>
+      <p className="text-xs text-faint">請求（請求書づくり・現場/取引先マスタ・格納）は今までどおり氏名で動きます。ここでつないでも請求は変わりません。</p>
     </main>
   );
 }

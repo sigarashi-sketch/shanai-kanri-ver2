@@ -68,21 +68,21 @@ export default function CommunityPage() {
       <div className="mo-fade-up flex flex-wrap items-stretch gap-3" style={{ ['--i' as string]: 1 }}>
         <div className="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
           <RemainRing remain={remain} total={events.length} />
-          <div className="text-[13px]"><b>まだ呼びかけていない {remain}件</b>{!canEdit && <div className="text-[12px] text-bad">{needText('edit')}</div>}</div>
+          <div className="text-body"><b>まだ呼びかけていない {remain}件</b>{!canEdit && <div className="text-sm text-bad">{needText('edit')}</div>}</div>
         </div>
         {comms.map((c) => (
-          <div key={c.id} className="rounded-xl border border-line bg-surface px-4 py-3 text-[12.5px]">
-            <div className="flex items-center gap-1.5 text-[13.5px] font-bold"><Users size={14} style={{ color: 'var(--ad)' }} />{c.name}<span className="font-normal text-muted">{c.members}人</span></div>
+          <div key={c.id} className="rounded-xl border border-line bg-surface px-4 py-3 text-sm">
+            <div className="flex items-center gap-1.5 text-body font-bold"><Users size={14} style={{ color: 'var(--ad)' }} />{c.name}<span className="font-normal text-muted">{c.members}人</span></div>
             <div className="mt-0.5 text-muted">リーダー {c.leader}{c.sub && `・サブ ${c.sub}`}</div>
           </div>
         ))}
-        {!live && <div className="rounded-xl border border-line bg-surface px-4 py-3 text-[12.5px]"><div className="text-muted">今週のコミュニティ面談</div><div className="num text-[20px] font-bold">{MENDAN_THIS_WEEK}<span className="text-[12px] text-muted">件</span></div></div>}
+        {!live && <div className="rounded-xl border border-line bg-surface px-4 py-3 text-sm"><div className="text-muted">今週のコミュニティ面談</div><div className="num text-xl font-bold">{MENDAN_THIS_WEEK}<span className="text-sm text-muted">件</span></div></div>}
       </div>
 
       {/* 班分けを直す（今のコミュニティの画面と同じ口・本物のときだけ・10-25） */}
       {live && mk.state === 'ready' && <TeamsEditor teams={liveTeams} onDone={ike.reload} />}
 
-      {remain === 0 && <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-6 text-center"><Check className="mx-auto text-ok" size={22} /><div className="mt-1.5 text-[14px] font-bold">予定の呼びかけはぜんぶ済みました</div></div>}
+      {remain === 0 && <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-6 text-center"><Check className="mx-auto text-ok" size={22} /><div className="mt-1.5 text-body font-bold">予定の呼びかけはぜんぶ済みました</div></div>}
 
       <div className="grid gap-3 lg:grid-cols-3">
         {events.map((e, i) => {
@@ -90,16 +90,16 @@ export default function CommunityPage() {
           return (
             <article key={e.id} className={`mo-fade-up flex flex-col rounded-xl border border-line bg-surface ${flash === e.id ? 'mo-flash' : ''}`} style={{ ['--i' as string]: i + 2 }}>
               <div className="border-b border-line-soft px-4 py-3">
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1"><span className="chip" style={{ background: 'var(--al)', color: 'var(--ad)' }}>{e.kind}</span><span className="num text-[12.5px] text-muted">{fmt(e.date)} {e.time}・{e.place}</span></div>
-                <div className="mt-1 text-[14.5px] font-bold">{e.title}</div>
-                <div className="text-[12px] text-faint">主催 {e.host}</div>
-                <div className="mt-2 flex items-center gap-2"><div className="h-2 flex-1 overflow-hidden rounded-full bg-sunken"><div className="mo-bar h-full rounded-full" style={{ width: `${(going / e.cap) * 100}%`, background: 'var(--a)' }} /></div><span className="num whitespace-nowrap text-[12px]">参加 {going} / {e.cap}人</span></div>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1"><span className="chip" style={{ background: 'var(--al)', color: 'var(--ad)' }}>{e.kind}</span><span className="num text-sm text-muted">{fmt(e.date)} {e.time}・{e.place}</span></div>
+                <div className="mt-1 text-md font-bold">{e.title}</div>
+                <div className="text-sm text-faint">主催 {e.host}</div>
+                <div className="mt-2 flex items-center gap-2"><div className="h-2 flex-1 overflow-hidden rounded-full bg-sunken"><div className="mo-bar h-full rounded-full" style={{ width: `${(going / e.cap) * 100}%`, background: 'var(--a)' }} /></div><span className="num whitespace-nowrap text-sm">参加 {going} / {e.cap}人</span></div>
               </div>
               <ul className="flex-1 px-4 py-2">
                 {e.attendees.map((a) => (
-                  <li key={a.id} className="flex items-center gap-2 py-1 text-[12.5px]">
+                  <li key={a.id} className="flex items-center gap-2 py-1 text-sm">
                     <span className="flex-1"><PersonName name={a.name} className="underline-offset-2 hover:underline" /></span>
-                    <select aria-label={`${a.name} の出欠`} value={a.state} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(ev) => setState(e, a, ev.target.value as Attendee['state'])} className="min-h-7 rounded-md border border-field px-1 text-[12px] disabled:opacity-60" style={{ background: `var(--tone-${ST_TONE[a.state]}-bg)`, color: `var(--tone-${ST_TONE[a.state]}-fg)` }}>
+                    <select aria-label={`${a.name} の出欠`} value={a.state} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(ev) => setState(e, a, ev.target.value as Attendee['state'])} className="min-h-7 rounded-md border border-field px-1 text-sm disabled:opacity-60" style={{ background: `var(--tone-${ST_TONE[a.state]}-bg)`, color: `var(--tone-${ST_TONE[a.state]}-fg)` }}>
                       {(['参加', '未定', '不参加'] as const).map((s) => <option key={s}>{s}</option>)}
                     </select>
                   </li>
@@ -107,17 +107,17 @@ export default function CommunityPage() {
               </ul>
               <div className="flex flex-wrap items-center gap-1.5 border-t border-line-soft px-4 py-2.5">
                 {called[e.id] ? (
-                  <span className="flex items-center gap-1.5 text-[12.5px] text-ok"><Check size={14} />呼びかけ済み（{called[e.id]}）</span>
+                  <span className="flex items-center gap-1.5 text-sm text-ok"><Check size={14} />呼びかけ済み（{called[e.id]}）</span>
                 ) : (<>
-                  <select aria-label="呼びかける相手" value={target[e.id] ?? targetsOf(e)[0]} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(ev) => setTarget((t) => ({ ...t, [e.id]: ev.target.value }))} className="min-h-8 min-w-[140px] flex-1 rounded-lg border border-field bg-surface px-1.5 text-[12.5px] disabled:opacity-50">{targetsOf(e).map((t) => <option key={t}>{t}</option>)}</select>
-                  <button onClick={() => call(e)} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} className="btn-primary inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg px-2.5 text-[12.5px] font-bold disabled:cursor-not-allowed disabled:opacity-40"><Megaphone size={14} />参加を呼びかける</button>
+                  <select aria-label="呼びかける相手" value={target[e.id] ?? targetsOf(e)[0]} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(ev) => setTarget((t) => ({ ...t, [e.id]: ev.target.value }))} className="min-h-8 min-w-[140px] flex-1 rounded-lg border border-field bg-surface px-1.5 text-sm disabled:opacity-50">{targetsOf(e).map((t) => <option key={t}>{t}</option>)}</select>
+                  <button onClick={() => call(e)} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} className="btn-primary btn-sm"><Megaphone size={14} />参加を呼びかける</button>
                 </>)}
               </div>
             </article>
           );
         })}
       </div>
-      <p className="text-[11.5px] text-faint">呼びかけは LINE 配信の下書きに入るだけです。実際に送るのは配信の画面から、送る権限のある人が行います。</p>
+      <p className="text-xs text-faint">呼びかけは LINE 配信の下書きに入るだけです。実際に送るのは配信の画面から、送る権限のある人が行います。</p>
     </main>
   );
 }

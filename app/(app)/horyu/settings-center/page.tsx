@@ -25,12 +25,12 @@ export default function SettingsCenterPage() {
   return (
     <HoryuFrame title="設定センター" sub="社内システムの設定の変更履歴（見るだけ・変えるのは今の画面から）" state={r.state} error={r.error} onReload={r.reload}>
       <div className="mo-fade-up flex flex-wrap items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3">
-        <label className="flex items-center gap-1.5 text-[12.5px] text-muted">区分<select value={sec} onChange={(e) => setSec(e.target.value)} className={inputCls}><option value="">すべて</option>{sections.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
-        <span className="ml-auto text-[12px] text-faint">{shown.length}件</span>
+        <label className="flex items-center gap-1.5 text-sm text-muted">区分<select value={sec} onChange={(e) => setSec(e.target.value)} className={inputCls}><option value="">すべて</option>{sections.map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
+        <span className="ml-auto text-sm text-faint">{shown.length}件</span>
       </div>
       <Card>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] border-collapse text-[13px]">
+          <table className="w-full min-w-[720px] border-collapse text-body">
             <thead><tr className="th-row"><th className={thCls}>いつ</th><th className={thCls}>だれが</th><th className={thCls}>区分</th><th className={thCls}>設定</th><th className={thCls}>操作</th><th className={thCls}>状態</th></tr></thead>
             <tbody>
               {shown.map((x) => (
@@ -38,7 +38,7 @@ export default function SettingsCenterPage() {
                   <td className={`${tdCls} num whitespace-nowrap`}>{fmtAt(x.at)}</td>
                   <td className={tdCls}>{x.actor.split('@')[0] || '—'}</td>
                   <td className={tdCls}>{x.sectionLabel}</td>
-                  <td className={tdCls}><b>{x.label}</b>{changeText(x.changes) && <div className="text-[11.5px] text-faint">{changeText(x.changes)}</div>}</td>
+                  <td className={tdCls}><b>{x.label}</b>{changeText(x.changes) && <div className="text-xs text-faint">{changeText(x.changes)}</div>}</td>
                   <td className={tdCls}>{x.actionLabel}</td>
                   <td className={tdCls}>{STATE_LABEL[x.state] ?? x.state}</td>
                 </tr>

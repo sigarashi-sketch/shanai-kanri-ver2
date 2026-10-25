@@ -51,11 +51,11 @@ export default function KashitsukePage() {
 
   return (
     <HoryuFrame title="貸付管理" sub="前払い・金銭貸付と、その回収（天引き・振込・手渡し）" state={r.state} error={r.error} onReload={r.reload}
-      actions={<button onClick={() => setAdding(!adding)} className="btn-primary inline-flex min-h-10 items-center gap-1 rounded-[10px] px-4 text-[13.5px] font-semibold"><Plus size={15} />貸付を足す</button>}>
+      actions={<button onClick={() => setAdding(!adding)} className="btn-primary"><Plus size={15} />貸付を足す</button>}>
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-        <div className="rounded-xl border border-line bg-surface px-4 py-3"><div className="text-[12px] text-muted">回収の残り</div><div className="num text-[20px] font-bold">{yen(totalRemain)}</div></div>
-        <div className="rounded-xl border border-line bg-surface px-4 py-3"><div className="text-[12px] text-muted">期日を過ぎた分</div><div className="num text-[20px] font-bold" style={{ color: totalOver ? 'var(--tone-bad-fg)' : undefined }}>{yen(totalOver)}</div></div>
-        <label className="flex flex-col justify-center gap-1 rounded-xl border border-line bg-surface px-4 py-3 text-[12px] text-muted">見るもの
+        <div className="rounded-xl border border-line bg-surface px-4 py-3"><div className="text-sm text-muted">回収の残り</div><div className="num text-xl font-bold">{yen(totalRemain)}</div></div>
+        <div className="rounded-xl border border-line bg-surface px-4 py-3"><div className="text-sm text-muted">期日を過ぎた分</div><div className="num text-xl font-bold" style={{ color: totalOver ? 'var(--tone-bad-fg)' : undefined }}>{yen(totalOver)}</div></div>
+        <label className="flex flex-col justify-center gap-1 rounded-xl border border-line bg-surface px-4 py-3 text-sm text-muted">見るもの
           <select value={view} onChange={(e) => setView(e.target.value as View)} className={inputCls}><option value="open">回収中</option><option value="all">すべて</option><option value="deleted">削除ずみ</option></select>
         </label>
       </div>
@@ -63,15 +63,15 @@ export default function KashitsukePage() {
       {adding && <AddForm onSave={async (b) => { const ok = await act({ action: 'add', ...b }, `${b.name} の貸付を足しました`); if (ok || sample) setAdding(false); }} />}
       <Card>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] border-collapse text-[13px]">
+          <table className="w-full min-w-[860px] border-collapse text-body">
             <thead><tr className="th-row"><th className={thCls} /><th className={thCls}>氏名</th><th className={thCls}>種別</th><th className={`${thCls} text-right`}>貸した額</th><th className={`${thCls} text-right`}>残り</th><th className={thCls}>次の期日</th><th className={thCls}>遅れ</th><th className={thCls}>状態</th></tr></thead>
             <tbody>
               {rows.map((l) => (
                 <Fragment key={l.id}>
                   <tr className="row border-t border-line-soft">
                     <td className="pl-3"><button aria-label="中身を開く" aria-expanded={open === l.id} onClick={() => setOpen(open === l.id ? '' : l.id)} className="rounded p-1 text-muted">{open === l.id ? <ChevronDown size={15} /> : <ChevronRight size={15} />}</button></td>
-                    <td className={tdCls}><PersonName name={l.name} />{l.flag && <span className="chip ml-1.5" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>{FLAG[l.flag] ?? l.flag}</span>}<div className="text-[11.5px] text-faint">{l.company}</div></td>
-                    <td className={tdCls}>{KIND[l.kind] ?? l.kind}<div className="text-[11.5px] text-faint">{l.lent_on}</div></td>
+                    <td className={tdCls}><PersonName name={l.name} />{l.flag && <span className="chip ml-1.5" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>{FLAG[l.flag] ?? l.flag}</span>}<div className="text-xs text-faint">{l.company}</div></td>
+                    <td className={tdCls}>{KIND[l.kind] ?? l.kind}<div className="text-xs text-faint">{l.lent_on}</div></td>
                     <td className={`${tdCls} num text-right`}>{yen(l.amount)}</td>
                     <td className={`${tdCls} num text-right font-semibold`}>{l.status === 'open' ? yen(l.sum.remaining) : '—'}</td>
                     <td className={`${tdCls} num`}>{l.sum.noSchedule ? <span className="text-warn">返済予定なし</span> : l.sum.nextDue ? `${l.sum.nextDue}・${yen(l.sum.nextAmount)}` : '—'}</td>
@@ -99,7 +99,7 @@ function AddForm({ onSave }: { onSave: (b: Record<string, string>) => void }) {
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
   return (
     <Card title="貸付を足す" note="前払いは本来の支給日に全額を天引きする1行を自動で作ります">
-      <div className="flex flex-wrap items-end gap-2 px-4 pb-4 text-[12.5px] text-muted">
+      <div className="flex flex-wrap items-end gap-2 px-4 pb-4 text-sm text-muted">
         <label className="flex flex-col gap-1">種別<select value={f.kind} onChange={set('kind')} className={inputCls}><option value="kashitsuke">金銭貸付</option><option value="maebarai">前払い</option></select></label>
         <label className="flex flex-col gap-1">氏名<input value={f.name || ''} onChange={set('name')} className={`${inputCls} w-[140px]`} /></label>
         <label className="flex flex-col gap-1">所属<input value={f.company || ''} onChange={set('company')} className={`${inputCls} w-[110px]`} /></label>
@@ -108,7 +108,7 @@ function AddForm({ onSave }: { onSave: (b: Record<string, string>) => void }) {
         {f.kind === 'maebarai' && <label className="flex flex-col gap-1">本来の支給日<input type="date" value={f.due_on || ''} onChange={set('due_on')} className={inputCls} /></label>}
         <label className="flex flex-col gap-1">契約書<select value={f.contract} onChange={set('contract')} className={inputCls}><option value="">—</option><option>有</option><option>無</option></select></label>
         <label className="flex flex-col gap-1">渡し方<select value={f.transfer} onChange={set('transfer')} className={inputCls}><option value="">—</option><option>予約済</option><option>振込済</option><option>手渡し</option></select></label>
-        <button className="btn-primary min-h-9 rounded-[10px] px-4 text-[13px] font-semibold disabled:opacity-40" disabled={!f.name?.trim() || !Number(f.amount)} onClick={() => onSave(f)}>足す</button>
+        <button className="btn-primary" disabled={!f.name?.trim() || !Number(f.amount)} onClick={() => onSave(f)}>足す</button>
       </div>
     </Card>
   );
@@ -118,7 +118,7 @@ function LoanDetail({ loan, deleted, act }: { loan: Loan; deleted: boolean; act:
   const [sch, setSch] = useState<Record<string, string>>({ count: '5', method: 'tenbiki' });
   const [one, setOne] = useState<Record<string, string>>({ method: 'tenbiki' });
   return (
-    <div className="flex flex-col gap-3 text-[12.5px]">
+    <div className="flex flex-col gap-3 text-sm">
       <table className="w-full max-w-[720px]">
         <thead><tr className="text-left text-muted"><th className="py-1 pr-2">期日</th><th className="py-1 pr-2 text-right">額</th><th className="py-1 pr-2">方法</th><th className="py-1 pr-2">回収</th><th className="py-1" /></tr></thead>
         <tbody>

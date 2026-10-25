@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronRight, Search } from 'lucide-react';
 import { PEOPLE, STATUS_COUNTS } from '@/lib/sample';
-import { GhostButton, PageTitle, Pill, PrimaryButton, TONE } from '@/components/ui';
+import { GhostButton, PageTitle, Pill, PrimaryButton, TONE, SkeletonRows } from '@/components/ui';
 import { useMotivation } from '@/components/Motivation';
 import { needText, usePerms } from '@/components/Perms';
 import { isPending, useYoyaku, yoyakuLine } from '@/components/YoyakuStore';
@@ -145,8 +145,8 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
     const d = (v: string) => (v ? <span className="num">{slashDate(v)}</span> : <span className="text-faint">—</span>);
     switch (k) {
       case 'status': return <Pill>{p.status}</Pill>;
-      case 'site': return <>{p.site}{p.siteSub && <div className="text-[11.5px] text-faint">{p.siteSub}</div>}{nextOf(p.id) && <Link href="/jinji/yoyaku" className="block text-[11.5px] font-semibold hover:underline" style={{ color: 'var(--ad)' }}>{yoyakuLine(nextOf(p.id)!)}</Link>}</>;
-      case 'contract': return <>{p.contract}{p.contractEnd && <div className="text-[11.5px] font-semibold text-warn">{p.contractEnd}</div>}</>;
+      case 'site': return <>{p.site}{p.siteSub && <div className="text-xs text-faint">{p.siteSub}</div>}{nextOf(p.id) && <Link href="/jinji/yoyaku" className="block text-xs font-semibold hover:underline" style={{ color: 'var(--ad)' }}>{yoyakuLine(nextOf(p.id)!)}</Link>}</>;
+      case 'contract': return <>{p.contract}{p.contractEnd && <div className="text-xs font-semibold text-warn">{p.contractEnd}</div>}</>;
       case 'station': return p.station;
       case 'price': return <span className="num">{p.price}</span>;
       case 'kintai': return <span className="font-medium" style={{ color: TONE[p.kintai.tone] }} title={live ? '勤怠は今の社内システムの名簿の累積欠勤・ルール欠勤の列で見てください' : undefined}>{p.kintai.text}</span>;
@@ -178,10 +178,10 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
       {!embedded && (
         <PageTitle title="社員一覧" sub={live ? '今の従業員名簿と同じ判定で状態を出しています。チェックはその場で保存されます。名前を押すと小窓、右の矢印を押すと社員ページに移ります' : '状態は日付つきの履歴から自動で決まります。名前を押すと小窓、右の矢印を押すと社員ページに移ります'}>
           {live
-            ? <button disabled title={LIVE_WRITE_BLOCKED} className="min-h-10 cursor-not-allowed rounded-[10px] border border-field bg-surface px-3.5 text-[13.5px] font-semibold opacity-40">CSV</button>
+            ? <button disabled title={LIVE_WRITE_BLOCKED} className="btn-secondary cursor-not-allowed opacity-40">CSV</button>
             : <GhostButton onClick={() => toast({ text: `${rows.length}人を CSV に書き出しました（見本）`, sub: '→ ダウンロードに入る想定です（いまは見本なのでファイルは作りません）' })}>CSV</GhostButton>}
           {live ? <PrimaryButton disabled title={LIVE_WRITE_BLOCKED}>＋ 社員を追加</PrimaryButton>
-            : canEdit ? <Link href="/jinji/nyusha" className="btn-primary inline-flex min-h-9 items-center rounded-[10px] px-3.5 text-[13px] font-bold">＋ 社員を追加</Link> : <PrimaryButton disabled title={needText('edit')}>＋ 社員を追加</PrimaryButton>}
+            : canEdit ? <Link href="/jinji/nyusha" className="btn-primary">＋ 社員を追加</Link> : <PrimaryButton disabled title={needText('edit')}>＋ 社員を追加</PrimaryButton>}
         </PageTitle>
       )}
       <LiveBanner state={state} error={error} onReload={reload}
@@ -190,9 +190,8 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
 
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 0 }}>
         {([['roster', '名簿'], ['yoyaku', '待機・退社の予約']] as const).map(([k, l]) => (
-          <button key={k} role="tab" aria-selected={view === k} onClick={() => go(k)} className="whitespace-nowrap px-3.5 py-2.5 text-[14px]"
-            style={view === k ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>
-            {l}{k === 'yoyaku' && yoyakuN > 0 && <span className="num ml-1.5 rounded-full px-1.5 text-[12px]" style={{ background: 'var(--tone-caution-bg)', color: 'var(--tone-caution-fg)' }}>{yoyakuN}</span>}
+          <button key={k} role="tab" aria-selected={view === k} onClick={() => go(k)} className="tab">
+            {l}{k === 'yoyaku' && yoyakuN > 0 && <span className="num ml-1.5 rounded-full px-1.5 text-sm" style={{ background: 'var(--tone-caution-bg)', color: 'var(--tone-caution-fg)' }}>{yoyakuN}</span>}
           </button>
         ))}
       </div>
@@ -204,8 +203,8 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
       <div className="mo-fade-up grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7" style={{ ['--i' as string]: 1 }}>
         {kpi.map((x) => (
           <div key={x.l} className="rounded-xl border border-line bg-surface px-3.5 py-2.5" title={x.tip}>
-            <div className="text-[12px] font-semibold text-muted">{x.l}</div>
-            <div className="num text-[22px] font-bold tracking-tight">{x.n == null ? <span className="text-faint" title="見本では出しません">—</span> : x.n}</div>
+            <div className="text-sm font-semibold text-muted">{x.l}</div>
+            <div className="num text-xl font-bold tracking-tight">{x.n == null ? <span className="text-faint" title="見本では出しません">—</span> : x.n}</div>
           </div>
         ))}
       </div>
@@ -215,8 +214,7 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
           const on = tab === s.label;
           return (
             <button key={s.label} role="tab" aria-selected={on} onClick={() => { setTab(s.label); setLimit(PAGE); }}
-              className="min-h-9 rounded-full border px-3.5 text-[13px]"
-              style={on ? { borderColor: 'var(--a)', background: 'var(--as)', color: 'var(--ad)', fontWeight: 700 } : { borderColor: 'var(--color-field)', background: 'var(--color-surface)' }}>
+              className="fchip">
               {s.label} <span className="num">{s.n}</span>
             </button>
           );
@@ -226,20 +224,20 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
       <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
         <div className="flex flex-wrap items-center gap-2 px-3.5 py-3">
           <label className="flex min-h-9 min-w-[200px] flex-1 items-center gap-2 rounded-[10px] border border-field px-3 text-faint sm:flex-none sm:min-w-[240px]">
-            <Search size={15} /><input value={q} onChange={(e) => { setQ(e.target.value); setLimit(PAGE); }} aria-label="この一覧を検索" placeholder="名前・カナ・現場・最寄駅" className="flex-1 bg-transparent text-[13px] text-ink outline-none" />
+            <Search size={15} /><input value={q} onChange={(e) => { setQ(e.target.value); setLimit(PAGE); }} aria-label="この一覧を検索" placeholder="名前・カナ・現場・最寄駅" className="flex-1 bg-transparent text-body text-ink outline-none" />
           </label>
           {([['recruiter', '採用担当'], ['sales', '担当営業'], ['contract', live ? '契約区分' : '契約の形']] as const).map(([k, l]) => (
-            <select key={k} aria-label={`${l}で絞る`} value={f[k]} onChange={(e) => setF((x) => ({ ...x, [k]: e.target.value }))} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-[13px]" style={f[k] ? { borderColor: 'var(--a)', color: 'var(--ad)', fontWeight: 600 } : undefined}>
+            <select key={k} aria-label={`${l}で絞る`} value={f[k]} onChange={(e) => setF((x) => ({ ...x, [k]: e.target.value }))} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-body" style={f[k] ? { borderColor: 'var(--a)', color: 'var(--ad)', fontWeight: 600 } : undefined}>
               <option value="">{l}：すべて</option>
               {opts(k).map((v) => <option key={v} value={v}>{l}：{v}</option>)}
             </select>
           ))}
-          {(f.recruiter || f.sales || f.contract) && <button onClick={() => setF({ recruiter: '', sales: '', contract: '' })} className="text-[12.5px] text-muted underline">絞り込みを外す</button>}
-          <span className="ml-auto text-[12.5px] text-muted"><span className="num">{rows.length}</span>人</span>
+          {(f.recruiter || f.sales || f.contract) && <button onClick={() => setF({ recruiter: '', sales: '', contract: '' })} className="text-sm text-muted underline">絞り込みを外す</button>}
+          <span className="ml-auto text-sm text-muted"><span className="num">{rows.length}</span>人</span>
           <ColumnPicker all={COLS} keys={cols.keys} onChange={cols.save} onReset={cols.reset} />
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1000px] border-collapse text-[13px]">
+          <table className="w-full min-w-[1000px] border-collapse text-body">
             <thead><tr className="th-row text-left">
               <th className="w-[26px] px-3.5 py-2.5"><input type="checkbox" aria-label="すべて選ぶ" checked={rows.length > 0 && rows.every((r) => sel.has(r.id))} onChange={(e) => setSel(e.target.checked ? new Set(rows.map((r) => r.id)) : new Set())} /></th>
               <th className="px-2 py-2.5 font-semibold">社員</th>
@@ -247,42 +245,42 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
               <th className="px-3.5" />
             </tr></thead>
             <tbody>
-              {state === 'loading' && <tr><td colSpan={nCols} className="px-4 py-10 text-center text-[13px] text-muted">読み込み中…</td></tr>}
+              {state === 'loading' && <tr><td colSpan={nCols} className="p-0"><SkeletonRows /></td></tr>}
               {state !== 'loading' && shown.map((p, i) => (
                 <tr key={p.id + i} className={`mo-fade-in border-t border-line-soft ${sel.has(p.id) ? '' : 'row'}`} style={{ ['--i' as string]: Math.min(i, 24) + 3, background: sel.has(p.id) ? 'var(--as)' : undefined }}>
                   <td className="px-3.5 py-2"><input type="checkbox" checked={sel.has(p.id)} onChange={() => toggle(p.id)} aria-label={`${p.name}を選ぶ`} /></td>
                   <td className="px-2 py-2"><div className="flex items-center gap-2.5">
-                    <div aria-hidden className="flex size-[30px] items-center justify-center rounded-full text-[12px] font-bold" style={{ background: 'var(--as)', color: 'var(--ad)' }}>{p.name[0]}</div>
+                    <div aria-hidden className="flex size-[30px] items-center justify-center rounded-full text-sm font-bold" style={{ background: 'var(--as)', color: 'var(--ad)' }}>{p.name[0]}</div>
                     <div><PersonName name={p.name} id={p.id} />
                       {p.tag && <span className="chip ml-1.5" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }} title={p.tag === '仮' ? '稼働管理情報一覧にまだ載っていない人（営業リストから立てた行）' : '当月の行が無いので、前の月の行を出しています'}>{p.tag}</span>}
-                      <div className="text-[11.5px] text-faint">{p.sub}</div>
-                      {tmarks.get(normName(p.name)) && <Link href="/jinji/yoyaku" className="block text-[11.5px] font-semibold hover:underline" style={{ color: tmarks.get(normName(p.name))!.pending ? 'var(--ad)' : 'var(--color-muted)' }}>{tmarks.get(normName(p.name))!.text}</Link>}</div>
+                      <div className="text-xs text-faint">{p.sub}</div>
+                      {tmarks.get(normName(p.name)) && <Link href="/jinji/yoyaku" className="block text-xs font-semibold hover:underline" style={{ color: tmarks.get(normName(p.name))!.pending ? 'var(--ad)' : 'var(--color-muted)' }}>{tmarks.get(normName(p.name))!.text}</Link>}</div>
                   </div></td>
                   {colDefs.map((c) => <td key={c.k} className={`px-2 py-2 ${c.k === 'price' ? 'text-right' : ''} ${CHECK_COLS.has(c.k) ? 'text-center' : ''}`}>{cell(p, c.k)}</td>)}
                   <td className="px-3.5 py-2"><Link href={`/jinji/staff/${encodeURIComponent(p.id)}`} className="inline-flex rounded p-1 hover:bg-soft" aria-label={`${p.name}の社員ページを開く`}><ChevronRight size={16} className="text-faint" /></Link></td>
                 </tr>
               ))}
-              {state !== 'loading' && rows.length === 0 && <tr><td colSpan={nCols} className="px-4 py-10 text-center text-[13px] text-muted">この条件の社員はいません{live ? '' : '（見本データは一部の人だけです）'}</td></tr>}
+              {state !== 'loading' && rows.length === 0 && <tr><td colSpan={nCols} className="px-4 py-10 text-center text-body text-muted">この条件の社員はいません{live ? '' : '（見本データは一部の人だけです）'}</td></tr>}
             </tbody>
           </table>
         </div>
         {rows.length > shown.length && (
-          <button onClick={() => setLimit((n) => n + PAGE)} className="w-full border-t border-line-soft py-2.5 text-[12.5px] font-semibold" style={{ color: 'var(--ad)' }}>さらに表示（残り {rows.length - shown.length}人）</button>
+          <button onClick={() => setLimit((n) => n + PAGE)} className="w-full border-t border-line-soft py-2.5 text-sm font-semibold" style={{ color: 'var(--ad)' }}>さらに表示（残り {rows.length - shown.length}人）</button>
         )}
-        <div className="flex items-center justify-between border-t border-line-soft px-3.5 py-2.5 text-[12.5px] text-muted"><span>全{rows.length}件</span><span>{live ? `${data?.month || ''}の名簿・状態は今日（${data?.today || ''}）の判定` : '見本データは一部の人だけです'}</span></div>
+        <div className="flex items-center justify-between border-t border-line-soft px-3.5 py-2.5 text-sm text-muted"><span>全{rows.length}件</span><span>{live ? `${data?.month || ''}の名簿・状態は今日（${data?.today || ''}）の判定` : '見本データは一部の人だけです'}</span></div>
       </div>
       </>)}
 
       {sel.size > 0 && view === 'roster' && (
-        <div className="mo-scale-in fixed bottom-7 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2.5 rounded-[14px] bg-sumi py-2 pl-[18px] pr-2 text-[13.5px] text-white shadow-[0_12px_32px_rgba(25,27,46,.28)]">
+        <div className="mo-scale-in fixed bottom-7 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2.5 rounded-[14px] bg-sumi py-2 pl-[18px] pr-2 text-body text-white shadow-[0_12px_32px_rgba(25,27,46,.28)]">
           <b className="num">{sel.size}人を選択中</b><span className="h-5 w-px bg-white/20" />
-          <button disabled={live} title={block} onClick={() => { const before = sel; hit(); toast({ undo: () => setSel(before), text: `${sel.size}人にLINEを送る準備をしました`, sub: '→ 連絡の下書きに入りました' }); setSel(new Set()); }} className="min-h-9 rounded-[9px] bg-white/10 px-3 text-[13px] disabled:cursor-not-allowed disabled:text-white/50">LINEで送る</button>
-          <button disabled={live} title={block} onClick={() => { const before = sel; hit(); toast({ undo: () => setSel(before), text: `${sel.size}人に書類の回収を依頼しました`, sub: '→ 入社手続きの提出待ちに載りました' }); setSel(new Set()); }} className="min-h-9 rounded-[9px] bg-white/10 px-3 text-[13px] disabled:cursor-not-allowed disabled:text-white/50">書類の回収を依頼</button>
+          <button disabled={live} title={block} onClick={() => { const before = sel; hit(); toast({ undo: () => setSel(before), text: `${sel.size}人にLINEを送る準備をしました`, sub: '→ 連絡の下書きに入りました' }); setSel(new Set()); }} className="min-h-9 rounded-[9px] bg-white/10 px-3 text-body disabled:cursor-not-allowed disabled:text-white/50">LINEで送る</button>
+          <button disabled={live} title={block} onClick={() => { const before = sel; hit(); toast({ undo: () => setSel(before), text: `${sel.size}人に書類の回収を依頼しました`, sub: '→ 入社手続きの提出待ちに載りました' }); setSel(new Set()); }} className="min-h-9 rounded-[9px] bg-white/10 px-3 text-body disabled:cursor-not-allowed disabled:text-white/50">書類の回収を依頼</button>
           {live
-            ? <button onClick={() => { go('yoyaku'); setSel(new Set()); }} className="inline-flex min-h-9 items-center rounded-[9px] px-3.5 text-[13px] font-bold" style={{ background: 'var(--a)', color: 'var(--ao)' }}>待機・退社を予約</button>
+            ? <button onClick={() => { go('yoyaku'); setSel(new Set()); }} className="inline-flex min-h-9 items-center rounded-[9px] px-3.5 text-body font-bold" style={{ background: 'var(--a)', color: 'var(--ao)' }}>待機・退社を予約</button>
             : canEdit
-              ? <Link href="/jinji/yoyaku" className="btn inline-flex min-h-9 items-center rounded-[9px] px-3.5 text-[13px] font-bold" style={{ background: 'var(--a)', color: 'var(--ao)' }}>変更を予約（{sel.size}人）</Link>
-              : <span title={needText('edit')} className="inline-flex min-h-9 cursor-not-allowed items-center rounded-[9px] bg-white/10 px-3 text-[13px] text-white/50">変更の予約は「直す」の権限が要ります</span>}
+              ? <Link href="/jinji/yoyaku" className="btn inline-flex min-h-9 items-center rounded-[9px] px-3.5 text-body font-bold" style={{ background: 'var(--a)', color: 'var(--ao)' }}>変更を予約（{sel.size}人）</Link>
+              : <span title={needText('edit')} className="inline-flex min-h-9 cursor-not-allowed items-center rounded-[9px] bg-white/10 px-3 text-body text-white/50">変更の予約は「直す」の権限が要ります</span>}
         </div>
       )}
     </Wrap>

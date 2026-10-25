@@ -87,13 +87,13 @@ export default function TaikiPage() {
 
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <RemainRing remain={open.length} total={rows.length} />
-        <div className="text-[13px]"><b>次が決まっていない人 {open.length}人</b>
+        <div className="text-body"><b>次が決まっていない人 {open.length}人</b>
           <span className="ml-2 text-muted">{live ? `待機中 ${open.filter((r) => r.kind === '待機中').length}人・待機の予約 ${open.filter((r) => r.kind === 'もうすぐ待機').length}人` : `待機30日以上 ${open.filter((r) => r.kind === '待機中' && taikiDays(r) >= 30).length}人・案件を探す ${open.filter((r) => r.state === '案件を探す').length}人`}</span>
-          {!canEdit && <div className="text-[12px] text-bad">{noEdit}</div>}
+          {!canEdit && <div className="text-sm text-bad">{noEdit}</div>}
         </div>
         <div className="ml-auto flex flex-wrap gap-1.5">
           {(['すべて', '待機中', 'もうすぐ待機'] as Filter[]).map((k) => (
-            <button key={k} onClick={() => setFilter(k)} className={`min-h-8 whitespace-nowrap rounded-full border px-3 text-[12.5px] ${filter === k ? 'font-semibold' : 'text-muted'}`} style={filter === k ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>
+            <button key={k} onClick={() => setFilter(k)} className={`min-h-8 whitespace-nowrap rounded-full border px-3 text-sm ${filter === k ? 'font-semibold' : 'text-muted'}`} style={filter === k ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>
               {k} {k === 'すべて' ? open.length : open.filter((r) => r.kind === k).length}
             </button>
           ))}
@@ -102,18 +102,18 @@ export default function TaikiPage() {
 
       {open.length === 0 && !(live && rs.state === 'loading') && (
         <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-10 text-center">
-          <Check className="mx-auto text-ok" size={26} /><div className="mt-2 text-[15px] font-bold">待機の人は、全員つぎの現場が決まりました</div>
-          <div className="mt-1 text-[12.5px] text-muted">今日は {decided.length}人 が参画決定。契約終了が近づいた人が出たら、ここにまた並びます。</div>
+          <Check className="mx-auto text-ok" size={26} /><div className="mt-2 text-md font-bold">待機の人は、全員つぎの現場が決まりました</div>
+          <div className="mt-1 text-sm text-muted">今日は {decided.length}人 が参画決定。契約終了が近づいた人が出たら、ここにまた並びます。</div>
         </div>
       )}
 
       {open.length > 0 && shown.length === 0 && (
-        <div className="rounded-xl border border-line bg-surface px-6 py-8 text-center text-[13px] text-muted">「{filter}」の人はいま居ません。<button onClick={() => setFilter('すべて')} className="ml-1 font-semibold underline">すべてを見る</button></div>
+        <div className="rounded-xl border border-line bg-surface px-6 py-8 text-center text-body text-muted">「{filter}」の人はいま居ません。<button onClick={() => setFilter('すべて')} className="ml-1 font-semibold underline">すべてを見る</button></div>
       )}
 
       {shown.length > 0 && (
         <div className="mo-fade-up overflow-x-auto rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
-          <table className="w-full min-w-[980px] border-collapse text-[13px]">
+          <table className="w-full min-w-[980px] border-collapse text-body">
             <thead><tr className="th-row text-left">
               <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">待機の日数</th><th className="px-2 py-2.5 font-semibold">次の案件の候補</th><th className="px-2 py-2.5 font-semibold">担当営業（成約者）</th><th className="px-2 py-2.5 font-semibold">採用担当</th><th className="px-4 py-2.5 font-semibold">状態</th>
             </tr></thead>
@@ -124,28 +124,28 @@ export default function TaikiPage() {
                   <tr key={r.id} className={`mo-fade-in border-t border-line-soft align-top ${flash === r.id ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
                     <td className="px-4 py-2.5">
                       <Link href={live ? `/eigyo/proper/${r.id}` : `/jinji/staff/${r.id}`} className="font-semibold hover:underline">{r.name}</Link>
-                      <div className="flex items-center gap-1 text-[11.5px] text-faint"><MapPin size={11} />{r.station}・{r.want}{r.price ? `・希望 ${r.price}万〜` : ''}</div>
+                      <div className="flex items-center gap-1 text-xs text-faint"><MapPin size={11} />{r.station}・{r.want}{r.price ? `・希望 ${r.price}万〜` : ''}</div>
                     </td>
                     <td className="px-2 py-2.5">
                       <span className="chip whitespace-nowrap" style={{ background: `var(--tone-${tone}-bg)`, color: `var(--tone-${tone}-fg)` }}><Hourglass size={11} />{d < 0 ? '待機中' : r.kind === '待機中' ? `待機 ${d}日目` : `あと${d}日で待機`}</span>
-                      <div className="mt-0.5 text-[11.5px] text-faint">{r.kind === '待機中' ? (r.since ? `${r.since.slice(5).replace('-', '/')} から` : '入った日は記録なし') : live ? `${r.contractEnd?.slice(5).replace('-', '/')} に待機へ（予約）` : `${r.site}・${r.contractEnd!.slice(5).replace('-', '/')} 契約終了`}</div>
+                      <div className="mt-0.5 text-xs text-faint">{r.kind === '待機中' ? (r.since ? `${r.since.slice(5).replace('-', '/')} から` : '入った日は記録なし') : live ? `${r.contractEnd?.slice(5).replace('-', '/')} に待機へ（予約）` : `${r.site}・${r.contractEnd!.slice(5).replace('-', '/')} 契約終了`}</div>
                     </td>
                     <td className="px-2 py-2.5">
-                      <select aria-label={`${r.name} の次の案件`} disabled={!canEdit} title={!canEdit ? noEdit : undefined} value={r.next} onChange={(e) => { const c = STOCKS.find((x) => x.no === e.target.value); change(r, { next: e.target.value }, `${r.name} の次の候補を「${c?.name}」にしました`, '→ 案件の「合いそうな要員」でこの人を上に出します'); }} className="min-h-9 max-w-[230px] rounded-[10px] border border-field bg-surface px-2 text-[12.5px] disabled:opacity-50">
+                      <select aria-label={`${r.name} の次の案件`} disabled={!canEdit} title={!canEdit ? noEdit : undefined} value={r.next} onChange={(e) => { const c = STOCKS.find((x) => x.no === e.target.value); change(r, { next: e.target.value }, `${r.name} の次の候補を「${c?.name}」にしました`, '→ 案件の「合いそうな要員」でこの人を上に出します'); }} className="min-h-9 max-w-[230px] rounded-[10px] border border-field bg-surface px-2 text-sm disabled:opacity-50">
                         {cands.length === 0 && <option value="">候補なし</option>}
                         {cands.map(({ c, score, min }) => <option key={c.no} value={c.no}>{c.name}（{score}点・約{min}分）</option>)}
                       </select>
-                      {r.next && <Link href={`/eigyo/cases?case=${r.next}`} className="mt-0.5 block text-[11.5px] font-semibold" style={{ color: 'var(--ad)' }}>案件を開いて送る</Link>}
+                      {r.next && <Link href={`/eigyo/cases?case=${r.next}`} className="mt-0.5 block text-xs font-semibold" style={{ color: 'var(--ad)' }}>案件を開いて送る</Link>}
                     </td>
                     <td className="px-2 py-2.5">
                       {live ? <span className="text-faint">—</span> :
-                      <select aria-label={`${r.name} の担当営業`} disabled={!canEdit} title={!canEdit ? noEdit : undefined} value={r.sales} onChange={(e) => change(r, { sales: e.target.value }, `${r.name} の担当営業を ${e.target.value} にしました`, '→ 要員リストの担当営業と、売上・粗利の営業別に反映しました')} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-[12.5px] disabled:opacity-50">
+                      <select aria-label={`${r.name} の担当営業`} disabled={!canEdit} title={!canEdit ? noEdit : undefined} value={r.sales} onChange={(e) => change(r, { sales: e.target.value }, `${r.name} の担当営業を ${e.target.value} にしました`, '→ 要員リストの担当営業と、売上・粗利の営業別に反映しました')} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-sm disabled:opacity-50">
                         {SALES_REPS.map((s) => <option key={s}>{s}</option>)}
                       </select>}
                     </td>
-                    <td className="px-2 py-2.5 text-[12.5px] text-muted">{r.recruiter}<div className="text-[11px] text-faint">営業の担当ではない</div></td>
+                    <td className="px-2 py-2.5 text-sm text-muted">{r.recruiter}<div className="text-xs text-faint">営業の担当ではない</div></td>
                     <td className="px-4 py-2.5">
-                      <select aria-label={`${r.name} の状態`} disabled={!canEdit} title={!canEdit ? noEdit : undefined} value={r.state} onChange={(e) => { const s = e.target.value as TaikiState; change(r, { state: s }, `${r.name} を「${s}」にしました`, STATE_SUB[s]); }} className="min-h-9 rounded-[10px] border px-2 text-[12.5px] font-semibold disabled:opacity-50" style={{ background: STATE_STYLE[r.state].bg, color: STATE_STYLE[r.state].fg, borderColor: 'var(--color-field)' }}>
+                      <select aria-label={`${r.name} の状態`} disabled={!canEdit} title={!canEdit ? noEdit : undefined} value={r.state} onChange={(e) => { const s = e.target.value as TaikiState; change(r, { state: s }, `${r.name} を「${s}」にしました`, STATE_SUB[s]); }} className="min-h-9 rounded-[10px] border px-2 text-sm font-semibold disabled:opacity-50" style={{ background: STATE_STYLE[r.state].bg, color: STATE_STYLE[r.state].fg, borderColor: 'var(--color-field)' }}>
                         {TAIKI_STATES.map((s) => <option key={s}>{s}</option>)}
                       </select>
                     </td>
@@ -159,16 +159,16 @@ export default function TaikiPage() {
 
       {decided.length > 0 && (
         <div className="rounded-xl border border-line bg-surface px-4 py-3">
-          <div className="text-[12px] font-semibold text-muted">今日 参画決定にした人</div>
-          <ul className="mt-2 flex flex-col gap-1 text-[12.5px]">
+          <div className="text-sm font-semibold text-muted">今日 参画決定にした人</div>
+          <ul className="mt-2 flex flex-col gap-1 text-sm">
             {decided.map((r) => (
               <li key={r.id} className="flex items-center gap-2"><span className="text-ok">参画決定</span><span><PersonName name={r.name} className="underline-offset-2 hover:underline" /> → {STOCKS.find((c) => c.no === r.next)?.name ?? '—'}（担当営業 {r.sales}）</span>
-                <button disabled={!canEdit} title={!canEdit ? noEdit : '面談調整中に戻して、一覧に出し直します'} onClick={() => change(r, { state: '面談調整中' }, `${r.name} を「面談調整中」に戻しました`, '→ 待機の一覧に戻しました')} className="ml-auto shrink-0 text-[12px] text-muted underline disabled:opacity-40">戻す</button></li>
+                <button disabled={!canEdit} title={!canEdit ? noEdit : '面談調整中に戻して、一覧に出し直します'} onClick={() => change(r, { state: '面談調整中' }, `${r.name} を「面談調整中」に戻しました`, '→ 待機の一覧に戻しました')} className="ml-auto shrink-0 text-sm text-muted underline disabled:opacity-40">戻す</button></li>
             ))}
           </ul>
         </div>
       )}
-      <p className="text-[11.5px] text-faint">待機の日数は待機に入った日から、もうすぐ待機は契約終了日までを数えています。通勤は目安です（<Link href="/eigyo/map" className="font-semibold" style={{ color: 'var(--ad)' }}>案件・要員マップ</Link>）。</p>
+      <p className="text-xs text-faint">待機の日数は待機に入った日から、もうすぐ待機は契約終了日までを数えています。通勤は目安です（<Link href="/eigyo/map" className="font-semibold" style={{ color: 'var(--ad)' }}>案件・要員マップ</Link>）。</p>
     </main>
   );
 }

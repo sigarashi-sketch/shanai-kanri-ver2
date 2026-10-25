@@ -36,12 +36,12 @@ export default function CalendarSettingsPage() {
 
   return (
     <HoryuFrame title="カレンダー設定" sub="初回ヒアリングの予定を作るカレンダーと、招待する人" state={r.state} error={r.error} onReload={r.reload}
-      actions={<button className="btn-primary min-h-10 rounded-[10px] px-4 text-[13.5px] font-semibold disabled:opacity-40" disabled={!dirty} onClick={save}>保存する</button>}>
+      actions={<button className="btn-primary" disabled={!dirty} onClick={save}>保存する</button>}>
       <Msg text={msg.text} bad={msg.bad} />
       {cal && <>
         <Card title="主催者（予定を作るカレンダー）">
-          <div className="flex flex-col gap-2.5 px-4 pb-4 text-[13px]">
-            <label className="flex flex-wrap items-center gap-2 text-[12.5px] text-muted">いまの主催者
+          <div className="flex flex-col gap-2.5 px-4 pb-4 text-body">
+            <label className="flex flex-wrap items-center gap-2 text-sm text-muted">いまの主催者
               <select value={cal.organizerId} onChange={(e) => upd({ ...cal, organizerId: e.target.value })} className={inputCls}>
                 <option value="">（選ばない）</option>
                 {cal.organizers.map((o) => <option key={o.calendarId} value={o.calendarId}>{o.label || o.calendarId}</option>)}
@@ -50,7 +50,7 @@ export default function CalendarSettingsPage() {
             </label>
             <ul className="flex flex-col gap-1">
               {cal.organizers.map((o, i) => (
-                <li key={o.calendarId} className="flex items-center gap-2 rounded-lg border border-line-soft px-3 py-1.5"><b>{o.label || '—'}</b><span className="text-[12px] text-muted">{o.calendarId}</span>
+                <li key={o.calendarId} className="flex items-center gap-2 rounded-lg border border-line-soft px-3 py-1.5"><b>{o.label || '—'}</b><span className="text-sm text-muted">{o.calendarId}</span>
                   <button className="ml-auto rounded p-1 text-faint" aria-label={`${o.label || o.calendarId} を候補から外す`} onClick={() => upd({ ...cal, organizers: cal.organizers.filter((_, j) => j !== i) })}><X size={14} /></button></li>
               ))}
             </ul>
@@ -62,7 +62,7 @@ export default function CalendarSettingsPage() {
           </div>
         </Card>
         <Card title="招待する人" note="主催者自身は自動で外れます">
-          <div className="flex flex-col gap-2.5 px-4 pb-4 text-[13px]">
+          <div className="flex flex-col gap-2.5 px-4 pb-4 text-body">
             <div className="flex flex-wrap gap-1.5">
               {cal.guests.map((g) => <span key={g} className="chip">{g}<button aria-label={`${g} を外す`} onClick={() => upd({ ...cal, guests: cal.guests.filter((x) => x !== g) })}><X size={11} /></button></span>)}
               {!cal.guests.length && <span className="text-warn">招待先がありません（だれにも招待は届きません）</span>}

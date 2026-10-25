@@ -38,7 +38,7 @@ const ORDER = ['bad', 'warn', 'ok'];
 
 function CheckLine({ c }: { c: Chk }) {
   const Icon = c.tone === 'ok' ? Check : c.tone === 'warn' ? CircleAlert : AlertTriangle;
-  return <li className="flex items-start gap-1.5 text-[12.5px]"><Icon size={14} className={`mt-0.5 shrink-0 ${c.tone === 'ok' ? 'text-ok' : c.tone === 'warn' ? 'text-warn' : 'text-bad'}`} /><span className={c.tone === 'bad' ? 'font-semibold text-bad' : ''}>{c.text}</span></li>;
+  return <li className="flex items-start gap-1.5 text-sm"><Icon size={14} className={`mt-0.5 shrink-0 ${c.tone === 'ok' ? 'text-ok' : c.tone === 'warn' ? 'text-warn' : 'text-bad'}`} /><span className={c.tone === 'bad' ? 'font-semibold text-bad' : ''}>{c.text}</span></li>;
 }
 
 export default function KeihiPage() {
@@ -71,8 +71,7 @@ export default function KeihiPage() {
       <MikeikenNote mk={mk} live={live} />
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 1 }}>
         {([['check', '経理の確認'], ['monthly', '月次（給与に載せる額）'], ['ringi', '稟議'], ['apply', '本人の申請画面（見本）']] as const).map(([k, l]) => (
-          <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="px-3.5 py-2.5 text-[14px]"
-            style={tab === k ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>{l}</button>
+          <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="tab">{l}</button>
         ))}
       </div>
       <div key={tab} className="mo-axis">
@@ -96,8 +95,8 @@ const FLAG_TONE: Record<KeihiFlag['tone'], { bg: string; fg: string }> = {
 // 勤怠の印：押すとその印の日付が開く（もう一度押すと閉じる）
 function FlagChips({ flags, ready }: { flags: KeihiFlag[]; ready: boolean }) {
   const [open, setOpen] = useState<number | null>(null);
-  if (!ready) return <div className="mb-1.5 text-[11px] text-faint">勤怠を照らしています…</div>;
-  if (!flags.length) return <div className="mb-1.5 inline-flex items-center gap-1 text-[11px] text-faint"><Check size={12} className="text-ok" />勤怠の印なし（打刻・シフト・欠勤とも静か）</div>;
+  if (!ready) return <div className="mb-1.5 text-xs text-faint">勤怠を照らしています…</div>;
+  if (!flags.length) return <div className="mb-1.5 inline-flex items-center gap-1 text-xs text-faint"><Check size={12} className="text-ok" />勤怠の印なし（打刻・シフト・欠勤とも静か）</div>;
   const f = open != null ? flags[open] : null;
   return (
     <div className="mb-2">
@@ -110,11 +109,11 @@ function FlagChips({ flags, ready }: { flags: KeihiFlag[]; ready: boolean }) {
         ))}
       </div>
       {f && (
-        <div className="mo-fade-in mt-1.5 rounded-lg border border-line-soft bg-soft px-2.5 py-1.5 text-[11.5px]">
+        <div className="mo-fade-in mt-1.5 rounded-lg border border-line-soft bg-soft px-2.5 py-1.5 text-xs">
           <div className="font-semibold" style={{ color: FLAG_TONE[f.tone].fg }}>{FLAG_NAME[f.kind]}</div>
           <ul className="mt-0.5 flex flex-col gap-0.5">{f.lines.map((l) => <li key={l} className="num">{l}</li>)}</ul>
-          {f.note && <div className="mt-1 text-[11px] text-faint">{f.note}</div>}
-          {f.kind === 'zure' && f.note?.includes('締め') && <Link href="/roumu/shime" className="mt-0.5 inline-block text-[11px] font-semibold" style={{ color: 'var(--ad)' }}>勤怠の締めで日ごとを見る</Link>}
+          {f.note && <div className="mt-1 text-xs text-faint">{f.note}</div>}
+          {f.kind === 'zure' && f.note?.includes('締め') && <Link href="/roumu/shime" className="mt-0.5 inline-block text-xs font-semibold" style={{ color: 'var(--ad)' }}>勤怠の締めで日ごとを見る</Link>}
         </div>
       )}
     </div>
@@ -175,55 +174,55 @@ function CheckTab({ claims, done, setDone, live, flags, reload }: { claims: Clai
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
         <RemainRing remain={pending.length} total={claims.length} />
-        <div className="text-[13px]"><b>承認待ち {pending.length}件</b><span className="ml-2 num text-muted">{yen(pending.reduce((s, c) => s + c.amount, 0))}</span>
-          <div className="text-[12px] text-muted">勤怠の打刻・ICカードの履歴・定期の期間・現場の予約を先に照らしています。{!permApprove && <span className="text-bad"> {needText('approve')}</span>}</div>
-          {flags.ready && flagged > 0 && <div className="text-[12px]" style={{ color: 'var(--tone-warn-fg)' }}>打刻漏れ・シフト・欠勤などの勤怠の印がついた申請 {flagged}件（印を押すと日付が出ます）</div>}
-          {flags.unread.length > 0 && <div className="text-[11.5px] text-faint">{flags.unread.map((k) => FLAG_NAME[k]).join('・')} は読めなかったので確かめられていません（印が無い＝問題なし、ではありません）</div>}
-          {flags.error && <div className="text-[11.5px] text-faint">勤怠の印を読めませんでした（{flags.error}）</div>}
+        <div className="text-body"><b>承認待ち {pending.length}件</b><span className="ml-2 num text-muted">{yen(pending.reduce((s, c) => s + c.amount, 0))}</span>
+          <div className="text-sm text-muted">勤怠の打刻・ICカードの履歴・定期の期間・現場の予約を先に照らしています。{!permApprove && <span className="text-bad"> {needText('approve')}</span>}</div>
+          {flags.ready && flagged > 0 && <div className="text-sm" style={{ color: 'var(--tone-warn-fg)' }}>打刻漏れ・シフト・欠勤などの勤怠の印がついた申請 {flagged}件（印を押すと日付が出ます）</div>}
+          {flags.unread.length > 0 && <div className="text-xs text-faint">{flags.unread.map((k) => FLAG_NAME[k]).join('・')} は読めなかったので確かめられていません（印が無い＝問題なし、ではありません）</div>}
+          {flags.error && <div className="text-xs text-faint">勤怠の印を読めませんでした（{flags.error}）</div>}
         </div>
-        <Link href="/keiri/check" className="ml-auto text-[12px] font-semibold" style={{ color: 'var(--ad)' }}>月ごとの交通費チェックへ</Link>
+        <Link href="/keiri/check" className="ml-auto text-sm font-semibold" style={{ color: 'var(--ad)' }}>月ごとの交通費チェックへ</Link>
       </div>
 
       {pending.length === 0 ? (
         <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-10 text-center">
           <Check className="mx-auto text-ok" size={26} />
-          <div className="mt-2 text-[15px] font-bold">交通費・経費の申請はぜんぶ片づきました</div>
-          <div className="mt-1 text-[12.5px] text-muted">定期は月末の見回りで、その月の打刻をもう一度確かめます。</div>
+          <div className="mt-2 text-md font-bold">交通費・経費の申請はぜんぶ片づきました</div>
+          <div className="mt-1 text-sm text-muted">定期は月末の見回りで、その月の打刻をもう一度確かめます。</div>
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-line bg-surface">
           <div className="flex flex-wrap items-center gap-1.5 border-b border-line-soft px-4 py-2.5">
             {kinds.map((k) => {
               const n = k === 'すべて' ? pending.length : pending.filter((c) => c.kind === k).length;
-              return <button key={k} onClick={() => setKind(k)} className={`min-h-8 rounded-full border px-3 text-[12.5px] ${kind === k ? 'font-semibold' : 'text-muted'}`} style={kind === k ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>{k} {n}</button>;
+              return <button key={k} onClick={() => setKind(k)} className={`min-h-8 rounded-full border px-3 text-sm ${kind === k ? 'font-semibold' : 'text-muted'}`} style={kind === k ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>{k} {n}</button>;
             })}
-            <button onClick={() => okRows.length && settle(okRows, { result: '承認' })} disabled={!canApprove || okRows.length === 0} title={!canApprove ? lockText : undefined} className="btn-primary ml-auto whitespace-nowrap min-h-8 rounded-lg px-3 text-[12.5px] font-bold disabled:opacity-40">問題なし {okRows.length}件をまとめて承認</button>
+            <button onClick={() => okRows.length && settle(okRows, { result: '承認' })} disabled={!canApprove || okRows.length === 0} title={!canApprove ? lockText : undefined} className="btn-primary ml-auto btn-sm">問題なし {okRows.length}件をまとめて承認</button>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] border-collapse text-[13px]">
+            <table className="w-full min-w-[900px] border-collapse text-body">
               <thead><tr className="th-row text-left">
                 <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">種類・中身</th><th className="px-2 py-2.5 text-right font-semibold">金額</th><th className="px-2 py-2.5 font-semibold">先に確かめたこと</th><th className="px-4 py-2.5 font-semibold">承認</th>
               </tr></thead>
               <tbody>
-                {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-[12.5px] text-muted">「{kind}」の承認待ちはありません。ほかの種類を選んでください。</td></tr>}
+                {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-muted">「{kind}」の承認待ちはありません。ほかの種類を選んでください。</td></tr>}
                 {rows.map((c, i) => {
                   const t = toneOf(c.checks);
                   const need = t === 'bad' && !ok[c.id];
                   return (
                     <tr key={c.id} className={`mo-fade-in border-t border-line-soft align-top ${flash === c.id ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
-                      <td className="px-4 py-2.5">{c.personId ? <PersonName name={c.person} className="font-semibold hover:underline underline-offset-2" /> : <PersonName name={c.person} className="font-semibold underline-offset-2 hover:underline" />}<div className="text-[11.5px] text-faint">{c.site}</div></td>
+                      <td className="px-4 py-2.5">{c.personId ? <PersonName name={c.person} className="font-semibold hover:underline underline-offset-2" /> : <PersonName name={c.person} className="font-semibold underline-offset-2 hover:underline" />}<div className="text-xs text-faint">{c.site}</div></td>
                       <td className="px-2 py-2.5">
-                        <div className="flex flex-wrap items-center gap-1.5"><span className="chip" style={{ background: CHIP[t].bg, color: CHIP[t].fg }}>{c.kind}</span><span className="text-[11.5px] text-faint">{c.month}・{c.source}</span></div>
-                        <div className="mt-1 text-[12px] text-muted">{c.detail}</div>
+                        <div className="flex flex-wrap items-center gap-1.5"><span className="chip" style={{ background: CHIP[t].bg, color: CHIP[t].fg }}>{c.kind}</span><span className="text-xs text-faint">{c.month}・{c.source}</span></div>
+                        <div className="mt-1 text-sm text-muted">{c.detail}</div>
                       </td>
                       <td className="num px-2 py-2.5 text-right font-semibold">{yen(c.amount)}</td>
                       <td className="px-2 py-2.5"><FlagChips flags={flags.by[c.id] || []} ready={flags.ready} /><ul className="flex flex-col gap-1">{c.checks.map((x) => <CheckLine key={x.text} c={x} />)}</ul>
-                        {t === 'bad' && <label className="mt-1.5 flex items-center gap-1.5 text-[12px] text-muted"><input type="checkbox" checked={!!ok[c.id]} onChange={(e) => setOk((o) => ({ ...o, [c.id]: e.target.checked }))} />確かめたうえで承認する</label>}
+                        {t === 'bad' && <label className="mt-1.5 flex items-center gap-1.5 text-sm text-muted"><input type="checkbox" checked={!!ok[c.id]} onChange={(e) => setOk((o) => ({ ...o, [c.id]: e.target.checked }))} />確かめたうえで承認する</label>}
                       </td>
                       <td className="px-4 py-2.5">
                         <div className="flex flex-col gap-1.5">
-                          <button onClick={() => settle([c], { result: '承認' })} disabled={!canApprove || need} title={!canApprove ? lockText : need ? '要確認の点を確かめてから' : undefined} className="btn-primary min-h-8 whitespace-nowrap rounded-lg px-3 text-[12.5px] font-bold disabled:opacity-40">承認</button>
-                          <select aria-label={`${c.person} を差し戻す理由`} value="" disabled={!canApprove} title={!canApprove ? lockText : undefined} onChange={(e) => { const v = e.target.value; if (v) settle([c], { result: '差し戻し', reason: v }); }} className="min-h-8 max-w-[190px] rounded-lg border border-field bg-surface px-2 text-[12px] text-muted disabled:opacity-50">
+                          <button onClick={() => settle([c], { result: '承認' })} disabled={!canApprove || need} title={!canApprove ? lockText : need ? '要確認の点を確かめてから' : undefined} className="btn-primary btn-sm">承認</button>
+                          <select aria-label={`${c.person} を差し戻す理由`} value="" disabled={!canApprove} title={!canApprove ? lockText : undefined} onChange={(e) => { const v = e.target.value; if (v) settle([c], { result: '差し戻し', reason: v }); }} className="min-h-8 max-w-[190px] rounded-lg border border-field bg-surface px-2 text-sm text-muted disabled:opacity-50">
                             <option value="">差し戻す理由…</option>
                             {KEIHI_REJECT.map((x) => <option key={x}>{x}</option>)}
                           </select>
@@ -238,7 +237,7 @@ function CheckTab({ claims, done, setDone, live, flags, reload }: { claims: Clai
         </div>
       )}
       {confirm && <ConfirmWrite spec={confirm} onClose={() => setConfirm(null)} />}
-      <p className="text-[11.5px] text-faint">定期は月の途中でも承認できます。月が終わったら、その月の打刻を毎朝の見回りでもう一度確かめ、漏れがあれば差し戻して本人に知らせます（今のシステムと同じ）。</p>
+      <p className="text-xs text-faint">定期は月の途中でも承認できます。月が終わったら、その月の打刻を毎朝の見回りでもう一度確かめ、漏れがあれば差し戻して本人に知らせます（今のシステムと同じ）。</p>
     </div>
   );
 }
@@ -286,19 +285,19 @@ function ApplyTab({ onSubmit, live }: { onSubmit: (c: Claim) => void; live: bool
       {live && <div className="w-full"><NotInLegacy what="ICカードの利用履歴から選ぶ申請画面" /></div>}
       <div className="w-full max-w-[390px] overflow-hidden rounded-[28px] border-[6px] border-ink/80 bg-surface shadow-[0_18px_40px_rgba(20,20,40,.18)]">
         <div className="px-4 pb-3 pt-4" style={{ background: 'var(--al)' }}>
-          <div className="text-[11.5px] text-muted">{ME.name} さん・{ME.site}</div>
-          <div className="text-[17px] font-bold">交通費の申請（{ME.month}）</div>
+          <div className="text-xs text-muted">{ME.name} さん・{ME.site}</div>
+          <div className="text-lg font-bold">交通費の申請（{ME.month}）</div>
           <div className="mt-2 flex gap-2">
-            <button onClick={() => readIc('ICカード')} className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-[10px] bg-surface text-[12.5px] font-semibold"><Smartphone size={15} />ICカードをかざす</button>
-            <button onClick={() => readIc('モバイルSuica')} className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-[10px] bg-surface text-[12.5px] font-semibold"><CreditCard size={15} />モバイルSuicaから</button>
+            <button onClick={() => readIc('ICカード')} className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-[10px] bg-surface text-sm font-semibold"><Smartphone size={15} />ICカードをかざす</button>
+            <button onClick={() => readIc('モバイルSuica')} className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-[10px] bg-surface text-sm font-semibold"><CreditCard size={15} />モバイルSuicaから</button>
           </div>
-          <div className="mt-1.5 text-[11px] text-faint">{readAt} に読み込み・{IC_ROWS.length}件</div>
+          <div className="mt-1.5 text-xs text-faint">{readAt} に読み込み・{IC_ROWS.length}件</div>
         </div>
 
         <div className="border-b border-line-soft px-4 py-3">
-          <div className="flex items-center justify-between"><span className="text-[12px] font-semibold text-muted">よく使う経路</span><button onClick={pickRoutes} className="text-[12px] font-bold" style={{ color: 'var(--ad)' }}>これで全部選ぶ</button></div>
+          <div className="flex items-center justify-between"><span className="text-sm font-semibold text-muted">よく使う経路</span><button onClick={pickRoutes} className="text-sm font-bold" style={{ color: 'var(--ad)' }}>これで全部選ぶ</button></div>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {routes.map((r) => <span key={r.id} className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[12px]" style={{ borderColor: 'var(--al)' }}><Star size={11} className="text-warn" fill="currentColor" />{r.label}<span className="text-faint">{r.from}→{r.to}</span></span>)}
+            {routes.map((r) => <span key={r.id} className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-sm" style={{ borderColor: 'var(--al)' }}><Star size={11} className="text-warn" fill="currentColor" />{r.label}<span className="text-faint">{r.from}→{r.to}</span></span>)}
           </div>
         </div>
 
@@ -308,32 +307,32 @@ function ApplyTab({ onSubmit, live }: { onSubmit: (c: Claim) => void; live: bool
             const punched = PUNCH_DAYS.includes(d);
             return (
               <div key={d}>
-                <div className="sticky top-0 flex items-center gap-2 bg-soft px-4 py-1.5 text-[11.5px] font-semibold text-muted">{d}（{rs[0].dow}）{!punched && <span className="text-bad">出勤の打刻なし</span>}</div>
+                <div className="sticky top-0 flex items-center gap-2 bg-soft px-4 py-1.5 text-xs font-semibold text-muted">{d}（{rs[0].dow}）{!punched && <span className="text-bad">出勤の打刻なし</span>}</div>
                 {rs.map((r) => {
                   const no = why(r); const rt = routeOf(r); const on = !!sel[r.id];
                   return (
                     <div key={r.id} className={`border-t border-line-soft px-4 py-2 ${no ? 'opacity-50' : ''}`}>
                       <label className="flex items-center gap-2.5">
                         <input type="checkbox" disabled={!!no} checked={on} onChange={(e) => setSel((s) => ({ ...s, [r.id]: e.target.checked }))} aria-label={`${d} ${r.from}→${r.to}`} />
-                        <span className="num w-10 text-[11.5px] text-faint">{r.time}</span>
-                        <span className="min-w-0 flex-1 text-[13px]">{r.kind === '買い物' ? r.from : `${r.from} → ${r.to}`}<span className="ml-1 text-[11px] text-faint">{r.kind}</span>
-                          {rt && <span className="ml-1.5 inline-flex items-center gap-0.5 text-[11px] text-warn"><Star size={10} fill="currentColor" />{rt.label}</span>}
+                        <span className="num w-10 text-xs text-faint">{r.time}</span>
+                        <span className="min-w-0 flex-1 text-body">{r.kind === '買い物' ? r.from : `${r.from} → ${r.to}`}<span className="ml-1 text-xs text-faint">{r.kind}</span>
+                          {rt && <span className="ml-1.5 inline-flex items-center gap-0.5 text-xs text-warn"><Star size={10} fill="currentColor" />{rt.label}</span>}
                         </span>
-                        <span className="num text-[13px] font-semibold">{yen(r.fare)}</span>
+                        <span className="num text-body font-semibold">{yen(r.fare)}</span>
                       </label>
-                      {no && <div className="ml-7 text-[11px] text-bad">{no}</div>}
+                      {no && <div className="ml-7 text-xs text-bad">{no}</div>}
                       {on && !rt && (
                         <div className="mo-fade-in ml-7 mt-1.5 flex flex-wrap items-center gap-1.5">
-                          <select aria-label="何のための移動か" value={purpose[r.id] ?? ''} onChange={(e) => setPurpose((p) => ({ ...p, [r.id]: e.target.value }))} className="min-h-8 rounded-lg border px-2 text-[12px]" style={{ borderColor: purposeOf(r) ? 'var(--color-field)' : 'var(--color-bad)' }}>
+                          <select aria-label="何のための移動か" value={purpose[r.id] ?? ''} onChange={(e) => setPurpose((p) => ({ ...p, [r.id]: e.target.value }))} className="min-h-8 rounded-lg border px-2 text-sm" style={{ borderColor: purposeOf(r) ? 'var(--color-field)' : 'var(--color-bad)' }}>
                             <option value="">何のための移動？</option>
                             {PURPOSES.map((x) => <option key={x}>{x}</option>)}
                           </select>
                           {starring === r.id ? (
-                            <select autoFocus aria-label="よく使う経路の名前" defaultValue="" onChange={(e) => e.target.value && star(r, e.target.value)} className="min-h-8 rounded-lg border border-field px-2 text-[12px]">
+                            <select autoFocus aria-label="よく使う経路の名前" defaultValue="" onChange={(e) => e.target.value && star(r, e.target.value)} className="min-h-8 rounded-lg border border-field px-2 text-sm">
                               <option value="">名前を選ぶ…</option>
                               {ROUTE_LABELS.filter((l) => !routes.some((x) => x.label === l)).map((l) => <option key={l}>{l}</option>)}
                             </select>
-                          ) : <button onClick={() => setStarring(r.id)} className="inline-flex items-center gap-1 text-[11.5px] font-semibold" style={{ color: 'var(--ad)' }}><Star size={12} />よく使う経路にする</button>}
+                          ) : <button onClick={() => setStarring(r.id)} className="inline-flex items-center gap-1 text-xs font-semibold" style={{ color: 'var(--ad)' }}><Star size={12} />よく使う経路にする</button>}
                         </div>
                       )}
                     </div>
@@ -345,13 +344,13 @@ function ApplyTab({ onSubmit, live }: { onSubmit: (c: Claim) => void; live: bool
         </div>
 
         <div className="border-t border-line px-4 py-3">
-          <div className="flex items-baseline justify-between"><span className="text-[12.5px] text-muted">{picked.length}件を選択</span><span className="num text-[20px] font-bold">{yen(total)}</span></div>
-          {missing.length > 0 && <div className="mt-1 text-[11.5px] text-bad">「何のための移動？」を {missing.length}件 選んでください</div>}
-          <button onClick={submit} disabled={live || picked.length === 0 || missing.length > 0} title={live ? LIVE_WRITE_BLOCKED : undefined} className="btn-primary mt-2 min-h-11 w-full rounded-[12px] text-[14px] font-bold disabled:opacity-40">申請する</button>
+          <div className="flex items-baseline justify-between"><span className="text-sm text-muted">{picked.length}件を選択</span><span className="num text-xl font-bold">{yen(total)}</span></div>
+          {missing.length > 0 && <div className="mt-1 text-xs text-bad">「何のための移動？」を {missing.length}件 選んでください</div>}
+          <button onClick={submit} disabled={live || picked.length === 0 || missing.length > 0} title={live ? LIVE_WRITE_BLOCKED : undefined} className="btn-primary mt-2 min-h-11 w-full">申請する</button>
         </div>
       </div>
 
-      <div className="flex min-w-[260px] flex-1 flex-col gap-2 text-[12.5px] text-muted">
+      <div className="flex min-w-[260px] flex-1 flex-col gap-2 text-sm text-muted">
         <div className="rounded-xl border border-line bg-surface px-4 py-3">
           <b className="text-ink">本人の画面の決まり</b>
           <ul className="mt-1.5 flex list-disc flex-col gap-1 pl-4">
@@ -362,7 +361,7 @@ function ApplyTab({ onSubmit, live }: { onSubmit: (c: Claim) => void; live: bool
             <li>バスで IC を使わなかった日・定期は、今のシステムと同じく手入力（定期は期間と領収書が必須）</li>
           </ul>
         </div>
-        <p className="text-[11.5px] text-faint">ICカードの読み取りは Android のかざす読み取りと、モバイルSuica の履歴の取り込みを想定しています（iPhone でカードをかざして読めるかは、本物を作るときに確かめます）。</p>
+        <p className="text-xs text-faint">ICカードの読み取りは Android のかざす読み取りと、モバイルSuica の履歴の取り込みを想定しています（iPhone でカードをかざして読めるかは、本物を作るときに確かめます）。</p>
       </div>
     </div>
   );

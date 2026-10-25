@@ -30,8 +30,7 @@ export default function KeisaiPage() {
       <PageTitle title="案件掲載・応募" sub="公式LINEの「案件情報」に出す案件を書いて公開し、届いた応募と反応を見ます" />
       <div role="tablist" className="mo-fade-up flex gap-1 overflow-x-auto border-b border-line" style={{ ['--i' as string]: 1 }}>
         {TABS.map((t) => (
-          <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => go(t.key)} className="whitespace-nowrap px-3.5 py-2.5 text-[14px]"
-            style={tab === t.key ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>{t.label}</button>
+          <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => go(t.key)} className="tab">{t.label}</button>
         ))}
       </div>
       <div key={tab} className="mo-axis flex flex-col gap-3.5">

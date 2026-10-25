@@ -55,12 +55,12 @@ export default function PageAccessPage() {
       {m && sections.map((sec, si) => (
         <Card key={sec} title={sec} i={si + 1}>
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-[13px]" style={{ minWidth: 240 + m.roles.length * 96 }}>
-              <thead><tr className="th-row"><th className="sticky left-0 bg-inherit px-3 py-2.5 text-left font-semibold">画面</th>{m.roles.map((ro) => <th key={ro.role} className="px-2 py-2.5 text-center font-semibold">{ro.label}<div className="text-[10.5px] font-normal text-faint">{m.counts[ro.role] ?? 0}人</div></th>)}</tr></thead>
+            <table className="w-full border-collapse text-body" style={{ minWidth: 240 + m.roles.length * 96 }}>
+              <thead><tr className="th-row"><th className="sticky left-0 bg-inherit px-3 py-2.5 text-left font-semibold">画面</th>{m.roles.map((ro) => <th key={ro.role} className="px-2 py-2.5 text-center font-semibold">{ro.label}<div className="text-xs font-normal text-faint">{m.counts[ro.role] ?? 0}人</div></th>)}</tr></thead>
               <tbody>
                 {m.pages.filter((p) => p.section === sec).map((p) => (
                   <tr key={p.key} className="border-t border-line-soft">
-                    <td className="sticky left-0 bg-surface px-3 py-2">{p.title}{p.lock === 'super' && <span className="ml-1.5 inline-flex items-center gap-0.5 text-[11px] text-faint"><Lock size={10} />全体管理者だけ</span>}</td>
+                    <td className="sticky left-0 bg-surface px-3 py-2">{p.title}{p.lock === 'super' && <span className="ml-1.5 inline-flex items-center gap-0.5 text-xs text-faint"><Lock size={10} />全体管理者だけ</span>}</td>
                     {m.roles.map((ro) => {
                       const c = m.cells[p.key]?.[ro.role];
                       if (!c) return <td key={ro.role} />;
@@ -85,7 +85,7 @@ export default function PageAccessPage() {
           </div>
         </Card>
       ))}
-      <p className="text-[12px] text-muted">枠の色がついたマスは既定から変えたもの。ロールを足す・名前を変えるのは今の画面から。</p>
+      <p className="text-sm text-muted">枠の色がついたマスは既定から変えたもの。ロールを足す・名前を変えるのは今の画面から。</p>
     </HoryuFrame>
   );
 }

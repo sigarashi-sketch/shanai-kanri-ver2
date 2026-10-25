@@ -28,8 +28,8 @@ const addDays = (n: number) => { const d = new Date(`${TODAY}T00:00:00`); d.setD
 const daysLeft = (s: string) => Math.round((new Date(`${s}T00:00:00`).getTime() - new Date(`${TODAY}T00:00:00`).getTime()) / 86400000);
 const catFg = (c: Cat) => `var(--tone-${CAT_TONE[c]}-fg)`;
 const catBg = (c: Cat) => `var(--tone-${CAT_TONE[c]}-bg)`;
-const sel = 'min-h-9 rounded-[10px] border border-field bg-surface px-2 text-[13px] text-ink';
-const ghost = 'inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border border-line bg-surface px-2.5 text-[12px] font-semibold disabled:opacity-40';
+const sel = 'min-h-9 rounded-[10px] border border-field bg-surface px-2 text-body text-ink';
+const ghost = 'inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border border-line bg-surface px-2.5 text-sm font-semibold disabled:opacity-40';
 
 /** 見本の簡易な地図（湾・路線・駅）。上に children でピンを重ねる */
 function BaseMap({ children, overlay, onBg }: { children: React.ReactNode; overlay?: React.ReactNode; onBg?: () => void }) {
@@ -43,7 +43,7 @@ function BaseMap({ children, overlay, onBg }: { children: React.ReactNode; overl
         {children}
       </svg>
       {overlay}
-      <span className="pointer-events-none absolute bottom-1.5 right-2 text-[10.5px] text-faint">見本の簡易な地図です（地図タイルは本物につなぐときに入れます）</span>
+      <span className="pointer-events-none absolute bottom-1.5 right-2 text-xs text-faint">見本の簡易な地図です（地図タイルは本物につなぐときに入れます）</span>
     </div>
   );
 }
@@ -66,8 +66,7 @@ export default function MapPage() {
       <MikeikenNote mk={mk} live={cm.live && tab === 'youin'} />
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 1 }}>
         {([['cases', '案件マップ'], ['youin', '要員マップ']] as const).map(([k, l]) => (
-          <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="px-3.5 py-2.5 text-[14px]"
-            style={tab === k ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>{l}</button>
+          <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="tab">{l}</button>
         ))}
       </div>
       <div key={tab} className="mo-axis">{tab === 'cases' ? <CasesMap from={from} setFrom={setFrom} data={cm.live ? cm.data : null} /> : <YouinMap live={cm.live} />}</div>
@@ -126,26 +125,26 @@ function CasesMap({ from, setFrom, data }: { from: string; setFrom: (s: string) 
     return (
       <div key={j.id} onClick={() => j.station && pick(j)} className={`cursor-pointer rounded-lg border border-line bg-surface p-3 ${focus === j.case_no ? 'ring-2' : ''} ${flash === j.case_no ? 'mo-flash' : ''}`}
         style={{ borderLeft: `4px solid ${catFg(j.category)}`, ['--tw-ring-color' as string]: 'var(--al)' }}>
-        <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+        <div className="flex flex-wrap items-center gap-1.5 text-xs">
           <span className="chip" style={{ background: catBg(j.category), color: catFg(j.category) }}>{j.category}</span>
           <span className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}><User size={11} />{j.owner}</span>
           <span className="text-faint">{SRC_LABEL[j.source]}・No.{j.case_no}</span>
-          {j.pay && <span className="ml-auto text-[13px] font-bold">{j.pay.split('（')[0]}</span>}
+          {j.pay && <span className="ml-auto text-body font-bold">{j.pay.split('（')[0]}</span>}
         </div>
-        <div className="mt-1 text-[14px] font-bold">{j.title}</div>
-        {j.company && <div className="text-[12px] text-muted">{j.company}</div>}
-        <div className="mt-1 flex items-center gap-1.5 text-[12.5px]"><Train size={13} className="text-faint" />{j.access || j.station || j.area}
+        <div className="mt-1 text-body font-bold">{j.title}</div>
+        {j.company && <div className="text-sm text-muted">{j.company}</div>}
+        <div className="mt-1 flex items-center gap-1.5 text-sm"><Train size={13} className="text-faint" />{j.access || j.station || j.area}
           {e && <span className="chip" title={`直線${e.km.toFixed(1)}kmからの目安`} style={{ background: 'var(--tone-info-bg)', color: 'var(--tone-info-fg)' }}>約{e.min}分</span>}</div>
-        <div className="mt-0.5 flex flex-wrap gap-x-3 text-[11.5px] text-faint">{j.hours && <span><Clock size={11} className="inline" /> {j.hours}</span>}{j.holiday && <span>休 {j.holiday}</span>}{j.start && <span>開始 {j.start}</span>}</div>
-        <div className="mt-1 text-[12.5px] text-muted">{j.summary}</div>
+        <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-faint">{j.hours && <span><Clock size={11} className="inline" /> {j.hours}</span>}{j.holiday && <span>休 {j.holiday}</span>}{j.start && <span>開始 {j.start}</span>}</div>
+        <div className="mt-1 text-sm text-muted">{j.summary}</div>
         {j.reserve && (
-          <div className="mt-1.5 flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-semibold" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>
+          <div className="mt-1.5 flex items-center gap-1.5 rounded-md px-2 py-1 text-sm font-semibold" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>
             <CalendarDays size={13} />充足予定 {fmt(j.reserve)}（あと{daysLeft(j.reserve)}日）{j.reserveNote && <span className="font-normal">— {j.reserveNote}</span>}
             <button disabled={!canEdit} title={canEdit ? undefined : noEdit} onClick={(ev) => { ev.stopPropagation(); update(j.id, { reserve: undefined, reserveNote: undefined }, `No.${j.case_no} の充足予約を外しました`, '→ ふつうの案件としてマップに出します'); }} className="ml-auto underline disabled:opacity-40">予約を外す</button>
           </div>
         )}
         {open[j.case_no] && (
-          <dl className="mt-2 grid grid-cols-[88px_1fr] gap-y-1 border-t border-line-soft pt-2 text-[12px]">
+          <dl className="mt-2 grid grid-cols-[88px_1fr] gap-y-1 border-t border-line-soft pt-2 text-sm">
             {j.require && <><dt className="text-faint">求めているもの</dt><dd>{j.require}</dd></>}
             {j.pay && <><dt className="text-faint">単価</dt><dd>{j.pay}</dd></>}
             <dt className="text-faint">通勤手段</dt><dd>{j.modes.map((m) => MODES.find((x) => x.v === m)?.l).join('・')}</dd>
@@ -167,32 +166,32 @@ function CasesMap({ from, setFrom, data }: { from: string; setFrom: (s: string) 
       <div className="flex gap-1.5">
         {subTabs.map(([k, l, n]) => (
           <button key={k} onClick={() => setSub(k)} disabled={k === 'input' && !canEdit} title={k === 'input' && !canEdit ? noEdit : undefined}
-            className="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] disabled:opacity-40" style={sub === k ? { borderColor: 'var(--a)', background: 'var(--as)', color: 'var(--ad)', fontWeight: 700 } : { borderColor: 'var(--color-line)' }}>
+            aria-pressed={sub === k} className="fchip disabled:opacity-40">
             {k === 'map' ? <MapPin size={13} /> : k === 'input' ? <Plus size={13} /> : <Archive size={13} />}{l}{n != null && <b className="num">{n}</b>}
           </button>
         ))}
       </div>
 
       {sub === 'map' && <>
-        <div className="flex flex-wrap items-center gap-3 rounded-lg bg-sunken px-3 py-2 text-[12px] text-muted">
+        <div className="flex flex-wrap items-center gap-3 rounded-lg bg-sunken px-3 py-2 text-sm text-muted">
           {(['sheet', 'ike', 'juchu'] as const).map((s) => <span key={s}>{s === 'sheet' ? 'スプレッドシートから' : s === 'ike' ? '社内ツールで入力' : '案件受注から'} <b className="text-ink">{openJobs.filter((j) => j.source === s).length}</b> 件</span>)}
           <span>10分ごとに自動同期</span>
           <button className={`${ghost} ml-auto`} disabled={!canEdit} title={canEdit ? undefined : noEdit} onClick={() => { hit(); toast({ text: '今すぐ同期しました（見本）', sub: '→ シートと案件受注の新しい行をマップに取り込みます' }); }}><RefreshCw size={12} />今すぐ同期</button>
         </div>
         <div className="flex flex-wrap items-end gap-3 rounded-xl border border-line bg-surface px-4 py-3">
-          <label className="flex flex-col gap-1 text-[12px] text-muted"><span className="flex items-center gap-1"><Train size={12} />要員の出発駅（お住まい）</span>
+          <label className="flex flex-col gap-1 text-sm text-muted"><span className="flex items-center gap-1"><Train size={12} />要員の出発駅（お住まい）</span>
             <select aria-label="要員の出発駅" value={from} onChange={(e) => setFrom(e.target.value)} className={sel}><option value="">選ぶ</option>{STATIONS.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}</select></label>
-          <label className="flex flex-col gap-1 text-[12px] text-muted"><span className="flex items-center gap-1"><Clock size={12} />通勤時間の目安</span>
+          <label className="flex flex-col gap-1 text-sm text-muted"><span className="flex items-center gap-1"><Clock size={12} />通勤時間の目安</span>
             <select aria-label="通勤時間の目安" value={time} onChange={(e) => setTime(+e.target.value)} className={sel}>{[999, 30, 45, 60, 90].map((t) => <option key={t} value={t}>{t === 999 ? '指定なし' : `〜${t}分`}</option>)}</select></label>
-          <label className="flex flex-col gap-1 text-[12px] text-muted"><span className="flex items-center gap-1"><User size={12} />担当者</span>
+          <label className="flex flex-col gap-1 text-sm text-muted"><span className="flex items-center gap-1"><User size={12} />担当者</span>
             <select aria-label="担当者" value={owner} onChange={(e) => setOwner(e.target.value)} className={sel}><option value="">すべて</option>{owners.map((o) => <option key={o}>{o}</option>)}</select></label>
-          <label className="flex flex-col gap-1 text-[12px] text-muted">通勤手段
+          <label className="flex flex-col gap-1 text-sm text-muted">通勤手段
             <select aria-label="通勤手段" value={mode} onChange={(e) => setMode(e.target.value)} className={sel}><option value="">すべて</option>{MODES.map((m) => <option key={m.v} value={m.v}>{m.l}</option>)}</select></label>
           <button className={ghost} onClick={() => { setFrom(''); setTime(999); setOwner(''); setMode(''); setCats([]); setFocus(null); setPop(null); }}>リセット</button>
-          {fromS && <span className="text-[12px] text-ok"><Check size={12} className="inline" /> {from}駅 から近い順に並べています</span>}
+          {fromS && <span className="text-sm text-ok"><Check size={12} className="inline" /> {from}駅 から近い順に並べています</span>}
         </div>
-        <p className="text-[12px] text-faint">通勤時間は目安。要員の出発駅を選んでから案件（ピンかカード）を選ぶと、乗換案内・Google マップの電車経路が開けます。充足済みの案件はここには出ません（「充足・終了」へ）。</p>
-        <div className="flex flex-wrap items-center gap-1.5 text-[12px]">
+        <p className="text-sm text-faint">通勤時間は目安。要員の出発駅を選んでから案件（ピンかカード）を選ぶと、乗換案内・Google マップの電車経路が開けます。充足済みの案件はここには出ません（「充足・終了」へ）。</p>
+        <div className="flex flex-wrap items-center gap-1.5 text-sm">
           <span className="text-muted">職種で絞り込み（複数可）</span>
           <button onClick={() => setCats([])} className="chip" style={!cats.length ? { background: 'var(--as)', color: 'var(--ad)' } : { background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>すべて</button>
           {CATS.map((c) => { const n = openJobs.filter((j) => j.category === c && pass(j, true)).length, on = cats.includes(c); return n ? (
@@ -203,24 +202,24 @@ function CasesMap({ from, setFrom, data }: { from: string; setFrom: (s: string) 
           <div className="self-start lg:sticky lg:top-3">
             <BaseMap onBg={() => setPop(null)} overlay={<>
               {pop && groups[pop] && (() => { const s = at(pop)!, list = groups[pop]; return (
-                <div className="absolute z-10 w-[250px] -translate-x-1/2 -translate-y-[calc(100%+30px)] rounded-lg border border-line bg-surface p-2.5 text-[12px] shadow-lg" style={pct(s.lat, s.lng)}>
+                <div className="absolute z-10 w-[250px] -translate-x-1/2 -translate-y-[calc(100%+30px)] rounded-lg border border-line bg-surface p-2.5 text-sm shadow-lg" style={pct(s.lat, s.lng)}>
                   <button className="absolute right-1.5 top-1.5 text-faint" onClick={() => setPop(null)} aria-label="閉じる"><X size={13} /></button>
                   {list.length > 1 && <div className="mb-1 font-semibold">この場所の案件 <b>{list.length}件</b></div>}
                   <ul className="flex flex-col gap-1">{list.map((j) => (
                     <li key={j.id} onClick={() => setFocus(j.case_no)} className={`flex cursor-pointer gap-1.5 rounded p-1 ${focus === j.case_no ? 'bg-soft' : ''}`}>
-                      <span className="grid size-5 shrink-0 place-items-center rounded-full text-[10px] font-bold" style={{ background: catFg(j.category), color: 'var(--color-surface)' }}>{j.case_no}</span>
+                      <span className="grid size-5 shrink-0 place-items-center rounded-full text-xs font-bold" style={{ background: catFg(j.category), color: 'var(--color-surface)' }}>{j.case_no}</span>
                       <span><b>{j.title}</b><span className="block text-faint">{j.company || `${j.owner} 担当`}{j.reserve ? `・充足予定 ${fmt(j.reserve)}` : ''}</span></span></li>))}</ul>
                   <div className="mt-1 text-faint">{list[0].access}</div>
                 </div>); })()}
               {fj && from && (
-                <div className="absolute inset-x-2 bottom-6 flex flex-wrap items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-[12.5px] shadow">
+                <div className="absolute inset-x-2 bottom-6 flex flex-wrap items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm shadow">
                   <b>{from}駅</b>→<b>{fj.station}駅</b><span className="text-faint">No.{fj.case_no} {fj.title}</span>
-                  {est(fj) && <span><b className="text-[14px]">約{est(fj)!.min}分</b> <span className="text-faint">直線 {est(fj)!.km.toFixed(1)}km からの目安</span></span>}
+                  {est(fj) && <span><b className="text-body">約{est(fj)!.min}分</b> <span className="text-faint">直線 {est(fj)!.km.toFixed(1)}km からの目安</span></span>}
                   <a className={ghost} target="_blank" rel="noopener" href={`https://transit.yahoo.co.jp/search/result?from=${encodeURIComponent(from)}&to=${encodeURIComponent(fj.station!)}`}>乗換案内</a>
                   <a className={ghost} style={{ color: 'var(--ad)' }} target="_blank" rel="noopener" href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(`${from}駅`)}&destination=${encodeURIComponent(`${fj.station}駅`)}&travelmode=transit&hl=ja`}><Route size={12} />Google マップで経路（電車）</a>
                   <button className="ml-auto text-faint" onClick={() => setFocus(null)} aria-label="閉じる"><X size={14} /></button>
                 </div>)}
-              {!fj && from && <div className="absolute inset-x-2 bottom-6 rounded-lg bg-surface/90 px-3 py-1.5 text-[12px] text-muted"><Train size={12} className="inline" /> ピンかカードを選ぶと、地図に経路の目安（距離・所要時間）が出ます</div>}
+              {!fj && from && <div className="absolute inset-x-2 bottom-6 rounded-lg bg-surface/90 px-3 py-1.5 text-sm text-muted"><Train size={12} className="inline" /> ピンかカードを選ぶと、地図に経路の目安（距離・所要時間）が出ます</div>}
             </>}>
               {fj && fromS && (() => { const a = xy(fromS.lat, fromS.lng), s = at(fj.station!)!, b = xy(s.lat, s.lng); return <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="var(--ad)" strokeWidth={3} strokeDasharray="7 6" />; })()}
               {Object.entries(groups).map(([st, list]) => {
@@ -239,17 +238,17 @@ function CasesMap({ from, setFrom, data }: { from: string; setFrom: (s: string) 
             </BaseMap>
           </div>
           <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-2 text-[12.5px]">地図上 <b>{pinned.length}件</b>
+            <div className="flex flex-wrap items-center gap-2 text-sm">地図上 <b>{pinned.length}件</b>
               <span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}>生きている案件 {openJobs.length}件</span>
               {openJobs.some((j) => j.reserve) && <span className="chip" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>充足予定 {openJobs.filter((j) => j.reserve).length}件</span>}</div>
             {pinned.map(card)}
-            {!pinned.length && <div className="rounded-lg border border-dashed border-line px-4 py-8 text-center text-[13px] text-muted">条件に合う案件がありません。<br />通勤時間を長め・手段を「すべて」にしてお試しください。</div>}
+            {!pinned.length && <div className="rounded-lg border border-dashed border-line px-4 py-8 text-center text-body text-muted">条件に合う案件がありません。<br />通勤時間を長め・手段を「すべて」にしてお試しください。</div>}
           </div>
         </div>
         {areaJobs.length > 0 && (
           <section className="flex flex-col gap-2">
-            <h2 className="flex items-center gap-1.5 text-[15px] font-bold"><MapPin size={15} />{live ? '地図にピンを立てられない案件' : 'エリア指定の案件'}</h2>
-            <p className="text-[12px] text-faint">{live ? 'エリア指定の案件と、簡易な地図の枠の外の駅・座標がまだ無い駅の案件。' : '勤務地が複数店舗・広域のため地図にピンを立てられない案件。'}</p>
+            <h2 className="flex items-center gap-1.5 text-md font-bold"><MapPin size={15} />{live ? '地図にピンを立てられない案件' : 'エリア指定の案件'}</h2>
+            <p className="text-sm text-faint">{live ? 'エリア指定の案件と、簡易な地図の枠の外の駅・座標がまだ無い駅の案件。' : '勤務地が複数店舗・広域のため地図にピンを立てられない案件。'}</p>
             <div className="grid gap-2 md:grid-cols-2">{areaJobs.map(card)}</div>
           </section>
         )}
@@ -263,9 +262,9 @@ function CasesMap({ from, setFrom, data }: { from: string; setFrom: (s: string) 
 
       {sub === 'done' && (
         <div className="flex flex-col gap-2">
-          <p className="text-[12px] text-faint">充足済み・終了した案件。マップからは消えていますが記録は残ります。「再掲載」でマップに戻せます。</p>
+          <p className="text-sm text-faint">充足済み・終了した案件。マップからは消えていますが記録は残ります。「再掲載」でマップに戻せます。</p>
           <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-            <table className="w-full text-[13px]">
+            <table className="w-full text-body">
               <thead><tr className="th-row">{['No', '案件', '担当', '最寄駅', '状態', '日付', 'メモ', ''].map((h) => <th key={h} className="px-3 py-2 text-left">{h}</th>)}</tr></thead>
               <tbody>{jobs.filter((j) => j.status !== 'open').map((j) => (
                 <tr key={j.id} className={`row border-t border-line-soft ${flash === j.case_no ? 'mo-flash' : ''}`}>
@@ -283,17 +282,17 @@ function CasesMap({ from, setFrom, data }: { from: string; setFrom: (s: string) 
         <DrawerPortal>
           <div className="fixed inset-0 z-40 grid place-items-center bg-sumi/40 p-4" onClick={() => setFill(null)}>
             <div className="mo-scale-in w-full max-w-[440px] rounded-xl bg-surface p-5" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-              <h3 className="flex items-center gap-1.5 text-[16px] font-bold"><CalendarDays size={16} />充足の設定</h3>
-              <p className="mt-1 text-[12.5px] text-muted">充足した案件はマップから消えます。予約すると、その日までは札つきで表示します。</p>
-              <div className="mt-2 rounded-lg bg-soft px-3 py-2 text-[13px]"><b>No.{fill.job.case_no}</b> {fill.job.title}</div>
+              <h3 className="flex items-center gap-1.5 text-md font-bold"><CalendarDays size={16} />充足の設定</h3>
+              <p className="mt-1 text-sm text-muted">充足した案件はマップから消えます。予約すると、その日までは札つきで表示します。</p>
+              <div className="mt-2 rounded-lg bg-soft px-3 py-2 text-body"><b>No.{fill.job.case_no}</b> {fill.job.title}</div>
               <div className="mt-3 flex flex-col gap-2">
                 {([['now', '今すぐ充足にする', '今この場でマップから外す（記録は「充足・終了」に残る）'], ['reserve', '充足を予約する', '決定見込みの日を入れておく。翌日に自動で充足扱い'], ['close', '終了にする', '案件そのものが無くなった（先方都合など）。マップから外す']] as const).map(([k, t, d]) => (
-                  <label key={k} className="flex cursor-pointer gap-2 rounded-lg border p-2.5 text-[13px]" style={{ borderColor: fill.kind === k ? 'var(--a)' : 'var(--color-line)' }}>
-                    <input type="radio" name="fillKind" checked={fill.kind === k} onChange={() => setFill({ ...fill, kind: k })} /><span><b>{t}</b><span className="block text-[12px] text-muted">{d}</span></span></label>))}
+                  <label key={k} className="flex cursor-pointer gap-2 rounded-lg border p-2.5 text-body" style={{ borderColor: fill.kind === k ? 'var(--a)' : 'var(--color-line)' }}>
+                    <input type="radio" name="fillKind" checked={fill.kind === k} onChange={() => setFill({ ...fill, kind: k })} /><span><b>{t}</b><span className="block text-sm text-muted">{d}</span></span></label>))}
               </div>
-              {fill.kind === 'reserve' && <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[12.5px]">充足予定日 <b>{fmt(addDays(fill.days))}</b>
+              {fill.kind === 'reserve' && <div className="mt-3 flex flex-wrap items-center gap-1.5 text-sm">充足予定日 <b>{fmt(addDays(fill.days))}</b>
                 {[[3, '3日後'], [7, '1週間後'], [14, '2週間後'], [30, '1ヶ月後']].map(([d, l]) => <button key={d} onClick={() => setFill({ ...fill, days: +d })} className="chip" style={fill.days === d ? { background: 'var(--as)', color: 'var(--ad)' } : { background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>{l}</button>)}</div>}
-              <label className="mt-3 flex flex-col gap-1 text-[12px] text-muted">メモ（短く）
+              <label className="mt-3 flex flex-col gap-1 text-sm text-muted">メモ（短く）
                 <input value={fill.note} maxLength={40} onChange={(e) => setFill({ ...fill, note: e.target.value })} placeholder="例：面談 10/28、内定見込み" className={`${sel} min-h-9`} /></label>
               <div className="mt-4 flex justify-end gap-2"><button className={ghost} onClick={() => setFill(null)}>やめる</button><button className="btn-primary" onClick={confirmFill}><Check size={14} />確定</button></div>
             </div>
@@ -312,55 +311,55 @@ function CaseInput({ onSave }: { onSave: (j: Omit<Job, 'id' | 'case_no'>) => voi
   const paste = () => { setText(PASTE_SAMPLE); setStep('reading'); setTimeout(() => { setStep('done'); setCat(PASTE_RESULT.category); setModes(PASTE_RESULT.modes); }, 900); };
   const r = step === 'done' ? PASTE_RESULT : null, st = r?.station ? stationOf(r.station) : undefined;
   const ok = !!r && !!cat;
-  const F = ({ l, v }: { l: string; v?: string }) => <div className="flex flex-col gap-0.5"><span className="text-[11.5px] text-faint">{l}</span><span className={`min-h-9 rounded-[10px] border border-line-soft px-2.5 py-1.5 text-[13px] ${v ? 'mo-fade-in' : 'text-faint'}`} style={v ? { background: 'var(--as)' } : undefined}>{v || '—'}</span></div>;
+  const F = ({ l, v }: { l: string; v?: string }) => <div className="flex flex-col gap-0.5"><span className="text-xs text-faint">{l}</span><span className={`min-h-9 rounded-[10px] border border-line-soft px-2.5 py-1.5 text-body ${v ? 'mo-fade-in' : 'text-faint'}`} style={v ? { background: 'var(--as)' } : undefined}>{v || '—'}</span></div>;
   return (
     <div className="grid gap-3.5 lg:grid-cols-[1.4fr_1fr]">
       <div className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
-        <h2 className="flex items-center gap-1.5 text-[16px] font-bold"><Plus size={16} />案件を登録</h2>
-        <p className="text-[12.5px] text-muted">ここで登録した案件はすぐマップに出ます。スプレッドシート連携が設定されていれば同じ行が書き戻されます（どちらで入れても同じ）。</p>
-        <div className="flex items-center gap-2.5 rounded-lg bg-soft px-3 py-2 text-[12.5px]"><span className="grid size-8 place-items-center rounded-full font-bold" style={{ background: 'var(--al)', color: 'var(--ad)' }}>{me.name[0]}</span>
-          <span><span className="block text-[11px] text-faint">担当営業（ログインから自動）</span><b>{me.name}</b></span><span className="ml-auto flex items-center gap-1 text-faint"><Lock size={12} />手で変えない</span></div>
+        <h2 className="flex items-center gap-1.5 text-md font-bold"><Plus size={16} />案件を登録</h2>
+        <p className="text-sm text-muted">ここで登録した案件はすぐマップに出ます。スプレッドシート連携が設定されていれば同じ行が書き戻されます（どちらで入れても同じ）。</p>
+        <div className="flex items-center gap-2.5 rounded-lg bg-soft px-3 py-2 text-sm"><span className="grid size-8 place-items-center rounded-full font-bold" style={{ background: 'var(--al)', color: 'var(--ad)' }}>{me.name[0]}</span>
+          <span><span className="block text-xs text-faint">担当営業（ログインから自動）</span><b>{me.name}</b></span><span className="ml-auto flex items-center gap-1 text-faint"><Lock size={12} />手で変えない</span></div>
         <div className="flex flex-col gap-1">
-          <span className="text-[12.5px] font-semibold">案件文を貼る（Slack・メールの文面そのまま）</span>
-          {text ? <pre className="whitespace-pre-wrap rounded-[10px] border border-field bg-sunken p-2.5 text-[12.5px]">{text}</pre>
-            : <button onClick={paste} className="rounded-[10px] border border-dashed border-field px-3 py-6 text-[13px] text-muted hover:bg-soft">ここに貼る（見本の案件文を貼ります）</button>}
-          <div className="flex items-center gap-1.5 text-[12px]" style={{ color: step === 'done' ? 'var(--tone-ok-fg)' : 'var(--color-muted)' }}>
+          <span className="text-sm font-semibold">案件文を貼る（Slack・メールの文面そのまま）</span>
+          {text ? <pre className="whitespace-pre-wrap rounded-[10px] border border-field bg-sunken p-2.5 text-sm">{text}</pre>
+            : <button onClick={paste} className="rounded-[10px] border border-dashed border-field px-3 py-6 text-body text-muted hover:bg-soft">ここに貼る（見本の案件文を貼ります）</button>}
+          <div className="flex items-center gap-1.5 text-sm" style={{ color: step === 'done' ? 'var(--tone-ok-fg)' : 'var(--color-muted)' }}>
             {step === 'empty' && <><Search size={12} />貼ると各欄と最寄駅を自動で読み取ります（手で直した欄は上書きしません）</>}
             {step === 'reading' && <><Sparkles size={12} className="mo-pulse" />AI が読み取り中…</>}
             {step === 'done' && <><Sparkles size={12} />AI が 10 の欄を読み取りました・最寄駅「{r!.station}駅」を見つけました</>}
           </div>
         </div>
-        <p className="border-t border-line-soft pt-2 text-[12px] font-bold text-muted">基本</p>
+        <p className="border-t border-line-soft pt-2 text-sm font-bold text-muted">基本</p>
         <div className="grid gap-2 sm:grid-cols-2"><F l="案件名 *" v={r?.title} /><F l="会社名" v={r?.company} /></div>
         <div className="grid gap-2 sm:grid-cols-3">
-          <label className="flex flex-col gap-0.5 text-[11.5px] text-faint">カテゴリ *<select value={cat} onChange={(e) => setCat(e.target.value as Cat)} className={sel}><option value="">選ぶ</option>{CATS.map((c) => <option key={c}>{c}</option>)}</select></label>
+          <label className="flex flex-col gap-0.5 text-xs text-faint">カテゴリ *<select value={cat} onChange={(e) => setCat(e.target.value as Cat)} className={sel}><option value="">選ぶ</option>{CATS.map((c) => <option key={c}>{c}</option>)}</select></label>
           <F l="単価" v={r?.pay} /><F l="開始時期" v={r?.start} /></div>
         <div className="grid gap-2 sm:grid-cols-3"><F l="勤務時間" v={r?.hours} /><F l="休日" v={r?.holiday} /><F l="求めているもの" v={r?.require} /></div>
-        <p className="border-t border-line-soft pt-2 text-[12px] font-bold text-muted">勤務地（駅でピンを立てる）</p>
+        <p className="border-t border-line-soft pt-2 text-sm font-bold text-muted">勤務地（駅でピンを立てる）</p>
         <div className="grid gap-2 sm:grid-cols-2"><F l="最寄駅 *（自動検出）" v={r?.station && `${r.station}駅`} /><F l="アクセス" v={r?.access} /></div>
-        <div className="flex flex-wrap gap-3 text-[13px]"><span className="text-[12px] text-muted">通勤手段</span>{MODES.map((m) => (
+        <div className="flex flex-wrap gap-3 text-body"><span className="text-sm text-muted">通勤手段</span>{MODES.map((m) => (
           <label key={m.v} className="flex items-center gap-1"><input type="checkbox" checked={modes.includes(m.v)} onChange={() => setModes((x) => (x.includes(m.v) ? x.filter((y) => y !== m.v) : [...x, m.v]))} />{m.l}</label>))}</div>
-        <p className="border-t border-line-soft pt-2 text-[12px] font-bold text-muted">充足予約（任意）</p>
-        <label className="flex items-center gap-2 text-[12.5px] text-muted">この日に充足扱いにする<select value={rsv} onChange={(e) => setRsv(+e.target.value)} className={sel}><option value={0}>しない</option>{[[7, '1週間後'], [14, '2週間後'], [30, '1ヶ月後']].map(([d, l]) => <option key={d} value={d}>{l}（{fmt(addDays(+d))}）</option>)}</select></label>
+        <p className="border-t border-line-soft pt-2 text-sm font-bold text-muted">充足予約（任意）</p>
+        <label className="flex items-center gap-2 text-sm text-muted">この日に充足扱いにする<select value={rsv} onChange={(e) => setRsv(+e.target.value)} className={sel}><option value={0}>しない</option>{[[7, '1週間後'], [14, '2週間後'], [30, '1ヶ月後']].map(([d, l]) => <option key={d} value={d}>{l}（{fmt(addDays(+d))}）</option>)}</select></label>
         <div className="flex flex-wrap items-center gap-2 border-t border-line-soft pt-3">
-          <span className="flex-1 text-[11.5px] text-faint">案件No は自動採番（スプレッドシートと共通）。本物では読み取った欄を手で直せます。</span>
+          <span className="flex-1 text-xs text-faint">案件No は自動採番（スプレッドシートと共通）。本物では読み取った欄を手で直せます。</span>
           <button className={ghost} onClick={() => { setText(''); setStep('empty'); setCat(''); setRsv(0); }}>クリア</button>
           <button className="btn-primary" disabled={!ok} title={ok ? undefined : '案件文を貼って、カテゴリを選んでください'} onClick={() => r && cat && onSave({ ...r, category: cat, modes, owner: me.name, source: 'ike', status: 'open', reserve: rsv ? addDays(rsv) : undefined })}><Check size={14} />登録してマップに出す</button>
         </div>
       </div>
       <div className="flex flex-col gap-3">
         <div className="rounded-xl border border-line bg-surface p-3">
-          <h3 className="mb-2 flex items-center gap-1.5 text-[13px] font-bold"><MapPin size={13} />ピンのプレビュー</h3>
+          <h3 className="mb-2 flex items-center gap-1.5 text-body font-bold"><MapPin size={13} />ピンのプレビュー</h3>
           <BaseMap>{st && (() => { const p = xy(st.lat, st.lng); return <g transform={`translate(${p.x},${p.y})`} className="mo-spring-in"><path d="M0 0C-2-6-10-9-10-16a10 10 0 1 1 20 0c0 7-8 10-10 16z" fill={cat ? catFg(cat) : 'var(--color-faint)'} /><text y={-12.5} textAnchor="middle" fontSize={9} fontWeight={700} fill="var(--color-surface)">?</text></g>; })()}</BaseMap>
-          <dl className="mt-2 grid grid-cols-[72px_1fr] gap-y-0.5 text-[12px]"><dt className="text-faint">駅</dt><dd>{st ? `${st.name}駅` : '—'}</dd><dt className="text-faint">座標</dt><dd className="num">{st ? `${st.lat.toFixed(4)}, ${st.lng.toFixed(4)}` : '—'}</dd></dl>
+          <dl className="mt-2 grid grid-cols-[72px_1fr] gap-y-0.5 text-sm"><dt className="text-faint">駅</dt><dd>{st ? `${st.name}駅` : '—'}</dd><dt className="text-faint">座標</dt><dd className="num">{st ? `${st.lat.toFixed(4)}, ${st.lng.toFixed(4)}` : '—'}</dd></dl>
         </div>
-        <div className="rounded-xl border border-line bg-surface p-3 text-[12.5px]">
-          <h3 className="mb-2 flex items-center gap-1.5 text-[13px] font-bold"><FileSpreadsheet size={13} />スプレッドシートとの両刀</h3>
-          <div className="flex flex-wrap items-center gap-1.5 text-[12px]"><span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}>営業案件管理シート</span>⇄<span className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>データベース</span>⇄<span className="chip" style={{ background: 'var(--as)', color: 'var(--ad)' }}>この画面</span></div>
+        <div className="rounded-xl border border-line bg-surface p-3 text-sm">
+          <h3 className="mb-2 flex items-center gap-1.5 text-body font-bold"><FileSpreadsheet size={13} />スプレッドシートとの両刀</h3>
+          <div className="flex flex-wrap items-center gap-1.5 text-sm"><span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}>営業案件管理シート</span>⇄<span className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>データベース</span>⇄<span className="chip" style={{ background: 'var(--as)', color: 'var(--ad)' }}>この画面</span></div>
           <ol className="mt-2 list-decimal pl-4 text-muted">
             <li>シートに書いた行は10分ごとに取り込み（案件No で突き合わせ）</li><li>ここで登録した行はシートに書き戻し（同じ案件No）</li>
             <li>充足・充足予約は<b>この画面が正</b>。シートには「充足」列として出す</li><li>案件受注に届いた案件は自動でここに写る</li></ol>
-          <div className="mt-2 rounded-lg bg-soft px-2.5 py-2 text-[12px]"><Check size={12} className="inline text-ok" /> 連携中：営業案件管理シート「案件マップ」タブ（見本）
+          <div className="mt-2 rounded-lg bg-soft px-2.5 py-2 text-sm"><Check size={12} className="inline text-ok" /> 連携中：営業案件管理シート「案件マップ」タブ（見本）
             <span className="block text-faint">本物では画面でシートの URL を貼って接続します。入れられるのは全体管理者・役員・営業管理だけ。</span></div>
         </div>
       </div>
@@ -399,9 +398,9 @@ function YouinMap({ live }: { live: boolean }) {
       <aside className="flex flex-col gap-2.5 self-start rounded-xl border border-line bg-surface p-3">
         <div className="flex items-center gap-2">
           <button className={ghost} onClick={refresh} disabled={loading || live} title={live ? LIVE_WRITE_BLOCKED : undefined}><RefreshCw size={12} className={loading ? 'animate-spin' : ''} />{loading ? '案件取得中…' : '案件を更新'}</button>
-          <span className="text-[12px] text-muted">地図表示 <b className="text-ink">{shown.length}</b>名 / 案件 <b className="text-ink">{CASES_.length}</b>件</span>
+          <span className="text-sm text-muted">地図表示 <b className="text-ink">{shown.length}</b>名 / 案件 <b className="text-ink">{CASES_.length}</b>件</span>
         </div>
-        <div className="rounded-lg bg-soft px-2.5 py-2 text-[11.5px] leading-relaxed text-muted">
+        <div className="rounded-lg bg-soft px-2.5 py-2 text-xs leading-relaxed text-muted">
           {live ? (<>
             {md.state === 'loading' && <>読み込み中…<br /></>}{md.state === 'error' && <span className="text-bad">{md.error}<br /></span>}
             対象 {md.data?.counts?.target ?? '—'}名（除外 {md.data?.counts?.excluded ?? '—'}名）／最寄駅あり {YOUIN_.length - noStation.length}・なし {noStation.length}<br />
@@ -414,29 +413,29 @@ function YouinMap({ live }: { live: boolean }) {
           {noSt && <span className="block">{noStation.map((y) => y.name).join('、')}（営業用リストの最寄駅を埋めると地図に出ます）</span>}
         </div>
         <label className="flex items-center gap-1.5 rounded-[10px] border border-field px-2"><Search size={13} className="text-faint" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="名前・駅で要員を絞り込み" className="min-h-9 flex-1 bg-transparent text-[13px] outline-none" /></label>
-        <div className="flex items-center justify-between border-t border-line-soft pt-2 text-[13px] font-bold">案件情報（{CASES_.length}）
-          <span className="text-[11.5px] font-normal"><button className="underline" onClick={() => setHidden({})}>全表示</button> / <button className="underline" onClick={() => setHidden(Object.fromEntries(CASES_.map((c) => [c.kNo, true])))}>全非表示</button></span></div>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="名前・駅で要員を絞り込み" className="min-h-9 flex-1 bg-transparent text-body outline-none" /></label>
+        <div className="flex items-center justify-between border-t border-line-soft pt-2 text-body font-bold">案件情報（{CASES_.length}）
+          <span className="text-xs font-normal"><button className="underline" onClick={() => setHidden({})}>全表示</button> / <button className="underline" onClick={() => setHidden(Object.fromEntries(CASES_.map((c) => [c.kNo, true])))}>全非表示</button></span></div>
         <div className="flex max-h-[520px] flex-col gap-2 overflow-y-auto">
           {CASES_.map((c) => { const isSel = selCase === c.kNo; return (
-            <div key={c.kNo} className="rounded-lg border p-2.5 text-[12px]" style={{ borderColor: isSel ? 'var(--a)' : 'var(--color-line)', background: isSel ? 'var(--as)' : undefined }}>
+            <div key={c.kNo} className="rounded-lg border p-2.5 text-sm" style={{ borderColor: isSel ? 'var(--a)' : 'var(--color-line)', background: isSel ? 'var(--as)' : undefined }}>
               <div className="flex items-center gap-2">
                 <label className="flex items-center gap-1 text-muted"><input type="checkbox" checked={!hidden[c.kNo]} onChange={() => setHidden((h) => ({ ...h, [c.kNo]: !h[c.kNo] }))} />表示</label>
                 <span className="chip" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>{c.kNo}</span><span className="text-faint">{c.date}</span>
                 <button className={`${ghost} ml-auto`} onClick={() => setSelCase(isSel ? null : c.kNo)} style={isSel ? { color: 'var(--ad)', borderColor: 'var(--a)' } : undefined}>{isSel ? <><Check size={12} />選択中</> : '選択'}</button>
               </div>
-              <div className="mt-1 flex flex-wrap gap-1">{c.stations.map((s) => <span key={s} className="text-[11px] text-muted"><MapPin size={10} className="inline" />{s}</span>)}{c.remote && <span className="text-[11px]" style={{ color: 'var(--tone-info-fg)' }}>リモート併用</span>}</div>
+              <div className="mt-1 flex flex-wrap gap-1">{c.stations.map((s) => <span key={s} className="text-xs text-muted"><MapPin size={10} className="inline" />{s}</span>)}{c.remote && <span className="text-xs" style={{ color: 'var(--tone-info-fg)' }}>リモート併用</span>}</div>
               <div className="mt-1 cursor-pointer text-muted hover:text-ink" onClick={() => setFocus(c.kNo)}>{c.content}</div>
             </div>); })}
         </div>
-        <div className="flex gap-3 border-t border-line-soft pt-2 text-[11.5px] text-muted">
+        <div className="flex gap-3 border-t border-line-soft pt-2 text-xs text-muted">
           <span className="flex items-center gap-1"><i className="inline-block size-2.5 rounded-full" style={{ background: 'var(--tone-info-fg)' }} />要員（最寄駅）</span>
           <span className="flex items-center gap-1"><i className="inline-block size-2.5 rounded-full" style={{ background: 'var(--tone-warn-fg)' }} />案件</span></div>
       </aside>
 
       <div className="self-start lg:sticky lg:top-3">
         <BaseMap onBg={() => setPop(null)} overlay={pop && byStation[pop] && (() => { const s = at(pop)!, list = byStation[pop]; return (
-          <div className="absolute z-10 w-[220px] -translate-x-1/2 -translate-y-[calc(100%+26px)] rounded-lg border border-line bg-surface p-2.5 text-[12.5px] shadow-lg" style={pct(s.lat, s.lng)}>
+          <div className="absolute z-10 w-[220px] -translate-x-1/2 -translate-y-[calc(100%+26px)] rounded-lg border border-line bg-surface p-2.5 text-sm shadow-lg" style={pct(s.lat, s.lng)}>
             <button className="absolute right-1.5 top-1.5 text-faint" onClick={() => setPop(null)} aria-label="閉じる"><X size={13} /></button>
             <div className="mb-1 font-bold"><Train size={12} className="inline" /> {pop}（{list.length}名）</div>
             {list.map((y) => <label key={y.id} className="flex items-center gap-1.5 py-0.5"><input type="checkbox" checked={members.includes(y.id)} onChange={() => toggle(y.id)} />
@@ -456,11 +455,11 @@ function YouinMap({ live }: { live: boolean }) {
               <text x={p.x} y={p.y + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--color-surface)">{list.length}</text></g>;
           })}
         </BaseMap>
-        <p className="mt-1.5 text-[11.5px] text-faint">要員は営業用リストの最寄駅、案件は Slack に流れた案件の現場の駅に出します。駅の丸を押すと名前が出て、チェックで配信の宛先に入れられます。</p>
+        <p className="mt-1.5 text-xs text-faint">要員は営業用リストの最寄駅、案件は Slack に流れた案件の現場の駅に出します。駅の丸を押すと名前が出て、チェックで配信の宛先に入れられます。</p>
       </div>
 
       {(selCase || members.length > 0) && (
-        <div className="mo-fade-up fixed bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 rounded-xl border border-line bg-surface px-4 py-2.5 text-[13px] shadow-lg">
+        <div className="mo-fade-up fixed bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 rounded-xl border border-line bg-surface px-4 py-2.5 text-body shadow-lg">
           <span>{selCase ? <>案件 <b>{selCase}</b></> : <span className="text-warn">案件 未選択</span>}　／　要員 <b>{members.length}</b> 名</span>
           <button className={ghost} onClick={() => { setSelCase(null); setMembers([]); }}>選択解除</button>
           <button className="btn-primary" disabled={!canEdit} title={canEdit ? undefined : live ? LIVE_WRITE_BLOCKED : needText('edit')} onClick={apply}>転記＆配信先設定</button>
@@ -470,17 +469,17 @@ function YouinMap({ live }: { live: boolean }) {
       {detail && (
         <DrawerPortal>
           <div className="fixed inset-0 z-40 bg-sumi/30" onClick={() => setDetail(null)} />
-          <aside className="mo-drawer fixed inset-y-0 right-0 z-50 flex w-full max-w-[380px] flex-col gap-3 overflow-y-auto bg-surface p-5 shadow-xl">
-            <div className="flex items-center justify-between"><h2 className="text-[15px] font-bold">要員詳細情報</h2><button onClick={() => setDetail(null)} aria-label="閉じる"><X size={16} /></button></div>
-            {live ? <div className="text-[17px] font-bold"><PersonName name={detail.name} className="underline-offset-2 hover:underline" /></div> : <PersonName name={detail.name} className="text-[17px] font-bold hover:underline underline-offset-2" />}
-            {live && <p className="text-[12.5px] text-muted">サマリ・前職・面談可能日は要員リストの要員ページで見られます。<Link href={`/eigyo/proper?q=${encodeURIComponent(detail.name)}`} className="font-semibold" style={{ color: 'var(--ad)' }}>要員リストを開く</Link></p>}
-            <dl className="grid grid-cols-[84px_1fr] gap-y-2 text-[13px]">
+          <aside className="mo-drawer drawer gap-3 overflow-y-auto p-5">
+            <div className="flex items-center justify-between"><h2 className="text-md font-bold">要員詳細情報</h2><button onClick={() => setDetail(null)} aria-label="閉じる"><X size={16} /></button></div>
+            {live ? <div className="text-lg font-bold"><PersonName name={detail.name} className="underline-offset-2 hover:underline" /></div> : <PersonName name={detail.name} className="text-lg font-bold hover:underline underline-offset-2" />}
+            {live && <p className="text-sm text-muted">サマリ・前職・面談可能日は要員リストの要員ページで見られます。<Link href={`/eigyo/proper?q=${encodeURIComponent(detail.name)}`} className="font-semibold" style={{ color: 'var(--ad)' }}>要員リストを開く</Link></p>}
+            <dl className="grid grid-cols-[84px_1fr] gap-y-2 text-body">
               <dt className="text-faint">最寄駅</dt><dd>{detail.station}</dd>
               <dt className="text-faint">タグ</dt><dd className="flex flex-wrap gap-1">{detail.tags.map((t) => <span key={t} className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>{t}</span>)}</dd>
               <dt className="text-faint">サマリ</dt><dd>{detail.summary}</dd><dt className="text-faint">前職経験</dt><dd>{detail.career}</dd>
             </dl>
-            <div className="rounded-lg bg-soft p-3 text-[12.5px]"><div className="mb-1 font-semibold">面談可能日程</div>{detail.dates.length ? detail.dates.map((d) => <div key={d}>{d}</div>) : <span className="text-faint">まだありません</span>}</div>
-            <div className="rounded-lg bg-soft p-3 text-[12.5px]"><div className="mb-1 font-semibold">メモ（送信本文には含まれません）</div>{detail.memo ?? <span className="text-faint">メモ情報なし</span>}</div>
+            <div className="rounded-lg bg-soft p-3 text-sm"><div className="mb-1 font-semibold">面談可能日程</div>{detail.dates.length ? detail.dates.map((d) => <div key={d}>{d}</div>) : <span className="text-faint">まだありません</span>}</div>
+            <div className="rounded-lg bg-soft p-3 text-sm"><div className="mb-1 font-semibold">メモ（送信本文には含まれません）</div>{detail.memo ?? <span className="text-faint">メモ情報なし</span>}</div>
           </aside>
         </DrawerPortal>
       )}

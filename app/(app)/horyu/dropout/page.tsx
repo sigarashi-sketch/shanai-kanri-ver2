@@ -25,13 +25,13 @@ export default function DropoutPage() {
           <Kpi label="合計" value={`${rows.length}名`} />
         </div>
         <Panel title="一覧" sub="新しい順">
-          <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-[12.5px]"><thead><tr className="text-left text-faint"><th className="py-1 pr-2">名前</th><th className="pr-2">dropout</th><th className="pr-2">いつの段階</th><th className="pr-2">採用担当</th><th className="pr-2">所属</th><th className="pr-2">承諾日</th><th className="pr-2">入場日</th><th>状態</th></tr></thead>
+          <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-sm"><thead><tr className="text-left text-faint"><th className="py-1 pr-2">名前</th><th className="pr-2">dropout</th><th className="pr-2">いつの段階</th><th className="pr-2">採用担当</th><th className="pr-2">所属</th><th className="pr-2">承諾日</th><th className="pr-2">入場日</th><th>状態</th></tr></thead>
             <tbody>{rows.map((r) => <tr key={r.name + r.at} className="border-t border-line-soft">
               <td className="py-1.5 pr-2"><PersonName name={r.name} /></td><td className="num pr-2">{fmtDate(r.at)}</td><td className="pr-2">{PHASE[r.phase] || r.phase || '—'}</td>
               <td className="pr-2">{r.tantou || '—'}</td><td className="pr-2">{r.shozoku || '—'}</td><td className="num pr-2">{r.shoudakuBi || '—'}</td><td className="num pr-2">{r.nyuujouBi || '—'}</td>
               <td className="flex flex-wrap gap-1 py-1.5">{r.taisha && <span className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>退社{r.taishaBi ? ` ${r.taishaBi}` : ''}</span>}{r.taiki && <span className="chip" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>待機</span>}{r.jitai && <span className="chip" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>辞退</span>}{r.sankakuKettei && <span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}>参画決定</span>}{!r.inSales && <span className="text-faint">営業リストに無し</span>}</td>
             </tr>)}</tbody></table></div>
-          {!rows.length && <div className="py-3 text-center text-[12.5px] text-faint">いません</div>}
+          {!rows.length && <div className="py-3 text-center text-sm text-faint">いません</div>}
         </Panel>
       </>}
     </main>

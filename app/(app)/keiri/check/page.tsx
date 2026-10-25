@@ -72,29 +72,29 @@ export default function KeihiCheckPage() {
   if (login.live) return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="交通費チェック" sub="MF経費の明細と freee の出勤の打刻を、人ごと・1日ずつ照らします">
-        <Link href="/keiri/keihi" className="inline-flex min-h-10 items-center rounded-[10px] border border-field bg-surface px-3.5 text-[13px] font-semibold">交通費・経費の承認へ</Link>
+        <Link href="/keiri/keihi" className="btn-secondary">交通費・経費の承認へ</Link>
       </PageTitle>
       <LiveBanner state="live" note="照らすだけです（何も保存しません）。差し戻しは MF経費で、ここに出る文面をコピーして使ってください" />
       <MikeikenNote mk={mk} live />
       <KeihiCheckLive mk={mk} />
-      <p className="text-[11.5px] text-faint">出勤＝出勤か退勤の打刻がある日。在籍期間は名簿の入社日・退社日、待機中は退場日〜次の入場日の前。判定は今の社内システムの交通費チェックと同じです。</p>
+      <p className="text-xs text-faint">出勤＝出勤か退勤の打刻がある日。在籍期間は名簿の入社日・退社日、待機中は退場日〜次の入場日の前。判定は今の社内システムの交通費チェックと同じです。</p>
     </main>
   );
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="交通費チェック" sub="交通費の申請（日ごと）と勤怠の打刻を、人ごと・1日ずつ照らします・見本データ">
-        <select aria-label="対象の月" value={mkey} onChange={(e) => { setMkey(e.target.value); setSel({}); }} className="min-h-10 rounded-[10px] border border-field bg-surface px-2 text-[13px]">
+        <select aria-label="対象の月" value={mkey} onChange={(e) => { setMkey(e.target.value); setSel({}); }} className="min-h-10 rounded-[10px] border border-field bg-surface px-2 text-body">
           {MONTHS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
         </select>
-        <Link href="/keiri/keihi" className="inline-flex min-h-10 items-center rounded-[10px] border border-field bg-surface px-3.5 text-[13px] font-semibold">交通費・経費の承認へ</Link>
+        <Link href="/keiri/keihi" className="btn-secondary">交通費・経費の承認へ</Link>
       </PageTitle>
       <LiveBanner state={login.state === 'error' ? 'error' : login.state} error={login.error} onReload={login.reload} />
 
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <RemainRing remain={remain.length} total={targets.length} />
-        <div className="text-[13px]"><b>差し戻し対象 残り {remain.length}人</b><span className="ml-2 text-muted">照らした {judged.length}人・問題なし {judged.length - targets.length}人</span>
-          {!canApprove && <div className="text-[12px] text-bad">{needText('approve')}</div>}
+        <div className="text-body"><b>差し戻し対象 残り {remain.length}人</b><span className="ml-2 text-muted">照らした {judged.length}人・問題なし {judged.length - targets.length}人</span>
+          {!canApprove && <div className="text-sm text-bad">{needText('approve')}</div>}
         </div>
         <div className="ml-auto flex flex-wrap gap-1.5">
           {LEGEND.map((k) => <span key={k} className="chip" style={{ background: DAY_STYLE[k].bg, color: DAY_STYLE[k].fg }}>{DAY_STYLE[k].label}</span>)}
@@ -104,29 +104,29 @@ export default function KeihiCheckPage() {
       {targets.length > 0 && remain.length === 0 && (
         <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-10 text-center">
           <Check className="mx-auto text-ok" size={26} />
-          <div className="mt-2 text-[15px] font-bold">{month.label} の見回りはおしまいです</div>
-          <div className="mt-1 text-[12.5px] text-muted">{targets.length}人を差し戻し、本人に知らせました。出し直しが来たら「交通費・経費」に並びます。</div>
+          <div className="mt-2 text-md font-bold">{month.label} の見回りはおしまいです</div>
+          <div className="mt-1 text-sm text-muted">{targets.length}人を差し戻し、本人に知らせました。出し直しが来たら「交通費・経費」に並びます。</div>
         </div>
       )}
 
       <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
         <div className="flex flex-wrap items-center gap-1.5 border-b border-line-soft px-4 py-2.5">
           {([['bad', `差し戻し対象 ${remain.length}`], ['ok', `問題なし ${judged.length - targets.length}`], ['all', `すべて ${judged.length}`]] as const).map(([k, l]) => (
-            <button key={k} onClick={() => setTab(k)} className={`min-h-8 whitespace-nowrap rounded-full border px-3 text-[12.5px] ${tab === k ? 'font-semibold' : 'text-muted'}`} style={tab === k ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>{l}</button>
+            <button key={k} onClick={() => setTab(k)} className={`min-h-8 whitespace-nowrap rounded-full border px-3 text-sm ${tab === k ? 'font-semibold' : 'text-muted'}`} style={tab === k ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>{l}</button>
           ))}
           {tab === 'bad' && remain.length > 0 && (
             <div className="ml-auto flex flex-wrap items-center gap-2">
-              <select aria-label="差し戻す理由" value={reason} onChange={(e) => setReason(e.target.value)} className="min-h-8 rounded-lg border border-field bg-surface px-2 text-[12.5px]">
+              <select aria-label="差し戻す理由" value={reason} onChange={(e) => setReason(e.target.value)} className="min-h-8 rounded-lg border border-field bg-surface px-2 text-sm">
                 <option value="auto">理由：人ごとに いちばん多いもの</option>
                 {Object.values(REASONS).map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
-              <button onClick={() => sendBack(picked)} disabled={!canApprove || picked.length === 0} title={!canApprove ? needText('approve') : undefined} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg px-3 text-[12.5px] font-bold text-white disabled:opacity-40" style={{ background: 'var(--color-bad)' }}><CornerUpLeft size={14} />選んだ {picked.length}人を差し戻す</button>
-              <button onClick={() => sendBack(remain)} disabled={!canApprove} title={!canApprove ? needText('approve') : undefined} className="min-h-8 whitespace-nowrap rounded-lg border px-3 text-[12.5px] font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>{remain.length}人 ぜんぶ差し戻す</button>
+              <button onClick={() => sendBack(picked)} disabled={!canApprove || picked.length === 0} title={!canApprove ? needText('approve') : undefined} className="btn-danger solid btn-sm"><CornerUpLeft size={14} />選んだ {picked.length}人を差し戻す</button>
+              <button onClick={() => sendBack(remain)} disabled={!canApprove} title={!canApprove ? needText('approve') : undefined} className="btn-danger btn-sm">{remain.length}人 ぜんぶ差し戻す</button>
             </div>
           )}
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] border-collapse text-[13px]">
+          <table className="w-full min-w-[980px] border-collapse text-body">
             <thead><tr className="th-row text-left">
               <th className="w-10 px-4 py-2.5" /><th className="px-2 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">1日ずつ（上＝日・○＝申請あり）</th><th className="px-2 py-2.5 font-semibold">引っかかったこと</th><th className="px-4 py-2.5 text-right font-semibold">申請額</th>
             </tr></thead>
@@ -136,7 +136,7 @@ export default function KeihiCheckPage() {
                   <td className="px-4 py-2.5">{j.n > 0 && !back[j.p.id] && <input type="checkbox" aria-label={`${j.p.name} を選ぶ`} disabled={!canApprove} title={!canApprove ? needText('approve') : undefined} checked={!!sel[j.p.id]} onChange={(e) => setSel((s) => ({ ...s, [j.p.id]: e.target.checked }))} />}</td>
                   <td className="px-2 py-2.5">
                     <PersonName name={j.p.name} className="font-semibold hover:underline underline-offset-2" />
-                    <div className="text-[11.5px] text-faint">{j.p.site}</div>
+                    <div className="text-xs text-faint">{j.p.site}</div>
                     {j.shift && <span className="chip mt-1 inline-flex items-center gap-1" style={{ background: 'var(--al)', color: 'var(--ad)' }}><Repeat size={11} />シフト勤務</span>}
                   </td>
                   <td className="px-2 py-2.5">
@@ -144,28 +144,28 @@ export default function KeihiCheckPage() {
                       {j.days.map((d) => {
                         const s = DAY_STYLE[d.kind];
                         return (
-                          <div key={d.d} title={`${month.month}/${d.d}（${DOW[d.dow]}）${s.label}${d.claim ? '・申請あり' : ''}`} className="flex w-[26px] flex-col items-center rounded-md py-0.5 text-[10.5px] leading-tight" style={{ background: s.bg, color: s.fg, outline: s.issue ? '1px solid currentColor' : undefined }}>
+                          <div key={d.d} title={`${month.month}/${d.d}（${DOW[d.dow]}）${s.label}${d.claim ? '・申請あり' : ''}`} className="flex w-[26px] flex-col items-center rounded-md py-0.5 text-xs leading-tight" style={{ background: s.bg, color: s.fg, outline: s.issue ? '1px solid currentColor' : undefined }}>
                             <span className="num font-semibold">{d.d}</span><span className="opacity-70">{DOW[d.dow]}</span><span>{d.claim ? '○' : ' '}</span>
                           </div>
                         );
                       })}
                     </div>
                   </td>
-                  <td className="px-2 py-2.5 text-[12.5px]">
+                  <td className="px-2 py-2.5 text-sm">
                     {back[j.p.id] ? <span className="text-bad">差し戻し済み：{back[j.p.id].reason}</span>
                       : j.n === 0 ? <span className="text-ok">問題なし</span>
                       : <ul className="flex flex-col gap-0.5">{(Object.entries(j.issues) as [DayKind, number][]).map(([k, n]) => <li key={k} style={{ color: DAY_STYLE[k].fg }}>{DAY_STYLE[k].label} {n}日</li>)}</ul>}
-                    {j.shift && j.n === 0 && <div className="text-[11.5px] text-faint">土日祝に出勤あり＝平日の打刻なしは漏れにしていません</div>}
+                    {j.shift && j.n === 0 && <div className="text-xs text-faint">土日祝に出勤あり＝平日の打刻なしは漏れにしていません</div>}
                   </td>
                   <td className="num px-4 py-2.5 text-right">{j.p.amount ? yen(j.p.amount) : '—'}</td>
                 </tr>
               ))}
-              {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-[13px] text-muted">ここに出す人はいません</td></tr>}
+              {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-body text-muted">ここに出す人はいません</td></tr>}
             </tbody>
           </table>
         </div>
       </div>
-      <p className="text-[11.5px] text-faint">出勤＝出勤か退勤の打刻がある日。在籍期間は名簿の入社日・退社日、待機中は退場日〜次の入場日の前。差し戻しは経費の申請を「差し戻し」に戻して本人に知らせる想定です（本物につなぐまでは見本の中だけで動きます）。</p>
+      <p className="text-xs text-faint">出勤＝出勤か退勤の打刻がある日。在籍期間は名簿の入社日・退社日、待機中は退場日〜次の入場日の前。差し戻しは経費の申請を「差し戻し」に戻して本人に知らせる想定です（本物につなぐまでは見本の中だけで動きます）。</p>
     </main>
   );
 }
