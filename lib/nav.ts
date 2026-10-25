@@ -108,6 +108,12 @@ export const NAV_HORYU: NavItem[] = [
   { href: '/horyu/custom-pages', label: 'カスタムページ', built: true },
   { href: '/horyu/calendar', label: 'カレンダー設定', built: true },
   { href: '/horyu/settings-center', label: '設定センター', built: true },
+  { href: '/horyu/youin-map', label: '要員マップ', built: true },
+  { href: '/horyu/case-input', label: '案件の抽出・修正', built: true },
+  { href: '/horyu/kadohyo', label: '稼働表出力', built: true },
+  { href: '/horyu/client-links', label: '客先向けリンク', built: true },
+  { href: '/horyu/client', label: '客先向けの画面', built: true },
+  { href: '/horyu/juchu', label: '案件受注', built: true },
 ];
 
 export function findNav(pathname: string): { group?: NavGroup; item?: NavItem } {
