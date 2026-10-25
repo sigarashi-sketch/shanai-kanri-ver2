@@ -6,7 +6,7 @@ import { PageTitle } from '@/components/ui';
 import { LiveBanner, useIke } from '@/components/Live';
 import { RemainRing, useMotivation } from '@/components/Motivation';
 import { NoAccess, usePerms } from '@/components/Perms';
-import { loadOrg, parseOrg, peopleFromAdmin, saveOrg, type AdminList, type OrgState } from '@/lib/org';
+import { INNAI_DOMAIN, loadOrg, parseOrg, peopleFromAdmin, personKind, saveOrg, type AdminList, type OrgState } from '@/lib/org';
 import { ORG_SAMPLE_PEOPLE } from '@/lib/org-sample';
 import { OrgChart } from './OrgChart';
 import { PeopleTable } from './PeopleTable';
@@ -29,6 +29,7 @@ export default function OrgPage() {
   const { data, state, error, reload, live } = useIke<AdminList>(manageAccess ? 'admin?action=list' : null);
   const [org, setOrg] = useState<OrgState | null>(null);
   const [tab, setTab] = useState<Tab>('chart');
+  const [who, setWho] = useState<'内勤' | '要員'>('内勤');
   const [q, setQ] = useState('');
   const [flash, setFlash] = useState<string | null>(null);
   const [saveNg, setSaveNg] = useState(false);
@@ -49,14 +50,17 @@ export default function OrgPage() {
 
   const people = useMemo(() => (live ? peopleFromAdmin(data) : ORG_SAMPLE_PEOPLE).slice().sort((a, b) => a.name.localeCompare(b.name, 'ja')), [live, data]);
   const match = (p: { name: string; email: string }) => !q || p.name.includes(q) || p.email.toLowerCase().includes(q.toLowerCase());
-  const active = people.filter((p) => !p.retired && match(p));
-  const retired = people.filter((p) => p.retired && match(p));
+  // 内勤（会社のメール）と要員（それ以外）を分けて見る。組織図・未所属の数は内勤だけ
+  const nInnai = people.filter((p) => !p.retired && personKind(p) === '内勤').length;
+  const nYoin = people.filter((p) => !p.retired && personKind(p) === '要員').length;
+  const active = people.filter((p) => !p.retired && personKind(p) === who && match(p));
+  const retired = people.filter((p) => p.retired && personKind(p) === who && match(p));
 
   if (!manageAccess) return <NoAccess label="組織表" />;
   if (!org) return null;
   const ctl: Ctl = { org, people, commit, flash };
   const known = new Set(org.units.map((u) => u.id));
-  const allActive = people.filter((p) => !p.retired);
+  const allActive = people.filter((p) => !p.retired && personKind(p) === '内勤');
   const unassigned = allActive.filter((p) => !known.has(org.people[p.userId]?.unit ?? '')).length;
 
   const exportJson = () => {
@@ -93,6 +97,12 @@ export default function OrgPage() {
         ) : (
           <div className="mo-fade-in text-[13px]"><b>全員の所属が決まりました</b><div className="text-[12px] text-muted">{allActive.length}人・部署とチーム {org.units.length}</div></div>
         )}
+        <div role="group" aria-label="内勤と要員" className="inline-flex overflow-hidden rounded-lg border border-field">
+          {([['内勤', nInnai], ['要員', nYoin]] as const).map(([k, n]) => (
+            <button key={k} aria-pressed={who === k} onClick={() => { setWho(k); if (k === '要員' && tab === 'chart') setTab('table'); }} className="px-3 py-1.5 text-[13px]"
+              style={who === k ? { background: 'var(--as)', color: 'var(--ad)', fontWeight: 700 } : { background: 'var(--color-surface)' }}>{k} {n}人</button>
+          ))}
+        </div>
         <div role="tablist" className="ml-auto inline-flex overflow-hidden rounded-lg border border-field">
           {TABS.map((t) => (
             <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px]"
@@ -107,7 +117,7 @@ export default function OrgPage() {
       </section>
 
       <div key={tab} className="mo-fade-in">
-        {tab === 'chart' && <OrgChart ctl={ctl} list={active} />}
+        {tab === 'chart' && (who === '内勤' ? <OrgChart ctl={ctl} list={active} /> : <p className="rounded-xl border border-line bg-surface px-4 py-6 text-center text-[13px] text-muted">組織図は内勤（会社のメール {INNAI_DOMAIN}）の人だけです。要員は「一覧」で見られます。</p>)}
         {tab === 'table' && <PeopleTable ctl={ctl} list={active} retired={retired} />}
         {tab === 'roles' && <RolesEditor ctl={ctl} />}
       </div>

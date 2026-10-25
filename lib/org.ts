@@ -17,6 +17,10 @@ export type OrgState = { v: 1; units: Unit[]; titles: Title[]; roles: OrgRole[];
 /** 画面に並べる人（今のシステムから読む・保存しない） */
 export type OrgPerson = { userId: string; name: string; email: string; legacyRole: string; mikeiken: boolean; retired: boolean; isSelf?: boolean };
 
+/** 会社のメール（@engineer-mikata.com）＝内勤、それ以外＝要員（10-25 shoya） */
+export const INNAI_DOMAIN = '@engineer-mikata.com';
+export const personKind = (p: { email: string }): '内勤' | '要員' => (p.email.trim().toLowerCase().endsWith(INNAI_DOMAIN) ? '内勤' : '要員');
+
 export const ORG_STORAGE_KEY = 'v2_org';
 export const NO_ROLE = 'none';
 const RANK: Record<Level, number> = { none: 0, view: 1, edit: 2, approve: 3 };

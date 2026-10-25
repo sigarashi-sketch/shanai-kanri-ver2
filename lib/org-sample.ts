@@ -2,7 +2,7 @@ import type { OrgPerson } from './org';
 
 // 組織表の見本の人（架空の名前）。ログインしていないときだけ使う。
 const P = (n: number, name: string, legacyRole: string, mikeiken: boolean): OrgPerson => ({
-  userId: `demo-${String(n).padStart(2, '0')}`, name, email: `demo${n}@example.com`, legacyRole, mikeiken, retired: legacyRole === 'retired',
+  userId: `demo-${String(n).padStart(2, '0')}`, name, email: n <= 7 ? `demo${n}@engineer-mikata.com` : `demo${n}@example.com`, legacyRole, mikeiken, retired: legacyRole === 'retired',
 });
 
 export const ORG_SAMPLE_PEOPLE: OrgPerson[] = [
