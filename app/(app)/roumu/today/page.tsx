@@ -9,7 +9,8 @@ import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
 import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
-import { todayFromIke, withTodayRows, type IkeAbsence, type IkeToday } from '@/lib/live/today';
+import { KINMU_CHOICES, TODAY_NOTE_MAX, todayFromIke, withTodayRows, type IkeAbsence, type IkeToday, type IkeTodayRow } from '@/lib/live/today';
+import { postLive } from '@/lib/live/post';
 import { PersonName } from '@/components/Person';
 
 // 当日の出勤状況（労務/営業管理）＝今の時点で「出勤しているはずなのに打刻が無い人」から片づける。
@@ -46,6 +47,8 @@ export default function TodayPage() {
   const AT = L ? { date: L.date, time: L.time } : NOW;
   const block = live ? LIVE_WRITE_BLOCKED : !canEdit ? needText('edit') : undefined;
   const okEdit = canEdit && !live;
+  const rawOf = (key: string) => best?.rows?.find((x) => x.key === key);
+  const saved = (text: string) => { hit(); toast({ text, sub: '→ 今の社内システムに保存しました' }); };
   const loadErr = live && best && !best.ok ? (typeof best.error === 'string' ? best.error : best.error?.message) : '';
 
   const reps = ['すべて', ...Array.from(new Set(ALL.map((r) => r.sales)))];
@@ -78,7 +81,7 @@ export default function TodayPage() {
         </select>
       </PageTitle>
       <LiveBanner state={loadErr ? 'error' : quick.state} error={quick.error || loadErr} onReload={() => { quick.reload(); full.reload(); absence.reload(); }}
-        note={`見るだけです。促す・結果の記録・現場への連絡は今の社内システムの画面から。${full.state === 'error' ? 'freee からの取り直しが間に合わなかったので、前に取った打刻で出しています。' : ''}${absence.state === 'error' ? '欠勤・遅刻の連絡は読めませんでした。' : ''}`} />
+        note={`勤務区分・メモは本物に保存します（変えたらすぐ保存）。促す・結果の記録・現場への連絡は今の社内システムの画面から。${full.state === 'error' ? 'freee からの取り直しが間に合わなかったので、前に取った打刻で出しています。' : ''}${absence.state === 'error' ? '欠勤・遅刻の連絡は読めませんでした。' : ''}`} />
       <MikeikenNote mk={mk} live={live} />
       {live && <NotInLegacy what="出発コールの未着" />}
 
@@ -129,7 +132,8 @@ export default function TodayPage() {
                         <span className="chip" style={{ background: `var(--tone-${tone}-bg)`, color: `var(--tone-${tone}-fg)` }}>{r.state}</span>
                         {r.late != null && <div className={`num mt-1 flex items-center gap-1 text-[11.5px] ${r.late >= 30 ? 'font-semibold text-bad' : 'text-muted'}`}><Clock size={12} />始業から {r.late}分</div>}
                       </td>
-                      <td className="px-2 py-2.5 text-[12.5px]">{r.contact ?? <span className="text-faint">連絡なし</span>}{r.memo && <div className="text-[11.5px] text-faint">{r.memo}</div>}</td>
+                      <td className="px-2 py-2.5 text-[12.5px]">{r.contact ?? <span className="text-faint">連絡なし</span>}{!live && r.memo && <div className="text-[11.5px] text-faint">{r.memo}</div>}
+                        {live && date && rawOf(r.personId) && <LiveEdit raw={rawOf(r.personId)!} date={date} canEdit={canEdit} onSaved={saved} />}</td>
                       <td className="px-4 py-2.5">
                         {d ? <span className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-ok"><Check size={14} />{d}</span>
                           : r.state === '未打刻' || r.state === '出発コール未着' ? (
@@ -167,6 +171,7 @@ export default function TodayPage() {
                 <PersonName name={r.person} className="font-semibold underline-offset-2 hover:underline" />
                 <span className="text-muted">{r.site}</span>
                 <span className="num text-faint">{r.punch ? `${r.punch} 出勤` : r.contact}</span>
+                {live && date && rawOf(r.personId) && <div className="w-full md:ml-auto md:w-auto"><LiveEdit raw={rawOf(r.personId)!} date={date} canEdit={canEdit} onSaved={saved} inline /></div>}
               </li>
             ))}
           </ul>
@@ -174,5 +179,37 @@ export default function TodayPage() {
       </div>
       <p className="text-[11.5px] text-faint">シフトが空欄の日は休みとして扱います（今のシステムと同じ）。特別休暇の名前は freee の設定に合わせます。</p>
     </main>
+  );
+}
+
+// 本物の行の 勤務区分（選ぶだけ）とメモ（内勤のメモ・書いて欄を離れたら保存）。10-25
+function LiveEdit({ raw, date, canEdit, onSaved, inline }: { raw: IkeTodayRow; date: string; canEdit: boolean; onSaved: (t: string) => void; inline?: boolean }) {
+  const [kubun, setKubun] = useState(raw.kubun || '');
+  const [note, setNote] = useState(raw.noteCarried ? '' : raw.note || '');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  useEffect(() => { setKubun(raw.kubun || ''); }, [raw.kubun]);
+  useEffect(() => { setNote(raw.noteCarried ? '' : raw.note || ''); }, [raw.note, raw.noteCarried]);
+  const run = async (fn: () => Promise<unknown>, text: string, undo: () => void) => {
+    setBusy(true); setErr('');
+    try { await fn(); onSaved(text); } catch (e) { setErr((e as Error).message); undo(); } finally { setBusy(false); }
+  };
+  const saveKubun = (v: string) => { const prev = kubun; setKubun(v); run(() => postLive('/api/live/kintai-today', { action: 'kubun', name: raw.name, kinmuKubun: v }), `${raw.name} の勤務区分を「${v || '未設定'}」にしました`, () => setKubun(prev)); };
+  const saveNote = () => {
+    const cur = raw.noteCarried ? '' : raw.note || '';
+    if (note.trim() === cur.trim()) return;
+    run(() => postLive('/api/live/kintai-today', { action: 'note', date, key: raw.key, name: raw.name, note }), note.trim() ? `${raw.name} のメモを残しました` : `${raw.name} のメモを消しました`, () => {});
+  };
+  const lock = !canEdit ? needText('edit') : undefined;
+  return (
+    <div className={`mt-1 flex ${inline ? 'flex-wrap items-center' : 'flex-col'} gap-1`}>
+      <select aria-label={`${raw.name} の勤務区分`} value={kubun} disabled={!canEdit || busy} title={lock || '勤務区分を変えると名簿・未打刻のお知らせにも効きます'} onChange={(e) => saveKubun(e.target.value)} className="min-h-7 max-w-[180px] rounded-lg border border-field bg-surface px-1.5 text-[11.5px] disabled:opacity-50">
+        <option value="">勤務区分：未設定</option>{KINMU_CHOICES.map((k) => <option key={k} value={k}>{k}</option>)}
+      </select>
+      <textarea aria-label={`${raw.name} のメモ`} value={note} disabled={!canEdit || busy} title={lock} maxLength={TODAY_NOTE_MAX} rows={1} onChange={(e) => setNote(e.target.value)} onBlur={saveNote}
+        placeholder={raw.noteCarried && raw.note ? `前のメモ（${(raw.noteDate || "").slice(5).replace('-', '/')}）：${raw.note}` : 'メモ（欄を離れたら保存）'}
+        className="min-h-7 w-full min-w-[160px] rounded-lg border border-field bg-surface px-2 py-1 text-[11.5px] disabled:opacity-50" />
+      {err && <span className="text-[11px] text-bad">{err}</span>}
+    </div>
   );
 }

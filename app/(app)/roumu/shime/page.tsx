@@ -7,9 +7,11 @@ import { OT_LINE, OT_REASONS, SHIME_MONTH, SHIME_ROWS, UNREADABLE_FIX, type Shim
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
-import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
+import { postLive } from '@/lib/live/post';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
-import { SHIME_LABEL, defaultShimeYm, hhmm, shimeRowsOf, ymLabel, type IkeShimeBoard } from '@/lib/live/shime';
+import { SHIME_AUTO, SHIME_LABEL, defaultShimeYm, hhmm, reasonsFor, shimeRowsOf, ymLabel, type IkeShimeBoard, type ShimeLiveRow } from '@/lib/live/shime';
 import { PersonName } from '@/components/Person';
 
 // 勤怠の締め（労務/営業管理）＝月の締めまでにやることを人ごとに並べ、全部0になった人から「締められる」にする。
@@ -26,6 +28,17 @@ const left = (r: ShimeRow, f: Fix = {}) => ({
 const total = (r: ShimeRow, f?: Fix) => Object.values(left(r, f)).reduce((a, b) => a + b, 0);
 // 並びははじめの残りの多い順で固定（片づけるたびに行が動いて、押そうとした行が逃げないように）
 const ROWS = [...SHIME_ROWS].sort((a, b) => total(b) - total(a));
+
+// 締めの理由（選ぶだけ）。確認の窓の中に出す
+function ReasonPick({ reasons }: { reasons: readonly string[] }) {
+  return (
+    <label className="flex flex-col gap-1 text-[12.5px]"><span className="font-semibold">締める理由</span>
+      <select id="shime-reason" defaultValue="" className="min-h-9 rounded-lg border border-field bg-surface px-2 text-[13px]">
+        <option value="">理由を選ぶ…</option>{reasons.map((x) => <option key={x}>{x}</option>)}
+      </select>
+    </label>
+  );
+}
 
 function Cell({ n, children }: { n: number; children?: React.ReactNode }) {
   return <td className="px-2 py-2.5 align-top">{n === 0 ? <span className="inline-flex items-center gap-1 text-[12px] text-ok"><Check size={13} />0</span> : <div className="flex flex-col items-start gap-1">{children}</div>}</td>;
@@ -46,6 +59,37 @@ export default function ShimePage() {
   const mk = useMikeiken();   // 本物は未経験の人だけ（今のプロパーリストに入っている人）
   const lrows = live && ike.data ? shimeRowsOf({ ...ike.data, rows: mk.keep(ike.data.rows || [], 'name') }, ym) : [];
   const lopen = lrows.filter((r) => SHIME_LABEL[r.cell.status].todo);
+  // 本物の締め（10-25）：押す前に確認の窓。締め・開け直しは承認の権限（今のシステムもページ権限 kintai-shime で見る）
+  const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
+  const autoAll = live && ym ? SHIME_AUTO.reduce((s, k) => s + (ike.data?.counts?.[ym]?.[k] || 0), 0) : 0;
+  const autoMine = lrows.filter((r) => SHIME_AUTO.includes(r.cell.status)).length;
+  const lock = !canApprove ? needText('approve') : undefined;
+  const after = (text: string, sub: string) => { hit(); toast({ text, sub }); ike.reload(); };
+  const askClose = (r: ShimeLiveRow) => {
+    const rs = reasonsFor(r.cell.status);
+    setConfirm({
+      title: `${r.name} の${ymLabel(ym)}を締める`, okLabel: rs.length ? '理由をつけて締める' : '締める', danger: rs.length > 0,
+      lines: [`状態：${SHIME_LABEL[r.cell.status].label}`, `勤務表／freee：${hhmm(r.cell.sheetMins)}／${hhmm(r.cell.freeeMins)}`, '締めた時点の時間を写しとして残します。直すときは開け直します'],
+      extra: rs.length ? <ReasonPick reasons={rs} /> : undefined,
+      run: async () => {
+        const reason = rs.length ? (document.getElementById('shime-reason') as HTMLSelectElement | null)?.value || '' : '';
+        if (rs.length && !reason) throw new Error('一致していない月は理由を選んでから締めてください');
+        await postLive('/api/live/shime', { action: 'close', ym, key: r.key, reason });
+        after(`${r.name} の${ymLabel(ym)}を締めました`, reason ? `理由：${reason}` : '→ 請求書づくりと給与の材料に反映されます');
+      },
+    });
+  };
+  const askReopen = (r: ShimeLiveRow) => setConfirm({
+    title: `${r.name} の${ymLabel(ym)}の締めを外す`, okLabel: '締めを外す', danger: true,
+    lines: ['締めた時の写しを消し、もう一度見比べて締められる状態に戻します'],
+    run: async () => { await postLive('/api/live/shime', { action: 'reopen', ym, key: r.key }); after(`${r.name} の締めを外しました`, 'もう一度見比べて締めてください'); },
+  });
+  const askCloseMatched = () => setConfirm({
+    title: `${ymLabel(ym)}の「一致」した人をまとめて締める`, okLabel: `${autoAll}人を締める`, danger: true,
+    lines: [`一致・freee だけ・記録なし・契約なし の人を締めます（今の社内システムの決まりで ${autoAll}人）`, `この一覧（未経験の人）ではそのうち ${autoMine}人`, 'ずれ・未着・未読の人は締めません（1人ずつ理由を選んで締めます）'],
+    sends: autoAll > autoMine ? `未経験以外の人（${autoAll - autoMine}人）も、今の社内システムと同じく一緒に締まります` : undefined,
+    run: async () => { const j = await postLive<{ closed?: number }>('/api/live/shime', { action: 'close-matched', ym }); hit(j.closed || 1); toast({ text: `${ymLabel(ym)}の ${j.closed ?? 0}人を締めました`, sub: '→ 請求書づくりと給与の材料に反映されます' }); ike.reload(); },
+  });
 
   const rows = ROWS;
   const notReady = rows.filter((r) => total(r, fix[r.personId]) > 0);
@@ -80,7 +124,7 @@ export default function ShimePage() {
         <Link href="/roumu/approval" className="inline-flex min-h-9 items-center rounded-[10px] border border-field bg-surface px-3 text-[12.5px] font-semibold">申請の承認へ</Link>
         <Link href="/roumu/today" className="inline-flex min-h-9 items-center rounded-[10px] border border-field bg-surface px-3 text-[12.5px] font-semibold">当日の出勤状況へ</Link>
       </PageTitle>
-      <LiveBanner state={ike.live && !ike.data?.ok ? 'error' : ike.state} error={ike.error || ike.data?.error} onReload={ike.reload} note="見るだけです。締める・開け直すは今の社内システムの「勤怠の締め」の画面から" />
+      <LiveBanner state={ike.live && !ike.data?.ok ? 'error' : ike.state} error={ike.error || ike.data?.error} onReload={ike.reload} note="締める・開け直すは本物に書きます（押すと確認の窓が出ます）。打刻の直しのお願いなどは今の社内システムから" />
       <MikeikenNote mk={mk} live={live} />
 
       {live && <>
@@ -90,7 +134,7 @@ export default function ShimePage() {
           <div className="text-[13px]"><b>{ymLabel(ym)}でまだ締めていない人 {lopen.length}人</b>
             <span className="ml-2 text-muted">{(['match', 'freee_only', 'diff', 'unread', 'missing', 'no_freee'] as const).map((k) => `${SHIME_LABEL[k].label.replace(/（.*）/, '')} ${lrows.filter((r) => r.cell.status === k).length}`).join('・')}</span>
           </div>
-          <button disabled title={LIVE_WRITE_BLOCKED} className="btn-primary ml-auto inline-flex min-h-10 items-center gap-1.5 rounded-[10px] px-4 text-[13.5px] font-bold disabled:opacity-40"><Lock size={15} />一致した人をまとめて締める</button>
+          <button onClick={askCloseMatched} disabled={!canApprove || !ym || autoAll === 0 || ym >= (ike.data?.currentYm || '')} title={lock || (ym >= (ike.data?.currentYm || '') ? 'まだ月の途中なので締められません' : autoAll === 0 ? '一致した人はいません' : undefined)} className="btn-primary ml-auto inline-flex min-h-10 items-center gap-1.5 rounded-[10px] px-4 text-[13.5px] font-bold disabled:opacity-40"><Lock size={15} />一致した人をまとめて締める</button>
         </div>
         {lrows.length > 0 && lopen.length === 0 && (
           <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-8 text-center"><Check className="mx-auto text-ok" size={26} /><div className="mt-2 text-[15px] font-bold">{ymLabel(ym)}の勤怠は全員締まっています</div></div>
@@ -108,7 +152,8 @@ export default function ShimePage() {
                       <td className="px-2 py-2.5"><span className="chip" style={{ background: `var(--tone-${st.tone}-bg)`, color: `var(--tone-${st.tone}-fg)` }}>{st.label}</span>{r.cell.status === 'closed' && r.cell.reason && <div className="mt-1 text-[11.5px] text-faint">理由：{r.cell.reason}</div>}</td>
                       <td className="num px-2 py-2.5 text-[12.5px]">{hhmm(r.cell.sheetMins)}／{hhmm(r.cell.freeeMins)}</td>
                       <td className="px-2 py-2.5 text-[12.5px]">{r.cell.diffMins == null ? <span className="text-faint">—</span> : r.cell.diffDays ? <span className="font-semibold text-warn">勤務表のほうが{r.cell.diffMins > 0 ? '長い' : '短い'} {hhmm(r.cell.diffMins)}・ずれた日 {r.cell.diffDays}日</span> : <span className="text-ok">合っている</span>}</td>
-                      <td className="px-4 py-2.5 text-right">{st.todo && <button disabled title={LIVE_WRITE_BLOCKED} className={btn}>締める</button>}</td>
+                      <td className="px-4 py-2.5 text-right">{st.todo && <button onClick={() => askClose(r)} disabled={!canApprove} title={lock} className={btn}>締める</button>}
+                        {r.cell.status === 'closed' && <button onClick={() => askReopen(r)} disabled={!canApprove} title={lock} className={`${btn} inline-flex items-center gap-1`}><Unlock size={12} />開け直す</button>}</td>
                     </tr>
                   );
                 })}
@@ -184,6 +229,7 @@ export default function ShimePage() {
         </div>
       )}
       </>}
+      {confirm && <ConfirmWrite spec={confirm} onClose={() => setConfirm(null)} />}
       <p className="text-[11.5px] text-faint">勤務表と freee の打刻は日ごとに比べ、1日30分未満のずれは合っている扱いにしています。締めはこの画面の印だけで、freee の月次の締めはしません（見本の中だけで動きます）。残業・欠勤控除など労務の最終判断は社労士に確認してください。</p>
     </main>
   );

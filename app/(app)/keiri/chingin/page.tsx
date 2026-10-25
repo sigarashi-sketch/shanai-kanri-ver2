@@ -11,6 +11,7 @@ import { LIVE_WRITE_BLOCKED, LiveBanner, useIke, type LiveState } from '@/compon
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { toArari, type ArariLive } from '@/lib/live/chingin';
 import { PersonName } from '@/components/Person';
+import { ChinginPl } from './pl';
 
 // 想定賃金・粗利（経理管理）。人ごとに 売上（請求・税抜）− 給与 − 交通費 − 法定福利（19%）＝ 粗利 と粗利率。
 //   ・額面の正はミンミカの内定月給（現場の契約単価の欄は使わない）。内定が無い人は 仮21万
@@ -154,6 +155,7 @@ export default function ChinginPage() {
         </div>
       </div>
       <p className="text-[11.5px] text-faint">売上は送付した請求書（税抜・請求した交通費を含む）。法定福利は給与の19%で見積もった概算です。給与・社会保険料・税の扱いの最終判断は社労士・税理士に確認してください。</p>
+      <ChinginPl live={false} />
     </main>
   );
 }
@@ -237,6 +239,7 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
         </div>
       </div>
       <p className="text-[11.5px] text-faint">売上は格納した請求書（税抜）。法定福利は給与の19%で見積もった概算です。給与・社会保険料・税の扱いの最終判断は社労士・税理士に確認してください。</p>
+      <ChinginPl live />
     </main>
   );
 }

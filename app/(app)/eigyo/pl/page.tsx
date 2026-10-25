@@ -6,13 +6,16 @@ import { MONTHS, PL, REPS, monthLabel, type RepMonth } from '@/lib/pl-sample';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { CountUp, useMotivation } from '@/components/Motivation';
-import { NotInLegacy } from '@/components/Live';
+import { LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
+import { PlLive } from './live';
+import type { IkePlReps } from '@/lib/live/home-eigyo';
 
 // 売上・粗利（営業）。営業別の売上・粗利・成約数・行動指標を月ごとに。棒は div、推移は小さな SVG。
 //   粗利＝単価−額面−額面×19%（社保）−交通費。請求の無い退場は売上・粗利から引く（成約数には残す）
 //   数字を確かめたら「この月を締める」→ 損益シミュレーションの「営業別」に載る想定
-//   本物につなぐ先：今の社内システムには営業別の表を返す画面・API が無い（毎朝スプレッドシートの「営業別」タブに書くだけ・
-//     日報の ?action=self は本人の今月分だけで、交通費に駅すぱあとの回数を使う）ので見本のまま
+//   本物（ログイン中・10-25）：今の GET /api/nippo?action=pl-reps&ym=（スプレッドシート「営業別」タブと同じ計算・駅すぱあとは呼ばない）。
+//     明細が返る担当は未経験の人だけで足し直す。「この月を締める」は今のシステムに無いので本物では押せない。中身は ./live.tsx
 const adj = (r: RepMonth, cut: boolean) => (cut ? { ...r, uri: r.uri - r.cut, arari: r.arari - Math.round(r.cut * 0.15) } : r);
 const man = (n: number) => `${n.toLocaleString('ja-JP')}万`;
 
@@ -32,6 +35,17 @@ export default function PlPage() {
   const [flash, setFlash] = useState(false);
 
   useEffect(() => { const m = new URLSearchParams(window.location.search).get('month'); if (m && MONTHS.includes(m)) setMonth(m); }, []);
+  const [lym, setLym] = useState('');
+  const ike = useIke<IkePlReps>(`nippo?action=pl-reps${lym ? `&ym=${lym}` : ''}`);
+  const mk = useMikeiken();
+  if (ike.state !== 'sample') return (
+    <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
+      <PageTitle title="売上・粗利" sub="営業別（担当営業＝成約者）。未経験の要員の成約だけを数えています" />
+      <LiveBanner state={ike.live && ike.data?.ok !== true ? 'error' : ike.state} error={ike.error || (ike.live && ike.data?.ok !== true ? '今の社内システムが失敗を返しました' : '')} onReload={ike.reload} note="見るだけです（スプレッドシートの「営業別」タブと同じ計算）" />
+      <MikeikenNote mk={mk} live={ike.live} />
+      {ike.live && ike.data?.ok && <PlLive data={ike.data} mk={mk} ym={lym || ike.data.ym} onYm={setLym} />}
+    </main>
+  );
 
   const rows = REPS.map((r) => ({ rep: r, ...adj(PL[month][r], cut), cutRaw: PL[month][r].cut }));
   const sum = rows.reduce((s, r) => ({ uri: s.uri + r.uri, arari: s.arari + r.arari, n: s.n + r.n, sent: s.sent + r.sent, mendan: s.mendan + r.mendan }), { uri: 0, arari: 0, n: 0, sent: 0, mendan: 0 });

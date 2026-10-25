@@ -9,6 +9,9 @@ import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
 import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
+import { postLive } from '@/lib/live/post';
+import { KeihiMonthlyTab, KeihiRingiTab } from './tabs';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { toClaims, type KeihiAdminList } from '@/lib/live/keihi';
 import { PersonName } from '@/components/Person';
@@ -39,11 +42,11 @@ function CheckLine({ c }: { c: Chk }) {
 }
 
 export default function KeihiPage() {
-  const [tab, setTab] = useState<'check' | 'apply'>('check');
+  const [tab, setTab] = useState<Tab>('check');
   const [claims, setClaims] = useState<Claim[]>(CLAIMS);
   // 処理した状態はページで持つ（タブを行き来しても消えない）
   const [done, setDone] = useState<Record<string, Done>>({});
-  useEffect(() => { if (new URLSearchParams(window.location.search).get('tab') === 'apply') setTab('apply'); }, []);
+  useEffect(() => { const t = new URLSearchParams(window.location.search).get('tab'); if (t === 'apply' || t === 'monthly' || t === 'ringi') setTab(t); }, []);
   const { data, state, error, reload, live } = useIke<KeihiAdminList>(`keihi?action=adminList&status=${encodeURIComponent('申請中')}`);
   // 本物は未経験の人だけ（今のプロパーリストに入っている人）。氏名がまだ決まらない申請は確かめられないので出さない
   const mk = useMikeiken();
@@ -59,21 +62,21 @@ export default function KeihiPage() {
     const unread = (Object.keys(fl.data.read || {}) as FlagKind[]).filter((k) => !fl.data!.read[k]);
     return { by, ready: true, unread };
   }, [live, fl.live, fl.data, fl.state, fl.error, kept, yms]);
-  const go = (t: 'check' | 'apply') => { setTab(t); window.history.replaceState(null, '', t === 'apply' ? '?tab=apply' : window.location.pathname); };
+  const go = (t: Tab) => { setTab(t); window.history.replaceState(null, '', t === 'check' ? window.location.pathname : `?tab=${t}`); };
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="交通費・経費" sub={`通勤（日ごと）・定期・バス・出張面談。申請は本人が LINE から、ICカードの利用履歴を選ぶだけ${live ? '' : '・見本データ'}`} />
-      <LiveBanner state={state} error={error} onReload={reload} note="今の社内システムの「申請中」をそのまま出しています。承認・差し戻しは今の経費の管理画面から（ここでは押せません）" />
+      <LiveBanner state={state} error={error} onReload={reload} note="今の社内システムの「申請中」をそのまま出しています。承認・差し戻しは本物に書き、本人の LINE に結果が届きます（押すと確認の窓が出ます）" />
       <MikeikenNote mk={mk} live={live} />
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 1 }}>
-        {([['check', '経理の確認'], ['apply', '本人の申請画面（見本）']] as const).map(([k, l]) => (
+        {([['check', '経理の確認'], ['monthly', '月次（給与に載せる額）'], ['ringi', '稟議'], ['apply', '本人の申請画面（見本）']] as const).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="px-3.5 py-2.5 text-[14px]"
             style={tab === k ? { color: 'var(--ad)', fontWeight: 700, boxShadow: 'inset 0 -2px 0 var(--a)' } : { color: 'var(--color-muted)' }}>{l}</button>
         ))}
       </div>
       <div key={tab} className="mo-axis">
-        {tab === 'check' ? <CheckTab claims={list} done={done} setDone={setDone} live={live} flags={flags} /> : <ApplyTab live={live} onSubmit={(c) => { setClaims((cs) => [c, ...cs.filter((x) => x.id !== 'c2')]); go('check'); }} />}
+        {tab === 'monthly' ? <KeihiMonthlyTab live={live} mk={mk} /> : tab === 'ringi' ? <KeihiRingiTab live={live} mk={mk} /> : tab === 'check' ? <CheckTab claims={list} done={done} setDone={setDone} live={live} flags={flags} reload={reload} /> : <ApplyTab live={live} onSubmit={(c) => { setClaims((cs) => [c, ...cs.filter((x) => x.id !== 'c2')]); go('check'); }} />}
       </div>
     </main>
   );
@@ -81,6 +84,7 @@ export default function KeihiPage() {
 
 // ---------------- 経理の確認 ----------------
 type Done = { result: '承認' | '差し戻し'; reason?: string };
+type Tab = 'check' | 'monthly' | 'ringi' | 'apply';
 type FlagInfo = { by: Record<string, KeihiFlag[]>; ready: boolean; unread: FlagKind[]; error?: string };
 const FLAG_TONE: Record<KeihiFlag['tone'], { bg: string; fg: string }> = {
   bad: { bg: 'var(--tone-bad-bg)', fg: 'var(--tone-bad-fg)' },
@@ -117,11 +121,12 @@ function FlagChips({ flags, ready }: { flags: KeihiFlag[]; ready: boolean }) {
   );
 }
 
-function CheckTab({ claims, done, setDone, live, flags }: { claims: Claim[]; done: Record<string, Done>; setDone: React.Dispatch<React.SetStateAction<Record<string, Done>>>; live: boolean; flags: FlagInfo }) {
+function CheckTab({ claims, done, setDone, live, flags, reload }: { claims: Claim[]; done: Record<string, Done>; setDone: React.Dispatch<React.SetStateAction<Record<string, Done>>>; live: boolean; flags: FlagInfo; reload: () => void }) {
   const permApprove = usePerms().can('keiri', 'approve');
-  // 本物のときは今のシステムの中身を変えない＝承認・差し戻しは押せない
-  const canApprove = permApprove && !live;
-  const lockText = live ? LIVE_WRITE_BLOCKED : needText('approve');
+  // 本物（10-25）：承認・差し戻しは今の POST /api/keihi?action=decide に書く。押す前に確認の窓（本人の LINE に届く）
+  const canApprove = permApprove;
+  const lockText = needText('approve');
+  const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
   const { hit, toast } = useMotivation();
   const [ok, setOk] = useState<Record<string, boolean>>({});
   const [kind, setKind] = useState<string>('すべて');
@@ -133,7 +138,26 @@ function CheckTab({ claims, done, setDone, live, flags }: { claims: Claim[]; don
   const kinds = ['すべて', ...Array.from(new Set(claims.map((c) => c.kind)))];
   const flagged = pending.filter((c) => (flags.by[c.id] || []).length).length;
 
-  const settle = (cs: Claim[], d: Done) => {
+  const settle = (cs: Claim[], d: Done) => (live ? liveSettle(cs, d) : localSettle(cs, d));
+  const liveSettle = (cs: Claim[], d: Done) => {
+    const sum = cs.reduce((s, c) => s + c.amount, 0);
+    setConfirm({
+      title: d.result === '承認' ? (cs.length > 1 ? `${cs.length}件（${yen(sum)}）をまとめて承認する` : `${cs[0].person} の${cs[0].month}分（${yen(sum)}）を承認する`) : `${cs[0].person} の${cs[0].month}分を差し戻す`,
+      okLabel: d.result === '承認' ? `${cs.length}件を承認する` : '差し戻す', danger: d.result === '差し戻し',
+      lines: d.result === '差し戻し' ? [`理由：${d.reason}`, '本人は直して出し直せます'] : ['承認すると給与の振込みの対象（月次）に載ります', ...(cs.some((c) => c.kind === '定期') ? ['定期つきは、月が終わっていれば今のシステムが打刻を確かめ、漏れがあれば承認せず差し戻します'] : [])],
+      sends: `${cs.length > 1 ? `${cs.length}人` : '本人'}の LINE に結果が届きます`,
+      run: async () => {
+        let n = 0; const errs: string[] = [];
+        for (const c of cs) {
+          try { await postLive('/api/live/keihi', { action: 'decide', id: c.id, decision: d.result === '承認' ? 'approve' : 'return', comment: d.reason || '' }); n++; }
+          catch (e) { errs.push(`${c.person}：${(e as Error).message}`); }
+        }
+        if (n) { hit(n); toast({ text: d.result === '承認' ? `${n}件を承認しました` : `${cs[0].person} の申請を差し戻しました`, sub: '→ 本人の LINE に届けました' }); reload(); }
+        if (errs.length) { reload(); throw new Error(`${n ? `${n}件は済みました。` : ''}できなかったもの：${errs.join('／')}`); }
+      },
+    });
+  };
+  const localSettle = (cs: Claim[], d: Done) => {
     const ids = cs.map((c) => c.id);
     setDone((x) => ({ ...x, ...Object.fromEntries(cs.map((c) => [c.id, d])) }));
     if (cs.length === 1) { setFlash(cs[0].id); setTimeout(() => setFlash(null), 1300); }
@@ -213,6 +237,7 @@ function CheckTab({ claims, done, setDone, live, flags }: { claims: Claim[]; don
           </div>
         </div>
       )}
+      {confirm && <ConfirmWrite spec={confirm} onClose={() => setConfirm(null)} />}
       <p className="text-[11.5px] text-faint">定期は月の途中でも承認できます。月が終わったら、その月の打刻を毎朝の見回りでもう一度確かめ、漏れがあれば差し戻して本人に知らせます（今のシステムと同じ）。</p>
     </div>
   );

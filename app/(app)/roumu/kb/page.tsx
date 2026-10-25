@@ -6,6 +6,7 @@ import { AI_SAMPLE, KB, KB_CATS, type KbCat } from '@/lib/kb-sample';
 import { PageTitle } from '@/components/ui';
 import { useMotivation } from '@/components/Motivation';
 import { LIVE_WRITE_BLOCKED, LiveBanner, useIke } from '@/components/Live';
+import { KbPdf } from './pdf';
 import { kbParas, type IkeKbGet, type IkeKbList, type IkeKbSearch } from '@/lib/live/kb';
 
 // 労務法務ナレッジ（労務/営業管理）＝内勤がよく聞かれる労務・契約の質問を検索して読む Q&A。
@@ -47,6 +48,7 @@ export default function KbPage() {
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="労務法務ナレッジ" sub={live ? `今の社内システムに登録した記事（公開 ${ike.data?.counts.published}／全部 ${ike.data?.counts.all}）。よろづや bot はこの公開記事から答えます` : '36協定・有給・派遣と準委任・欠勤の扱いなど、よくある質問。一般的な説明の見本です'} />
       <LiveBanner state={ike.live && !ike.data?.ok ? 'error' : ike.state} error={ike.error || ike.data?.error} onReload={ike.reload} note="見るだけです。記事を書く・公開するは今の社内システムの「労務法務ナレッジ」から。「AIに聞く」は bot と同じ検索で、拾う記事を出します" />
+      {live && <KbPdf />}
 
       <div className="mo-fade-up flex flex-col gap-2.5 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <div className="flex flex-wrap items-center gap-2">

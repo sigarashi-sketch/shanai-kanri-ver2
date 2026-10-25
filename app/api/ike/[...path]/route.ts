@@ -23,15 +23,20 @@ const ALLOW: Record<string, readonly string[]> = {
   'shikaku-apply': ['list'],
   tenseki: ['list'],
   seikyu: ['arari'],
-  keihi: ['adminList'],
+  keihi: ['adminList', 'monthly', 'ringiList'],
   kb: ['list', 'get', 'testSearch'],
   'shift-calendar': ['month', 'list', 'detail'],
-  'kintai-today': [''],
+  'kintai-today': ['', 'month'],
   'attendance-board': ['absence'],
   admin: ['list', 'googleLinks'],
   'progress-stats': [''],
   chat: ['contacts', 'groups', 'thread', 'groupThread'],
   'ikou-requests': ['history', 'pending'],
+  // 10-25 労務・経理の移し替え（どれも今のシステムで GET は読むだけ＝SELECT と freee の読み取り・freee の写しの入れ直しだけ）
+  'kintai-alert': ['dry', 'groups'],           // 未打刻のお知らせ：送らずに数える／通知先の候補（run・setGroup は通さない）
+  availability: ['candidates'],                 // 面談可能日の返信から拾った承認待ちの候補（approve は POST）
+  bikkura: ['approvals'],                       // 画面の外のタスクの承認待ち（decide は POST）
+  chingin: ['month-summary', 'pl', 'bep'],      // 想定賃金：月のまとめ・販管費の入力・損益分岐の入力（保存は POST）
 };
 // 念のため：名前が書き込みっぽい action / op は ALLOW にあっても止める
 const WRITE_LIKE = /^(save|set|delete|update|add|remove|create|send|upsert|toggle)/i;

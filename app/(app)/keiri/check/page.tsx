@@ -8,13 +8,18 @@ import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
 import { PersonName } from '@/components/Person';
+import { LiveBanner } from '@/components/Live';
+import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
+import { useLiveRoute } from '@/lib/live/use-live-route';
+import { KeihiCheckLive } from './live';
 
 // 交通費チェック（経理管理）。月ごとに、交通費の申請（日ごと）× freee の打刻を人ごとに照らす。
 //   ・1日ずつ色分け：打刻の無い日の申請／片側だけの打刻／在籍期間外の日／待機中の日／平日に打刻なし
 //   ・土日祝に2日以上出勤している人はシフト勤務＝平日の打刻なしを漏れにしない
 //   ・引っかかった人を選んで、理由を選んでまとめて差し戻す → 本人に知らせる（あおい）
 //   申請の承認そのものは /keiri/keihi（ここは月末の見回り）
-//   本物にはつながない（今の画面は freee の打刻を読む POST で、freee まわりは ver2 から使わない）
+//   本物（ログイン中・10-25 shoya「いけドンにあったのは全部いれて」）：今の交通費チェックと同じく、MF経費のCSVを選んで
+//     1人ずつ POST /api/live/keihi-check → 今の freee-kintai?action=keihi_check|keihi_month（読むだけ・何も保存しない）。中身は ./live.tsx
 const yen = (n: number) => `¥${n.toLocaleString('ja-JP')}`;
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 const LEGEND: DayKind[] = ['noPunch', 'half', 'outside', 'taiki', 'leak', 'ok', 'none'];
@@ -42,6 +47,8 @@ export default function KeihiCheckPage() {
     const t = q.get('tab'); if (t === 'ok' || t === 'all') setTab(t);
   }, []);
 
+  const login = useLiveRoute<{ ok: boolean }>('/api/live/keihi-check');
+  const mk = useMikeiken();
   const month = MONTHS.find((m) => m.key === mkey)!;
   const judged = useMemo(() => month.people.map((p) => judge(month, p)).sort((a, b) => b.n - a.n), [month]);
   const targets = judged.filter((j) => j.n > 0);
@@ -62,6 +69,18 @@ export default function KeihiCheckPage() {
     });
   };
 
+  if (login.live) return (
+    <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
+      <PageTitle title="交通費チェック" sub="MF経費の明細と freee の出勤の打刻を、人ごと・1日ずつ照らします">
+        <Link href="/keiri/keihi" className="inline-flex min-h-10 items-center rounded-[10px] border border-field bg-surface px-3.5 text-[13px] font-semibold">交通費・経費の承認へ</Link>
+      </PageTitle>
+      <LiveBanner state="live" note="照らすだけです（何も保存しません）。差し戻しは MF経費で、ここに出る文面をコピーして使ってください" />
+      <MikeikenNote mk={mk} live />
+      <KeihiCheckLive mk={mk} />
+      <p className="text-[11.5px] text-faint">出勤＝出勤か退勤の打刻がある日。在籍期間は名簿の入社日・退社日、待機中は退場日〜次の入場日の前。判定は今の社内システムの交通費チェックと同じです。</p>
+    </main>
+  );
+
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="交通費チェック" sub="交通費の申請（日ごと）と勤怠の打刻を、人ごと・1日ずつ照らします・見本データ">
@@ -70,11 +89,7 @@ export default function KeihiCheckPage() {
         </select>
         <Link href="/keiri/keihi" className="inline-flex min-h-10 items-center rounded-[10px] border border-field bg-surface px-3.5 text-[13px] font-semibold">交通費・経費の承認へ</Link>
       </PageTitle>
-      {/* 今の交通費チェック（keihi-check.html）は、MF経費の明細CSVを読み込んで freee の打刻と照らす画面（POST /api/freee-kintai?action=keihi_check）。
-          freee につながる口なので ver2 からは読まない＝ここは見本のまま（10-23） */}
-      <div className="rounded-xl border border-line bg-soft px-4 py-2.5 text-[12.5px] text-muted">
-        交通費チェックは、今の社内システムでは経費の明細ファイルを読み込んで freee の打刻と照らす画面です。freee につながるため、ここからは本物を読まず見本データのままです（本物の見回りは今の「交通費チェック」の画面で）。
-      </div>
+      <LiveBanner state={login.state === 'error' ? 'error' : login.state} error={login.error} onReload={login.reload} />
 
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <RemainRing remain={remain.length} total={targets.length} />

@@ -27,3 +27,9 @@ export function kekkinFromIke(k: IkeKekkin | null, label: string): (Absence & { 
     evidence: r.evidence.length, beforeRule: !!k?.ruleStart && r.date < k.ruleStart,
   }));
 }
+
+// 書くときの決まり（今のシステム api/_kekkin.ts と同じ値）
+export const KEKKIN_NOTE_MAX = 200;
+export const EVIDENCE_MAX = 10;
+export const EVIDENCE_MAX_BYTES = 25 * 1024 * 1024;
+export const EVIDENCE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/heic', 'image/heif', 'application/pdf'];
