@@ -20,13 +20,15 @@ export function sameSite(req: Request): boolean {
 }
 
 /** 今の社内システムに書いて、その答えを画面にそのまま返す。target は決め打ちのパス（例 '/api/roster?action=saveEngineerRow'） */
-export async function ikeWrite(req: Request, target: string, body: unknown, opts?: { method?: 'POST' | 'GET'; timeoutMs?: number }): Promise<NextResponse> {
+export async function ikeWrite(req: Request, target: string, body: unknown, opts?: { method?: 'POST' | 'GET'; timeoutMs?: number; headers?: Record<string, string> }): Promise<NextResponse> {
   if (!sameSite(req)) return NextResponse.json({ error: 'この画面の外からは保存できません' }, { status: 403 });
   const t = await ikeToken();
   if (!t) return NextResponse.json({ error: 'not_logged_in' }, { status: 401 });
   const method = opts?.method || 'POST';
   try {
-    const r = await ikeFetch(target, method === 'POST' ? { method, body: JSON.stringify(body ?? {}) } : { method }, opts?.timeoutMs ?? 30000);
+    // headers は足すだけ（客先向けの口の X-Client-Key など。ログインのトークンは ikeFetch が必ず付ける）
+    const headers = opts?.headers;
+    const r = await ikeFetch(target, method === 'POST' ? { method, headers, body: JSON.stringify(body ?? {}) } : { method, headers }, opts?.timeoutMs ?? 30000);
     const j = (await r.json().catch(() => ({}))) as Record<string, unknown>;
     if (r.ok) dropUserCache(t);
     if (r.status === 401) return NextResponse.json({ error: 'ログインが切れました。もう一度ログインしてください' }, { status: 401 });

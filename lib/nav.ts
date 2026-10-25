@@ -75,8 +75,19 @@ export const NAV_KANRI: NavItem[] = [
   { href: '/settings/cutover', label: '本番切り替えの突き合わせ', built: true }, // 今と ver2 の数が同じか（10-25）
 ];
 
+// 保留（あとで決める）… 今の社内システムにあった画面を ver2 に写したが、どこに置くか・出すかはあとで決めるもの（10-25 shoya）。
+//   いつものメニューには入れず、左の分類の下に別のまとまりで出す。中身は /horyu/<名前>
+export const NAV_HORYU: NavItem[] = [
+  { href: '/horyu/youin-map', label: '要員マップ', built: true },
+  { href: '/horyu/case-input', label: '案件の抽出・修正', built: true },
+  { href: '/horyu/kadohyo', label: '稼働表出力', built: true },
+  { href: '/horyu/client-links', label: '客先向けリンク', built: true },
+  { href: '/horyu/client', label: '客先向けの画面', built: true },
+  { href: '/horyu/juchu', label: '案件受注', built: true },
+];
+
 export function findNav(pathname: string): { group?: NavGroup; item?: NavItem } {
   for (const g of NAV) for (const it of g.items) if (pathname === it.href || pathname.startsWith(it.href + '/')) return { group: g, item: it };
-  for (const it of [...NAV_EXTRA, ...NAV_KANRI]) if (pathname === it.href || pathname.startsWith(it.href + '/')) return { item: it };
+  for (const it of [...NAV_EXTRA, ...NAV_KANRI, ...NAV_HORYU]) if (pathname === it.href || pathname.startsWith(it.href + '/')) return { item: it };
   return {};
 }

@@ -32,6 +32,11 @@ const ALLOW: Record<string, readonly string[]> = {
   'progress-stats': [''],
   chat: ['contacts', 'groups', 'thread', 'groupThread'],
   'ikou-requests': ['history', 'pending'],
+  // 保留（/horyu）の画面が読む口（10-25・どれも今のシステムで SELECT だけなのを確かめた）
+  'genba-kadohyo': [''],                 // 現場稼動表（届いた勤務表の控え）
+  kadohyo: ['roster'],                   // 稼働表出力の名簿（交通費は名前を URL に出さないよう /api/live/horyu/kadohyo-fares・days は控えに書くので通さない）
+  'client-view': ['links', 'mentionCandidates'], // 客先向けリンクの一覧（客先の list は last_seen を書くので通さない）
+  'kaitaku-cases': ['list'],             // 案件受注
 };
 // 念のため：名前が書き込みっぽい action / op は ALLOW にあっても止める
 const WRITE_LIKE = /^(save|set|delete|update|add|remove|create|send|upsert|toggle)/i;
