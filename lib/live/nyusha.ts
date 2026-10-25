@@ -44,7 +44,8 @@ export type SheetRow = {
   except: ExceptKind | null;  // K
   exceptOn: string | null;    // L
 };
-export type NyushaSheetLive = { rows: SheetRow[]; warnings: string[]; generatedAt: string };
+/** source: 'sheet'＝スプシそのもの（全部の列が本物）／'build'＝スプシが読めず今の GET から組み立てた（D・H〜L は null） */
+export type NyushaSheetLive = { rows: SheetRow[]; warnings: string[]; generatedAt: string; source?: 'sheet' | 'build' };
 
 // ---- 今のシステムの GET の形（使う所だけ） ----------------------------------------
 export type IkeNyushaProgressRow = { id: string; name: string; nyuujou_bi: string; decided_at: string };
@@ -86,6 +87,27 @@ export function buildSheetRows(x: {
     });
   }
   return out.sort((a, b) => a.decidedOn.localeCompare(b.decidedOn));
+}
+
+// ---- スプシそのもの（10-25〜 今のシステムの GET /api/nyusha-progress?action=sheet・読むだけ） ----
+export type IkeSankakuSheetRow = {
+  row: number; decidedAt: string; name: string; kana: string; email: string; nyushaBi: string; nyuujouBi: string;
+  gakumen: number | ''; sent: boolean; sentAt: string; memo: string; except: string; exceptAt: string;
+};
+export type IkeSankakuSheet = { ok?: boolean; url?: string; rows: IkeSankakuSheetRow[] };
+const exceptOf = (v: string): ExceptKind => (!v ? '' : v.includes('取消') ? '入社取消' : '辞退');
+
+/** スプシの行 → 画面の行。並び・中身はスプシのまま（日付だけ YYYY-MM-DD に） */
+export function fromSheetRows(rows: readonly IkeSankakuSheetRow[]): SheetRow[] {
+  return rows.map((r) => {
+    const nyuujouOn = parseDateIso(r.nyuujouBi);
+    return {
+      id: `row${r.row}`, personId: staffIdOf(r.name), decidedOn: parseDateIso(r.decidedAt), name: r.name, kana: r.kana, email: r.email,
+      nyushaOn: parseDateIso(r.nyushaBi), nyuujouOn, nyuujouRaw: nyuujouOn ? '' : r.nyuujouBi,
+      wage: r.gakumen === '' ? '' : String(r.gakumen), sent: r.sent, sentOn: parseDateIso(r.sentAt), memo: r.memo,
+      except: exceptOf(r.except), exceptOn: parseDateIso(r.exceptAt),
+    };
+  });
 }
 
 // ---- 画面で使う道具 ----------------------------------------------------------------

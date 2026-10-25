@@ -13,9 +13,12 @@ import { useYoyaku } from '@/components/YoyakuStore';
 import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { yoyakuFromRosterStatus, type IkeRosterStatus } from '@/lib/live/yoyaku';
+import { tensekiYoyaku, toTensekiLive, type IkeTensekiList } from '@/lib/live/tenseki';
+import { TENSEKI } from '@/lib/tenseki-sample';
 import { PersonName } from '@/components/Person';
 
-// 変更の予約（人事管理）。住所・通勤・単価・現場・状態（待機/退社/休職/産休/育休）を「いつから」つきで予約する。
+// 変更の予約（人事管理）。住所・通勤・単価・現場・状態（待機/退社/休職/産休/育休）・転籍を「いつから」つきで予約する。
+//   ・転籍は転籍台帳（ページには出さない・10-25）の中身をここに出す。確認待ち＝承認待ち
 //   ・予約した日の朝6:00に切り替わり、「一緒に変わるもの」にも同じ日から入る
 //   ・単価と通勤は承認が要る（単価＝営業の承認、通勤＝経理の承認）。承認されるまで切り替わらない
 //   ・同じ人の同じ項目に、まだ切り替わっていない予約があれば重ねて作らせない（上書きするか選ぶ）
@@ -30,12 +33,15 @@ const SITES = Array.from(new Set(['B社（大崎）', 'H社（渋谷）', 'I社�
 const PRICES = Array.from({ length: 31 }, (_, i) => `${25 + i}万`);
 const CITIES = ['東京都23区内', '川口市', 'さいたま市', '川崎市', '横浜市', '千葉市', '船橋市', '町田市'];
 const STATIONS = Array.from(new Set(SITES.map((x) => x.match(/（(.+)）/)?.[1]).filter(Boolean) as string[]));
-function optionsFor(field: Field, p: { site: string; price: string; station: string; status: string }): string[] {
+// 見本の今の所属会社（転籍台帳の見本に載っている人はその元の会社・ほかは本社）
+const companyOf = (id: string) => TENSEKI.find((t) => t.personId === id && t.state !== '完了')?.from ?? '本社';
+function optionsFor(field: Field, p: { id: string; site: string; price: string; station: string; status: string }): string[] {
   if (field === '現場') return [...SITES.filter((x) => x !== p.site), '待機'];
   if (field === '単価') return PRICES.filter((x) => x !== p.price);
   if (field === '住所') return CITIES;
   if (field === '通勤') return STATIONS.map((st) => `${p.station}→${st} 定期`);
   // 状態：休職・産休・育休から戻すときの「稼働中」も選べる
+  if (field === '転籍') return (FIELD_RULES.転籍.options ?? []).filter((x) => x !== companyOf(p.id));
   return [...(FIELD_RULES.状態.options ?? []), '稼働中'].filter((x) => x !== p.status);
 }
 
@@ -52,7 +58,14 @@ export default function YoyakuPage() {
   // 本物：今の社内システムの「待機の予約」「退社の予約」（従業員名簿）だけ。本物のときは予約を作る・承認・取り消しを止める
   const ike = useIke<IkeRosterStatus[]>('proxy?action=getRosterStatus');
   const mk = useMikeiken();   // 本物は未経験の人だけ（今のプロパーリストに入っている人）
-  const liveRows = useMemo(() => yoyakuFromRosterStatus(ike.data ? mk.keep(ike.data, (r) => r.name || r.normalized_name) : null), [ike.data, mk]);
+  // 転籍台帳（今のシステムで super_admin と労務事務の人だけ読める。読めない人には転籍の行が出ないだけ）
+  const tk = useIke<IkeTensekiList>('tenseki?action=list');
+  const liveRows = useMemo(() => {
+    const base = yoyakuFromRosterStatus(ike.data ? mk.keep(ike.data, (r) => r.name || r.normalized_name) : null);
+    if (!tk.live || !tk.data) return base;
+    const t = toTensekiLive(tk.data);
+    return [...base, ...tensekiYoyaku(mk.keep(t.rows, 'name'), t.today)];
+  }, [ike.data, tk.live, tk.data, mk]);
   const live = ike.live;
   const rows = live ? liveRows : storeRows;
   const [filter, setFilter] = useState<Filter>('これから');
@@ -112,10 +125,10 @@ export default function YoyakuPage() {
 
   return (
     <main className={`flex flex-col gap-3.5 px-6 pb-12 pt-[22px] ${form !== false ? 'xl:pr-[468px]' : ''}`}>
-      <PageTitle title="変更の予約" sub={`住所・通勤・単価・現場・状態を「いつから」つきで。予約した日の朝6:00に切り替わり、一緒に変わるものにも入ります${live ? '' : '・見本データ'}`}>
+      <PageTitle title="変更の予約" sub={`住所・通勤・単価・現場・状態・転籍を「いつから」つきで。予約した日の朝6:00に切り替わり、一緒に変わるものにも入ります${live ? '' : '・見本データ'}`}>
         <PrimaryButton onClick={() => setForm('')} disabled={live} title={live ? LIVE_WRITE_BLOCKED : undefined}><span className="inline-flex items-center gap-1.5"><CalendarClock size={16} />変更を予約</span></PrimaryButton>
       </PageTitle>
-      <LiveBanner state={ike.state} error={ike.error} onReload={ike.reload} note="今の社内システムにある予約は、従業員名簿の「待機の予約」「退社の予約」だけです（見るだけ・切り替わった予約は残りません）" />
+      <LiveBanner state={ike.state} error={ike.error} onReload={ike.reload} note={`今の社内システムにある予約は、従業員名簿の「待機の予約」「退社の予約」と転籍台帳です（見るだけ）。${tk.live ? '転籍の確認待ちは「承認待ち」に出ます' : '転籍台帳は super_admin と労務事務の人だけ見られます'}`} />
       <MikeikenNote mk={mk} live={ike.live} />
       {live && <NotInLegacy what="住所・通勤・単価・現場の予約と承認" />}
 
@@ -205,7 +218,7 @@ function YoyakuForm({ initial, rows, onClose, onSave }: { initial: string; rows:
   const p = people.find((x) => x.id === pid)!;
   const rule = FIELD_RULES[field];
   const opts = optionsFor(field, p);
-  const from = field === '現場' ? p.site : field === '単価' ? p.price : field === '住所' ? `${p.station} 付近` : field === '通勤' ? `${p.station} から 定期` : p.status;
+  const from = field === '現場' ? p.site : field === '単価' ? p.price : field === '住所' ? `${p.station} 付近` : field === '通勤' ? `${p.station} から 定期` : field === '転籍' ? companyOf(p.id) : p.status;
   const clash = rows.find((r) => r.personId === pid && r.field === field && (r.state === '予約中' || r.state === '承認待ち'));
   const past = date < TODAY;
   const canMake = can(rule.module, 'edit');

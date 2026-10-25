@@ -5,7 +5,7 @@ import type { ModuleKey } from './theme';
 
 export const TODAY = '2026-10-23';
 
-export type Field = '現場' | '単価' | '住所' | '通勤' | '状態';
+export type Field = '現場' | '単価' | '住所' | '通勤' | '状態' | '転籍';
 export type YState = '承認待ち' | '予約中' | '適用済み' | '取り消し';
 
 // 項目ごとの決まり：どの分類の持ち物か・何が一緒に変わるか・承認が要るか
@@ -15,6 +15,8 @@ export const FIELD_RULES: Record<Field, { module: ModuleKey; with: string[]; app
   住所: { module: 'jinji', with: ['通勤・定期の見直し', '社員ページの住所'] },
   通勤: { module: 'keiri', with: ['交通費（定期代）', '通勤の経路'], approve: true },
   状態: { module: 'jinji', with: ['勤怠の対象', '営業共有リスト', '社保の手続き（労務担当へ）'], options: ['待機', '退社', '休職', '産休', '育休'] },
+  // 転籍＝グループ会社のあいだで籍を移す（転籍台帳はページに出さず、ここと名簿に出す・10-25）
+  転籍: { module: 'jinji', with: ['名簿の所属会社', '勤怠の紐付け（転籍日で割る）', '社保・雇用保険の切り替え（労務担当へ）'], approve: true, options: ['本社', 'グループA社', 'グループB社', 'グループC社'] },
 };
 
 export type Yoyaku = {
@@ -29,6 +31,8 @@ export const YOYAKU: Yoyaku[] = [
   { id: 'y4', date: '2026-11-01', personId: 's0399', person: '高橋 健', field: '状態', from: '稼働中', to: '産休', by: '中村', state: '予約中' },
   { id: 'y5', date: '2026-11-01', personId: 's0302', person: '鈴木 一郎', field: '単価', from: '45万', to: '48万', by: '小林', state: '承認待ち' },
   { id: 'y6', date: '2026-11-30', personId: 's0388', person: '伊藤 誠', field: '状態', from: '稼働中', to: '待機', by: '田中', state: '予約中', note: '派遣契約の終わり（更新の意向が未確認）' },
+  { id: 'y9', date: '2026-11-01', personId: 's0410', person: '渡辺 涼', field: '転籍', from: 'グループB社', to: '本社', by: '田中', state: '承認待ち', note: '本人の同意まで済み' },
+  { id: 'y10', date: '2026-12-01', personId: 's0388', person: '伊藤 誠', field: '転籍', from: '本社', to: 'グループC社', by: '中村', state: '予約中' },
   { id: 'y7', date: '2026-10-20', personId: 's0441', person: '中村 優', field: '現場', from: 'D社（大手町）', to: '待機', by: '田中', state: '適用済み' },
   { id: 'y8', date: '2026-10-15', personId: 's0455', person: '加藤 葵', field: '住所', from: '品川区', to: '川崎市', by: '本人申請', state: '適用済み' },
 ];

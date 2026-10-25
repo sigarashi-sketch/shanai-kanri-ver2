@@ -4,6 +4,8 @@
 //   ★確定・却下・手直し・手動起票（POST）は呼ばない。ここは読むだけ
 //   ★今のシステムの状態は 確認待ち → 確定（勤怠の紐付けを転籍日で割る）／却下 の3つだけ。ver2 の5段の手続きは無い
 import { jstToday, staffIdOf } from './staff';
+import { normName } from './eigyo-common';
+import type { Yoyaku } from '@/lib/yoyaku-sample';
 
 type Evidence = { items?: { source: string; match?: string; from_retire?: string; to_entry?: string }[]; date_edited?: boolean };
 export type IkeLedger = {
@@ -45,4 +47,31 @@ export function toTensekiLive(j: IkeTensekiList) {
     rows: [...(j.drafts || []).map(map).sort((a, b) => a.on.localeCompare(b.on)), ...(j.done || []).map(map)],
     retireCount: (j.retire || []).length, snapshotDate: j.snapshotDate || '', today: j.today || jstToday(),
   };
+}
+
+// ---- 転籍台帳はページに出さず、名簿と変更の予約に混ぜる（10-25 shoya「転籍台帳は裏で持っててさ従業員名簿にいれて」「変更の予約に転籍も入れて」） ----
+/** 台帳の行 → 変更の予約の行。確認待ち＝承認待ち／確定で転籍日がこれから＝予約中／確定で過ぎた＝適用済み。却下は出さない */
+export function tensekiYoyaku(rows: readonly LiveTenseki[], today: string): Yoyaku[] {
+  return rows.filter((r) => r.state !== '却下' && r.on).map((r) => ({
+    id: `tenseki:${r.id}`, date: r.on, personId: r.personId, person: r.name, field: '転籍' as const, from: r.from, to: r.to, by: '転籍台帳',
+    state: r.state === '確認待ち' ? '承認待ち' as const : r.on >= today ? '予約中' as const : '適用済み' as const,
+    note: r.state === '確認待ち' ? `転籍台帳の確認待ち（${r.proofs.join('・') || '根拠なし'}）。確定は今の社内システムの転籍台帳から` : undefined,
+  }));
+}
+
+/** 名簿の名前の下に出す1行（正規化した氏名 → 文）。これからの転籍と、30日以内に済んだ転籍だけ */
+export function tensekiMarks(rows: readonly { name: string; on: string; from: string; to: string; state: string }[], today: string): Map<string, { text: string; pending: boolean }> {
+  const out = new Map<string, { text: string; pending: boolean }>();
+  const recent = new Date(Date.parse(today) - 30 * 86400000).toISOString().slice(0, 10);
+  const md = (iso: string) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}`;
+  for (const r of [...rows].sort((a, b) => a.on.localeCompare(b.on))) {
+    if (!r.on || r.state === '却下' || r.state === '取りやめ') continue;
+    const done = r.state === '確定' || r.state === '完了';
+    if (done && r.on < recent) continue;
+    const pending = !done || r.on > today;
+    const k = normName(r.name);
+    if (!k || (out.has(k) && !pending)) continue;
+    out.set(k, { pending, text: `${pending ? '転籍予定' : '転籍済み'} ${md(r.on)}〜 ${r.from}→${r.to}${done ? '' : `（${r.state}）`}` });
+  }
+  return out;
 }

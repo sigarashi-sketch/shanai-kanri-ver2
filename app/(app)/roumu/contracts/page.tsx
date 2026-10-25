@@ -12,7 +12,8 @@ import { stageTo, useRule } from '@/components/AlertStore';
 import { numOf } from '@/lib/alert-rules';
 import { PersonName } from '@/components/Person';
 
-// 現場・契約（労務/営業管理）＝派遣契約の終了が近い人の通知。準委任は対象外。
+// 派遣契約（労務/営業管理・営業の /eigyo/haken も同じ画面）＝派遣契約の終了が近い人の通知。準委任は対象外。
+//   10-25 shoya「これややこしいから派遣契約にして」で 現場・契約 → 派遣契約
 //   ・契約の終わり と 抵触日（同じ派遣先の同じ組織で働ける3年の期限・個人単位）の近いほうで段階を付ける
 //   ・既定は 60日前＝注意（担当営業）→ 30日前＝警告（＋労務）→ 14日前＝上限間近（＋全体管理者）。日数と宛先はアラート設定で選んだものを読む
 //   ・更新の意向は選ぶだけ（自由入力にしない）。「更新」「終了」が決まれば通知は止まる
@@ -21,7 +22,8 @@ const INTENTS: Intent[] = ['未確認', '派遣先と調整中', '更新', '終�
 const decided = (c: DispatchContract) => c.intent === '更新' || c.intent === '終了';
 
 export default function ContractsPage() {
-  const canEdit = usePerms().can('roumu', 'edit');
+  const { can } = usePerms();
+  const canEdit = can('roumu', 'edit') || can('eigyo', 'edit');
   const rule = useRule('contract');
   const days = rule.stages.map((s) => numOf(s.when)) as [number, number, number];
   const contractLevel = (c: DispatchContract) => levelOf(c, days);
@@ -57,7 +59,7 @@ export default function ContractsPage() {
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="現場・契約" sub="派遣契約の終わりと抵触日が近い人。更新するか決まるまで、段階ごとに知らせます（準委任は対象外）・見本データ" />
+      <PageTitle title="派遣契約" sub="派遣契約の終わりと抵触日が近い人。更新するか決まるまで、段階ごとに知らせます（準委任は対象外）・見本データ" />
       {/* 今の社内システムには派遣契約の終わり・抵触日・更新の意向を持つ画面も表も無い（稼働の終了日はあるが抵触日とは別物なのでつながない） */}
       <NotInLegacy what="派遣契約の終わり・抵触日・更新の意向" />
 

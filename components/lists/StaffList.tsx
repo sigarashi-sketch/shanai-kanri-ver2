@@ -8,7 +8,11 @@ import { GhostButton, PageTitle, Pill, PrimaryButton, TONE } from '@/components/
 import { useMotivation } from '@/components/Motivation';
 import { needText, usePerms } from '@/components/Perms';
 import { isPending, useYoyaku, yoyakuLine } from '@/components/YoyakuStore';
-import { LIVE_WRITE_BLOCKED, LiveBanner } from '@/components/Live';
+import { LIVE_WRITE_BLOCKED, LiveBanner, useIke } from '@/components/Live';
+import { tensekiMarks, toTensekiLive, type IkeTensekiList } from '@/lib/live/tenseki';
+import { normName } from '@/lib/live/eigyo-common';
+import { TENSEKI } from '@/lib/tenseki-sample';
+import { TODAY } from '@/lib/yoyaku-sample';
 import { useLiveRoute } from '@/lib/live/use-live-route';
 import { MIKEIKEN_NOTE } from '@/lib/live/mikeiken';
 import { PersonName } from '@/components/Person';
@@ -28,6 +32,14 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
   const { data, state, error, reload, live } = useLiveRoute<LiveStaffList>('/api/live/staff');
   // 現場の列の下に、いちばん近い予約を1行（変更の予約と同じデータ・見本のときだけ）
   const nextOf = (id: string) => (live ? undefined : yoyaku.filter((r) => r.personId === id && isPending(r)).sort((a, b) => a.date.localeCompare(b.date))[0]);
+  // 転籍（転籍台帳はページに出さず名簿に混ぜる・10-25）。台帳は今のシステムで super_admin と労務事務だけ読める＝読めなければ出ないだけ
+  const tk = useIke<IkeTensekiList>(live ? 'tenseki?action=list' : null);
+  const tmarks = useMemo(() => {
+    if (!live) return tensekiMarks(TENSEKI, TODAY);
+    if (!tk.live || !tk.data) return new Map<string, { text: string; pending: boolean }>();
+    const t = toTensekiLive(tk.data);
+    return tensekiMarks(t.rows, t.today);
+  }, [live, tk.live, tk.data]);
   const [tab, setTab] = useState<string>('すべて');
   const [q, setQ] = useState('');
   const [sel, setSel] = useState<Set<string>>(new Set());
@@ -112,7 +124,8 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
                     <div aria-hidden className="flex size-[30px] items-center justify-center rounded-full text-[12px] font-bold" style={{ background: 'var(--as)', color: 'var(--ad)' }}>{p.name[0]}</div>
                     <div><PersonName name={p.name} />
                       {p.tag && <span className="chip ml-1.5" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }} title={p.tag === '仮' ? '稼働管理情報一覧にまだ載っていない人（営業リストから立てた行）' : '当月の行が無いので、前の月の行を出しています'}>{p.tag}</span>}
-                      <div className="text-[11.5px] text-faint">{p.sub}</div></div>
+                      <div className="text-[11.5px] text-faint">{p.sub}</div>
+                      {tmarks.get(normName(p.name)) && <Link href="/jinji/yoyaku" className="block text-[11.5px] font-semibold hover:underline" style={{ color: tmarks.get(normName(p.name))!.pending ? 'var(--ad)' : 'var(--color-muted)' }}>{tmarks.get(normName(p.name))!.text}</Link>}</div>
                   </div></td>
                   <td className="px-2 py-2"><Pill>{p.status}</Pill></td>
                   <td className="px-2 py-2">{p.site}{p.siteSub && <div className="text-[11.5px] text-faint">{p.siteSub}</div>}{nextOf(p.id) && <Link href="/jinji/yoyaku" className="block text-[11.5px] font-semibold hover:underline" style={{ color: 'var(--ad)' }}>{yoyakuLine(nextOf(p.id)!)}</Link>}</td>

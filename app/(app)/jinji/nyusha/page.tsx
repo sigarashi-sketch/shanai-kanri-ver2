@@ -25,6 +25,7 @@ export default function NyushaPage() {
   const lv = useLiveRoute<NyushaSheetLive>('/api/live/nyusha');
   const mk = useMikeiken();   // 本物は未経験の人だけ（今のプロパーリストに入っている人）。サーバ側でも絞っている
   const live = lv.live && !!lv.data;
+  const full = !live || lv.data!.source === 'sheet';   // 見本・スプシそのもの＝全部の列がある
   const rows: SheetRow[] = useMemo(() => (live ? mk.keep(lv.data!.rows || [], 'name') : SHEET_SAMPLE), [live, lv.data, mk]);
   const [filter, setFilter] = useState<SheetFilter>('すべて');
   const [focus, setFocus] = useState<string | null>(null);
@@ -43,10 +44,10 @@ export default function NyushaPage() {
           <FileSpreadsheet size={15} />スプシを開く<ExternalLink size={12} />
         </a>
       </PageTitle>
-      <LiveBanner state={lv.state} error={lv.error} onReload={lv.reload} note="今の社内システムから、スプシと同じ材料（参画決定・入社日・入場日・額面）で組み立てています（見るだけ）" />
+      <LiveBanner state={lv.state} error={lv.error} onReload={lv.reload} note={full ? '労務のスプシ（参画決定者タブ）をそのまま読んでいます（見るだけ・書き込みはスプシで）' : '今の社内システムから、スプシと同じ材料（参画決定・入社日・入場日・額面）で組み立てています（見るだけ）'} />
       <MikeikenNote mk={mk} live={live} />
 
-      {live && (
+      {!full && (
         <div className="rounded-xl border px-4 py-3 text-[12.5px]" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)', borderColor: 'transparent' }}>
           <b>メールアドレス・freee送信・送信日・メモ・辞退・入社取消・辞退・取消日</b> は労務のスプシにだけあります。
           今の社内システムにスプシを読む口がまだ無いので、ここでは「—」です。送信したかどうかは
@@ -57,12 +58,12 @@ export default function NyushaPage() {
 
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <div className="text-[13px]">
-          {live ? <><b>{rows.length}人</b><span className="ml-2 text-muted">参画決定が 10/1 以降（9月決定で10月以降に入場の人を含む）</span></>
+          {!full ? <><b>{rows.length}人</b><span className="ml-2 text-muted">参画決定が 10/1 以降（9月決定で10月以降に入場の人を含む）</span></>
             : <><b>freee 未送信 {unsent}人</b><span className="ml-2 text-muted">送信済み {count('送信済み')}人・辞退/取消 {count('辞退・取消')}人</span></>}
         </div>
         <div className="ml-auto flex flex-wrap gap-1.5">
           {FILTERS.map((f) => {
-            const off = live && f !== 'すべて';
+            const off = !full && f !== 'すべて';
             return (
               <button key={f} onClick={() => setFilter(f)} disabled={off} title={off ? SHEET_ONLY : undefined}
                 className={`min-h-8 rounded-full border px-3 text-[12.5px] disabled:cursor-not-allowed disabled:opacity-50 ${filter === f ? 'font-semibold' : 'text-muted'}`}

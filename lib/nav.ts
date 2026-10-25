@@ -13,7 +13,6 @@ export const NAV: NavGroup[] = [
       { href: '/jinji/yoyaku', label: '変更の予約', built: true, badge: 2 },
       { href: '/jinji/nyusha', label: '入社手続き', built: true, badge: 17 },
       { href: '/jinji/jimu', label: '参画決定者の手続き', built: true, badge: 5 },
-      { href: '/jinji/tenseki', label: '転籍台帳', built: true, badge: 4 },
       { href: '/jinji/shikaku', label: '資格手当', built: true, badge: 6 },
       { href: '/jinji/sankyu', label: '産休・育休', built: true, badge: 3 },
       { href: '/jinji/rishoku', label: '離職リスク・離職率', built: true, badge: 5 },
@@ -30,7 +29,7 @@ export const NAV: NavGroup[] = [
       { href: '/roumu/shime', label: '勤怠の締め', built: true, badge: 7 },
       { href: '/roumu/shift', label: 'シフト表', built: true, badge: 3 },
       { href: '/roumu/kekkin', label: '欠勤管理', built: true, badge: 4 },
-      { href: '/roumu/contracts', label: '現場・契約', built: true, badge: 3 },
+      { href: '/roumu/contracts', label: '派遣契約', built: true, badge: 3 },
       { href: '/roumu/timesheet', label: '勤務表の届き具合', built: true, badge: 4 },
       { href: '/roumu/alerts', label: 'アラート設定', built: true },
       { href: '/roumu/kb', label: '労務法務ナレッジ', built: true },
@@ -43,6 +42,7 @@ export const NAV: NavGroup[] = [
       { href: '/eigyo/progress', label: '案件進捗', built: true, badge: 4 }, // 単独のまま。作り込み（カスタム）はあとで詰める（10-23 shoya）
       { href: '/eigyo/proper', label: '要員リスト（プロパー・スキシ）', built: true },
       { href: '/eigyo/skillsheet', label: 'スキルシート作成', built: true },
+      { href: '/eigyo/haken', label: '派遣契約', built: true, badge: 3 }, // 労務の派遣契約と同じ画面（10-25 shoya「同じもの営業にいれたい」）
       { href: '/eigyo/taiki', label: '待機・再アサイン', built: true, badge: 7 },
       { href: '/eigyo/nippo', label: '成約日報', built: true, badge: 1 },
       { href: '/eigyo/map', label: '案件・要員マップ', built: true },
