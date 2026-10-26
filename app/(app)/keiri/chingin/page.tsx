@@ -33,6 +33,9 @@ const pct = (r: number) => `${(r * 100).toFixed(1)}%`;
 const rateTone = (r: number) => (r < 0.15 ? 'bad' : r < 0.25 ? 'warn' : 'ok');
 const uniq = (xs: string[]) => [...new Set(xs)];
 
+// 売上は税込で見せる（10-26 shoya）。消費税10%・円未満切り捨て。粗利・粗利率は税抜のまま
+const taxIn = (n: number) => n + Math.floor(n * 0.1);
+
 export default function ChinginPage() {
   const [ym, setYm] = useState('');
   const lv = useIke<ArariLive>(`seikyu?action=arari${ym ? `&ym=${ym}` : ''}`);
@@ -92,10 +95,11 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
       {d.kintaiNote && <div className="rounded-xl border px-4 py-2.5 text-sm" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)', borderColor: 'var(--tone-warn-bar)' }}>{d.kintaiNote}</div>}
 
       <div className="mo-fade-up grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]" style={{ ['--i' as string]: 1 }}>
-        {([['売上（請求）', sum.billed], ['原価（給与＋交通費＋法定福利）', sum.cost], ['粗利', sum.gross]] as const).map(([l, v]) => (
+        {([['売上（請求・税込）', taxIn(sum.billed)], ['原価（給与＋交通費＋法定福利）', sum.cost], ['粗利', sum.gross]] as const).map(([l, v]) => (
           <div key={l} className="rounded-xl border border-line bg-surface px-4 py-3">
             <div className="text-sm text-muted">{l}</div>
             <div className="text-xl font-bold">{v < 0 ? '−' : ''}¥<CountUp to={Math.abs(v)} /></div>
+            {l === '売上（請求・税込）' && <div className="text-sm text-muted">税抜 {yen(sum.billed)}（粗利は税抜で計算）</div>}
             {l === '粗利' && <div className={`text-sm text-${rateTone(sum.billed ? sum.gross / sum.billed : 0)}`}>粗利率 {pct(sum.billed ? sum.gross / sum.billed : 0)}</div>}
           </div>
         ))}
@@ -120,7 +124,7 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1040px] border-collapse text-body">
             <thead><tr className="th-row text-left">
-              <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">取引先・所属</th><th className="px-2 py-2.5 text-right font-semibold">勤怠（freee）</th><th className="px-2 py-2.5 text-right font-semibold">売上（請求）</th><th className="px-2 py-2.5 font-semibold">請求書</th><th className="px-2 py-2.5 text-right font-semibold">給与</th><th className="px-2 py-2.5 text-right font-semibold">交通費</th><th className="px-2 py-2.5 text-right font-semibold">法定福利</th><th className="px-2 py-2.5 text-right font-semibold">粗利</th><th className="px-4 py-2.5 text-right font-semibold">粗利率</th>
+              <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">取引先・所属</th><th className="px-2 py-2.5 text-right font-semibold">勤怠（freee）</th><th className="px-2 py-2.5 text-right font-semibold">売上（税込）</th><th className="px-2 py-2.5 font-semibold">請求書</th><th className="px-2 py-2.5 text-right font-semibold">給与</th><th className="px-2 py-2.5 text-right font-semibold">交通費</th><th className="px-2 py-2.5 text-right font-semibold">法定福利</th><th className="px-2 py-2.5 text-right font-semibold">粗利</th><th className="px-4 py-2.5 text-right font-semibold">粗利率</th>
             </tr></thead>
             <tbody>
               {shown.length === 0 && <tr><td colSpan={10} className="px-4 py-8 text-center text-sm text-muted">この月の請求書がまだありません（または絞り込みに当たる人がいません）。</td></tr>}
@@ -131,7 +135,7 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
                     <td className="px-4 py-2.5"><PersonName name={r.name} className="font-semibold underline-offset-2 hover:underline" />{r.temp && <div><span className="chip" title="給与・交通費の欄に本当の値を入れると片づきます" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>仮の値あり</span></div>}{r.warn.map((w) => <div key={w} className="text-xs text-bad">{w}</div>)}</td>
                     <td className="px-2 py-2.5">{r.company}<div className="text-xs text-faint">{r.shozoku}</div></td>
                     <td className="num px-2 py-2.5 text-right"><KintaiCell k={r.kintai} /></td>
-                    <td className="num px-2 py-2.5 text-right">{yen(r.sales)}{r.fromYms.length > 0 && <div className="whitespace-nowrap text-xs text-faint" title="後の月の請求書に「◯月稼働分」として載っていた分を、締めの月で入れています">{r.fromYms.map((m) => `${Number(m.slice(5))}月`).join('・')}の請求書から</div>}</td>
+                    <td className="num px-2 py-2.5 text-right">{yen(taxIn(r.sales))}<div className="whitespace-nowrap text-xs text-faint">税抜 {yen(r.sales)}</div>{r.fromYms.length > 0 && <div className="whitespace-nowrap text-xs text-faint" title="後の月の請求書に「◯月稼働分」として載っていた分を、締めの月で入れています">{r.fromYms.map((m) => `${Number(m.slice(5))}月`).join('・')}の請求書から</div>}</td>
                     <td className="w-44 max-w-44 px-2 py-2.5 text-xs">{r.files.length === 0 ? <span className="text-faint">なし</span> : r.files.map((f) => (
                       <div key={f.id} className="mb-1 min-w-0">
                         <a href={f.saved ? savedPdfUrl(f.id) : stampedPdfUrl(f.id)} target="_blank" rel="noreferrer" title={f.label} className="block truncate underline underline-offset-2" style={{ color: 'var(--ad)' }}>{f.label.replace(/_.*$/, '')}</a>
