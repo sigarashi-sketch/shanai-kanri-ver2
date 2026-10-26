@@ -29,7 +29,7 @@ export const kubunLabel = (k: KubunKey) => KUBUN.find((x) => x.key === k)!.label
 export const KUBUN_OF_HREF: Record<string, KubunKey> = {
   // 人事管理
   '/home/jinji': 'kadou', '/jinji/staff': 'kadou', '/jinji/yoyaku': 'kadou', '/jinji/nyusha': 'mendan', '/jinji/jimu': 'kadou',
-  '/jinji/shikaku': 'kadou', '/jinji/sankyu': 'kadou', '/jinji/rishoku': 'bunseki', '/jinji/community': 'kadou',
+  '/jinji/shikaku': 'kadou', '/jinji/sankyu': 'kadou', '/jinji/rishoku': 'bunseki', '/jinji/community': 'kadou', '/jinji/bdsh': 'kadou',
   '/jinji/saiyou': 'mendan', '/jinji/ocr': 'mendan', '/jinji/ippass': 'kanri',
   // 労務/営業管理
   '/roumu/today': 'kintai', '/roumu/approval': 'kintai', '/roumu/overtime': 'kintai', '/roumu/shime': 'kintai', '/roumu/shift': 'kintai',

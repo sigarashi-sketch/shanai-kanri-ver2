@@ -18,6 +18,7 @@ export const NAV: NavGroup[] = [
       { href: '/jinji/sankyu', label: '産休・育休', built: true },
       { href: '/jinji/rishoku', label: '離職リスク・離職率', built: true },
       { href: '/jinji/community', label: 'コミュニティ', built: true },
+      { href: '/jinji/bdsh', label: 'bdsh', built: true }, // それゆけ未経験の bdsh（教育コンテンツの内勤画面）を開く（10-26 shoya「それゆけで押した時と同じ感じで」）
       { href: '/jinji/saiyou', label: '採用', built: true },
       { href: '/jinji/ocr', label: '身分証の読み取り', built: true },
       { href: '/jinji/ippass', label: '媒体アイパス管理', built: true }, // 保留から人事へ（10-26 shoya）。開ける人は今のシステムの ippass と同じ（lib/horyu-access.ts）
