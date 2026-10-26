@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   }
   if (b.action === 'ringiDecide') {
     if (decision !== 'approve' && decision !== 'reject') return NextResponse.json({ error: '承認か見送りを選んでください' }, { status: 400 });
-    if (decision === 'reject' && !comment) return NextResponse.json({ error: '見送りの理由を選んでください（本人の LINE に届きます）' }, { status: 400 });
+    if (decision === 'reject' && !comment) return NextResponse.json({ error: '見送りの理由を書いてください（本人の LINE に届きます）' }, { status: 400 });
     return ikeWrite(req, '/api/keihi?action=ringiDecide', { id, decision, comment });
   }
   return NextResponse.json({ error: 'この操作はできません' }, { status: 400 });
