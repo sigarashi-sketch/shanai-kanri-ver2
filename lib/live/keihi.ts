@@ -1,7 +1,7 @@
 // 交通費・経費：今の社内システムの GET /api/keihi?action=adminList&status=申請中 の形 → この画面の Claim。
 //   ・判定は今のシステムのまま（通勤日は申請のときに freee 打刻と照合済み・定期は月末の見回り・バスは本人の入力）。ここで計算し直さない
 //   ・今の画面（keihi-admin.html）が出している印（手入力・バス・定期・領収書なし）を「先に確かめたこと」に並べる
-import type { Claim, ClaimKind } from '../keihi-sample';
+import type { Claim, ClaimKind, ClaimLine } from '../keihi-sample';
 import type { Check } from '../kintai-sample';
 
 export type KeihiItem = {
@@ -60,6 +60,19 @@ function checksOf(c: KeihiClaim, items: KeihiItem[]): Check[] {
   return out;
 }
 
+const DOW = ['日', '月', '火', '水', '木', '金', '土'];
+const dayJa = (d: string) => { const t = new Date(d + 'T00:00:00Z'); return isNaN(+t) ? d : `${t.getUTCMonth() + 1}/${t.getUTCDate()}（${DOW[t.getUTCDay()]}）`; };
+const SRC: Record<string, string> = { ic: 'ICカード', ticket: '運賃検索', manual: '手入力' };
+// 明細1行（10-26）：日付・種類・区間か支払先・金額・運賃の出どころ・目的
+function lineOf(i: KeihiItem): ClaimLine {
+  const pass = isPass(i);
+  const kind = pass ? '定期' : i.kind === 'expense' ? i.category || '経費' : i.mode === 'bus' ? 'バス' : i.category === 'commute' ? '通勤' : '交通費（通勤以外）';
+  const route = i.from_station || i.to_station ? `${i.from_station || '？'}→${i.to_station || '？'}${pass ? '' : i.round_trip ? '（往復）' : '（片道）'}` : '';
+  const what = i.kind === 'expense' ? [i.payee, route].filter(Boolean).join('・') || '—' : [route, i.route ? `経路：${i.route}` : ''].filter(Boolean).join('　') || '—';
+  const note = [pass ? (i.pass_start && i.pass_end ? `期間 ${md(i.pass_start)}〜${md(i.pass_end)}` : '期間の入力なし') : '', i.purpose || ''].filter(Boolean).join('・');
+  return { id: i.id, date: pass ? '' : dayJa(i.used_on), kind, what, amount: Number(i.amount_yen) || 0, src: i.kind === 'transit' ? SRC[i.fare_source || ''] || '' : '', note, receiptUrl: i.receipt_url };
+}
+
 export function toClaims(j: KeihiAdminList | null): Claim[] {
   return (j?.claims || []).map((c) => {
     const items = c.items || [];
@@ -67,6 +80,7 @@ export function toClaims(j: KeihiAdminList | null): Claim[] {
       id: c.id, personId: '', person: c.linked_name || '（氏名がまだ決まらない）', site: `${Number(c.ym.slice(5, 7))}月分・${items.length}件`,
       kind: kindOf(items), month: `${Number(c.ym.slice(5, 7))}月`, amount: Number(c.total_yen) || 0, detail: detailOf(items),
       source: items.some((i) => i.fare_source === 'ic') ? 'ICカードから' : '手入力', filedAt: stamp(c.submitted_at), checks: checksOf(c, items),
+      lines: [...items].sort((a, b) => a.used_on.localeCompare(b.used_on)).map(lineOf),
     };
   });
 }

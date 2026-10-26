@@ -39,7 +39,10 @@ export type ClaimKind = '通勤（日ごと）' | '定期' | 'バス' | '出張�
 export type Claim = {
   id: string; personId: string; person: string; site: string; kind: ClaimKind; month: string;
   amount: number; detail: string; source: 'ICカードから' | '手入力'; filedAt: string; checks: Check[];
+  /** 明細（本物だけ・10-26 shoya「中身見れないの」） */
+  lines?: ClaimLine[];
 };
+export type ClaimLine = { id: string; date: string; kind: string; what: string; amount: number; src: string; note: string; receiptUrl?: string | null };
 export const CLAIMS: Claim[] = [
   { id: 'c1', personId: 's0302', person: '鈴木 一郎', site: 'D社（大手町）', kind: '通勤（日ごと）', month: '10月', amount: 9240, detail: '15日・往復 616円', source: '手入力', filedAt: '10/22 20:10',
     checks: [{ tone: 'bad', text: '10/21 は退勤の打刻が無い（打刻修正の申請が承認待ち）' }, { tone: 'warn', text: '手入力の運賃が経路の運賃より 1日 40円高い' }] },

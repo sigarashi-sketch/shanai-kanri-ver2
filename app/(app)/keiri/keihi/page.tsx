@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, Check, CircleAlert, CreditCard, Star, Smartphone } from 'lucide-react';
-import { CLAIMS, IC_ROWS, KEIHI_REJECT, ME, PUNCH_DAYS, PURPOSES, ROUTES, ROUTE_LABELS, type Claim, type IcRow, type Route } from '@/lib/keihi-sample';
+import { CLAIMS, IC_ROWS, KEIHI_REJECT, ME, PUNCH_DAYS, PURPOSES, ROUTES, ROUTE_LABELS, type Claim, type ClaimLine, type IcRow, type Route } from '@/lib/keihi-sample';
 import type { Check as Chk } from '@/lib/kintai-sample';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
@@ -133,6 +133,7 @@ function CheckTab({ claims, done, setDone, live, flags, reload }: { claims: Clai
   const [ok, setOk] = useState<Record<string, boolean>>({});
   const [kind, setKind] = useState<string>('すべて');
   const [flash, setFlash] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const pending = claims.filter((c) => !done[c.id]).sort((a, b) => ORDER.indexOf(toneOf(a.checks)) - ORDER.indexOf(toneOf(b.checks)) || a.filedAt.localeCompare(b.filedAt));
   const rows = pending.filter((c) => kind === 'すべて' || c.kind === kind);
@@ -212,11 +213,13 @@ function CheckTab({ claims, done, setDone, live, flags, reload }: { claims: Clai
                   const t = toneOf(c.checks);
                   const need = t === 'bad' && !ok[c.id];
                   return (
-                    <tr key={c.id} className={`mo-fade-in border-t border-line-soft align-top ${flash === c.id ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
+                    <Fragment key={c.id}>
+                    <tr className={`mo-fade-in border-t border-line-soft align-top ${flash === c.id ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
                       <td className="px-4 py-2.5">{c.personId ? <PersonName name={c.person} className="font-semibold hover:underline underline-offset-2" /> : <PersonName name={c.person} className="font-semibold underline-offset-2 hover:underline" />}<div className="text-xs text-faint">{c.site}</div></td>
                       <td className="px-2 py-2.5">
                         <div className="flex flex-wrap items-center gap-1.5"><span className="chip" style={{ background: CHIP[t].bg, color: CHIP[t].fg }}>{c.kind}</span><span className="text-xs text-faint">{c.month}・{c.source}</span></div>
                         <div className="mt-1 text-sm text-muted">{c.detail}</div>
+                        {!!c.lines?.length && <button type="button" onClick={() => setOpenId(openId === c.id ? null : c.id)} aria-expanded={openId === c.id} className="mt-1 text-sm font-semibold" style={{ color: 'var(--ad)' }}>{openId === c.id ? '中身を閉じる' : `中身を見る（${c.lines.length}件）`}</button>}
                       </td>
                       <td className="num px-2 py-2.5 text-right font-semibold">{yen(c.amount)}</td>
                       <td className="px-2 py-2.5"><FlagChips flags={flags.by[c.id] || []} ready={flags.ready} /><ul className="flex flex-col gap-1">{c.checks.map((x) => <CheckLine key={x.text} c={x} />)}</ul>
@@ -232,6 +235,10 @@ function CheckTab({ claims, done, setDone, live, flags, reload }: { claims: Clai
                         </div>
                       </td>
                     </tr>
+                    {openId === c.id && c.lines && (
+                      <tr className="border-t border-line-soft"><td colSpan={5} className="bg-soft px-4 py-2.5"><ClaimLines lines={c.lines} /></td></tr>
+                    )}
+                    </Fragment>
                   );
                 })}
               </tbody>
@@ -242,6 +249,28 @@ function CheckTab({ claims, done, setDone, live, flags, reload }: { claims: Clai
       {confirm && <ConfirmWrite spec={confirm} onClose={() => setConfirm(null)} />}
       <p className="text-xs text-faint">定期は月の途中でも承認できます。月が終わったら、その月の打刻を毎朝の見回りでもう一度確かめ、漏れがあれば差し戻して本人に知らせます（今のシステムと同じ）。</p>
     </div>
+  );
+}
+
+// 申請の明細（10-26 shoya「これ中身見れないの」）。今の adminList が返す明細をそのまま並べる
+function ClaimLines({ lines }: { lines: ClaimLine[] }) {
+  return (
+    <table className="w-full border-collapse text-sm">
+      <thead><tr className="text-left text-xs text-muted"><th className="py-1 pr-2 font-semibold">日付</th><th className="px-2 py-1 font-semibold">種類</th><th className="px-2 py-1 font-semibold">区間・支払先</th><th className="px-2 py-1 text-right font-semibold">金額</th><th className="px-2 py-1 font-semibold">運賃</th><th className="px-2 py-1 font-semibold">目的など</th><th className="py-1 pl-2 font-semibold">領収書</th></tr></thead>
+      <tbody>
+        {lines.map((l) => (
+          <tr key={l.id} className="border-t border-line-soft">
+            <td className="num whitespace-nowrap py-1 pr-2">{l.date || '—'}</td>
+            <td className="whitespace-nowrap px-2 py-1">{l.kind}</td>
+            <td className="px-2 py-1">{l.what}</td>
+            <td className="num whitespace-nowrap px-2 py-1 text-right">{yen(l.amount)}</td>
+            <td className={`whitespace-nowrap px-2 py-1 ${l.src === '手入力' ? 'font-semibold text-warn' : 'text-muted'}`}>{l.src || '—'}</td>
+            <td className="px-2 py-1 text-muted">{l.note || '—'}</td>
+            <td className="whitespace-nowrap py-1 pl-2">{l.receiptUrl ? <a href={l.receiptUrl} target="_blank" rel="noopener noreferrer" className="font-semibold" style={{ color: 'var(--ad)' }}>開く</a> : <span className="text-faint">—</span>}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
