@@ -5,7 +5,6 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useIke } from '../Live';
 import type { ProgressData } from '@/lib/live/eigyo-common';
 import { caseHaishinRows, type CaseHaishin, type IkouListRes } from '@/lib/live/renraku';
-import { SAMPLE_CASES } from '@/lib/live/renraku-sample';
 import { Note } from './parts';
 
 // 案件配信：営業リスト（営業共有リスト・手動配信）から積んだ依頼の案件だけを並べる（2026-10-25 shoya）。
@@ -20,8 +19,8 @@ export function CaseTab({ live, info, onManual }: { live: boolean; info: boolean
   const sent = useIke<IkouListRes>(on ? 'ikou-requests?action=history&status=sent&limit=100' : null);
   const pend = useIke<IkouListRes>(on ? 'ikou-requests?action=pending&limit=50' : null);
   const pd = useIke<ProgressData>(on ? 'proxy?action=getProgressData' : null);
-  const rows: CaseHaishin[] = on ? caseHaishinRows(pd.data, sent.data?.requests ?? [], pend.data?.requests ?? []) : SAMPLE_CASES;
-  const loading = on && (sent.state === 'loading' || pend.state === 'loading' || pd.state === 'loading');
+  const rows: CaseHaishin[] = on ? caseHaishinRows(pd.data, sent.data?.requests ?? [], pend.data?.requests ?? []) : [];
+  const loading = !live || (sent.state === 'loading' || pend.state === 'loading' || pd.state === 'loading');
   const err = on ? sent.error || pend.error || pd.error : '';
   const [open, setOpen] = useState<string | null>(null);
   const tot = rows.reduce((a, r) => ({ ok: a.ok + r.ok, ng: a.ng + r.ng, un: a.un + r.undecided }), { ok: 0, ng: 0, un: 0 });

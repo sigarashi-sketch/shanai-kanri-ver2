@@ -8,7 +8,6 @@ import {
   cannotPick, caseHead, commuteJudge, fareBlock, ikouMessage, judgeKadou, pickGroups,
   type DryRes, type PartnerListRes, type PartnerPerson, type Recipient, type StationRes,
 } from '@/lib/live/renraku';
-import { SAMPLE_PARTNER, SAMPLE_RECIPIENTS, sampleStation } from '@/lib/live/renraku-sample';
 import { buildNameIndex, matchName } from '@/lib/live/renraku-names';
 import { HoldButton, LinePreview, Note, SendProgress, Step, haishin, useIkeDebounced } from './parts';
 
@@ -26,7 +25,7 @@ export function ManualTab({ live, canSend, info, wide }: { live: boolean; canSen
   const on = live && !info;
   const { hit, toast } = useMotivation();
   const list = useIke<PartnerListRes>(on ? 'partner-list?action=list&area=main' : null);
-  const L = on ? list.data : SAMPLE_PARTNER;
+  const L = on ? list.data : null;
   const [caseText, setCaseText] = useState('');
   const [station, setStation] = useState('');
   const [kadou, setKadou] = useState(0);
@@ -38,7 +37,7 @@ export function ManualTab({ live, canSend, info, wide }: { live: boolean; canSen
     ? `partner-list?action=station&area=main${caseText.trim() ? `&q=${encodeURIComponent(caseText.trim())}` : ''}${station.trim().length >= 2 ? `&station=${encodeURIComponent(station.trim())}` : ''}${bump ? `&r=${bump}` : ''}`
     : null;
   const stLive = useIkeDebounced<StationRes>(stPath, bump ? 0 : 600);
-  const ST: StationRes | null = on ? stLive.data : caseText.trim() || station.trim() ? sampleStation(station.trim() ? `${station.trim()}駅 ${caseText}` : caseText) : null;
+  const ST: StationRes | null = on ? stLive.data : null;
   // 交通費は1回に引ける数に上限がある。残りがあれば少し待って続きを取りに行く（今の画面と同じ・最大8回）
   useEffect(() => {
     if (!on || !ST?.fare?.pending || bump >= 8) return;
@@ -82,20 +81,13 @@ export function ManualTab({ live, canSend, info, wide }: { live: boolean; canSen
   const [prog, setProg] = useState<{ done: number; total: number; label: string } | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const tanka = ST?.limits?.tanka?.message;
-  const blockSend = !canSend ? needText('edit') : !caseText.trim() ? '先に①へ案件情報を貼り付けてください' : !picked.length ? '③で送る人を選んでください'
+  const blockSend = !on ? '読み込めていません' : !canSend ? needText('edit') : !caseText.trim() ? '先に①へ案件情報を貼り付けてください' : !picked.length ? '③で送る人を選んでください'
     : !text.trim() ? '④の本文が空です' : tanka ? tanka : '';
 
   const go = async () => {
     setResult(null);
     const names = picked.map((p) => p.name);
-    if (!on) {
-      const n = names.length; let k = 0; setProg({ done: 0, total: n, label: '' });
-      const iv = setInterval(() => {
-        k += 1; setProg({ done: k, total: n, label: `${k} / ${n}` });
-        if (k >= n) { clearInterval(iv); setTimeout(() => setProg(null), 500); hit(n); toast({ text: '見本なので送っていません', sub: `→ 本物なら ${n}人に送り、案件進捗に載ります` }); setResult({ ok: true, title: `見本：${n}人に送ったことにしました`, lines: ['本物では、案件番号（P…）が付いて案件進捗に載ります'] }); setSel([]); }
-      }, 260);
-      return;
-    }
+    if (!on) return;
     setProg({ done: 0, total: names.length, label: '宛先を確かめています…' });
     const dry = await haishin<DryRes & { ok?: boolean; error?: string }>('dry', { audience: 'sales' });
     if (!dry.ok) { setProg(null); setResult({ ok: false, title: '送れませんでした', lines: [dry.error || '宛先を読めませんでした'] }); return; }
@@ -191,7 +183,7 @@ export function ManualTab({ live, canSend, info, wide }: { live: boolean; canSen
           </select>
           <input value={word} onChange={(e) => setWord(e.target.value)} placeholder="言葉で絞る（例：CCNA ヘルプデスク）" aria-label="言葉で絞る" className="min-w-0 flex-1 rounded-lg border border-field bg-surface px-2 py-1.5 outline-none" />
         </div>
-        {on && list.state === 'loading' && <p className="mt-2 text-sm text-muted">営業中の人を読み込んでいます…</p>}
+        {(!on || list.state === 'loading') && <p className="mt-2 text-sm text-muted">営業中の人を読み込んでいます…</p>}
         {on && list.error && <Note tone="bad">{list.error}</Note>}
         <p className="mt-1.5 text-xs text-faint">{g.main.length + g.na.length}人{kadou ? `・稼働月が違う ${g.kadouNg}人を除外` : ''}{ST?.fare?.pending ? '・交通費を調べています…' : ''}</p>
       </Step>
@@ -217,7 +209,7 @@ export function ManualTab({ live, canSend, info, wide }: { live: boolean; canSen
         placeholder="「案件文を本文に入れる」で今の配信画面と同じ文面が入ります。{名前} は一人ずつその人の名前になります"
         className="w-full resize-y rounded-[10px] border border-field bg-surface px-3 py-2 text-body outline-none" />
       <div className="mb-2 mt-1 flex flex-wrap gap-1.5">{PHRASES.map((x) => <button key={x} type="button" onClick={() => insert(x)} className="rounded-full border border-line px-2 py-0.5 text-xs text-muted">{x.length > 16 ? x.slice(0, 15) + '…' : x}</button>)}</div>
-      <LinePreview text={text} name={text.includes('{名前}') ? picked[0]?.name || SAMPLE_RECIPIENTS[0].name : undefined} />
+      <LinePreview text={text} name={text.includes('{名前}') ? picked[0]?.name : undefined} />
       {text.includes('{名前}') && <p className="mt-1 text-xs text-faint">{'{名前}'} を使うと、一人ずつ送ります（送った分は同じ案件番号で案件進捗にまとまります）</p>}
     </Step>
   );

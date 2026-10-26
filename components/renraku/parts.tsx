@@ -60,7 +60,7 @@ export function SendProgress({ done, total, label }: { done: number; total: numb
   );
 }
 
-export type HaishinRes = Record<string, unknown> & { ok?: boolean; error?: string; sample?: boolean };
+export type HaishinRes = Record<string, unknown> & { ok?: boolean; error?: string; };
 /** app/api/live/haishin を呼ぶ（op ごとに通す action は決まっている） */
 export async function haishin<T extends HaishinRes = HaishinRes>(op: string, body: Record<string, unknown> = {}): Promise<T> {
   try {
@@ -71,7 +71,7 @@ export async function haishin<T extends HaishinRes = HaishinRes>(op: string, bod
   } catch (e) { return { ok: false, error: (e as Error).message } as T; }
 }
 
-/** haishin の読むだけの op を、見本／本物の状態つきで読む */
+/** haishin の読むだけの op を、読み込みの状態つきで読む */
 export function useHaishinRead<T>(op: string | null, body?: Record<string, unknown>) {
   const [data, setData] = useState<T | null>(null);
   const [state, setState] = useState<'idle' | 'loading' | 'live' | 'error'>('idle');

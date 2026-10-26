@@ -12,7 +12,7 @@ import { EDITABLE_FIELDS, colOfField, fieldIdx } from '@/lib/live/proper-cols';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(req: Request) {
-  if (!(await ikeToken())) return NextResponse.json({ ok: false, sample: true, error: '見本なので保存していません' }, { status: 401 });
+  if (!(await ikeToken())) return NextResponse.json({ ok: false, error: 'ログインしてください' }, { status: 401 });
   const b = (await req.json().catch(() => ({}))) as { row?: unknown; cells?: unknown };
   const row = typeof b.row === 'string' ? b.row : '';
   if (!UUID.test(row)) return NextResponse.json({ ok: false, error: '行が違います' }, { status: 400 });

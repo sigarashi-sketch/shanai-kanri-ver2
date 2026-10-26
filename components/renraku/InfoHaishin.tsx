@@ -11,21 +11,16 @@ import { Note } from './parts';
 type InfoBroadcast = { id: string; text: string; all: boolean; label: string; target: number | null; sent: number | null; failed: number; by: string; at: string | null; error: boolean };
 type InfoBroadcastsRes = { broadcasts: InfoBroadcast[]; error?: string };
 
-const SAMPLE: InfoBroadcast[] = [
-  { id: 's1', text: '【お知らせ】月次アンケートのお願い（見本）', all: false, label: '稼働中', target: 40, sent: 40, failed: 0, by: '採用担当', at: '2026-10-20T01:00:00Z', error: false },
-  { id: 's2', text: '【ご案内】面談の予約ができるようになりました（見本）', all: true, label: '友だち全員（LINE一斉送信）', target: null, sent: null, failed: 0, by: '採用担当', at: '2026-10-10T03:00:00Z', error: false },
-];
-
 export function InfoHaishin({ live, what }: { live: boolean; what: '手動配信' | '案内配信' }) {
   const r = useIke<InfoBroadcastsRes>(live ? 'chat?action=infoBroadcasts' : null);
-  const rows = live ? r.data?.broadcasts ?? [] : SAMPLE;
+  const rows = live ? r.data?.broadcasts ?? [] : [];
   const err = live ? r.data?.error || r.error : '';
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-3">
-      <Note tone="info">インフォメーションからの{what}は それゆけ未経験 の「配信」画面から送ります（このアカウントの送る鍵は それゆけ未経験 にしか無く、ここからは送れません）。下は送った履歴です{live ? '' : '（見本）'}。</Note>
-      {live && r.state === 'loading' && <p className="text-body text-muted">読み込み中…</p>}
+      <Note tone="info">インフォメーションからの{what}は それゆけ未経験 の「配信」画面から送ります（このアカウントの送る鍵は それゆけ未経験 にしか無く、ここからは送れません）。下は送った履歴です。</Note>
+      {(!live || r.state === 'loading') && <p className="text-body text-muted">読み込み中…</p>}
       {err && <Note tone="bad">{err}</Note>}
-      {!err && !(live && r.state === 'loading') && !rows.length && <p className="py-6 text-center text-sm text-muted">インフォメーションから送った配信はまだありません</p>}
+      {!err && live && r.state !== 'loading' && !rows.length && <p className="py-6 text-center text-sm text-muted">インフォメーションから送った配信はまだありません</p>}
       {rows.map((b, i) => (
         <div key={b.id} className="mo-fade-up rounded-xl border border-line px-3.5 py-3" style={{ ['--i' as string]: Math.min(i, 10) }}>
           <div className="flex flex-wrap items-center gap-1.5 text-sm">
