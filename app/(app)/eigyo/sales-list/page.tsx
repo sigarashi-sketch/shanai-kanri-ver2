@@ -41,7 +41,7 @@ export default function SalesListPage() {
     && (!q || `${r.name} ${r.eki} ${r.kadou.join(' ')} ${r.zokusei.join(' ')} ${r.kibou.join(' ')} ${r.summary} ${r.experience}`.toLowerCase().includes(q.toLowerCase())));
   return (
     <main className="flex flex-col gap-3.5 px-4 pb-12 pt-[22px] sm:px-6">
-      <PageTitle title="営業リスト一覧" sub="送る相手（営業中の要員の LINE グループ）ごとに、最寄駅・稼働・希望・並行数・サマリ・面談できる日程。読むだけ" />
+      <PageTitle title="営業リスト一覧" sub="送る相手（営業中の要員の LINE グループ）ごとに、最寄駅・稼働・希望・並行数・面談できる日程。サマリ・前職は行を押すと右に出ます。読むだけ" />
       <LiveBanner state={d.state} error={d.error} onReload={d.reload} note={`今の営業リスト一覧 ${all.length}件`} />
       <MikeikenNote mk={mk} live={live} />
       <div className="flex flex-wrap items-center gap-2">
@@ -49,26 +49,29 @@ export default function SalesListPage() {
         <label className="flex min-h-9 items-center gap-2 text-body"><input type="checkbox" checked={availOnly} onChange={(e) => setAvailOnly(e.target.checked)} style={{ accentColor: 'var(--a)' }} />面談できる日程ありのみ（{all.filter((r) => r.availability.length).length}）</label>
         <span className="ml-auto text-sm text-muted"><span className="num">{shown.length}</span>件</span>
       </div>
+      {/* 表は1行ずつ細く（サマリ・前職は載せない＝行が大きくなるため・10-26 shoya）。中身は行を押すと右に出る */}
       <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-        <table className="w-full min-w-[980px] border-collapse text-body">
+        <table className="w-full border-collapse text-body">
           <thead><tr className="th-row text-left">
-            {['氏名', '最寄駅', '稼働', '属性 / 希望', '並行', 'サマリ', '前職・スキル', '面談できる日程'].map((h) => <th key={h} className="px-3 py-2.5 font-semibold">{h}</th>)}
+            {['氏名', '最寄駅', '稼働', '属性 / 希望', '並行', 'スキシ', '面談できる日程'].map((h) => <th key={h} className="whitespace-nowrap px-3 py-2.5 font-semibold">{h}</th>)}
           </tr></thead>
           <tbody>
-            {d.state === 'loading' && <tr><td colSpan={8} className="p-0"><SkeletonRows /></td></tr>}
+            {d.state === 'loading' && <tr><td colSpan={7} className="p-0"><SkeletonRows /></td></tr>}
             {shown.slice(0, 400).map((r) => (
-              <tr key={r.name} className="row border-t border-line-soft align-top">
-                <td className="whitespace-nowrap px-3 py-2.5 font-semibold"><PersonName name={nameOf(r)} className="hover:underline underline-offset-2">{r.name}</PersonName>{r.ball && <span className="ml-1.5 text-xs font-normal" style={{ color: 'var(--tone-info-fg)' }}>ボール</span>}</td>
-                <td className="px-3 py-2.5">{r.eki || <span className="text-faint">—</span>}</td>
-                <td className="px-3 py-2.5">{r.kadou.length ? r.kadou.map((t) => <Tag key={t} t={t} tone="info" />) : <span className="text-faint">—</span>}</td>
-                <td className="px-3 py-2.5">{r.zokusei.map((t) => <Tag key={'z' + t} t={t} tone="purple" />)}{r.kibou.map((t) => <Tag key={'k' + t} t={t} tone="ok" />)}{!r.zokusei.length && !r.kibou.length && <span className="text-faint">—</span>}</td>
-                <td className="num px-3 py-2.5">{r.parallel >= 1 ? r.parallel : <span className="text-faint">—</span>}</td>
-                <td className="max-w-[280px] whitespace-pre-line px-3 py-2.5 text-sm">{r.summary.replace(/\n{2,}/g, '\n').trim() || <span className="text-faint">—</span>}{/^https?:/.test(r.sukishi) && <a href={r.sukishi} target="_blank" rel="noreferrer" className="mt-1 block underline" style={{ color: 'var(--ad)' }}>スキルシート</a>}</td>
-                <td className="max-w-[240px] whitespace-pre-line px-3 py-2.5 text-sm">{r.experience || <span className="text-faint">—</span>}</td>
-                <td className="px-3 py-2.5 text-sm">{r.availability.length ? <>{r.availability.map((a) => <div key={a.label}><b>{a.label}</b> {a.val}</div>)}{r.availUpdated && <div className="text-xs text-faint">{r.availUpdated} 取込</div>}</> : <span className="text-faint">—</span>}</td>
+              <tr key={r.name} className="row cursor-pointer border-t border-line-soft"
+                onClick={(e) => { if ((e.target as HTMLElement).closest('button,a')) return; window.dispatchEvent(new CustomEvent('person:open', { detail: { name: nameOf(r) } })); }}>
+                <td className="max-w-[220px] truncate whitespace-nowrap px-3 py-2 font-semibold"><PersonName name={nameOf(r)} className="hover:underline underline-offset-2">{r.name}</PersonName>{r.ball && <span className="ml-1.5 text-xs font-normal" style={{ color: 'var(--tone-info-fg)' }}>ボール</span>}</td>
+                <td className="max-w-[120px] truncate whitespace-nowrap px-3 py-2">{r.eki || <span className="text-faint">—</span>}</td>
+                <td className="whitespace-nowrap px-3 py-2">{r.kadou.length ? r.kadou.map((t) => <Tag key={t} t={t} tone="info" />) : <span className="text-faint">—</span>}</td>
+                <td className="max-w-[220px] truncate whitespace-nowrap px-3 py-2">{r.zokusei.map((t) => <Tag key={'z' + t} t={t} tone="purple" />)}{r.kibou.map((t) => <Tag key={'k' + t} t={t} tone="ok" />)}{!r.zokusei.length && !r.kibou.length && <span className="text-faint">—</span>}</td>
+                <td className="num px-3 py-2">{r.parallel >= 1 ? r.parallel : <span className="text-faint">—</span>}</td>
+                <td className="whitespace-nowrap px-3 py-2 text-sm">{/^https?:/.test(r.sukishi) ? <a href={r.sukishi} target="_blank" rel="noreferrer" className="underline" style={{ color: 'var(--ad)' }}>開く</a> : <span className="text-faint">—</span>}</td>
+                <td className="max-w-[260px] truncate whitespace-nowrap px-3 py-2 text-sm" title={r.availability.map((a) => `${a.label} ${a.val}`).join('\n')}>
+                  {r.availability.length ? <><b>{r.availability[0].label}</b> {r.availability[0].val}{r.availability.length > 1 && <span className="ml-1 text-xs text-muted">ほか{r.availability.length - 1}件</span>}</> : <span className="text-faint">—</span>}
+                </td>
               </tr>
             ))}
-            {d.state !== 'loading' && shown.length === 0 && <tr><td colSpan={8} className="px-4 py-8 text-center text-muted">該当なし</td></tr>}
+            {d.state !== 'loading' && shown.length === 0 && <tr><td colSpan={7} className="px-4 py-8 text-center text-muted">該当なし</td></tr>}
           </tbody>
         </table>
       </div>
