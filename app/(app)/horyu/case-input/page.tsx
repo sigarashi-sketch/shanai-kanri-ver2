@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Archive, CalendarDays, Check, RotateCcw, Sparkles, Undo2 } from 'lucide-react';
-import { CATS, MODES, SRC_LABEL, type Cat } from '@/lib/map-sample'; // 職種・通勤手段の選択肢だけ（案件の見本は使わない）
+import { CATS, MODES, SRC_LABEL, type Cat } from '@/lib/live/map';
 import type { CaseMapRow } from '@/lib/live/map';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';

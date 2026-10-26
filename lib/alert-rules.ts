@@ -2,7 +2,7 @@
 //   残業・有給・派遣契約・未打刻・退勤の打ち忘れ。値は全部「選ぶだけ」（自由入力にしない）。
 //   法令に関わる知らせ（36協定・有給5日・派遣の抵触日）は、警告より上の段階で労務を外せない。
 import type { ModuleKey } from './theme';
-import type { Level } from './roumu-sample';
+import type { Level } from './types/roumu';
 
 export type Who = '本人' | '担当営業' | '採用担当' | '労務' | '全体管理者';
 export type How = 'やること' | 'Slack' | 'LINE（あおい）';

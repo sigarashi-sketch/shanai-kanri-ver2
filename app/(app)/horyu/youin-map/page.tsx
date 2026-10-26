@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import { Check, MapPin, RefreshCw, Search, Train, X } from 'lucide-react';
-import { BAY, MAP_H, MAP_W, RAILS, STATIONS, stationOf, xy, type Youin } from '@/lib/map-sample'; // 地図の土台（駅の座標・湾・路線）だけ。人・案件の見本は使わない
+import { BAY, MAP_H, MAP_W, RAILS, STATIONS, stationOf, xy } from '@/lib/map-geo';
+import type { Youin } from '@/lib/live/map';
 import { liveYouin, type MapData } from '@/lib/live/map';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
