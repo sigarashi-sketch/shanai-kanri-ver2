@@ -5,21 +5,19 @@ import { isInnaiEmail, tokenEmail } from '@/lib/innai';
 // ログインで受け取ったトークンを、今の社内システムに「この人は入れるか」を聞いてから覚える。
 //   会社のアドレスか・退社していないか、の判定は今の社内システム（/api/auth?action=me）に任せる＝決まりは今と同じ
 const ORIGIN = process.env.IKEIKE_ORIGIN || 'https://ikeike-app.vercel.app';
-// ver2 は今は shoya だけが入れる（10-23・10-26 見本をなくしても変えない）。ほかの人も入れるときは V2_ALLOWED_EMAILS にカンマ区切りで足す
-const ALLOWED = (process.env.V2_ALLOWED_EMAILS || 's.igarashi@engineer-mikata.com').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
+// 10-26 解放：今の社内システムに入れる内勤なら誰でも入れる（前は shoya だけ＝V2_ALLOWED_EMAILS）。見られる画面は組織表・ロールの区分で決まる
 
 export async function POST(req: Request) {
   const b = (await req.json().catch(() => ({}))) as { access_token?: string; expires_in?: number };
   const t = String(b.access_token || '');
   if (!t) return NextResponse.json({ ok: false, error: 'ログインの情報がありません' }, { status: 400 });
-  // 要員（会社のメールでない人）は、今の社内システムに聞く前に断る。V2_ALLOWED_EMAILS に入っていても入れない（lib/innai.ts）
+  // 要員（会社のメールでない人）は、今の社内システムに聞く前に断る。誰であっても入れない（lib/innai.ts）
   const NO_YOIN = 'このシステムには会社のアカウントの人だけが入れます';
   if (!isInnaiEmail(tokenEmail(t))) return NextResponse.json({ ok: false, error: NO_YOIN }, { status: 403 });
   const r = await fetch(`${ORIGIN}/api/auth?action=me`, { headers: { Authorization: `Bearer ${t}`, Cookie: `sb_access=${t}` }, cache: 'no-store' });
   const me = (await r.json().catch(() => ({}))) as { authenticated?: boolean; allowed?: boolean; email?: string; error?: string };
   if (!r.ok || !me.authenticated || me.allowed === false) return NextResponse.json({ ok: false, error: me.error || '会社のアカウントでないか、入れない人です' }, { status: 403 });
   if (!isInnaiEmail(me.email)) return NextResponse.json({ ok: false, error: NO_YOIN }, { status: 403 });
-  if (!ALLOWED.includes(String(me.email || '').toLowerCase())) return NextResponse.json({ ok: false, error: 'この画面はまだ決まった人だけが入れます' }, { status: 403 });
   const res = NextResponse.json({ ok: true });
   res.cookies.set(IKE_TOKEN_COOKIE, t, { path: '/', httpOnly: true, secure: true, sameSite: 'lax', maxAge: Math.max(60, Math.min(3600, Number(b.expires_in) || 3600) - 60) });
   return res;
