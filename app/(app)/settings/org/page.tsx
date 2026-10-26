@@ -7,13 +7,12 @@ import { LiveBanner, useIke } from '@/components/Live';
 import { RemainRing, useMotivation } from '@/components/Motivation';
 import { NoAccess, usePerms } from '@/components/Perms';
 import { INNAI_DOMAIN, SAVED_SHARED, loadOrg, loadShared, parseOrg, peopleFromAdmin, personKind, saveOrg, saveShared, type AdminList, type OrgState, type SharedLoad } from '@/lib/org';
-import { ORG_SAMPLE_PEOPLE } from '@/lib/org-sample';
 import { OrgChart } from './OrgChart';
 import { PeopleTable } from './PeopleTable';
 import { RolesEditor } from './RolesEditor';
 import type { Commit, Ctl } from './shared';
 
-// 組織表（設定の中）。人＝今の社内システムにログインできる全員（ログインしていなければ見本の人）。
+// 組織表（設定の中）。人＝今の社内システムにログインできる全員（admin?action=list。読み込み中・読めないときは0人＝見本の人は出さない・10-26）。
 //   組織・役職・ロール・個別の段階は ver2 の中だけの話なので、本物のデータのときも止めずに動かす（今のシステムには書かない・読むのは GET だけ）。
 //   保存は今の社内システムの v2-settings（全員で共有・全体管理者だけ・10-25〜）。この端末の localStorage は控え。
 //   ログインしていない・置き場がまだ無いときは、この端末にだけ保存（JSON の書き出し／読み込みで移す）。
@@ -78,7 +77,7 @@ export default function OrgPage() {
     toast({ text, sub: opts?.sub ?? (toShared ? '→ 組織表に保存（全員に効きます）' : '→ この端末の組織表に保存'), undo: () => { dirty.current = true; setOrg(before); } });
   }, [hit, toast, toShared]);
 
-  const people = useMemo(() => (live ? peopleFromAdmin(data) : ORG_SAMPLE_PEOPLE).slice().sort((a, b) => a.name.localeCompare(b.name, 'ja')), [live, data]);
+  const people = useMemo(() => (live ? peopleFromAdmin(data) : []).slice().sort((a, b) => a.name.localeCompare(b.name, 'ja')), [live, data]);
   const match = (p: { name: string; email: string }) => !q || p.name.includes(q) || p.email.toLowerCase().includes(q.toLowerCase());
   // 内勤（会社のメール）と要員（それ以外）を分けて見る。組織図・未所属の数は内勤だけ
   const nInnai = people.filter((p) => !p.retired && personKind(p) === '内勤').length;
@@ -131,7 +130,9 @@ export default function OrgPage() {
       </p>
 
       <section className="mo-fade-up flex flex-wrap items-center gap-4 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
-        {unassigned > 0 ? (
+        {!live ? (
+          <div className="text-body text-muted">{state === 'loading' ? '人を読み込み中…' : '人を読めませんでした'}</div>
+        ) : unassigned > 0 ? (
           <div className="flex items-center gap-3"><RemainRing remain={unassigned} total={allActive.length} /><div className="text-body"><b>未所属 {unassigned}人</b><div className="text-sm text-muted">組織図でドラッグ、または一覧で所属を選ぶ</div></div></div>
         ) : (
           <div className="mo-fade-in text-body"><b>全員の所属が決まりました</b><div className="text-sm text-muted">{allActive.length}人・部署とチーム {org.units.length}</div></div>

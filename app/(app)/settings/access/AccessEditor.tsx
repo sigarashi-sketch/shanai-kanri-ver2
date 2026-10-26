@@ -13,6 +13,8 @@ import { RoleCanEditor } from './RoleCanEditor';
 //   実際の段階＝ロールの段階と個別の段階の高いほう。ロールで既に持っている段階より下は選べない（灰色）。
 //   何も付いていない分類は「見ない」＝その人のメニューに出ない。
 //   変えたら今の社内システムの v2-settings（members）にも保存＝全員で共有（全体管理者 super_admin だけ・10-25）。
+//   人＝今の社内システムの会社のアカウントの人（lib/members-store.ts loadMembers・10-26 見本の5人をやめた）。
+//   共有の設定に保存できないとき（super_admin でない・読めない）は変えられない（変えても誰にも効かないため）
 export function AccessEditor({ initial, meId }: { initial: Member[]; meId: string }) {
   const router = useRouter();
   const { toast, hit } = useMotivation();
@@ -33,6 +35,7 @@ export function AccessEditor({ initial, meId }: { initial: Member[]; meId: strin
   type Patch = { role?: RoleKey; own?: Member['own'] };
   const put = async (id: string, patch: Patch, msg: string, back?: Patch) => {
     // 失敗したときは、この人だけ元に戻す（ほかの人への変更は消さない）
+    if (!toShared) { toast({ text: shared.state === 'loading' ? '共有の設定を読んでいます。少し待ってから変えてください' : '全員の分に保存できないので変えられません（全体管理者 super_admin だけ）' }); return; }
     const beforeM = members.find((m) => m.id === id)!;
     setMembers((ms) => ms.map((m) => (m.id === id ? { ...m, ...(patch.role ? { role: patch.role } : {}), own: { ...m.own, ...(patch.own || {}) } } : m)));
     const r = await fetch('/api/members', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...patch }) });
@@ -81,12 +84,12 @@ export function AccessEditor({ initial, meId }: { initial: Member[]; meId: strin
                   <tr key={m.id} className={`mo-fade-in border-t border-line-soft align-top ${shake === m.id ? 'mo-shake' : ''}`} style={{ ['--i' as string]: i + 3 }}>
                     <td className="px-4 py-3">
                       <div className="font-semibold">{m.name}{m.id === meId && <span className="ml-1.5 text-xs text-muted">（あなた）</span>}</div>
-                      <div className="text-xs text-faint">{m.division}・{m.kind}</div>
+                      <div className="text-xs text-faint">{m.email}・{m.division}</div>
                     </td>
                     {inside ? (
                       <>
                         <td className="px-2 py-3">
-                          <select aria-label={`${m.name}のロール`} value={m.role} onChange={(e) => put(m.id, { role: e.target.value as RoleKey }, `${m.name}を「${ROLES[e.target.value as RoleKey].label}」にしました`, { role: m.role })}
+                          <select aria-label={`${m.name}のロール`} value={m.role} disabled={!toShared} onChange={(e) => put(m.id, { role: e.target.value as RoleKey }, `${m.name}を「${ROLES[e.target.value as RoleKey].label}」にしました`, { role: m.role })}
                             className="rounded-lg border border-field bg-surface px-2 py-1.5 text-body">
                             {(Object.keys(ROLES) as RoleKey[]).map((k) => <option key={k} value={k}>{ROLES[k].label}</option>)}
                           </select>
@@ -98,7 +101,7 @@ export function AccessEditor({ initial, meId }: { initial: Member[]; meId: strin
                                 const on = eff[mod.key] === lv.key;
                                 const belowRole = !atLeast(lv.key, floor[mod.key]) ;
                                 return (
-                                  <button key={lv.key} role="radio" aria-checked={on} disabled={belowRole}
+                                  <button key={lv.key} role="radio" aria-checked={on} disabled={belowRole || !toShared}
                                     title={belowRole ? `ロール「${ROLES[m.role].label}」で${LEVELS.find((x) => x.key === floor[mod.key])!.label}まで持っています` : lv.hint}
                                     onClick={() => { if (!on) put(m.id, { own: { [mod.key]: lv.key as Level } }, `${m.name}の${mod.label}を「${lv.label}」にしました`, { own: { [mod.key]: m.own[mod.key] ?? 'none' } }); }}
                                     className="whitespace-nowrap px-2 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-35"
@@ -112,7 +115,7 @@ export function AccessEditor({ initial, meId }: { initial: Member[]; meId: strin
                         ))}
                       </>
                     ) : (
-                      <td colSpan={5} className="px-2 py-3 text-sm text-muted">内勤ではないので <b>営業共有リストだけ</b>（ここでは変えられません）</td>
+                      <td colSpan={5} className="px-2 py-3 text-sm text-muted">未経験事業部の内勤ではないので <b>営業共有リストだけ</b>（ここでは変えられません）</td>
                     )}
                   </tr>
                 );
@@ -125,7 +128,7 @@ export function AccessEditor({ initial, meId }: { initial: Member[]; meId: strin
         {toShared ? '変えると全員の分（今の社内システムの共有の設定）にも保存します。' : shared.state === 'live' ? '全員の分を保存できるのは全体管理者（super_admin）だけです。' : shared.state === 'loading' ? '' : '共有の設定には保存していません（ログインしていない・置き場がまだ無い）。'}
         {saveMsg && <span className={saveMsg.ok ? 'ml-1 font-semibold text-ok' : 'ml-1 text-bad'}>{saveMsg.text}</span>}
       </p>
-      <p className="text-sm text-faint">見本の名簿です。本物のログインと名簿をつないだら、未経験事業部の内勤かどうかは名簿から自動で決まります。</p>
+      <p className="text-sm text-faint">人は今の社内システムの会社のアカウントの人です。未経験事業部かどうかは今のシステム（#未経験-クローズ の参加者）で決まります。共有の設定に載っていない人のロールは、今のシステムのロールから決めた初めの値です。</p>
     </main>
   );
 }

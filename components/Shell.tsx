@@ -21,7 +21,7 @@ import { horyuVisible } from '@/lib/horyu-access';
 
 const MODULE_ICON: Record<ModuleKey, typeof Users> = { jinji: Users, roumu: Clock, eigyo: Briefcase, keiri: ReceiptText };
 
-export function Shell({ members, children }: { members: { id: string; name: string }[]; children: React.ReactNode }) {
+export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { group } = findNav(pathname);
   const { notes } = useColors();
@@ -127,7 +127,8 @@ export function Shell({ members, children }: { members: { id: string; name: stri
               <TodayPill />
               <ThemeSwitch />
               <RenrakuButton key={module} module={module as ModuleKey | 'home'} />
-              <ViewerSwitch members={members} current={me.id} />
+              <span className="max-w-[190px] truncate text-sm text-muted" title={me.email}>{me.name}</span>
+              <button onClick={() => { void fetch('/api/ike-auth/logout', { method: 'POST' }).finally(() => window.location.reload()); }} className="text-sm text-muted hover:underline">ログアウト</button>
             </div>
           </header>
           {/* 名前を押した人は、画面の一番上に出す（右でも小窓でもない・10-26 shoya「上に表示しろ」） */}
@@ -142,14 +143,7 @@ export function Shell({ members, children }: { members: { id: string; name: stri
   );
 }
 
-/** 手元で動かすあいだだけの「いまの人」切り替え。ログインをつないだら消す。 */
-export function ViewerSwitch({ members, current }: { members: { id: string; name: string }[]; current: string }) {
-  return (
-    <form action="/api/dev-viewer" method="post" className="flex items-center gap-1.5 text-sm text-muted">
-      <span className="hidden xl:inline">見え方：</span>
-      <select name="as" defaultValue={current} onChange={(e) => e.currentTarget.form?.requestSubmit()} className="max-w-[190px] rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-ink">
-        {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-      </select>
-    </form>
-  );
+/** 前の「見え方」（架空の人に切り替え）はやめた（10-26・いまの人＝ログインした本人）。営業共有リストの画面が読んでいるので名前だけ残す */
+export function ViewerSwitch(_props: { members: { id: string; name: string }[]; current: string }) {
+  return null;
 }

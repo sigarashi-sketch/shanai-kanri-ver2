@@ -5,7 +5,7 @@ import { isInnaiEmail, tokenEmail } from '@/lib/innai';
 // ログインで受け取ったトークンを、今の社内システムに「この人は入れるか」を聞いてから覚える。
 //   会社のアドレスか・退社していないか、の判定は今の社内システム（/api/auth?action=me）に任せる＝決まりは今と同じ
 const ORIGIN = process.env.IKEIKE_ORIGIN || 'https://ikeike-app.vercel.app';
-// 見本URLは shoya だけが見る（10-23）。ほかの人も入れるときは V2_ALLOWED_EMAILS にカンマ区切りで足す
+// ver2 は今は shoya だけが入れる（10-23・10-26 見本をなくしても変えない）。ほかの人も入れるときは V2_ALLOWED_EMAILS にカンマ区切りで足す
 const ALLOWED = (process.env.V2_ALLOWED_EMAILS || 's.igarashi@engineer-mikata.com').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean);
 
 export async function POST(req: Request) {

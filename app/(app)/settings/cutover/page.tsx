@@ -16,29 +16,6 @@ type Resp = { ok: true; ym: string; months: string[]; sections: Section[]; gener
 const ymLabel = (ym: string) => `${ym.slice(0, 4)}年${Number(ym.slice(5))}月`;
 const fmt = (n: number | null, unit: Row['unit']) => (n == null ? '—' : `${n.toLocaleString('ja-JP')}${unit}`);
 
-const SAMPLE_MONTHS = ['2026-10', '2026-09', '2026-08'];
-const SAMPLE: Section[] = [
-  { key: 'kadou', title: '稼働中の人数', legacyFrom: 'ダッシュボード', v2From: 'ホーム人事・社員一覧', note: '今の時点の人数です（月を選んでも変わりません）', rows: [
-    { label: '稼働中（全員）', legacy: 128, v2: 128, unit: '人' },
-    { label: '稼働中（未経験だけ・ver2 のホームに出る数）', legacy: null, v2: 96, unit: '人', ref: true },
-  ] },
-  { key: 'mikeiken', title: '未経験の人数', legacyFrom: 'プロパーリスト', v2From: '社員一覧', note: 'プロパーリストには、まだ名簿にいない人（入社前・辞退）も入っています', rows: [
-    { label: '未経験の人', legacy: 214, v2: 205, unit: '人' },
-    { label: 'プロパーリストにいて名簿にいない人', legacy: null, v2: 9, unit: '人', ref: true },
-  ] },
-  { key: 'seikyu', title: '請求額（取引先ごと・税込）', legacyFrom: '保存した請求書', v2From: '請求書（格納ベース）', rows: [
-    { label: 'この月の合計', legacy: 12_430_000, v2: 12_430_000, unit: '円' },
-    { label: 'A社', legacy: 4_180_000, v2: 4_180_000, unit: '円' },
-    { label: 'B社', legacy: 3_520_000, v2: 3_520_000, unit: '円' },
-    { label: 'C社', legacy: 2_310_000, v2: 2_200_000, unit: '円' },
-  ] },
-  { key: 'arari', title: '粗利（営業別・未経験の要員）', legacyFrom: '日報②の契約実績', v2From: '成約ごとの行を足し直した数', rows: [
-    { label: '粗利（チーム合計）', legacy: 1_850_000, v2: 1_850_000, unit: '円' },
-    { label: '売上（チーム合計）', legacy: 6_400_000, v2: 6_400_000, unit: '円' },
-    { label: '成約数（チーム合計）', legacy: 21, v2: 21, unit: '件' },
-  ] },
-];
-
 function Mark({ r }: { r: Row }) {
   if (r.ref) return <span className="text-xs text-faint">参考</span>;
   if (r.legacy == null || r.v2 == null) return <span className="chip" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}><TriangleAlert size={11} />片方だけ</span>;
@@ -70,9 +47,10 @@ export default function CutoverPage() {
   useEffect(() => { if (manageAccess) void load(); }, [load, manageAccess]);
 
   if (!manageAccess) return <NoAccess label="本番切り替えの突き合わせ" />;
+  // 見本の数はやめた（10-26）。ログインが切れていたら何も並べない（LiveBanner がログインの案内）
   const sample = state === 'sample';
-  const sections = sample ? SAMPLE : data?.sections ?? [];
-  const months = [...new Set([ym, ...(sample ? SAMPLE_MONTHS : data?.months ?? [])])].sort().reverse();
+  const sections = state === 'live' ? data?.sections ?? [] : [];
+  const months = [...new Set([ym, ...(data?.months ?? [])])].sort().reverse();
   const shownYm = ym;
   const all = sections.flatMap((s) => s.rows);
   const ng = all.filter((r) => !isOk(r)).length + sections.filter((s) => s.error).length;
@@ -131,7 +109,6 @@ export default function CutoverPage() {
           )}
         </section>
       ))}
-      {sample && <p className="text-xs text-faint">見本の数です。ログインすると今の社内システムの数で突き合わせます。</p>}
     </main>
   );
 }

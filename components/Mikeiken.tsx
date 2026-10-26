@@ -7,7 +7,7 @@ import type { EngineerRows } from '@/lib/live/eigyo-common';
 
 // 画面で「未経験の人だけ」に絞る道具（正＝今のプロパーリストに入っている人・全エリア・lib/live/mikeiken.ts）。
 //   ・プロパーリストは1回だけ読んで、ページをまたいで使い回す（モジュール内の控え・10分）
-//   ・ログインしていない（見本）なら state='none'。keep() はそのまま返す＝見本は変えない
+//   ・ログインしていない・切れたら state='none'。keep() は空＝人を出さない（10-26 見本をなくしたので、そのまま通す必要がない）
 //   ・読み込み中・読めなかったときは keep() は空＝絞れないまま人を出さない
 type MkState = 'loading' | 'ready' | 'none' | 'error';
 type Loaded = { state: 'ready'; set: Set<string> } | { state: 'none' } | { state: 'error'; error: string };
@@ -33,9 +33,9 @@ function load(): Promise<Loaded> {
 
 export type Mikeiken = {
   state: MkState; error: string; set: MikeikenSet | null;
-  /** この名前は未経験（プロパーリストにいる）か。見本のときは true */
+  /** この名前は未経験（プロパーリストにいる）か。ログインしていない・読めないときは false */
   has: (name: unknown) => boolean;
-  /** 人の行を未経験の人だけに。見本のときはそのまま・読み込み中/読めないときは空 */
+  /** 人の行を未経験の人だけに。ログインしていない・読み込み中・読めないときは空 */
   keep: <T>(rows: readonly T[], name: ((r: T) => unknown) | keyof T) => T[];
 };
 
@@ -47,13 +47,13 @@ export function useMikeiken(): Mikeiken {
     const set = v?.state === 'ready' ? v.set : null;
     return {
       state, error: v?.state === 'error' ? v.error : '', set,
-      has: (name) => (state === 'none' ? true : set ? isMikeiken(set, name) : false),
-      keep: (rows, name) => (state === 'none' ? [...rows] : set ? onlyMikeiken(set, rows, name) : []),
+      has: (name) => (set ? isMikeiken(set, name) : false),
+      keep: (rows, name) => (set ? onlyMikeiken(set, rows, name) : []),
     };
   }, [v]);
 }
 
-/** 本物のときに画面の上に出す一言（LiveBanner の下）。見本のときは出さない */
+/** 本物のときに画面の上に出す一言（LiveBanner の下）。ログインしていないときは出さない */
 export function MikeikenNote({ mk, live }: { mk: Mikeiken; live: boolean }) {
   if (!live || mk.state === 'none') return null;
   const text = mk.state === 'ready' ? MIKEIKEN_NOTE

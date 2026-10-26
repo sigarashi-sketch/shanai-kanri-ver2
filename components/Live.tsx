@@ -4,9 +4,9 @@ import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore }
 import { Check, TriangleAlert } from 'lucide-react';
 
 // 本物のデータ（今の社内システムの API）を画面で読むための道具。
-//   ・useIke(path) は /api/ike/<path> を読む（GET だけ）。ログインしていなければ state='sample'＝画面は見本データのまま
+//   ・useIke(path) は /api/ike/<path> を読む（GET だけ）。ログインしていない・切れたら state='sample'（名前は昔のまま。中身は「ログインしてください」＝何も出さない）
 //   ・本物のときは書き込みを止める（ボタンは押せない・title に LIVE_WRITE_BLOCKED）。本物の操作は今の社内システムの画面から
-//   ・<LiveBanner> は画面の上に「見本／本物」を出す。見本のときはログインのボタン
+//   ・<LiveBanner> は読めなかったとき・ログインが切れたときに画面の中に出す（ログインのボタン）
 export type LiveState = 'loading' | 'live' | 'sample' | 'error';
 export const LIVE_WRITE_BLOCKED = '本物のデータでは、ここからは変えられません（今の社内システムの画面で操作してください）';
 
@@ -72,7 +72,7 @@ export function usePoll(fn: (() => void) | null, ms: number | undefined) {
   }, [on, ms]);
 }
 
-// ---- 「見本／本物」は上のバーに小さく出す（10-25 見た目の整理）。画面の中の帯はやめて、読めなかったときだけ画面の中に出す ----
+// ---- 「本物のデータ／ログインしてください」は上のバーに小さく出す（10-25 見た目の整理）。画面の中の帯はやめて、読めなかったときだけ画面の中に出す ----
 //   各画面の <LiveBanner> が「いまの状態」をここに届け、上のバーの <LiveIndicator> が まとめて1つ出す。
 //   上のバーが無いところ（Shell の外）では、いままでどおり画面の中に出す。
 const liveStates = new Map<string, LiveState>();
@@ -86,21 +86,21 @@ const recompute = () => {
 };
 const subLive = (f: () => void) => { liveSubs.add(f); return () => { liveSubs.delete(f); }; };
 
-/** 上のバーの「見本データ／本物のデータ」。Shell が置く */
+/** 上のバーの「本物のデータ／ログインしてください」。Shell が置く */
 export function LiveIndicator() {
   const v = useSyncExternalStore(subLive, () => liveSnap, () => null);
   useEffect(() => { hostCount++; recompute(); return () => { hostCount--; recompute(); }; }, []);
   if (v === 'live') return <span className="chip" title="今の社内システムのデータを読んでいます（ここからは変えられない画面もあります）" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}><Check size={11} />本物のデータ</span>;
   if (v === 'sample') return (
     <span className="inline-flex items-center gap-2 text-sm text-muted">
-      <span className="chip" title="本物の名前ではありません" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>見本データ</span>
-      <a href="/api/ike-auth/start" className="font-semibold underline-offset-2 hover:underline" style={{ color: 'var(--ad)' }}>ログインして本物を見る</a>
+      <span className="chip" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>ログインが切れました</span>
+      <a href="/api/ike-auth/start" className="font-semibold underline-offset-2 hover:underline" style={{ color: 'var(--ad)' }}>ログインしてください</a>
     </span>
   );
   return null;
 }
 
-/** 画面の「見本／本物」。note はその画面で本物に無いもの・違うところの一言。見本・本物の別は上のバーに出し、ここには一言と読めなかったときだけ出す */
+/** 画面の状態。note はその画面で本物に無いもの・違うところの一言。本物かどうかは上のバーに出し、ここには一言と、読めなかった・ログインが切れたときだけ出す */
 export function LiveBanner({ state, error, note, onReload }: { state: LiveState; error?: string; note?: string; onReload?: () => void }) {
   const id = useId();
   const hosted = useSyncExternalStore(subLive, () => hostCount > 0, () => false);
@@ -109,8 +109,8 @@ export function LiveBanner({ state, error, note, onReload }: { state: LiveState;
   if (state === 'loading') return null;
   if (state === 'sample') return hosted ? null : (
     <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
-      <span className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>見本データ</span>本物の名前ではありません。
-      <a href="/api/ike-auth/start" className="font-semibold underline-offset-2 hover:underline" style={{ color: 'var(--ad)' }}>ログインして本物を見る</a>
+      ログインが切れました。
+      <a href="/api/ike-auth/start" className="font-semibold underline-offset-2 hover:underline" style={{ color: 'var(--ad)' }}>ログインしてください</a>
     </div>
   );
   if (state === 'error') return (
@@ -127,7 +127,7 @@ export function LiveBanner({ state, error, note, onReload }: { state: LiveState;
   );
 }
 
-/** 今の社内システムにまだ無い画面（または一部）。本物につなぐ先が無いので見本のまま、と出す。 */
+/** 今の社内システムにまだ無い画面（または一部）。つなぐ先が無いので何も出さない（架空のデータは出さない）、と出す。 */
 export function NotInLegacy({ what = 'この画面' }: { what?: string }) {
-  return <div className="text-sm text-muted">{what}は今の社内システムにまだ無いので、見本データのままです。</div>;
+  return <div className="text-sm text-muted">{what}はまだありません（今の社内システムにまだ無いため）。</div>;
 }

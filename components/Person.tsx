@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { PEOPLE, PROPERS } from '@/lib/sample';
 import type { PersonCandidate, PersonRes } from '@/lib/live/person';
 import { StaffDetail } from './StaffDetail';
 import { ProperDetail } from './ProperDetail';
@@ -15,11 +14,10 @@ import { SkeletonRows } from './ui';
 //     id（社員＝r…／要員＝プロパーリストの行の id）が分かる画面は渡す＝その人をそのまま開く（同姓同名でも選ばせない）
 //   ・中身は社員ページそのもの（10-25 shoya「こんな感じに」＝社員ページの画面・「チャットは右タブに」）。
 //     従業員名簿にいれば社員ページ（基本情報〜面談メモ・チャット）、いなければ要員ページ（基本・希望条件〜チャット）を小窓の中に出す
-//   ・ログインしていれば本物（/api/live/person を1回だけ読み、その返りを中に渡す＝中で読み直さない）、していなければ見本から探す
+//   ・本物（/api/live/person を1回だけ読み、その返りを中に渡す＝中で読み直さない）。ログインが切れていたら「ログインしてください」（10-26 見本から探すのはやめた）
 //   ・同姓同名は実在する（10-21）。名前で2人以上当たったら、採用担当・所属・最寄駅を並べて選んでもらう
 //   ・見せてよい中身はロールで決まる（チャット・基本情報＝管理者と採用だけ・単価＝管理者と営業だけ。サーバー側で伏せる）
 //   ・窓ではなく画面の一番上（ヘッダーのすぐ下・全幅）に出す section（10-26）
-const norm = (s: string) => s.replace(/[\s　]+/g, '');
 
 export function PersonName({ name, id, className, children }: { name: string; id?: string; className?: string; children?: React.ReactNode }) {
   if (!name || name === '—') return <>{children ?? name}</>;
@@ -33,16 +31,7 @@ export function PersonName({ name, id, className, children }: { name: string; id
 
 type Got = { name: string; id?: string; live: boolean; res?: PersonRes; error?: string; pick?: string };
 
-/** 見本：名前（id があれば id）で見本の名簿・プロパーから探す。社員ページ・要員ページの見本はそれぞれの id で開く */
-function sampleRes(name: string, id?: string): PersonRes {
-  const staff = PEOPLE.filter((x) => (id ? x.id === id : norm(x.name) === norm(name)));
-  const propers = PROPERS.filter((x) => (id ? x.id === id : norm(x.name) === norm(name)));
-  const cands: PersonCandidate[] = [
-    ...staff.map((s, i): PersonCandidate => ({ key: `s${i}:${s.id}`, name: s.name, staff: { id: s.id } as PersonCandidate['staff'], proper: i === 0 && staff.length === 1 && propers.length === 1 ? { id: propers[0].id } as PersonCandidate['proper'] : null, hint: { recruiter: s.recruiter, company: '', station: s.station } })),
-    ...(staff.length === 1 && propers.length === 1 ? [] : propers.map((p): PersonCandidate => ({ key: `p:${p.id}`, name: p.name, staff: null, proper: { id: p.id } as PersonCandidate['proper'], hint: { recruiter: '', company: '', station: p.station } }))),
-  ];
-  return { ok: true, name, month: '', candidates: cands, everyone: [], can: { chat: true, summary: true, basic: true, price: true } };
-}
+const LOGIN_AGAIN = 'ログインが切れました。ログインしてください';
 
 /** Shell に1つだけ置く。'person:open' を受けて右にこの人の社員ページ（いなければ要員ページ）を出す。 */
 export function PersonHost() {
@@ -62,7 +51,7 @@ export function PersonHost() {
       try {
         const r = await fetch('/api/live/person', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, id }) });
         const j = (await r.json().catch(() => ({}))) as Partial<PersonRes> & { error?: string };
-        const v: Got = r.status === 401 && j.error === 'not_logged_in' ? { name, id, live: false, res: sampleRes(name, id) }
+        const v: Got = r.status === 401 && j.error === 'not_logged_in' ? { name, id, live: false, error: LOGIN_AGAIN }
           : !r.ok || !j.ok ? { name, id, live: true, error: j.error || `読めませんでした（${r.status}）` }
           : { name, id, live: true, res: j as PersonRes };
         setGot((g) => (same(g) ? v : g));
@@ -131,10 +120,7 @@ function Chooser({ name, cands, onPick }: { name: string; cands: PersonCandidate
 }
 
 function Body({ c, res, live }: { c: PersonCandidate; res: PersonRes; live: boolean }) {
-  if (!live) {
-    // 見本：社員・要員の見本ページを id で出す
-    return c.staff ? <StaffDetail id={c.staff.id} embedded /> : c.proper ? <ProperDetail id={c.proper.id} embedded /> : null;
-  }
+  if (!live) return null;
   if (c.staff) return <StaffDetail id={c.staff.id} embedded initial={{ staff: c.staff, proper: c.proper, month: res.month, everyone: res.everyone, can: res.can }} />;
   if (c.proper) return <ProperDetail id={c.proper.id} embedded initial={{ view: c.proper, everyone: res.everyone, can: res.can }} />;
   return null;

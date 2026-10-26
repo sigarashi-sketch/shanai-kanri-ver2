@@ -30,7 +30,8 @@ export const ROLES: Record<RoleKey, { label: string; hint: string; perms: Perms;
 };
 
 export type Member = {
-  id: string;
+  id: string; // ＝メール（小文字）。今の社内システムのアカウントと同じ人を指す
+  email: string;
   name: string;
   division: '未経験事業部' | 'その他';
   kind: '内勤' | '営業' | 'その他';
@@ -55,13 +56,31 @@ export function effectivePerms(m: Member): Perms {
 }
 export const canManageAccess = (m: Member) => canUseApp(m) && ROLES[m.role].manageAccess;
 
-// 手元で動かすあいだの名簿（見本）。ログインと本物の名簿をつなぐまでの仮置き。
-export const MEMBERS: Member[] = [
-  { id: 'igarashi', name: '五十嵐（全体管理者）', division: '未経験事業部', kind: '内勤', role: 'owner', own: {} },
-  { id: 'nakamura', name: '中村（採用担当）', division: '未経験事業部', kind: '内勤', role: 'none', own: { jinji: 'edit', roumu: 'view' } },
-  { id: 'fujikawa', name: '藤川（経理）', division: '未経験事業部', kind: '内勤', role: 'none', own: { keiri: 'approve', roumu: 'view' } },
-  { id: 'tanaka', name: '田中（労務）', division: '未経験事業部', kind: '内勤', role: 'viewer_all', own: { roumu: 'approve' } },
-  { id: 'kobayashi', name: '小林（営業）', division: 'その他', kind: '営業', role: 'none', own: {} },
-];
+// 今の社内システムのロール → ver2 のロール（共有の設定にその人が載っていないときの初めの値・10-26）
+//   super_admin            → owner（全体管理者）※共有の設定に何と書いてあっても owner（権限管理の締め出しを防ぐ。保存できるのも super_admin だけ）
+//   admin                  → manager（4分類すべて承認・権限管理なし）
+//   executive              → viewer_all（4分類すべて見る）
+//   sales_admin/staff_sales→ none ＋ 営業「直す」
+//   kanawest_sales         → none ＋ 営業「見る」
+//   staff_recruit          → none ＋ 人事「直す」
+//   applicant_support      → none ＋ 人事「見る」
+//   keiri                  → none ＋ 経理「直す」
+//   staff / list_viewer / retired / そのほか → none（何も見ない。staff・list_viewer は営業共有リストだけ＝canUseApp も false）
+export function roleFromIke(ikeRole: string): { role: RoleKey; own: Partial<Perms> } {
+  switch (ikeRole) {
+    case 'super_admin': return { role: 'owner', own: {} };
+    case 'admin': return { role: 'manager', own: {} };
+    case 'executive': return { role: 'viewer_all', own: {} };
+    case 'sales_admin': case 'staff_sales': return { role: 'none', own: { eigyo: 'edit' } };
+    case 'kanawest_sales': return { role: 'none', own: { eigyo: 'view' } };
+    case 'staff_recruit': return { role: 'none', own: { jinji: 'edit' } };
+    case 'applicant_support': return { role: 'none', own: { jinji: 'view' } };
+    case 'keiri': return { role: 'none', own: { keiri: 'edit' } };
+    default: return { role: 'none', own: {} };
+  }
+}
+/** 営業共有リストだけのロール（今の社内システムの isListOnlyRole と同じ） */
+export const isListOnlyIkeRole = (r: string) => r === 'list_viewer' || r === 'staff';
+export const isRoleKey = (r: unknown): r is RoleKey => typeof r === 'string' && r in ROLES;
+
 export const VIEWER_COOKIE = 'v2_viewer';
-export const MEMBERS_STORAGE_KEY = 'v2_members';

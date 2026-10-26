@@ -1,5 +1,5 @@
 // 画面で使い回す小さな部品（状態の札・見出し）。色は分類色（--a 系）と状態色だけ。
-import type { Status } from '@/lib/sample';
+import type { Status } from '@/lib/types/base';
 
 const STATUS_STYLE: Record<string, { bg: string; fg: string }> = {
   稼働中: { bg: 'var(--tone-ok-bg)', fg: 'var(--tone-ok-fg)' },
