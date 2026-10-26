@@ -15,7 +15,7 @@ export const SEIKYU_STAGE: Record<SeikyuStage, { label: string; hint: string; to
   issued: { label: '送付待ち', hint: 'ミンミカ・freeeに請求書あり（時間も入っている）', tone: 'caution' },
   sent: { label: '送付ずみ', hint: 'freeeから送付した', tone: 'mute' },
 };
-const HOURS_FROM: Record<string, string> = {
+export const HOURS_FROM: Record<string, string> = {
   freee: 'freee 勤怠', sheet: '勤務表', sheet_missing: '勤務表（まだ読んでいない）', table: '明細表', table_missing: '明細表（まだ）',
   kot: 'KOT', kot_missing: 'KOT（まだ）', manual: '手入力',
 };

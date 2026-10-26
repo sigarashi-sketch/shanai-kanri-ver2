@@ -23,6 +23,7 @@ const WRITES = new Set([
   'sankyu-save', 'sankyu-done', 'sankyu-close',
   'community-event-save', 'community-event-delete', 'community-call', 'community-rsvp',
   'jimu-lane',
+  'seikyu', // 社員ページの請求タブ（請求書作成の控えとミンミカの請求書を読むだけ・10-26）
   'kintai', // 社員ページの勤怠タブ（DB に写した freee の勤怠を読むだけ・名前を URL に出さないため POST・10-26）
   'kv-save', // アラート設定の保存（勤怠の区分を「承認」で持つ人だけ・下で確かめる）
 ]);
