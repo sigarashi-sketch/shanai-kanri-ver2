@@ -16,6 +16,7 @@ import { ChinginPl } from './pl';
 import { useLiveRoute } from '@/lib/live/use-live-route';
 import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
 import type { MfKeihi } from '@/app/api/live/keihi-mf/route';
+import type { KeihiAdminList } from '@/lib/live/keihi';
 
 // 想定賃金・粗利（経理管理）。人ごとに 売上（請求・税抜）− 給与 − 交通費 − 法定福利（19%）＝ 粗利 と粗利率。
 //   ・額面の正はミンミカの内定月給（現場の契約単価の欄は使わない）。内定が無い人は 仮21万
@@ -270,7 +271,8 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
 }
 
 // マネフォの交通費をまとめて写す（10-26）。MF の CSV は1行＝1申請で、交通費とそれ以外の内訳が無い＝申請の合計をそのまま入れる
-const MF_USE = new Set(['承認済み', '第一承認待ち']);
+// 10-26 shoya「承認してない申請も一旦交通費に」→ 取消し以外は全部（下書き・差戻しも）
+const MF_USE = new Set(['承認済み', '第一承認待ち', '差戻し', '下書き']);
 const nk = (s: string) => s.replace(/[\s　]/g, '');
 function MfFareImport({ rows, ym, canEdit, onDone }: { rows: LiveArariRow[]; ym: string; canEdit: boolean; onDone: () => void }) {
   const { hit, toast } = useMotivation();
@@ -314,7 +316,7 @@ function MfFareImport({ rows, ym, canEdit, onDone }: { rows: LiveArariRow[]; ym:
       </div>
       {open && (
         <div className="border-t border-line-soft px-4 py-3">
-          <p className="mb-2 text-xs text-muted">マネフォの申請（承認済み・第一承認待ち）を人ごとに足した額を、交通費の欄に入れます（手で直した値として残ります）。MF の CSV には交通費とそれ以外の内訳が無いので、申請の合計をそのまま入れます。手で直した値がある人は外してあります。</p>
+          <p className="mb-2 text-xs text-muted">マネフォの申請（取消し以外＝承認済み・承認待ち・差戻し・下書き）を人ごとに足した額を、交通費の欄に入れます（手で直した値として残ります）。MF の CSV には交通費とそれ以外の内訳が無いので、申請の合計をそのまま入れます。手で直した値がある人は外してあります。</p>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] border-collapse text-body">
               <thead><tr className="th-row text-left"><th className="w-8 px-2 py-2" /><th className="px-2 py-2 font-semibold">社員</th><th className="px-2 py-2 text-right font-semibold">今の交通費</th><th className="px-2 py-2 text-right font-semibold">マネフォ</th><th className="px-2 py-2 font-semibold">マネフォの申請</th></tr></thead>
@@ -398,7 +400,27 @@ function KariShime({ tabs }: { tabs: React.ReactNode }) {
   const [ym, setYm] = useState(kariYm(0));
   const r = useIke<KariSum>(`chingin?action=month-summary&ym=${ym}&rows=1`);
   const [shozoku, setShozoku] = useState('すべて');
-  const all = r.data?.ok && r.data.rows ? mk.keep(r.data.rows, 'name').filter((x) => x.eligible) : [];
+  // 交通費（10-26 shoya「承認してない申請も一旦交通費に」）：今の仮締めは全員一律（設定の月額）なので、
+  //   その月の申請（いけどん：取下げ以外の通勤費・マネフォ：取消し以外の合計）がある人だけ、その額に置きかえて粗利を出し直す
+  const kh = useIke<KeihiAdminList>(`keihi?action=adminList&status=all&ym=${ym}`);
+  const mf = useLiveRoute<MfKeihi>(`/api/live/keihi-mf?ym=${ym}`);
+  const fares = new Map<string, { ike: number; mf: number }>();
+  for (const c of kh.live && kh.data?.claims ? kh.data.claims : []) {
+    if (c.ym !== ym || c.status === '取下げ' || !(Number(c.commute_yen) > 0)) continue;
+    const k = nk(c.linked_name || ''); if (!k) continue;
+    const t = fares.get(k) || { ike: 0, mf: 0 }; t.ike += Number(c.commute_yen); fares.set(k, t);
+  }
+  for (const x of mf.live && mf.data?.ym === ym ? mf.data.rows : []) {
+    if (!MF_USE.has(x.status)) continue;
+    const t = fares.get(nk(x.name)) || { ike: 0, mf: 0 }; t.mf += x.amount; fares.set(nk(x.name), t);
+  }
+  const all: (KariRow & { fareNote?: string })[] = (r.data?.ok && r.data.rows ? mk.keep(r.data.rows, 'name').filter((x) => x.eligible) : []).map((x) => {
+    const f = fares.get(nk(x.name));
+    if (!f) return x;
+    const fare = f.ike + f.mf;
+    return { ...x, fare, grossNet: x.grossNet + x.fare - fare, fareNote: [f.ike ? 'いけどんの申請' : '', f.mf ? 'マネフォ' : ''].filter(Boolean).join('＋') };
+  });
+  const fareN = all.filter((x) => x.fareNote).length;
   const rate = (x: KariRow) => (x.sales ? x.grossNet / x.sales : 0);
   const shown = all.filter((x) => shozoku === 'すべて' || (x.shozoku || '') === shozoku).sort((a, b) => rate(a) - rate(b));
   const sum = shown.reduce((t, x) => ({ billed: t.billed + x.sales, cost: t.cost + x.wage + x.fare + x.shaho, gross: t.gross + x.grossNet }), { billed: 0, cost: 0, gross: 0 });
@@ -426,6 +448,7 @@ function KariShime({ tabs }: { tabs: React.ReactNode }) {
         ))}
         <div className="rounded-xl border border-line bg-surface px-4 py-3 text-sm">
           <b>freee 請求書で確定 {billedN}人</b><div className="text-muted">残り {shown.length - billedN}人は勤怠の見込み</div>
+          <div className="mt-1 text-muted">交通費は申請のある {fareN}人をその額に（承認前・差戻し・下書きも含む）{kh.state === 'error' && <span className="text-warn">・いけどんの申請が読めませんでした</span>}</div>
         </div>
       </div>
       <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface">
@@ -451,7 +474,7 @@ function KariShime({ tabs }: { tabs: React.ReactNode }) {
                     <td className="num px-2 py-2.5 text-right"><KintaiCell k={x} /></td>
                     <td className="num px-2 py-2.5 text-right">{yen(x.sales)}<div className="text-xs text-faint">{billed ? `freee 請求書（見込み ${yen(x.salesEst!)}）` : '勤怠×単価'}</div></td>
                     <td className="num px-2 py-2.5 text-right">{yen(x.wage)}<div className="whitespace-nowrap text-xs text-faint">{wageParts(x)}</div></td>
-                    <td className="num px-2 py-2.5 text-right">{yen(x.fare)}</td>
+                    <td className="num px-2 py-2.5 text-right">{yen(x.fare)}<div className="text-xs text-faint">{x.fareNote || '一律（設定の月額）'}</div></td>
                     <td className="num px-2 py-2.5 text-right text-muted">{yen(x.shaho)}</td>
                     <td className="num px-2 py-2.5 text-right font-bold">{yen(x.grossNet)}</td>
                     <td className="px-4 py-2.5 text-right"><span className="chip num" style={{ background: `var(--tone-${t}-bg)`, color: `var(--tone-${t}-fg)` }}>{pct(rate(x))}</span></td>
