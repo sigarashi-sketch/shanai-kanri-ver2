@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { ikeFetch, ikeToken } from '@/lib/ike';
 import { ikeWrite, sameSite } from '@/lib/ike-write';
+import { atLeast, effectivePerms } from '@/lib/access';
+import { loadMe } from '@/lib/members-store';
 
 // 人事の「今のシステムに無かったもの」の口（10-26 shoya「今週で本番に使えるようにする」）。行き先は今のシステムの /api/jinji-v2 だけ。
 //   GET  ?what=me|yoyaku|mendan-follow|mendan-rishoku|shikaku|sankyu|community|jimu|feed|rishoku … 読むだけ
@@ -11,6 +13,7 @@ import { ikeWrite, sameSite } from '@/lib/ike-write';
 const READS: Record<string, string> = {
   me: 'me', yoyaku: 'yoyaku', 'mendan-follow': 'mendan&kind=follow', 'mendan-rishoku': 'mendan&kind=rishoku', shikaku: 'shikaku',
   sankyu: 'sankyu', community: 'community', jimu: 'jimu', feed: 'feed&days=7', rishoku: 'rishoku',
+  'kv-alerts': 'kv&key=alerts', // アラート設定の段階・宛先（全員で共有・10-26）
 };
 const WRITES = new Set([
   'history', 'ocr-current', 'ocr-read', 'ocr-apply',
@@ -20,6 +23,8 @@ const WRITES = new Set([
   'sankyu-save', 'sankyu-done', 'sankyu-close',
   'community-event-save', 'community-event-delete', 'community-call', 'community-rsvp',
   'jimu-lane',
+  'kintai', // 社員ページの勤怠タブ（DB に写した freee の勤怠を読むだけ・名前を URL に出さないため POST・10-26）
+  'kv-save', // アラート設定の保存（勤怠の区分を「承認」で持つ人だけ・下で確かめる）
 ]);
 
 export async function GET(req: Request) {
@@ -43,6 +48,13 @@ export async function POST(req: Request) {
   const b = ((await req.json().catch(() => null)) || {}) as Record<string, unknown>;
   const action = typeof b.action === 'string' ? b.action : '';
   if (!WRITES.has(action)) return NextResponse.json({ error: '書く種類が違います' }, { status: 400 });
+  // アラート設定は ver2 の区分（勤怠）の「承認」の人だけ（画面と同じ決まり）。今のシステムでもロールで確かめる
+  if (action === 'kv-save') {
+    if (b.key !== 'alerts') return NextResponse.json({ error: '保存する設定が違います' }, { status: 400 });
+    const got = await loadMe();
+    if (!got.ok) return NextResponse.json({ error: 'ログインが切れました。もう一度ログインしてください' }, { status: 401 });
+    if (!atLeast(effectivePerms(got.me).kintai, 'approve')) return NextResponse.json({ error: 'アラート設定を変えられるのは、勤怠の区分を「承認」で持つ人だけです' }, { status: 403 });
+  }
   const rest = { ...b };
   delete rest.action;
   // 写真は大きいので待ちを長く（読み取りは 60秒まで）

@@ -38,7 +38,7 @@ function Toggle({ on, locked, disabled, why, onClick, children }: { on: boolean;
 export default function AlertsPage() {
   const { me, can } = usePerms();
   const canSet = can('roumu', 'approve');
-  const { rules, setRules, reset } = useAlerts();
+  const { rules, setRules, reset, saved } = useAlerts();
   const { hit, toast } = useMotivation();
   const [flash, setFlash] = useState<string | null>(null);
   const by = me.name.replace(/（.*）/, '');
@@ -61,6 +61,14 @@ export default function AlertsPage() {
         <button onClick={() => { const before = rules; reset(); hit(); toast({ text: 'アラート設定をはじめの決まりに戻しました', sub: '→ 残業・有給・現場契約・当日の出勤状況の知らせに反映しました', undo: () => setRules(() => before) }); }} disabled={!canSet} title={!canSet ? needText('approve') : undefined} className="inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border border-field bg-surface px-3 text-sm font-semibold text-muted disabled:opacity-40"><RotateCcw size={14} />はじめの決まりに戻す</button>
       </PageTitle>
       {!canSet && <div className="rounded-xl border border-line bg-soft px-4 py-2.5 text-sm text-muted">見るだけです。変えるには労務/営業管理の{needText('approve')}</div>}
+      {/* 保存先（10-26）：今の社内システムに全員で1つ。読めないときはこの端末だけ */}
+      <div role="status" className={`rounded-xl border px-4 py-2.5 text-sm ${saved.state === 'error' ? 'border-bad-line bg-bad-soft text-bad' : 'border-line bg-soft text-muted'}`}>
+        {saved.state === 'loading' ? '保存してある決まりを読んでいます…'
+          : saved.state === 'saving' ? '保存しています…'
+          : saved.state === 'shared' ? `全員で同じ決まりを使っています（変えるとすぐ保存）${saved.at ? `・最後の保存 ${new Date(saved.at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` : ''}`
+          : saved.state === 'error' ? `保存できませんでした：${saved.error}（この端末には残っています）`
+          : `今の社内システムから読めないので、この端末にだけ覚えます${saved.error ? `（${saved.error}）` : ''}`}
+      </div>
       <KintaiAlertLive />
 
       {rules.map((rule, ri) => {

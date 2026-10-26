@@ -17,6 +17,7 @@ import { normName } from '@/lib/live/staff';
 import type { LiveStaffListX } from '@/lib/live/staff-extra';
 import { PersonActions, StaffOps } from '@/components/jinji/StaffOps';
 import { TaiouLog } from '@/components/jinji/TaiouLog';
+import { PersonKintai } from '@/components/jinji/PersonKintai';
 
 // チャットは一番右のタブ（10-25 shoya「名前押したらチャットは右タブに」）。基本情報＝フォームの回答・面談メモ＝要員リストのメモ（どれも読むだけ）
 // 名簿の入力・対応歴＝今の従業員名簿でできた入力（退社・待機・予約・日付・駅・採用担当・LINEグループ・対応歴）を書く（10-25）
@@ -147,6 +148,8 @@ function LivePerson({ id, embedded, initial }: { id: string; embedded: boolean; 
             </section>
             <LiveHistory name={p.name} />
           </>
+        ) : tab === '勤怠' ? (
+          <PersonKintai name={p.name} />
         ) : tab === '名簿の入力' ? (
           <StaffOps staff={p} live={live} recruiters={everyoneRecruiters} onDone={initial ? undefined : r.reload} />
         ) : tab === '対応歴' ? (

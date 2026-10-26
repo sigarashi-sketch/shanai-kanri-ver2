@@ -13,12 +13,12 @@ import { SHEET_HEADER, SHEET_TAB, SHEET_URL, fmtSheetDate, rowKind, sortSheetRow
 // 入社手続き（人事管理）＝労務の「freee送信管理」スプシの「参画決定者」タブと同じ列・同じ名前（A〜L）。
 //   ・freee送信☑の人は「freee送信済み（送信日）」。未送信の人を上に。辞退・入社取消の行はグレー
 //   ・絞り込み：すべて／未送信／送信済み／辞退・取消
-//   ・本物（/api/live/nyusha）はスプシと同じ材料の今の GET から組み立てる。メール・freee送信・送信日・メモ・辞退/入社取消は
-//     スプシにだけある（今の社内システムにスプシを読む口がまだ無い）ので「—」にして、スプシへのリンクを出す
+//   ・本物（/api/live/nyusha）はまず労務のスプシそのもの（今の nyusha-progress?action=sheet・10-25）を読み、全部の列をスプシのまま出す。
+//     スプシが読めなかったとき（Google の不調など）だけ、今のシステムの材料から組み立てる＝メール・freee送信・送信日・メモ・辞退/入社取消は「—」にして、スプシへのリンクを出す
 //   ?p=<社員id> でその人の行に印を付けて送る（社員ページから）
 //   ★見本は出さない。読み込み中は「読み込み中」、読めなかったときはエラーだけ（10-26）
 const FILTERS: SheetFilter[] = ['すべて', '未送信', '送信済み', '辞退・取消'];
-const SHEET_ONLY = 'スプシにだけある列（今の社内システムにスプシを読む口がまだ無い）';
+const SHEET_ONLY = 'スプシにだけある列（いまはスプシが読めなかったので出せません）';
 
 const fmtWage = (v: string) => (/^\d{5,7}$/.test(v.replace(/[,，円¥\s]/g, '')) ? `${Number(v.replace(/[,，円¥\s]/g, '')).toLocaleString('ja-JP')}円` : v);
 
@@ -52,7 +52,7 @@ export default function NyushaPage() {
       {live && !full && (
         <div className="rounded-xl border px-4 py-3 text-sm" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)', borderColor: 'transparent' }}>
           <b>メールアドレス・freee送信・送信日・メモ・辞退・入社取消・辞退・取消日</b> は労務のスプシにだけあります。
-          今の社内システムにスプシを読む口がまだ無いので、ここでは「—」です。送信したかどうかは
+          いまはスプシが読めなかったので、ここでは「—」です（読み直すと出ることがあります）。送信したかどうかは
           <a href={SHEET_URL} target="_blank" rel="noreferrer" className="mx-1 font-semibold underline underline-offset-2">スプシ（{SHEET_TAB}タブ）</a>で見てください。
           {(lv.data!.warnings || []).length > 0 && <div className="mt-1 opacity-80">{lv.data!.warnings.join('／')}</div>}
         </div>
