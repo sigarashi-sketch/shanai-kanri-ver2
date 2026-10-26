@@ -72,7 +72,7 @@ function useBadge(a: Account): Badge {
 }
 
 export function RenrakuButton({ module }: { module: ModuleKey | 'home' }) {
-  // ?renraku=1 で開いた状態から始める（画面の見本を撮るとき用）
+  // ?renraku=1 で開いた状態から始める（画面を撮るとき用）
   const [open, setOpen] = useState(false);
   useEffect(() => { if (new URLSearchParams(window.location.search).has('renraku')) setOpen(true); }, []);
   const account = accountFor(module);

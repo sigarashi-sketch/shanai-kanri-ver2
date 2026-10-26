@@ -56,3 +56,10 @@ export type Sukishi = {
   updated?: string;
 };
 export type Proper = { id: string; name: string; station: string; status: '営業中' | '参画決定' | '待機' | '稼働中'; sales: string; want: string; price: string; sukishi: Sukishi };
+
+// 面談可能日の承認（/api/availability?action=candidates の答え）
+export type AvailCand = {
+  normalizedName: string; name: string; displayName: string; groupId: string; groupName: string;
+  body: string; srcTsMs: number; status: 'new' | 'updated' | 'same'; currentBody: string; rawText: string; savedBy: string;
+};
+export type AvailResp = { ok: boolean; tableReady: boolean; hint?: string; candidates: AvailCand[]; counts: { new: number; updated: number; same: number }; scannedReplies: number; days: number };

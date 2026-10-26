@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { LiveBanner, useIke } from '@/components/Live';
-import { sampleStats } from '@/lib/mendan-sample';
 import { pct, type StatsResp } from '@/lib/live/keisai';
 
 // 案件ページの反応（今の /case-stats.html・見るだけ）。返ってくるのは数だけ（名前は来ない）
@@ -15,7 +14,7 @@ export function StatsTab() {
   const [to, setTo] = useState('');
   const path = period === 'custom' ? (YMD.test(from) && YMD.test(to) ? `case-stats?period=custom&from=${from}&to=${to}` : null) : `case-stats?period=${period}`;
   const st = useIke<StatsResp>(path);
-  const d = st.live ? st.data : st.state === 'sample' ? sampleStats() : null;
+  const d = st.live ? st.data : null;
   const maxW = Math.max(1, ...(d?.weekly ?? []).map((w) => w.detailOpen));
   return (
     <>

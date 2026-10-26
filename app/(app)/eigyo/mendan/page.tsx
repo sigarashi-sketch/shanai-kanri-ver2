@@ -10,7 +10,6 @@ import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { PersonName } from '@/components/Person';
 import { Dialog } from '@/components/Dialog';
 import { Z } from '@/lib/layers';
-import { sampleInterviews } from '@/lib/mendan-sample';
 import { postLive } from '@/lib/live/post-live';
 import type { EngineerRows } from '@/lib/live/eigyo-common';
 import {
@@ -57,23 +56,21 @@ const reflectText = (status: string, res: Reflected) => {
 };
 
 export default function MendanPage() {
-  const canEdit = usePerms().can('eigyo', 'edit');
+  const perm = usePerms().can('eigyo', 'edit');
   const { hit, toast } = useMotivation();
   const iv = useIke<IvRec[]>('proxy?action=getInterviews', { pollMs: 60_000 });
   const live = iv.live;
+  const canEdit = perm && live;
   const mk = useMikeiken();
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => { setNow(Date.now()); const t = setInterval(() => setNow(Date.now()), 60_000); return () => clearInterval(t); }, []);
 
-  // 本物は読んだ答え、見本はこの画面の中だけで動く行。書いた直後は手元を先に変える（読み直しで本物に揃う）
-  const [sampleRows, setSampleRows] = useState<IvRec[] | null>(null);
+  // 読んだ答え。書いた直後は手元を先に変える（読み直しで本物に揃う）
   const [patch, setPatch] = useState<Record<string, Partial<IvRec> | null>>({});   // null＝消した
-  useEffect(() => { if (iv.state === 'sample' && now && !sampleRows) setSampleRows(ivUsable(sampleInterviews(now))); }, [iv.state, now, sampleRows]);
   useEffect(() => { setPatch({}); }, [iv.data]);
-  const base = useMemo(() => (live && Array.isArray(iv.data) ? ivUsable(mk.keep(iv.data, 'name')) : sampleRows ?? []), [live, iv.data, mk, sampleRows]);
+  const base = useMemo(() => (live && Array.isArray(iv.data) ? ivUsable(mk.keep(iv.data, 'name')) : []), [live, iv.data, mk]);
   const rows = useMemo(() => base.filter((r) => patch[r.id] !== null).map((r) => (patch[r.id] ? { ...r, ...patch[r.id] } : r)), [base, patch]);
   const setRow = (id: string, p: Partial<IvRec> | null) => {
-    if (!live) { setSampleRows((xs) => (xs ?? []).flatMap((r) => (r.id !== id ? [r] : p === null ? [] : [{ ...r, ...p }]))); return; }
     setPatch((s) => ({ ...s, [id]: p === null ? null : { ...(s[id] || {}), ...p } }));
   };
 
@@ -112,7 +109,7 @@ export default function MendanPage() {
   const [flash, setFlash] = useState<string | null>(null);
   const flashOn = (id: string) => { setFlash(id); setTimeout(() => setFlash((f) => (f === id ? null : f)), 1400); };
   const syncParallel = useCallback(async (manual: boolean) => {
-    if (!live) { if (manual) toast({ text: '並行数を営業リストに反映しました', sub: '見本なので、どこにも書いていません' }); return; }
+    if (!live) return;
     const r = await postLive<{ updated?: number }>('/api/live/mendan', { op: 'parallel' });
     if (!manual) return;
     if (!r.ok) { setErr(`並行数を反映できませんでした：${r.error}`); return; }
@@ -131,10 +128,6 @@ export default function MendanPage() {
     flashOn(id);
     const sub = [row.name ? `${row.name}さん` : '', whenText(row.date) && `面談 ${whenText(row.date)}`, row.salesRep && `担当 ${row.salesRep}`].filter(Boolean).join('・');
     const undo = opts?.noUndo ? undefined : () => { void changeStatus(id, prev, { noUndo: true }); };
-    if (!live) {
-      hit(); toast({ text: `面談を「${status || '未設定'}」に`, sub: `${sub}（見本なので保存していません）`, undo });
-      return;
-    }
     const r = await postLive<{ reflected?: Reflected }>('/api/live/mendan', { op: 'status', id, status, name: row.name });
     if (!r.ok) { setRow(id, { status: prev }); setErr(`ステータスを変えられませんでした：${r.error}`); return; }
     hit();
@@ -168,10 +161,10 @@ export default function MendanPage() {
   const salesReps = useMemo(() => [...new Set(rows.map((r) => r.salesRep).filter(Boolean))].sort(), [rows]);
   const trainers = useMemo(() => [...new Set(rows.map((r) => r.trainer).filter(Boolean))].sort(), [rows]);
 
-  const ready = now != null && (iv.state === 'sample' ? !!sampleRows : iv.state === 'live');
+  const ready = now != null && iv.state === 'live';
   return (
     <main className="flex flex-col gap-3.5 px-4 pb-12 pt-[22px] sm:px-6">
-      <PageTitle title="面談管理" sub={`面談の予定と結果。カードをドラッグするとステータスが変わります${live ? '' : '・見本データ'}`}>
+      <PageTitle title="面談管理" sub={`面談の予定と結果。カードをドラッグするとステータスが変わります`}>
         <button onClick={() => void syncParallel(true)} disabled={!canEdit} title={!canEdit ? needText('edit') : '今月の進行中の面談の件数を、営業リストの「並行」に入れ直します'}
           className="btn-secondary"><Users size={14} />並行数を営業リストへ</button>
         <button onClick={() => setAdding(true)} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined}
@@ -294,10 +287,9 @@ export default function MendanPage() {
       {detail && <DetailDialog r={rows.find((x) => x.id === detail.id) ?? detail} now={t} canEdit={canEdit} onClose={() => setDetail(null)} onEdit={() => { const d = detail; setDetail(null); setEdit(d); }} onStatus={(s) => void changeStatus(detail.id, s)} />}
       {adding && <AddDialog live={live} salesReps={salesReps} trainers={trainers} onClose={() => setAdding(false)} onSaved={(f, id, reflected) => {
         setAdding(false);
-        if (!live) setSampleRows((xs) => ivUsable([...(xs ?? []), { id: id || `s${Date.now()}`, ...f, date: ivFromLocalInput(f.date), rounds: '', category: '' }]));
-        else iv.reload();
+        iv.reload();
         hit();
-        toast({ text: `${f.name}さんの面談を登録しました`, sub: `${live ? 'カレンダーに予定を作りました・' : '見本なので保存していません・'}${f.status === '成約' ? reflectText('成約', reflected) : '営業リストの並行数に反映されます'}` });
+        toast({ text: `${f.name}さんの面談を登録しました`, sub: `カレンダーに予定を作りました・${f.status === '成約' ? reflectText('成約', reflected) : '営業リストの並行数に反映されます'}` });
         if (live) void syncParallel(false);
       }} />}
       {edit && <EditDialog r={edit} live={live} salesReps={salesReps} trainers={trainers} onClose={() => { setEdit(null); }}
@@ -305,7 +297,7 @@ export default function MendanPage() {
           setRow(edit.id, { ...f, date: f.date ? ivFromLocalInput(f.date) : edit.date });
           if (f.status !== prevStatus) { hit(); toast({ text: `面談を「${f.status || '未設定'}」に`, sub: reflectText(f.status, reflected) }); if (live) void syncParallel(false); }
         }}
-        onDeleted={() => { const r = edit; setEdit(null); setRow(r.id, null); hit(); toast({ text: `${r.name}さんの面談を削除しました`, sub: live ? 'Google カレンダーの予定も消しました' : '見本なので保存していません' }); if (live) iv.reload(); }} />}
+        onDeleted={() => { const r = edit; setEdit(null); setRow(r.id, null); hit(); toast({ text: `${r.name}さんの面談を削除しました`, sub: 'Google カレンダーの予定も消しました' }); if (live) iv.reload(); }} />}
     </main>
   );
 }
@@ -450,7 +442,7 @@ function AddDialog({ live, salesReps, trainers, onClose, onSaved }: { live: bool
   const save = async () => {
     if (!f.name.trim()) { setErr('要員名を入れてください'); return; }
     if (!f.date) { setErr('面談日時を入れてください（カレンダーに予定を作るため）'); return; }
-    if (!live) { onSaved(f, '', null); return; }
+    if (!live) return;
     setBusy(true); setErr('');
     const r = await postLive<{ id?: string; reflected?: Reflected }>('/api/live/mendan', { op: 'add', ...f });
     setBusy(false);
@@ -461,7 +453,7 @@ function AddDialog({ live, salesReps, trainers, onClose, onSaved }: { live: bool
     <DlgShell label="面談を追加" onClose={onClose}
       foot={<>
         {err && <span className="mo-shake text-sm font-semibold text-bad">{err}</span>}
-        <span className="text-xs text-faint">{live ? '追加すると Google カレンダーに予定が入ります' : '見本なので保存しません'}</span>
+        <span className="text-xs text-faint">追加すると Google カレンダーに予定が入ります</span>
         <button onClick={onClose} className="btn-secondary ml-auto">やめる</button>
         <button onClick={save} disabled={busy} className="btn-primary">{busy ? '追加しています…' : '追加する'}</button>
       </>}>
@@ -491,7 +483,7 @@ function EditDialog({ r, live, salesReps, trainers, onClose, onSaved, onDeleted 
     if (busy.current) { timer.current = setTimeout(() => void save(), 500); return; }
     if (!cur.name.trim()) { setState({ t: '要員名が空なので保存していません', bad: true }); return; }
     const prevStatus = saved.current.status;
-    if (!live) { saved.current = cur; setState({ t: '保存しました（見本なのでこの画面の中だけ）' }); onSaved(cur, prevStatus, null); return; }
+    if (!live) return;
     busy.current = true; setState({ t: '保存しています…' });
     const res = await postLive<{ reflected?: Reflected }>('/api/live/mendan', { op: 'update', id: r.id, ...cur, statusChanged: cur.status !== prevStatus });
     busy.current = false;
@@ -508,7 +500,7 @@ function EditDialog({ r, live, salesReps, trainers, onClose, onSaved, onDeleted 
   };
   const close = () => { void save(); onClose(); };
   const del = async () => {
-    if (!live) { onDeleted(); return; }
+    if (!live) return;
     setState({ t: '削除しています…' });
     const res = await postLive('/api/live/mendan', { op: 'delete', id: r.id, confirmed: true });
     if (!res.ok) { setConfirmDel(false); setState({ t: `削除できませんでした：${res.error}`, bad: true }); return; }
@@ -525,7 +517,7 @@ function EditDialog({ r, live, salesReps, trainers, onClose, onSaved, onDeleted 
       {confirmDel && (
         <div role="alertdialog" className="mo-scale-in mt-4 rounded-xl border px-4 py-3" style={{ borderColor: 'var(--color-bad-line, var(--color-bad))', background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>
           <div className="text-body font-bold">この面談を削除しますか？</div>
-          <div className="mt-0.5 text-sm">{live ? 'Google カレンダーの予定も削除されます。元には戻せません。' : '見本なのでこの画面の中だけで消えます。'}</div>
+          <div className="mt-0.5 text-sm">Google カレンダーの予定も削除されます。元には戻せません。</div>
           <div className="mt-2.5 flex gap-2">
             <button onClick={() => void del()} className="btn-danger solid">削除する</button>
             <button onClick={() => setConfirmDel(false)} className="btn-secondary">やめる</button>

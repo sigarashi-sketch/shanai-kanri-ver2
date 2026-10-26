@@ -1,4 +1,4 @@
-// 成約日報の選択肢と形（今の nippo.html の選び方のまま）。人の名前・会社名・数字の見本は持たない。
+// 成約日報の選択肢と形（今の nippo.html の選び方のまま）。人の名前・会社名・数字は持たない。
 export type Kettei = { id: string; name: string; status: string; shozoku: string; tantou: string; on: string; doneOn?: string; addKettei?: boolean };
 export const ST = ['未経験新規', '未経験再アサイン'];
 export const KE_ST = ['新規', '再アサイン'];

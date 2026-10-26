@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Copy, Lock, Pencil, Plus, RefreshCw, Send, TriangleAlert, X } from 'lucide-react';
 import { needText, usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
 import { LiveBanner, useIke } from '@/components/Live';
 import { postLive } from '@/lib/live/post-live';
-import { sampleCaseFull, sampleCaseList } from '@/lib/mendan-sample';
 import {
   CASE_AREAS, CASE_AUDIENCES, CASE_BADGES, CASE_JOBS, CASE_TEMPLATES, CASE_WORK_STYLES, detectPrice,
   type CaseGetResp, type CaseListResp, type CasePostFull,
@@ -32,9 +31,7 @@ export function PostTab() {
   const { hit, toast } = useMotivation();
   const ls = useIke<CaseListResp>('case-admin?action=list');
   const live = ls.live;
-  const [sample, setSample] = useState<CaseListResp | null>(null);
-  useEffect(() => { if (ls.state === 'sample' && !sample) setSample(sampleCaseList(Date.now())); }, [ls.state, sample]);
-  const list = live ? ls.data : sample;
+  const list = live ? ls.data : null;
   const [lt, setLt] = useState<'open' | 'draft' | 'closed'>('open');
   const [f, setF] = useState<F>(EMPTY);
   const [busy, setBusy] = useState('');
@@ -47,7 +44,7 @@ export function PostTab() {
 
   const loadOne = async (id: string) => {
     setErr(''); setState('');
-    if (!live) { if (sample) setF(fromItem(sampleCaseFull(id, sample))); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+    if (!live) return;
     try {
       const r = await fetch(`/api/ike/case-admin?action=get&id=${encodeURIComponent(id)}`, { cache: 'no-store' });
       const j = (await r.json().catch(() => ({}))) as CaseGetResp & { error?: string };
@@ -65,12 +62,8 @@ export function PostTab() {
     if (!f.title.trim()) { setErr('掲載タイトルを入れてください'); return; }
     if (!f.bodyText.trim()) { setErr('本文を入れてください'); return; }
     const op = publish ? 'publish' : f.id ? 'save' : 'create';
+    if (!live) return;
     setBusy(op); setState('保存しています…');
-    if (!live) {
-      setBusy(''); setState(publish ? '公開しました（見本なので保存していません）' : '保存しました（下書き・見本なので保存していません）');
-      hit(); toast({ text: publish ? `「${f.title}」を公開しました` : `「${f.title}」を下書き保存しました`, sub: publish ? '→ 公式LINEの「案件情報」に出ます（見本）' : '見本なので保存していません' });
-      return;
-    }
     const r = await postLive<{ id?: string; status?: string; priceWarning?: { hit?: boolean } }>('/api/live/case-admin', { op, ...payload(), confirmed: publish ? true : undefined });
     setBusy('');
     if (!r.ok) { setState(''); setErr(r.error); return; }
@@ -85,16 +78,15 @@ export function PostTab() {
   };
   const close = async (id: string, title: string) => {
     setErr('');
-    if (live) {
-      const r = await postLive('/api/live/case-admin', { op: 'close', id, confirmed: true });
-      if (!r.ok) { setErr(r.error); return; }
-      ls.reload();
-    } else setSample((s) => s && ({ ...s, items: s.items.map((x) => (x.id === id ? { ...x, status: 'closed', tab: 'closed' } : x)) }));
+    if (!live) return;
+    const r = await postLive('/api/live/case-admin', { op: 'close', id, confirmed: true });
+    if (!r.ok) { setErr(r.error); return; }
+    ls.reload();
     hit(); toast({ text: `「${title}」を締め切りました`, sub: '→ 要員側の一覧から下ろしました（案件は消していません）' });
   };
   const duplicate = async (id: string, title: string) => {
     setErr('');
-    if (!live) { if (sample) { setF({ ...fromItem(sampleCaseFull(id, sample)), id: null, status: 'draft', title: `${title} のコピー`, pinned: false }); } toast({ text: `「${title}」を複製しました`, sub: '見本なので保存していません' }); return; }
+    if (!live) return;
     const r = await postLive<{ id?: string }>('/api/live/case-admin', { op: 'duplicate', id });
     if (!r.ok) { setErr(r.error); return; }
     hit(); toast({ text: `「${title}」を複製しました`, sub: '→ 下書きとして作りました（要員にはまだ出ていません）' });
@@ -105,7 +97,7 @@ export function PostTab() {
   const rows = (list?.items ?? []).filter((x) => x.tab === lt);
   const insert = (text: string) => set({ bodyText: f.bodyText && !f.bodyText.endsWith('\n') ? `${f.bodyText}\n\n${text}` : f.bodyText + text });
   const toggle = (k: 'workStyles' | 'badges', v: string) => set({ [k]: f[k].includes(v) ? f[k].filter((x) => x !== v) : [...f[k], v] } as Partial<F>);
-  const ro = !canEdit;
+  const ro = !canEdit || !live;
 
   return (
     <>
@@ -235,7 +227,7 @@ export function PostTab() {
                       </td>
                     </tr>
                   ))}
-                  {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-muted">{ls.state === 'loading' ? '読み込み中…' : 'この中の案件はありません'}</td></tr>}
+                  {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-muted">{!live ? (ls.state === 'error' ? '読み込めませんでした' : '読み込み中…') : 'この中の案件はありません'}</td></tr>}
                 </tbody>
               </table>
             </div>
