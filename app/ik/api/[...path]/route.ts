@@ -22,7 +22,8 @@ const SEIKYU_GET = new Set([
   // seikyu-sheets.js
   'mnm-sheets', 'mnm-sheet-file',
 ]);
-const WRITE_LIKE = /^(save|set|delete|update|add|remove|create|send|upsert|toggle)/i;
+// 語の頭だけで見る（saved-list・saved-pdf など「保存したものを読む」口まで止めていた・10-26）
+const WRITE_LIKE = /^(save|set|delete|update|add|remove|create|send|upsert|toggle)(?![a-z])/i;
 
 function allowedGet(api: string, rest: string[], sp: URLSearchParams): boolean {
   if (rest.length) return false;
