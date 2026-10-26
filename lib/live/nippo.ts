@@ -4,7 +4,7 @@
 //   ・退場・退職で選べる人＝roster（今月・先月の稼働管理情報一覧）／内定辞退の候補＝jitaiCand（もう辞退ずみの人は外す）
 //   ・今日の数字の項目＝act.items（組シートの自分の表の項目名のまま）／空欄の残る成約＝pending
 //   ・「今月の自分」（?action=self）は呼ばない：交通費の計算で駅すぱあと（回数に限りがある）を使うため。送信も止めているので出番が無い
-import type { Kettei, Roster } from '../nippo-sample';
+import type { Kettei, Roster } from './nippo-const';
 
 type Cand = { nn: string; name: string; shozoku?: string; shozokuRaw?: string; tantou?: string; status?: string; kettei?: boolean; today?: boolean; doneOn?: string };
 export type NippoInit = {
@@ -27,7 +27,7 @@ export function liveNippo(d: NippoInit | null) {
   if (!d || !d.ok) return null;
   const st = d.statuses || [];
   return {
-    today: d.today, me: d.me, reps: d.tantouList || [], kind: d.kind, submitted: !!d.submittedToday,
+    today: d.today, me: d.me, reps: d.tantouList || [], kaisha: d.kaisha || [], kind: d.kind, submitted: !!d.submittedToday,
     // older の行は today:false（直近7日）。older で見るときは画面が全部出す
     kettei: (d.kettei || []).map((c) => k(c, st, d.today)),
     seiyakuCand: (d.seiyakuCand || []).map((c) => ({ ...k({ ...c, today: false }, st, d.today), on: '' })),

@@ -9,7 +9,7 @@ import { LiveBanner, useIke } from '@/components/Live';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { PersonName } from '@/components/Person';
 import { postLive } from '@/lib/live/post-live';
-import { sampleAvail, type AvailCand, type AvailResp } from '@/lib/mendan-sample';
+import type { AvailCand, AvailResp } from '@/lib/types/eigyo';
 
 // 面談可能日の承認（営業）＝今の /availability.html を写したもの。
 //   ・LINE の返信に書かれた面談可能日は、届いた時点で自動で営業リストに入る（自動のしるし）。ここは確かめる・直す・取り消す画面
@@ -20,16 +20,15 @@ const RANGES = [14, 21, 45, 90] as const;
 const fmt = (ms: number) => { if (!ms) return ''; const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 
 export default function AvailabilityPage() {
-  const canEdit = usePerms().can('eigyo', 'edit');
+  const perm = usePerms().can('eigyo', 'edit');
   const { hit, toast } = useMotivation();
   const [days, setDays] = useState<number>(21);
   const av = useIke<AvailResp>(`availability?action=candidates&days=${days}`);
   const live = av.live;
+  const canEdit = perm && live;
   const mk = useMikeiken();
-  const [sample, setSample] = useState<AvailResp | null>(null);
-  useEffect(() => { if (av.state === 'sample' && !sample) setSample(sampleAvail(Date.now())); }, [av.state, sample]);
-  const data = live ? av.data : sample;
-  const cands = useMemo(() => (live ? mk.keep(data?.candidates ?? [], 'name') : data?.candidates ?? []), [live, mk, data]);
+  const data = live ? av.data : null;
+  const cands = useMemo(() => mk.keep(data?.candidates ?? [], 'name'), [mk, data]);
   const [showSame, setShowSame] = useState(false);
   const [bodies, setBodies] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
@@ -42,37 +41,34 @@ export default function AvailabilityPage() {
   const pending = cands.filter((c) => c.status !== 'same').length;
   const bodyOf = (c: AvailCand) => bodies[c.normalizedName] ?? c.body;
   const payload = (c: AvailCand) => ({ normalizedName: c.normalizedName, name: c.name, displayName: c.displayName, groupId: c.groupId, groupName: c.groupName, body: bodyOf(c), srcTsMs: c.srcTsMs });
-  const markSample = (names: string[], cleared = false) => setSample((s) => s && ({ ...s, candidates: s.candidates.map((c) => (names.includes(c.normalizedName) ? { ...c, status: 'same', currentBody: cleared ? '' : bodyOf(c), savedBy: cleared ? '' : 'me' } : c)) }));
 
   const approve = async (list: AvailCand[]) => {
     const items = list.map(payload).filter((p) => p.body.trim());
     if (!items.length) { setErr('反映する内容が空です'); return; }
+    if (!live) return;
     setErr(''); setBusy(list.length === 1 ? list[0].normalizedName : '__all');
-    if (live) {
-      const r = await postLive<{ applied?: number }>('/api/live/availability', { op: 'approve', items });
-      setBusy(null);
-      if (!r.ok) { setErr(`反映できませんでした：${r.error}`); return; }
-      av.reload();
-    } else { setBusy(null); markSample(items.map((i) => i.normalizedName)); }
+    const r = await postLive<{ applied?: number }>('/api/live/availability', { op: 'approve', items });
+    setBusy(null);
+    if (!r.ok) { setErr(`反映できませんでした：${r.error}`); return; }
+    av.reload();
     hit(items.length);
     if (items.length === 1) setFlash(items[0].normalizedName);
-    toast({ text: items.length === 1 ? `${items[0].name}さんの面談可能日を反映しました` : `${items.length}人の面談可能日を反映しました`, sub: `→ 営業リスト（プロパー）の要員の「面談可能日」${live ? '' : '（見本なので保存していません）'}` });
+    toast({ text: items.length === 1 ? `${items[0].name}さんの面談可能日を反映しました` : `${items.length}人の面談可能日を反映しました`, sub: `→ 営業リスト（プロパー）の要員の「面談可能日」` });
   };
   const clear = async (c: AvailCand) => {
+    if (!live) return;
     setErr(''); setBusy(c.normalizedName);
-    if (live) {
-      const r = await postLive('/api/live/availability', { op: 'clear', normalizedName: c.normalizedName, confirmed: true });
-      setBusy(null);
-      if (!r.ok) { setErr(`取り消せませんでした：${r.error}`); return; }
-      av.reload();
-    } else { setBusy(null); markSample([c.normalizedName], true); }
+    const r = await postLive('/api/live/availability', { op: 'clear', normalizedName: c.normalizedName, confirmed: true });
+    setBusy(null);
+    if (!r.ok) { setErr(`取り消せませんでした：${r.error}`); return; }
+    av.reload();
     hit();
-    toast({ text: `${c.name}さんの面談可能日を営業リストから消しました`, sub: live ? undefined : '見本なので保存していません' });
+    toast({ text: `${c.name}さんの面談可能日を営業リストから消しました`, });
   };
 
   return (
     <main className="flex flex-col gap-3.5 px-4 pb-12 pt-[22px] sm:px-6">
-      <PageTitle title="面談可能日の承認" sub={`LINE の返信にある面談可能日を、営業リストに反映する前に確かめます${live ? '' : '・見本データ'}`} />
+      <PageTitle title="面談可能日の承認" sub={`LINE の返信にある面談可能日を、営業リストに反映する前に確かめます`} />
       <LiveBanner state={av.state} error={av.error} onReload={av.reload} note="今の返信から拾った候補です。承認すると営業リストの「面談可能日」に入ります" />
       <MikeikenNote mk={mk} live={live} />
       <div className="rounded-xl border border-line bg-soft px-4 py-2.5 text-sm leading-relaxed text-muted">
@@ -108,7 +104,7 @@ export default function AvailabilityPage() {
 
       {visible.length === 0 ? (
         <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-8 text-center">
-          {av.state === 'loading' || (live && mk.state === 'loading') ? <div className="text-body text-muted">読み込み中…</div> : <>
+          {!live || mk.state === 'loading' ? <div className="text-body text-muted">読み込み中…</div> : <>
             <Check className="mx-auto text-ok" size={24} /><div className="mt-1.5 text-md font-bold">承認待ちの候補はありません</div>
             <div className="mt-1 text-sm text-muted">日程を含む返信は届いた時点で自動で反映されます（「変更なしも出す」で自動の分を見られます）。</div>
           </>}

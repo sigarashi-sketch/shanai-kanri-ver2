@@ -7,11 +7,11 @@ import { ikeFetch, ikeToken } from '@/lib/ike';
 //       グループ              … action=groupSend { groupId, text }
 //     それ以外の action・添付・引用は通さない（本文だけ）
 //   ・送ってよい人か（グループは全体管理者などだけ）は今の API が決める。断られたら、その理由をそのまま返す
-//   ・ログインしていない（見本）ときは送らない
+//   ・ログインしていないときは送らない
 type Body = { kind?: string; userId?: string; groupId?: string; text?: string };
 
 export async function POST(req: Request) {
-  if (!(await ikeToken())) return NextResponse.json({ ok: false, sample: true, error: '見本なので送っていません' }, { status: 401 });
+  if (!(await ikeToken())) return NextResponse.json({ ok: false, error: 'ログインしてください' }, { status: 401 });
   const b = (await req.json().catch(() => ({}))) as Body;
   const text = typeof b.text === 'string' ? b.text : '';
   if (!text.trim()) return NextResponse.json({ ok: false, error: '本文が空です' }, { status: 400 });

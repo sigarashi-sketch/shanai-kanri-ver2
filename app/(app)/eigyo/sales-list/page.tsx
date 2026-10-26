@@ -15,11 +15,6 @@ type SalesRow = {
   name: string; eki: string; kadou: string[]; zokusei: string[]; kibou: string[]; parallel: number; ball: boolean;
   summary: string; sukishi: string; experience: string; availability: { label: string; val: string }[]; availUpdated: string;
 };
-const SAMPLE: SalesRow[] = [
-  { name: '中村優 案件G', eki: '蕨', kadou: ['即日'], zokusei: ['20代'], kibou: ['インフラ'], parallel: 2, ball: true, summary: '氏名：Y.N\n年齢：26歳\n資格：CCNA', sukishi: 'https://example.com/sample-sheet', experience: '飲食店 店長', availability: [{ label: '平日', val: '18時以降' }], availUpdated: '10/22' },
-  { name: '佐々木蓮 案件G', eki: '大宮', kadou: ['即日'], zokusei: ['20代'], kibou: ['開発'], parallel: 0, ball: false, summary: '氏名：R.S', sukishi: '', experience: '物流倉庫', availability: [], availUpdated: '' },
-  { name: '松本結衣 案件G', eki: '赤羽', kadou: ['即日'], zokusei: ['20代'], kibou: ['テスト'], parallel: 3, ball: false, summary: '', sukishi: '', experience: 'コールセンター', availability: [{ label: '土日', val: '終日' }], availUpdated: '10/20' },
-];
 const Tag = ({ t, tone }: { t: string; tone: string }) => <span className="mr-1 inline-block rounded-full px-2 py-0.5 text-xs" style={{ background: `var(--tone-${tone}-bg)`, color: `var(--tone-${tone}-fg)` }}>{t}</span>;
 
 export default function SalesListPage() {
@@ -30,13 +25,13 @@ export default function SalesListPage() {
   const [availOnly, setAvailOnly] = useState(false);
   const norms = useMemo(() => (mk.set ? [...mk.set] : []), [mk.set]);
   const all = useMemo(() => {
-    if (!live) return SAMPLE;
+    if (!live) return [];
     const rows = d.data?.rows ?? [];
     if (mk.state === 'none') return rows;
     return rows.filter((r) => matchGroupName(r.name, norms));
   }, [live, d.data, mk.state, norms]);
   // 名前を押したら、グループ名に入っている要員（いちばん長く当たる名前）を開く
-  const nameOf = (r: SalesRow) => (live ? matchGroupName(r.name, norms) ?? r.name : r.name.replace(/\s*案件G$/, ''));
+  const nameOf = (r: SalesRow) => (matchGroupName(r.name, norms) ?? r.name);
   const shown = all.filter((r) => (!availOnly || r.availability.length > 0)
     && (!q || `${r.name} ${r.eki} ${r.kadou.join(' ')} ${r.zokusei.join(' ')} ${r.kibou.join(' ')} ${r.summary} ${r.experience}`.toLowerCase().includes(q.toLowerCase())));
   return (
@@ -56,7 +51,7 @@ export default function SalesListPage() {
             {['氏名', '最寄駅', '稼働', '属性 / 希望', '並行', 'スキシ', '面談できる日程'].map((h) => <th key={h} className="whitespace-nowrap px-3 py-2.5 font-semibold">{h}</th>)}
           </tr></thead>
           <tbody>
-            {d.state === 'loading' && <tr><td colSpan={7} className="p-0"><SkeletonRows /></td></tr>}
+            {!live && d.state !== 'error' && <tr><td colSpan={7} className="p-0"><SkeletonRows /></td></tr>}
             {shown.slice(0, 400).map((r) => (
               <tr key={r.name} className="row cursor-pointer border-t border-line-soft"
                 onClick={(e) => { if ((e.target as HTMLElement).closest('button,a')) return; window.dispatchEvent(new CustomEvent('person:open', { detail: { name: nameOf(r) } })); }}>
@@ -71,7 +66,7 @@ export default function SalesListPage() {
                 </td>
               </tr>
             ))}
-            {d.state !== 'loading' && shown.length === 0 && <tr><td colSpan={7} className="px-4 py-8 text-center text-muted">該当なし</td></tr>}
+            {live && shown.length === 0 && <tr><td colSpan={7} className="px-4 py-8 text-center text-muted">該当なし</td></tr>}
           </tbody>
         </table>
       </div>

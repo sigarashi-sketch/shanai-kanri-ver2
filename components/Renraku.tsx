@@ -7,7 +7,6 @@ import { LiveBanner, pollAwake, useIke, type LiveState } from './Live';
 import { usePerms } from './Perms';
 import { DrawerPortal } from './DrawerPortal';
 import { contactRows, type LiveContactsRes } from '@/lib/live/renraku';
-import { SAMPLE_CHAT } from '@/lib/live/renraku-sample';
 import { ChatTab } from './renraku/ChatTab';
 import { CaseTab } from './renraku/CaseTab';
 import { ManualTab } from './renraku/ManualTab';
@@ -73,7 +72,7 @@ function useBadge(a: Account): Badge {
 }
 
 export function RenrakuButton({ module }: { module: ModuleKey | 'home' }) {
-  // ?renraku=1 で開いた状態から始める（画面の見本を撮るとき用）
+  // ?renraku=1 で開いた状態から始める（画面を撮るとき用）
   const [open, setOpen] = useState(false);
   useEffect(() => { if (new URLSearchParams(window.location.search).has('renraku')) setOpen(true); }, []);
   const account = accountFor(module);
@@ -83,7 +82,7 @@ export function RenrakuButton({ module }: { module: ModuleKey | 'home' }) {
   const live = bd.state === 'live';
   // インフォメーションは未経験の人（プロパーリストにいる人）だけ数える
   const mk = useMikeiken();
-  const ball = live ? (info ? mk.keep(contactRows(bd.data), 'name') : contactRows(bd.data)).filter((x) => x.ball).length : (info ? SAMPLE_CHAT.info : SAMPLE_CHAT.aoi).filter((x) => x.ball).length;
+  const ball = live ? (info ? mk.keep(contactRows(bd.data), 'name') : contactRows(bd.data)).filter((x) => x.ball).length : 0;
   return (
     <>
       <button onClick={() => setOpen((v) => !v)} aria-expanded={open} title={ball ? `要対応 ${ball}件` : undefined} className="relative flex min-h-10 items-center gap-2 rounded-[10px] border border-line px-3 text-body font-semibold text-muted">

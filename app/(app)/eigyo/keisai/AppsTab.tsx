@@ -8,7 +8,6 @@ import { LiveBanner, useIke } from '@/components/Live';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { PersonName } from '@/components/Person';
 import { postLive } from '@/lib/live/post-live';
-import { sampleApps } from '@/lib/mendan-sample';
 import { APP_STATUSES, appStatusLabel, pct, type AppItem, type AppsResp } from '@/lib/live/keisai';
 
 // 応募管理（今の /case-apps.html）。未対応 → 確認中 → 面談調整中 → 成約／見送り。戻すこともできる（押し間違いを直せるように・今と同じ）
@@ -29,15 +28,13 @@ export function AppsTab() {
   const mk = useMikeiken();
   const [now, setNow] = useState(0);
   useEffect(() => { setNow(Date.now()); }, []);
-  const [sample, setSample] = useState<AppsResp | null>(null);
-  useEffect(() => { if (ap.state === 'sample' && !sample) setSample(sampleApps(Date.now())); }, [ap.state, sample]);
-  const data = live ? ap.data : sample;
+  const data = live ? ap.data : null;
   const [patch, setPatch] = useState<Record<string, string>>({});
   useEffect(() => { setPatch({}); }, [ap.data]);
   // 未経験の人だけ。氏名が決まっていない応募（LINE のつなぎ未確定）は名前が無いので出す（本人を確かめるところから）
   const items = useMemo(() => {
     const all = (data?.items ?? []).map((x) => (patch[x.id] ? { ...x, status: patch[x.id], statusLabel: appStatusLabel(patch[x.id]) } : x));
-    return live ? all.filter((x) => x.unlinked || mk.has(x.name)) : all;
+    return all.filter((x) => x.unlinked || mk.has(x.name));
   }, [data, patch, live, mk]);
   const [tab, setTab] = useState<Tab>('new');
   const [hl, setHl] = useState('');
@@ -48,18 +45,16 @@ export function AppsTab() {
   const k = data?.kpi;
 
   const change = async (x: AppItem, status: string, noUndo = false) => {
-    if (!canEdit || x.status === status) return;
+    if (!canEdit || !live || x.status === status) return;
     const prev = x.status;
     setErr('');
     setPatch((s) => ({ ...s, [x.id]: status }));
     const undo = noUndo ? undefined : () => { void change({ ...x, status }, prev, true); };
-    if (live) {
-      const r = await postLive('/api/live/case-admin', { op: 'app-status', id: x.id, status });
-      if (!r.ok) { setPatch((s) => ({ ...s, [x.id]: prev })); setErr(`ステータスを変えられませんでした：${r.error}`); return; }
-      ap.reload();
-    }
+    const r = await postLive('/api/live/case-admin', { op: 'app-status', id: x.id, status });
+    if (!r.ok) { setPatch((s) => ({ ...s, [x.id]: prev })); setErr(`ステータスを変えられませんでした：${r.error}`); return; }
+    ap.reload();
     hit();
-    toast({ text: `${x.name || '氏名未確定の応募'}を「${appStatusLabel(status)}」に`, sub: `${x.caseTitle}${live ? '' : '（見本なので保存していません）'}`, undo });
+    toast({ text: `${x.name || '氏名未確定の応募'}を「${appStatusLabel(status)}」に`, sub: x.caseTitle, undo });
   };
 
   const csv = () => {
@@ -118,7 +113,7 @@ export function AppsTab() {
                 </td>
               </tr>
             ))}
-            {vis.length === 0 && <tr><td colSpan={7} className="px-4 py-10 text-center text-muted">{ap.state === 'loading' ? '読み込み中…' : 'この条件の応募はありません'}</td></tr>}
+            {vis.length === 0 && <tr><td colSpan={7} className="px-4 py-10 text-center text-muted">{!live ? (ap.state === 'error' ? '読み込めませんでした' : '読み込み中…') : 'この条件の応募はありません'}</td></tr>}
           </tbody>
         </table>
       </div>

@@ -7,7 +7,7 @@ import { SELECTABLE_BLOCK_IDS } from '@/lib/live/proper-cols';
 //   {name, any, blocks}＝営業の入力で上書き／{name, clear:true}＝営業の入力を消して本人の回答に戻す
 //   本人の回答（フォーム）は今のシステムも書かない。同姓同名は今のシステムが断る（409）
 export async function POST(req: Request) {
-  if (!(await ikeToken())) return NextResponse.json({ ok: false, sample: true, error: '見本なので保存していません' }, { status: 401 });
+  if (!(await ikeToken())) return NextResponse.json({ ok: false, error: 'ログインしてください' }, { status: 401 });
   const b = (await req.json().catch(() => ({}))) as { name?: unknown; any?: unknown; blocks?: unknown; clear?: unknown };
   const name = typeof b.name === 'string' ? b.name.trim() : '';
   if (!name || name.length > 60) return NextResponse.json({ ok: false, error: '氏名が違います' }, { status: 400 });

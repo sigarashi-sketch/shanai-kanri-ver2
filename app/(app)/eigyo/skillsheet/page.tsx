@@ -181,8 +181,8 @@ export default function SkillsheetPage() {
 
       {data?.source === 'sample' && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-soft px-4 py-2.5 text-sm text-muted">
-          いまは見本データです（本物の名前ではありません）。作るボタンを押しても本物は作りません。
-          <a href="/api/ike-auth/start" className="btn-primary ml-auto btn-sm">会社のアカウントでログインして本物を見る</a>
+          ログインしていないので出していません。
+          <a href="/api/ike-auth/start" className="btn-primary ml-auto btn-sm">会社のアカウントでログイン</a>
         </div>
       )}
       {data?.source === 'live' && (
@@ -246,7 +246,7 @@ export default function SkillsheetPage() {
               {!data && <tr><td colSpan={8} className="py-10 text-center text-faint">読み込み中…</td></tr>}
               {data?.rows.map((r) => {
                 const mine = busy && busy.id === r.rosterId;
-                const hasSs = !!r.rosterId && isUrl(r.sukishi) || (!!r.rosterId && data.source === 'sample' && !!r.sukishi);
+                const hasSs = !!r.rosterId && isUrl(r.sukishi);
                 return (
                   <tr key={rowKey(r)} className="row border-t border-line-soft">
                     <td className="whitespace-nowrap px-2.5 py-2"><button onClick={() => openDetail(r.name)} className="font-bold hover:underline" style={{ color: 'var(--ad)' }}>{r.name}</button></td>

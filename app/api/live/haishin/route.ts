@@ -5,7 +5,7 @@ import { ikeFetch, ikeToken } from '@/lib/ike';
 //   ・今の API は POST しか無いので、ここで op の名前ごとに**決まった action だけ**を通す。それ以外の POST は通さない
 //   ・送ってよいか（宛先の区分・ブロック・アダルト/店舗運営の案件・配信できる時間・案内の締め切り・人数/稼働月/粗利）は
 //     全部今の API が決める。断られたら理由をそのまま返す（ver2 で判定を作り直さない）
-//   ・ログインしていない（見本）ときは呼ばない
+//   ・ログインしていないときは呼ばない
 //
 //   読むだけ（LINE には送らない）
 //     dry          … POST /api/line-broadcast { mode:'dry', audience }           宛先の一覧（今の配信画面の左の一覧と同じ）。名前・駅・稼働・担当だけ返す
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
   if (!(await ikeToken())) {
     return READS.has(op)
       ? NextResponse.json({ error: 'not_logged_in' }, { status: 401 })
-      : NextResponse.json({ ok: false, sample: true, error: '見本なので送っていません' }, { status: 401 });
+      : NextResponse.json({ ok: false, error: 'ログインしてください' }, { status: 401 });
   }
   const audience = str(b.audience) === 'joined' ? 'joined' : 'sales';
 

@@ -5,7 +5,6 @@ import { Plus, Search, X } from 'lucide-react';
 import { RemainRing, useMotivation } from '../Motivation';
 import { needText } from '../Perms';
 import { AUD_LABEL, isoMdhm, viaLabel, type Audience, type DryRes, type PollDetailRes, type PollListRes, type PollRow, type Recipient } from '@/lib/live/renraku';
-import { SAMPLE_JOINED, SAMPLE_POLLS, SAMPLE_RECIPIENTS, samplePollDetail } from '@/lib/live/renraku-sample';
 import { buildNameIndex, matchName, parsePastedNames, suggestName } from '@/lib/live/renraku-names';
 import { HoldButton, LinePreview, Note, Pills, SendProgress, Step, haishin, useHaishinRead } from './parts';
 
@@ -39,7 +38,7 @@ function SendView({ on, canSend, wide, onSent }: { on: boolean; canSend: boolean
   const [buttons, setButtons] = useState(true);
   const [aud, setAud] = useState<Audience>('sales');
   const dry = useHaishinRead<DryRes>(on ? 'dry' : null, { audience: aud });
-  const all: Recipient[] = on ? dry.data?.recipients ?? [] : aud === 'sales' ? SAMPLE_RECIPIENTS : SAMPLE_JOINED;
+  const all: Recipient[] = on ? dry.data?.recipients ?? [] : [];
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [q, setQ] = useState('');
   const [paste, setPaste] = useState('');
@@ -65,18 +64,14 @@ function SendView({ on, canSend, wide, onSent }: { on: boolean; canSend: boolean
 
   const cs = useChoices ? choices.filter((c) => c.label.trim()) : [];
   const chosen = all.filter((r) => sel.has(r.userId));
-  const block = !canSend ? needText('edit') : !title.trim() ? '件名を入れてください' : title.length > 60 ? '件名は60字までです'
+  const block = !on ? '読み込めていません' : !canSend ? needText('edit') : !title.trim() ? '件名を入れてください' : title.length > 60 ? '件名は60字までです'
     : !text.trim() ? '本文が空です' : !chosen.length ? '送る人を選んでください'
     : useChoices && cs.length === 1 ? '選択肢は2つ以上（使わないなら空に）' : cs.some((c) => c.label.length > 20) ? '選択肢は20字までです' : '';
 
   const go = async () => {
     setErr('');
     const n = chosen.length;
-    if (!on) {
-      let k = 0; setProg({ done: 0, total: n, label: '' });
-      const iv = setInterval(() => { k += 1; setProg({ done: k, total: n, label: `${k} / ${n}` }); if (k >= n) { clearInterval(iv); setTimeout(() => setProg(null), 400); hit(n); toast({ text: '見本なので送っていません', sub: `→ 本物なら ${n}人に届き、進み具合に「${title}」が出ます` }); setSel(new Set()); onSent(); } }, 220);
-      return;
-    }
+    if (!on) return;
     const poll = { title: title.trim(), choices: cs.map((c) => ({ label: c.label.trim(), ng: c.ng })), buttons: buttons && cs.length >= 2 };
     const per = text.includes('{名前}');
     const batches = per ? chosen.map((c) => [c]) : [chosen];
@@ -145,7 +140,7 @@ function SendView({ on, canSend, wide, onSent }: { on: boolean; canSend: boolean
         <label className="flex min-h-8 flex-1 items-center gap-1.5 rounded-lg border border-field px-2 text-faint"><Search size={13} /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="名前・駅・担当" className="flex-1 bg-transparent text-sm text-ink outline-none" /></label>
         <button type="button" onClick={() => pick(shown.map((r) => r.userId), !shown.every((r) => sel.has(r.userId)))} className="shrink-0 text-sm font-semibold" style={{ color: 'var(--ad)' }}>{shown.length && shown.every((r) => sel.has(r.userId)) ? 'すべて外す' : 'すべて選ぶ'}</button>
       </div>
-      {on && dry.state === 'loading' && <p className="mt-2 text-sm text-muted">宛先の一覧を読み込んでいます…</p>}
+      {(!on || dry.state === 'loading') && <p className="mt-2 text-sm text-muted">宛先の一覧を読み込んでいます…</p>}
       {on && dry.error && <Note tone="bad">{dry.error}</Note>}
       <div className={`mt-1 overflow-y-auto ${wide ? 'max-h-[40vh]' : 'max-h-[240px]'}`}>
         {shown.slice(0, 300).map((r) => (
@@ -154,7 +149,7 @@ function SendView({ on, canSend, wide, onSent }: { on: boolean; canSend: boolean
             <span className="flex-1">{r.name}</span><span className="text-xs text-faint">{[r.eki, r.tantou && `担当 ${r.tantou}`].filter(Boolean).join('・')}</span>
           </label>
         ))}
-        {!shown.length && dry.state !== 'loading' && <p className="py-3 text-center text-sm text-muted">この区分に送れる人がいません</p>}
+        {on && !shown.length && dry.state !== 'loading' && <p className="py-3 text-center text-sm text-muted">この区分に送れる人がいません</p>}
       </div>
       <p className="mt-1 text-xs text-faint">公式LINE（あおい）を 1:1 で追加している人だけが出ます。グループ宛ての案内は今の配信画面から。</p>
     </Step>
@@ -177,14 +172,14 @@ function SendView({ on, canSend, wide, onSent }: { on: boolean; canSend: boolean
 
 function ProgressView({ on, wide }: { on: boolean; wide: boolean }) {
   const list = useHaishinRead<PollListRes>(on ? 'poll-list' : null);
-  const polls: PollRow[] = on ? list.data?.polls ?? [] : SAMPLE_POLLS;
+  const polls: PollRow[] = on ? list.data?.polls ?? [] : [];
   const [openId, setOpenId] = useState<string | null>(null);
   if (openId) return <PollDetail id={openId} on={on} wide={wide} onBack={() => setOpenId(null)} />;
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-3">
-      {on && list.state === 'loading' && <p className="text-body text-muted">読み込み中…</p>}
+      {(!on || list.state === 'loading') && <p className="text-body text-muted">読み込み中…</p>}
       {on && list.error && <Note tone="bad">{list.error}</Note>}
-      {!polls.length && list.state !== 'loading' && <p className="py-6 text-center text-sm text-muted">送った案内はまだありません</p>}
+      {on && !polls.length && list.state !== 'loading' && <p className="py-6 text-center text-sm text-muted">送った案内はまだありません</p>}
       {polls.map((p, i) => {
         const s = p.summary;
         const remain = s ? (p.choices.length ? s.unanswered : Math.max(0, s.delivered - (p.replied ?? 0))) : 0;
@@ -213,7 +208,7 @@ function ProgressView({ on, wide }: { on: boolean; wide: boolean }) {
 
 function PollDetail({ id, on, wide, onBack }: { id: string; on: boolean; wide: boolean; onBack: () => void }) {
   const d = useHaishinRead<PollDetailRes>(on ? 'poll-detail' : null, { id });
-  const data = on ? d.data : samplePollDetail(id);
+  const data = on ? d.data : null;
   const [f, setF] = useState<'all' | 'answered' | 'unanswered' | 'replied'>('all');
   const poll = data?.poll;
   const label = (k: string | null) => poll?.choices.find((c) => c.key === k)?.label ?? '';
@@ -222,7 +217,7 @@ function PollDetail({ id, on, wide, onBack }: { id: string; on: boolean; wide: b
     <div className="flex min-h-0 flex-1 flex-col">
       <button onClick={onBack} className="border-b border-line-soft px-4 py-2 text-left text-sm text-muted">← 案内の一覧 ／ <b className="text-ink">{poll?.title ?? '…'}</b></button>
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-        {on && d.state === 'loading' && <p className="text-body text-muted">読み込み中…</p>}
+        {(!on || d.state === 'loading') && <p className="text-body text-muted">読み込み中…</p>}
         {on && d.error && <Note tone="bad">{d.error}</Note>}
         {poll && data?.summary && (
           <div className="mb-2.5 flex flex-wrap gap-1.5 text-sm">
@@ -246,7 +241,7 @@ function PollDetail({ id, on, wide, onBack }: { id: string; on: boolean; wide: b
               </div>
             );
           })}
-          {!ts.length && d.state !== 'loading' && <p className="py-4 text-center text-sm text-muted">{f === 'unanswered' ? '全員答えてくれました' : '該当する人はいません'}</p>}
+          {on && !ts.length && d.state !== 'loading' && <p className="py-4 text-center text-sm text-muted">{f === 'unanswered' ? '全員答えてくれました' : '該当する人はいません'}</p>}
         </div>
         {poll?.message && <details className="mt-3 text-sm text-muted"><summary className="cursor-pointer">送った本文</summary><p className="mt-1 whitespace-pre-wrap">{poll.message}</p></details>}
       </div>

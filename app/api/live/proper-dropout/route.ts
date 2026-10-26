@@ -14,7 +14,7 @@ const PHASES = ['eigyo', 'kettei', 'kadou'];
 const AFTERS = ['mark', 'taisha', 'taiki'];
 
 export async function POST(req: Request) {
-  if (!(await ikeToken())) return NextResponse.json({ ok: false, sample: true, error: '見本なので保存していません' }, { status: 401 });
+  if (!(await ikeToken())) return NextResponse.json({ ok: false, error: 'ログインしてください' }, { status: 401 });
   const b = (await req.json().catch(() => ({}))) as { name?: unknown; row?: unknown; on?: unknown; phase?: unknown; after?: unknown };
   const name = typeof b.name === 'string' ? b.name.trim() : '';
   if (!name || name.length > 60) return NextResponse.json({ ok: false, error: '氏名が違います' }, { status: 400 });
