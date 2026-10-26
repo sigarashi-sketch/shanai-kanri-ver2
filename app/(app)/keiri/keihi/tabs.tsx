@@ -103,7 +103,46 @@ export function KeihiMonthlyTab({ live, mk }: { live: boolean; mk: Mikeiken }) {
         </div>
       )}
       {!live && <p className="text-xs text-faint">支払済にする操作は、ログインすると今の社内システムに書きます（定期の打刻の確認が済んでから）。</p>}
+      {hasMf && <MfClaimsList rows={mfRows} />}
       {confirm && <ConfirmWrite spec={confirm} onClose={() => setConfirm(null)} />}
+    </div>
+  );
+}
+
+// マネフォの申請の一覧（10-26 shoya「申請内容見れないのかな」）。MF の申請一覧CSV は1行＝1申請なので、出せるのはタイトル・状態・金額・日付まで（明細は無い）
+const MF_TONE: Record<string, string> = { 承認済み: 'text-ok', 第一承認待ち: 'text-warn', 差戻し: 'text-bad', 下書き: 'text-muted', 取消し: 'text-faint' };
+function MfClaimsList({ rows }: { rows: MfKeihi['rows'] }) {
+  const [st, setSt] = useState('すべて');
+  const sts = ['すべて', ...Object.keys(MF_TONE).filter((k) => rows.some((r) => r.status === k)), ...[...new Set(rows.map((r) => r.status))].filter((k) => !(k in MF_TONE))];
+  const shown = rows.filter((r) => st === 'すべて' || r.status === st).sort((a, b) => a.name.localeCompare(b.name, 'ja') || a.appliedAt.localeCompare(b.appliedAt));
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <b className="text-body">マネフォの申請 {rows.length}件</b>
+        <div role="tablist" className="flex flex-wrap gap-1">
+          {sts.map((k) => <button key={k} role="tab" aria-selected={st === k} onClick={() => setSt(k)} className="tab">{k}{k !== 'すべて' && ` ${rows.filter((r) => r.status === k).length}`}</button>)}
+        </div>
+        <span className="text-xs text-faint">明細（日付・区間・科目）は申請一覧の CSV に無いので出せません</span>
+      </div>
+      <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+        <table className="w-full min-w-[760px] border-collapse text-body">
+          <thead><tr className="th-row text-left"><th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">タイトル</th><th className="px-2 py-2.5 font-semibold">状態</th><th className="px-2 py-2.5 text-right font-semibold">金額</th><th className="px-2 py-2.5 font-semibold">申請</th><th className="px-2 py-2.5 font-semibold">承認</th><th className="px-4 py-2.5 font-semibold">支払日</th></tr></thead>
+          <tbody>
+            {shown.map((r) => (
+              <tr key={r.no} className="row border-t border-line-soft">
+                <td className="px-4 py-2"><PersonName name={r.name} className="font-semibold underline-offset-2 hover:underline" /></td>
+                <td className="px-2 py-2 text-sm">{r.title}<span className="num ml-1.5 text-xs text-faint">#{r.no}</span></td>
+                <td className={`px-2 py-2 text-sm font-semibold ${MF_TONE[r.status] || ''}`}>{r.status}</td>
+                <td className="num px-2 py-2 text-right">{yen(r.amount)}</td>
+                <td className="num px-2 py-2 text-sm">{r.appliedAt.slice(5).replace('-', '/') || '—'}</td>
+                <td className="num px-2 py-2 text-sm">{r.approvedAt.slice(5).replace('-', '/') || '—'}</td>
+                <td className="num px-4 py-2 text-sm">{r.payOn ? r.payOn.slice(5).replace('-', '/') : '—'}</td>
+              </tr>
+            ))}
+            {shown.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-sm text-muted">この状態の申請はありません</td></tr>}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
