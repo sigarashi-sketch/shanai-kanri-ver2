@@ -38,13 +38,13 @@ export function needText(need: Level) {
   return `「${levelLabel(need)}」の権限が要ります`;
 }
 
-export function NoAccess({ label }: { label: string }) {
+export function NoAccess({ label, legacy }: { label: string; legacy?: boolean }) {
   return (
     <main className="px-6 pb-12 pt-[22px]">
       <div className="mo-fade-up rounded-xl border border-line bg-surface px-8 py-14 text-center">
         <Lock className="mx-auto text-faint" size={28} />
         <h1 className="mt-3 text-xl font-bold">{label}を見る権限がありません</h1>
-        <p className="mt-2 text-body text-muted">必要なときは、全体管理者に「権限管理」で付けてもらってください。</p>
+        <p className="mt-2 text-body text-muted">{legacy ? 'データは今の社内システムから読むので、今の社内システムの「ロール別ページ表示」で開けるロールだけが見られます。必要なときは全体管理者に付けてもらってください。' : '必要なときは、全体管理者に「権限管理」で付けてもらってください。'}</p>
         <Link href="/" className="btn mt-5 bg-sumi text-white">ホームへ</Link>
       </div>
     </main>

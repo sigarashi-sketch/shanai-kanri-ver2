@@ -31,6 +31,16 @@ export const HORYU_PAGE_KEY: Record<string, string> = {
   '/horyu/client-links': 'client-links',
   '/horyu/client': 'client-links',
   '/horyu/juchu': 'juchu',
+  // 経理管理・勤怠の締め（10-26 解放で sales_admin が開いて forbidden）。データの口が今のシステムでこのページ権限を見るので、メニューも同じ鍵で絞る
+  '/keiri/keihi': 'keihi-admin',        // api/keihi adminList
+  '/keiri/check': 'keihi-check',        // api/freee-kintai?action=keihi
+  '/keiri/kintai-shogo': 'kintai-shime', // api/roster?op=shime
+  '/roumu/shime': 'kintai-shime',
+  '/keiri/seikyu': 'seikyu-make',       // seikyu の make・saved-list など（MAKE_ACTIONS）
+  '/keiri/seikyu-zukuri': 'seikyu',
+  '/keiri/seikyu-make': 'seikyu-make',
+  '/keiri/kakunou': 'seikyu-make',
+  '/keiri/chingin': 'seikyu-arari',     // seikyu の arari（ARARI_ACTIONS）
 };
 
 export type PageAccess = { role: string; pageAccess: Record<string, boolean> };
