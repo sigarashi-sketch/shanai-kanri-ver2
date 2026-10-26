@@ -5,13 +5,15 @@ import { AlertTriangle, Search, Sparkles, ThumbsUp } from 'lucide-react';
 import { AI_SAMPLE, KB, KB_CATS, type KbCat } from '@/lib/kb-sample';
 import { PageTitle } from '@/components/ui';
 import { useMotivation } from '@/components/Motivation';
-import { LIVE_WRITE_BLOCKED, LiveBanner, useIke } from '@/components/Live';
+import { LiveBanner, useIke } from '@/components/Live';
+import { setMark, useMarks } from '@/lib/live/roumu';
 import { KbPdf } from './pdf';
 import { kbParas, type IkeKbGet, type IkeKbList, type IkeKbSearch } from '@/lib/live/kb';
 
 // 労務法務ナレッジ（労務/営業管理）＝内勤がよく聞かれる労務・契約の質問を検索して読む Q&A。
 //   ・カテゴリのチップと検索（質問・答え・タグを探す）。?q= で検索語を入れて開ける
 //   ・偽装請負・多重派遣は「やってはいけない」を赤い枠ではっきり出す
+//   ・本物の「役に立った」は今のシステムの印（roumu_marks kind=kb-helpful・記事ごとに1つ・もう一度押すと外す・10-26）
 //   ・「AIに聞く」は見本の答えを出すだけ（本物の AI にはつながない）。各回答の下に「最終判断は社労士・法務に」
 export default function KbPage() {
   const { hit, toast } = useMotivation();
@@ -31,6 +33,12 @@ export default function KbPage() {
   const live = ike.live && !!ike.data?.ok;
   const art = useIke<IkeKbGet>(live && lopen ? `kb?action=get&id=${encodeURIComponent(lopen)}` : null);
   const srch = useIke<IkeKbSearch>(live && ask ? `kb?action=testSearch&q=${encodeURIComponent(ask)}` : null);
+  const helpMarks = useMarks(['kb-helpful'], undefined, live);
+  const toggleHelp = async (id: string, title: string) => {
+    const on = !!helpMarks.get('kb-helpful', id);
+    try { await setMark('kb-helpful', id, on ? '' : '役に立った'); helpMarks.reload(); if (!on) { hit(); toast({ text: `「${title}」に役に立ったを付けました`, sub: '→ よく使われる記事として残ります', undo: () => { setMark('kb-helpful', id, '').then(() => helpMarks.reload()); } }); } }
+    catch (e) { toast({ text: '付けられませんでした', sub: (e as Error).message }); }
+  };
   const lrows = (ike.data?.rows || []).filter((r) => !lcat || r.category === lcat).sort((a, b) => Number(b.published) - Number(a.published) || String(b.updated_at || '').localeCompare(String(a.updated_at || '')));
 
   const words = q.trim().split(/\s+/).filter(Boolean);
@@ -102,7 +110,9 @@ export default function KbPage() {
                     <div className="mt-2 flex flex-wrap gap-1">{k.tags.map((t) => <button key={t} onClick={() => { setQ(t); setLcat(''); setAsk(''); }} className="rounded-full bg-soft px-2 py-0.5 text-xs text-muted">#{t}</button>)}</div>
                     <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line-soft pt-2.5">
                       <span className="text-xs text-faint">最終判断は社労士・法務に確認してください。{k.source && `出どころ：${k.source}`}</span>
-                      <button disabled title={LIVE_WRITE_BLOCKED} className="btn-secondary ml-auto btn-sm"><ThumbsUp size={13} />役に立った？</button>
+                      {helpMarks.get('kb-helpful', k.id)
+                        ? <button onClick={() => toggleHelp(k.id, k.title)} title="もう一度押すと外します" className="btn-secondary ml-auto btn-sm" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}><ThumbsUp size={13} />役に立った</button>
+                        : <button onClick={() => toggleHelp(k.id, k.title)} className="btn-secondary ml-auto btn-sm"><ThumbsUp size={13} />役に立った？</button>}
                     </div>
                   </div>
                 )}

@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { LiveBanner, useIke } from '@/components/Live';
+import { CONTACT_KIND_LABEL, setMark, useMarks, type IkeContacts } from '@/lib/live/roumu';
 import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
 import { postLive } from '@/lib/live/post';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
-import { EVIDENCE_MAX, EVIDENCE_MAX_BYTES, kekkinFromIke, monthLabel, ymOfOffset, type IkeKekkin, type IkeKekkinRow } from '@/lib/live/kekkin';
+import { EVIDENCE_MAX, EVIDENCE_MAX_BYTES, kekkinDay, kekkinFromIke, monthLabel, ymOfOffset, type IkeKekkin, type IkeKekkinRow } from '@/lib/live/kekkin';
 import Link from 'next/link';
 import { AlertTriangle, Check, Paperclip, Trash2, X } from 'lucide-react';
 import { ABSENCES, KINDS, REASONS, STEPS, type Absence, type Kind } from '@/lib/kekkin-sample';
@@ -36,9 +37,26 @@ export default function KekkinPage() {
   const ike = useIke<IkeKekkin>(`roster?op=kekkin&action=list&month=${ym}`);
   const live = ike.live && !!ike.data?.ok;
   const mk = useMikeiken();   // 本物は未経験の人だけ（今のプロパーリストに入っている人）
-  const liveRows = live && ike.data ? kekkinFromIke({ ...ike.data, rows: mk.keep(ike.data.rows || [], 'name') }, month) : [];
+  // 本物（10-26）：勤怠連絡の本文と見分け（kintai_contacts）・見分けの直し／現場に連絡済み の印（roumu_marks）を重ねる
+  const cq = useIke<IkeContacts>(live ? `roster?op=roumu&action=contacts&month=${ym}` : null);
+  const km = useMarks(['kekkin-site', 'contact-kind'], ym, live);
+  const contactsBy = new Map<string, NonNullable<IkeContacts['rows']>>();
+  for (const c of cq.data?.ok ? mk.keep(cq.data.rows, 'name') : []) { const k = `${c.date}|${c.nn}`; contactsBy.set(k, [...(contactsBy.get(k) || []), c]); }
+  const ctext = (k: string) => (contactsBy.get(k) || []).map((c) => `${c.at ? new Date(c.at).toLocaleTimeString('ja-JP', { timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit' }) + ' ' : ''}${c.text}`).join('\n');
+  const base = live && ike.data ? kekkinFromIke({ ...ike.data, rows: mk.keep(ike.data.rows || [], 'name') }, month) : [];
+  const have = new Set(base.map((a) => a.id));
+  const extra = [...contactsBy.entries()].filter(([k, cs]) => !have.has(k) && cs.some((c) => c.kind !== 'absent')).map(([k, cs]) => {
+    const c = cs[0];
+    const kind = CONTACT_KIND_LABEL[(cs.find((x) => x.kind !== 'unknown') || c).kind] as Kind;
+    return { id: k, personId: c.nn, name: c.name, site: '勤怠連絡から', sales: c.tantou || '未設定', month: month as Absence['month'], day: kekkinDay(c.date), at: '—', route: (c.source === '1:1' ? '公式LINE（1:1）' : 'グループLINE') as Absence['route'], text: '', kind, reason: '未分類', siteNotified: false, evidence: 0, beforeRule: !!ike.data?.ruleStart && c.date < ike.data.ruleStart } as Absence & { evidence: number; beforeRule: boolean };
+  });
+  const liveRows = [...base, ...extra].map((a) => {
+    const t = ctext(a.id);
+    const over = km.get('contact-kind', a.id)?.value as Kind | undefined;
+    return { ...a, text: t || a.text, kind: over || a.kind, siteNotified: !!km.get('kekkin-site', a.id) };
+  }).sort((a, b) => (a.id < b.id ? 1 : -1));
   const ruleCount = (rs: Absence[]) => rs.filter((r) => r.kind === '欠勤' && !(r as { beforeRule?: boolean }).beforeRule).length;
-  const todoOf = (a: Absence) => (live ? a.reason === '未分類' : todo(a));
+  const todoOf = (a: Absence) => (live ? (a.kind === '欠勤' && (a.reason === '未分類' || !a.siteNotified)) || a.kind === '未確認' : todo(a));
   const okEdit = canEdit;
   const block = !canEdit ? needText('edit') : undefined;
   // 本物（10-25）：理由・エビデンス・行を消す を今の欠勤管理に書く。行は id（日付|氏名）で今の行を引く
@@ -52,7 +70,10 @@ export default function KekkinPage() {
     catch (e) { setErr(`${a.name} の ${a.day}：${(e as Error).message}`); }
     finally { setBusy(null); }
   };
-  const saveReason = (a: Absence, v: string) => { const r = rawOf(a.id); if (r) liveDo(a, () => postLive('/api/live/kekkin', { action: 'save', date: r.date, name: r.name, reason: v === '未分類' ? '' : v }), `${a.name} の理由を「${v}」にしました`, '→ 今の欠勤管理に残しました'); };
+  const saveReason = (a: Absence, v: string) => { const r = rawOf(a.id); const date = r?.date || a.id.split('|')[0]; const name = r?.name || a.name; liveDo(a, () => postLive('/api/live/kekkin', { action: 'save', date, name, reason: v === '未分類' ? '' : v }), `${a.name} の理由を「${v}」にしました`, '→ 今の欠勤管理に残しました'); };
+  // 見分けの直し（欠勤／遅刻／後日の相談／欠勤ではない）と、現場に連絡済みの印。今の欠勤の回数（今の決まり）は理由の入った欠勤の行で数える
+  const saveKind = (a: Absence, v: string) => liveDo(a, async () => { await setMark('contact-kind', a.id, v, { nn: a.personId, ym }); km.reload(); }, `${a.name} の ${a.day} を「${v}」にしました`, v === '欠勤' ? '→ 欠勤なら理由を選んでください（理由を入れると今の欠勤管理の行になります）' : '→ 見分けを残しました');
+  const saveSite = (a: Absence, on: boolean) => liveDo(a, async () => { await setMark('kekkin-site', a.id, on ? '連絡済み' : '', { nn: a.personId, ym }); km.reload(); }, on ? `${a.name} の欠勤を現場に伝えた印を付けました` : '現場に伝えた印を外しました', '→ 今の社内システムに残しました');
   const attach = (a: Absence, f: File) => {
     const r = rawOf(a.id); if (!r) return;
     if (f.size > EVIDENCE_MAX_BYTES) { setErr(`ファイルは ${EVIDENCE_MAX_BYTES / 1048576}MB までです`); return; }
@@ -103,14 +124,14 @@ export default function KekkinPage() {
       <LiveBanner state={ike.live && !ike.data?.ok ? 'error' : ike.state} error={ike.error || ike.data?.error} onReload={ike.reload}
         note={`理由・エビデンスは本物の欠勤管理に書きます。ファイルの中身（診断書など）はここでは開きません。${ike.data?.unresolved ? `氏名が引けなかった連絡 ${ike.data.unresolved}件は載っていません。` : ''}`} />
       <MikeikenNote mk={mk} live={live} />
-      {live && <NotInLegacy what="連絡の本文・遅刻や後日の相談の見分け・現場に連絡済みの印" />}
+      {live && cq.state === 'error' && <div className="text-sm text-muted">勤怠連絡の本文は読めませんでした（{cq.error}）</div>}
       {err && <div className="rounded-xl px-4 py-2.5 text-sm" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>{err}</div>}
       {ike.state === 'loading' ? <div className="rounded-xl border border-line bg-surface"><SkeletonRows /></div> : <>
 
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <RemainRing remain={open.length} total={Math.max(initialOpen, open.length, 1)} />
-        <div className="text-body"><b>{live ? '理由が未分類の欠勤' : '確かめる連絡'} 残り {open.length}件</b>
-          {!live && <span className="ml-2 text-muted">未確認 {open.filter((r) => r.kind === '未確認').length}・現場にまだ伝えていない {inMonth.filter((r) => r.kind === '欠勤' && !r.siteNotified).length}・理由が未分類 {inMonth.filter((r) => r.kind === '欠勤' && r.reason === '未分類').length}</span>}
+        <div className="text-body"><b>確かめる連絡 残り {open.length}件</b>
+          {<span className="ml-2 text-muted">未確認 {open.filter((r) => r.kind === '未確認').length}・現場にまだ伝えていない {inMonth.filter((r) => r.kind === '欠勤' && !r.siteNotified).length}・理由が未分類 {inMonth.filter((r) => r.kind === '欠勤' && r.reason === '未分類').length}</span>}
           {!canEdit && <div className="text-sm text-bad">{needText('edit')}</div>}
         </div>
         <Link href="/jinji/rishoku" className="ml-auto text-sm font-semibold" style={{ color: 'var(--ad)' }}>離職リスクへ</Link>
@@ -137,19 +158,19 @@ export default function KekkinPage() {
             {p.rs.map((a) => (
               <li key={a.id} className={`grid gap-2 border-t border-line-soft px-4 py-2.5 first:border-t-0 md:grid-cols-[130px_1fr] xl:grid-cols-[150px_1fr_auto] ${flash === a.id ? 'mo-flash' : ''}`}>
                 <div className="text-sm"><div className="num font-semibold">{a.day}</div><div className="text-xs text-faint">{a.route}{a.at !== '—' && `・${a.at}`}</div></div>
-                <div className="rounded-[10px] bg-soft px-3 py-2 text-sm">{a.text}{live && (a as { evidence?: number }).evidence ? <span className="ml-2 text-xs text-faint">添付 {(a as { evidence?: number }).evidence}件</span> : null}{live && (a as { beforeRule?: boolean }).beforeRule && <span className="ml-2 text-xs text-faint">（数え始める前の日）</span>}</div>
+                <div className="whitespace-pre-line rounded-[10px] bg-soft px-3 py-2 text-sm">{a.text}{live && (a as { evidence?: number }).evidence ? <span className="ml-2 text-xs text-faint">添付 {(a as { evidence?: number }).evidence}件</span> : null}{live && (a as { beforeRule?: boolean }).beforeRule && <span className="ml-2 text-xs text-faint">（数え始める前の日）</span>}</div>
                 <div className="flex flex-wrap items-center gap-1.5 md:col-start-2 xl:col-start-auto">
-                  {!live && <select aria-label="この連絡は" value={a.kind} disabled={!okEdit} title={block} className={sel}
+                  {<select aria-label="この連絡は" value={a.kind} disabled={!okEdit || busy === a.id} title={block} className={sel}
                     style={{ background: `var(--tone-${KIND_TONE[a.kind]}-bg)`, color: `var(--tone-${KIND_TONE[a.kind]}-fg)` }}
-                    onChange={(e) => change(a, { kind: e.target.value as Kind }, `${a.name} の ${a.day} を「${e.target.value}」にしました`, e.target.value === '欠勤' ? '→ 名簿の欠勤の回数と、離職リスクの材料に反映しました' : '→ 欠勤の回数には数えません')}>
+                    onChange={(e) => live ? saveKind(a, e.target.value) : change(a, { kind: e.target.value as Kind }, `${a.name} の ${a.day} を「${e.target.value}」にしました`, e.target.value === '欠勤' ? '→ 名簿の欠勤の回数と、離職リスクの材料に反映しました' : '→ 欠勤の回数には数えません')}>
                     {KINDS.map((k) => <option key={k}>{k}</option>)}
                   </select>}
                   {a.kind === '欠勤' && <>
                     <select aria-label="理由" value={a.reason} disabled={!okEdit || busy === a.id} title={block} className={sel} onChange={(e) => live ? saveReason(a, e.target.value) : change(a, { reason: e.target.value }, `${a.name} の理由を「${e.target.value}」にしました`, '→ 欠勤の記録に反映しました')}>
                       {(live ? [...new Set(['未分類', ...(ike.data?.reasons || []), a.reason])] : REASONS).map((x) => <option key={x}>{x}</option>)}
                     </select>
-                    {!live && <label title={!canEdit ? needText('edit') : undefined} className={`inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2 text-sm ${a.siteNotified ? 'border-line text-ok' : 'border-field text-bad'}`}>
-                      <input type="checkbox" checked={a.siteNotified} disabled={!canEdit} onChange={(e) => change(a, { siteNotified: e.target.checked }, e.target.checked ? `${a.name} の欠勤を現場に伝えた印を付けました` : '現場に伝えた印を外しました', e.target.checked ? '→ 担当営業の「要対応」から外れました' : '→ 担当営業の「要対応」に戻しました')} />現場に連絡済み
+                    {<label title={!canEdit ? needText('edit') : undefined} className={`inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2 text-sm ${a.siteNotified ? 'border-line text-ok' : 'border-field text-bad'}`}>
+                      <input type="checkbox" checked={a.siteNotified} disabled={!canEdit || busy === a.id} onChange={(e) => live ? saveSite(a, e.target.checked) : change(a, { siteNotified: e.target.checked }, e.target.checked ? `${a.name} の欠勤を現場に伝えた印を付けました` : '現場に伝えた印を外しました', e.target.checked ? '→ 担当営業の「要対応」から外れました' : '→ 担当営業の「要対応」に戻しました')} />現場に連絡済み
                     </label>}
                     {live && (() => {
                       const r = rawOf(a.id);
@@ -179,7 +200,7 @@ export default function KekkinPage() {
       ))}
       </>}
       {confirm && <ConfirmWrite spec={confirm} onClose={() => setConfirm(null)} />}
-      <p className="text-xs text-faint">回数の数え方と段階の対応は今のシステムの決まり（10/5 から数える・診断書のある日は数えない）に合わせています。④は目安で、処分は人が決めます。欠勤控除・懲戒など最終判断は社労士・法務に確認してください。</p>
+      <p className="text-xs text-faint">連絡の見分け（欠勤・遅刻・後日の相談）は AI の下書きです。読んで直してください。回数の数え方と段階の対応は今のシステムの決まり（10/5 から数える・診断書のある日は数えない）に合わせています。④は目安で、処分は人が決めます。欠勤控除・懲戒など最終判断は社労士・法務に確認してください。</p>
     </main>
   );
 }

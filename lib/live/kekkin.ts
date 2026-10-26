@@ -12,6 +12,7 @@ export type IkeKekkin = { ok: boolean; error?: string; month: string; today: str
 
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 const dayLabel = (d: string) => { const t = new Date(d + 'T00:00:00Z'); return `${t.getUTCMonth() + 1}/${t.getUTCDate()}（${DOW[t.getUTCDay()]}）`; };
+export const kekkinDay = (d: string) => dayLabel(d);
 
 export const ymOfOffset = (back: number) => { const j = new Date(Date.now() + 9 * 3600_000); const d = new Date(Date.UTC(j.getUTCFullYear(), j.getUTCMonth() - back, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`; };
 export const monthLabel = (ym: string) => `${Number(ym.slice(5))}月`;

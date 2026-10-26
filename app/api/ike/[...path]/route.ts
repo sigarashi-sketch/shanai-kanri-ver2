@@ -13,7 +13,8 @@ const NOT_ALLOWED = 'この読み口は通していません';
 // '' は action（op）なし。roster のように op で分かれる口は 'op:action'
 const ALLOW: Record<string, readonly string[]> = {
   proxy: ['getProgressData', 'getProgressReplies', 'getMapData', 'getRosterStatus', 'getReplies', 'getGroupNames', 'getSalesTableData', 'getInterviews'],
-  roster: ['getEngineerRows', 'jimu:list', 'kekkin:list', 'shime:board', 'timesheet:list', 'eigyo:taiki', 'eigyo:direct'],   // eigyo:* は待機の状態・グループ直接の回収候補（10-26・SELECT だけ）
+  roster: ['getEngineerRows', 'jimu:list', 'kekkin:list', 'shime:board', 'timesheet:list', 'eigyo:taiki', 'eigyo:direct', 'shime:unread', 'roumu:marks', 'roumu:contacts', 'roumu:depcall', 'roumu:shime-todo', 'roumu:overtime', 'roumu:haken', 'roumu:shift-patterns'],
+  // ↑ eigyo:* は待機の状態・グループ直接の回収候補／roumu:* は労務（どちらも今のシステムの GET は SELECT だけ・10-26）
   'cases-map': ['list'],
   nippo: ['', 'pl-reps', 'masters'],   // masters＝成約日報の会社・現場マスタ（10-26・SELECT だけ）
   'partner-list': ['list', 'station'],

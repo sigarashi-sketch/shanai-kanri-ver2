@@ -2,15 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import { AlertTriangle, Bell, Check } from 'lucide-react';
-import { KYOTEI, LEAVES, LEVEL_STYLE, MONTH, OVERTIME, leaveLevel, otLevel, projection, type Level } from '@/lib/roumu-sample';
+import { KYOTEI, LEAVES, LEVEL_STYLE, MONTH, OVERTIME, leaveLevel, otLevel, projection, type Leave, type Level } from '@/lib/roumu-sample';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
-import { NotInLegacy } from '@/components/Live';
+import { useIke } from '@/components/Live';
+import { setMark, useMarks, type IkeOvertime } from '@/lib/live/roumu';
+import { useMikeiken } from '@/components/Mikeiken';
 import { stageTo, useRule } from '@/components/AlertStore';
 import { numOf } from '@/lib/alert-rules';
 import { PersonName } from '@/components/Person';
 import { OtLive, useOtProbe } from './live';
+import { NotifyButton, Spark, type Notify } from './parts';
 
 // 残業・36協定・有給（労務/営業管理）。
 //   ・残業：締め日時点の見込み（実績÷経過した所定日×今月の所定日）で、36協定の上限に近い人を色分けする
@@ -40,75 +43,65 @@ function OtBar({ actual, proj, lv }: { actual: number; proj: number; lv: Level }
   );
 }
 
-function Spark({ xs }: { xs: number[] }) {
-  const w = 64, h = 22, max = Math.max(KYOTEI.monthly + 5, ...xs);
-  const pts = xs.map((v, i) => `${(i / (xs.length - 1)) * w},${h - (v / max) * h}`).join(' ');
-  const y45 = h - (KYOTEI.monthly / max) * h;
-  return (
-    <svg width={w} height={h} aria-label={`直近6か月 ${xs.join('・')}時間`} role="img">
-      <line x1="0" x2={w} y1={y45} y2={y45} stroke="var(--color-field)" strokeDasharray="2 2" />
-      <polyline points={pts} fill="none" stroke="var(--a)" strokeWidth="1.6" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 export default function OvertimePage() {
   // タブはクエリから（hydration ずれを避けて useEffect で読む）。知らせた印はタブを行き来しても消えないよう、ここで持つ
   const [tab, setTab] = useState<'ot' | 'leave'>('ot');
   useEffect(() => { if (new URLSearchParams(window.location.search).get('tab') === 'leave') setTab('leave'); }, []);
   const go = (k: 'ot' | 'leave') => { setTab(k); window.history.replaceState(null, '', `/roumu/overtime${k === 'ot' ? '' : '?tab=leave'}`); };
-  const notify = useNotify();
-  // 本物（10-25）：ログイン中は残業のタブを当日の出勤状況の「当月の合計」から出す（./live.tsx）。有給の年5日は今のシステムに無いので見本のまま
+  // 本物（10-25/10-26）：残業の今月は当日の出勤状況の「当月の合計」から（./live.tsx）。年の累計・45h超えの回数・2〜6か月平均・有給の年5日は freee の月次の写しから（roster?op=roumu&action=overtime）
   const probe = useOtProbe();
   const live = !!probe.date && probe.names.state !== 'sample';
+  const oq = useIke<IkeOvertime>(live ? 'roster?op=roumu&action=overtime' : null);
+  const notify = useNotify(live, probe.date ? probe.date.slice(0, 7) : '');
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="残業・36協定・有給" sub={live ? '残業は今の社内システムの当月の合計（freee の月次）から出した目安です。有給の年5日は見本データ' : `${MONTH.label}（締め ${MONTH.closeOn}）・所定 ${MONTH.workdays}日のうち ${MONTH.passed}日経過・見本データ`} />
-      {/* 今の社内システムには残業の見込み・36協定の段階・有給の年5日を出す画面が無い。freee の月次の残業は1人ずつ freee を読む口（freee-kintai?action=monthly）しか無く、全員分の一覧の口は無いのでつながない */}
-      <NotInLegacy what={live ? '有給の年5日・残業の年の累計と45h超えの回数' : '残業の見込み・36協定・有給の年5日'} />
+      <PageTitle title="残業・36協定・有給" sub={live ? '残業の今月は freee の打刻から出した目安、年の累計・45h超えの回数・平均と有給は freee の月次の写しから出した目安です' : `${MONTH.label}（締め ${MONTH.closeOn}）・所定 ${MONTH.workdays}日のうち ${MONTH.passed}日経過・見本データ`} />
+      {live && oq.state === 'error' && <div className="text-sm text-muted">年の累計・有給は読めませんでした（{oq.error}）</div>}
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 1 }}>
         {([['ot', '残業・36協定'], ['leave', '有給の年5日']] as const).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="tab">{l}</button>
         ))}
       </div>
-      <div key={tab} className="mo-axis">{tab === 'ot' ? <OtTab n={notify} probe={live ? probe : null} /> : <LeaveTab n={notify} />}</div>
-      <p className="text-xs text-faint">36協定の数字は新宿事業所の協定届（令和7年11月1日〜令和8年10月31日）のものです。社員の数字は見本です。扱いに迷うものは社労士に確認してください。</p>
+      <div key={tab} className="mo-axis">{tab === 'ot' ? <OtTab n={notify} probe={live ? probe : null} year={oq.data?.ok ? oq.data : null} /> : <LeaveTab n={notify} live={live ? (oq.data?.ok ? oq.data : null) : undefined} loading={live && oq.state === 'loading'} />}</div>
+      <p className="text-xs text-faint">36協定の数字は新宿事業所の協定届（令和7年11月1日〜令和8年10月31日）のものです。{live ? '社員の数字は freee の月次から出した目安です（有給の付与日は「残りが増えた月」から推しています）。' : '社員の数字は見本です。'}36協定・有給の年5日の最終判断は社労士に確認してください。</p>
     </main>
   );
 }
 
-function useNotify() {
+function useNotify(live = false, ym = '') {
   const canEdit = usePerms().can('roumu', 'edit');
   const { hit, toast } = useMotivation();
-  const [sent, setSent] = useState<Record<string, string>>({});
+  const [sent0, setSent] = useState<Record<string, string>>({});
   const [flash, setFlash] = useState<string | null>(null);
+  const [err, setErr] = useState('');
+  // 本物は「知らせた」の印（roumu_marks の ot-notify／leave-notify・月ごと）。宛先へ送る仕組みは無いので送らない
+  const marks = useMarks(['ot-notify', 'leave-notify'], ym, live && !!ym);
+  const kindOf = (key: string) => (key.startsWith('ot-') ? 'ot-notify' : 'leave-notify') as 'ot-notify' | 'leave-notify';
+  const mk = (key: string) => `${ym}|${key.slice(3)}`;
+  const sent: Record<string, string> = live ? Object.fromEntries(marks.rows.map((r) => [`${r.kind === 'ot-notify' ? 'ot' : 'lv'}-${r.key.split('|')[1]}`, `${new Date(r.updated_at).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })} 知らせた印`])) : sent0;
   const send = (key: string, who: string, to: string[], what: string) => {
+    if (live) {
+      const kind = kindOf(key);
+      setErr('');
+      setMark(kind, mk(key), kind === 'ot-notify' ? '知らせた' : 'すすめた', { nn: key.slice(3), ym, note: to.join('・') })
+        .then(() => { setFlash(key); setTimeout(() => setFlash(null), 1300); hit(); marks.reload(); toast({ text: `${who} の${what}を知らせた印を付けました`, sub: `→ ${to.join('・')} への連絡はチャットで（ここからは送りません）`, undo: () => { setMark(kind, mk(key), '').then(() => marks.reload()).catch((e) => setErr((e as Error).message)); } }); })
+        .catch((e) => setErr(`${who}：${(e as Error).message}`));
+      return;
+    }
     setFlash(key); setTimeout(() => setFlash(null), 1300);
     setSent((s) => ({ ...s, [key]: `今日 ${to.join('・')}へ` }));
     hit();
     toast({ text: `${who} の${what}を知らせました`, sub: `→ ${to.join('・')} のやることに載りました`, undo: () => setSent((s) => { const n = { ...s }; delete n[key]; return n; }) });
   };
-  return { canEdit, sent, flash, send };
+  return { canEdit, sent, flash, send, err, live };
 }
-type Notify = ReturnType<typeof useNotify>;
 
 function EmptyRow({ cols }: { cols: number }) {
   return <tr><td colSpan={cols} className="px-4 py-8 text-center text-body text-muted">この段階の人はいません。</td></tr>;
 }
 
 /** 知らせるボタン。宛先が無い（知らせを止めている）ときは押せない。 */
-function NotifyButton({ n, k, who, to, what, label }: { n: Notify; k: string; who: string; to: string[]; what: string; label: string }) {
-  if (n.sent[k]) return <span className="inline-flex items-center gap-1 whitespace-nowrap text-sm font-semibold text-ok"><Check size={14} />{n.sent[k]}</span>;
-  const none = to.length === 0;
-  return (
-    <>
-      <button onClick={() => n.send(k, who, to, what)} disabled={!n.canEdit || none} title={!n.canEdit ? needText('edit') : none ? 'アラート設定で知らせを止めています' : `${to.join('・')}に知らせる`} className="inline-flex min-h-8 items-center gap-1.5 whitespace-nowrap rounded-lg border px-2.5 text-sm font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Bell size={14} />{label}</button>
-      <div className="mt-1 text-xs text-faint">{none ? '知らせを止めています' : to.join('・')}</div>
-    </>
-  );
-}
-
 function Filters({ counts, value, onChange }: { counts: Record<string, number>; value: Level | 'all'; onChange: (v: Level | 'all') => void }) {
   return (
     <div className="flex flex-wrap gap-2">
@@ -121,7 +114,7 @@ function Filters({ counts, value, onChange }: { counts: Record<string, number>; 
   );
 }
 
-function OtTab({ n, probe }: { n: Notify; probe: ReturnType<typeof useOtProbe> | null }) {
+function OtTab({ n, probe, year }: { n: Notify; probe: ReturnType<typeof useOtProbe> | null; year: IkeOvertime | null }) {
   const { flash } = n;
   const rule = useRule('overtime');
   const dangerRatio = ratioOf(rule.stages[2].when);
@@ -131,7 +124,7 @@ function OtTab({ n, probe }: { n: Notify; probe: ReturnType<typeof useOtProbe> |
   const counts: Record<string, number> = { all: rows.length };
   rows.forEach((r) => { counts[r.level] = (counts[r.level] ?? 0) + 1; });
   const yearCap = KYOTEI.special ? KYOTEI.spYearly : KYOTEI.yearly;
-  if (probe?.date) return probe.names.state === 'loading' ? null : <OtLive date={probe.date} names={probe.names} caution={ratioOf(rule.stages[0].when)} danger={dangerRatio} />;
+  if (probe?.date) return probe.names.state === 'loading' ? null : <OtLive date={probe.date} names={probe.names} caution={ratioOf(rule.stages[0].when)} danger={dangerRatio} year={year} n={n} to={TO} />;
 
   return (
     <div className="flex flex-col gap-3">
@@ -190,17 +183,26 @@ function OtTab({ n, probe }: { n: Notify; probe: ReturnType<typeof useOtProbe> |
   );
 }
 
-function LeaveTab({ n }: { n: Notify }) {
+function LeaveTab({ n, live, loading }: { n: Notify; live?: IkeOvertime | null; loading?: boolean }) {
   const { flash } = n;
   const [f, setF] = useState<Level | 'all'>('all');
   const rule = useRule('leave');
   const TO = (lv: Level) => stageTo(rule, lv);
   const dangerDays = numOf(rule.stages[2].when);
-  const rows = LEAVES.map((l) => ({ l, level: leaveLevel(l, dangerDays, numOf(rule.stages[1].when) / 100) })).sort((a, b) => ORDER.indexOf(a.level) - ORDER.indexOf(b.level) || a.l.daysLeft - b.l.daysLeft);
+  const mk = useMikeiken();
+  const today = Date.parse(new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10));
+  // 本物：年10日以上の付与が見つかった人だけ（付与の月＝有給の残りが増えた月の目安）
+  const src: Leave[] = live === undefined ? LEAVES : mk.keep((live?.rows || []).filter((r) => r.leave.grantYm && r.leave.granted >= 10), 'name').map((r) => ({
+    personId: r.nn, name: r.name, site: r.kubun ? `勤務区分 ${r.kubun}` : '', grantedOn: `${r.leave.grantYm.replace('-', '/')}（月の中）`, granted: r.leave.granted, taken: r.leave.taken,
+    deadline: r.leave.deadline.replace(/-/g, '/'), daysLeft: Math.round((Date.parse(r.leave.deadline) - today) / 86400e3),
+  })).filter((l) => l.daysLeft >= -31);
+  const rows = src.map((l) => ({ l, level: leaveLevel(l, dangerDays, numOf(rule.stages[1].when) / 100) })).sort((a, b) => ORDER.indexOf(a.level) - ORDER.indexOf(b.level) || a.l.daysLeft - b.l.daysLeft);
   const counts: Record<string, number> = { all: rows.length };
   rows.forEach((r) => { counts[r.level] = (counts[r.level] ?? 0) + 1; });
   return (
     <div className="flex flex-col gap-3">
+      {live !== undefined && <div className="rounded-xl border border-line bg-soft px-4 py-2.5 text-sm text-muted">{loading ? 'freee の月次の写しを読んでいます…' : `付与日は freee の「有給の残り」が増えた月から推した目安です（実際の付与日・日数は freee で確かめてください）。付与が見つかった人 ${src.length}人`}</div>}
+      {n.err && <div className="text-sm text-bad">{n.err}</div>}
       <div className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-muted">年10日以上の有給が付いた人は、<b className="text-ink">付いた日から1年のうちに5日</b>取ってもらう義務があります。期限までの残りと、取った日数の進み具合で色を付けています。</div>
       <Filters counts={counts} value={f} onChange={setF} />
       <div className="overflow-hidden rounded-xl border border-line bg-surface">

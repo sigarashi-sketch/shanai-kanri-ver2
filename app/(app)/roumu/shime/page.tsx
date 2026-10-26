@@ -7,7 +7,8 @@ import { OT_LINE, OT_REASONS, SHIME_MONTH, SHIME_ROWS, UNREADABLE_FIX, type Shim
 import { PageTitle, SkeletonRows } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
-import { LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { LiveBanner, useIke } from '@/components/Live';
+import { MARK_CHOICES, setMark, useMarks, type IkeShimeTodo } from '@/lib/live/roumu';
 import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
 import { postLive } from '@/lib/live/post';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
@@ -59,6 +60,19 @@ export default function ShimePage() {
   const mk = useMikeiken();   // 本物は未経験の人だけ（今のプロパーリストに入っている人）
   const lrows = live && ike.data ? shimeRowsOf({ ...ike.data, rows: mk.keep(ike.data.rows || [], 'name') }, ym) : [];
   const lopen = lrows.filter((r) => SHIME_LABEL[r.cell.status].todo);
+  // 本物（10-26）：締めの前のやること＝打刻なしの日（勤務表に時間があり freee に打刻が無い日）とその月の残業（freee の月次）・45h超の理由（印）
+  const todoQ = useIke<IkeShimeTodo>(live && ym ? `roster?op=roumu&action=shime-todo&ym=${ym}` : null);
+  const otm = useMarks(['shime-ot'], ym, live && !!ym);
+  const todoOf = new Map((todoQ.data?.ok ? todoQ.data.rows : []).map((x) => [x.key, x]));
+  const [rerr, setRerr] = useState('');
+  const saveOt = (r: ShimeLiveRow, v: string) => {
+    setRerr('');
+    setMark('shime-ot', `${ym}|${r.key}`, v, { nn: r.key, ym }).then(() => { hit(); otm.reload(); toast({ text: v ? `${r.name} の残業の理由を「${v}」にしました` : `${r.name} の残業の理由を外しました`, sub: '→ 今の社内システムに残しました' }); })
+      .catch((e) => setRerr(`${r.name}：${(e as Error).message}`));
+  };
+  const otOver = lrows.filter((r) => (todoOf.get(r.key)?.otH ?? 0) > OT_LINE);
+  const otLeft = otOver.filter((r) => !otm.get('shime-ot', `${ym}|${r.key}`)).length;
+  const punchLeft = lrows.filter((r) => SHIME_LABEL[r.cell.status].todo && (todoOf.get(r.key)?.noPunchDays || 0) > 0).length;
   // 本物の締め（10-25）：押す前に確認の窓。締め・開け直しは承認の権限（今のシステムもページ権限 kintai-shime で見る）
   const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
   // まとめて締めるのは、この一覧（未経験の人）で一致などになっている人だけ。1人ずつ close（サーバでも未経験・一致をもう一度確かめる）
@@ -71,7 +85,10 @@ export default function ShimePage() {
     const rs = reasonsFor(r.cell.status);
     setConfirm({
       title: `${r.name} の${ymLabel(ym)}を締める`, okLabel: rs.length ? '理由をつけて締める' : '締める', danger: rs.length > 0,
-      lines: [`状態：${SHIME_LABEL[r.cell.status].label}`, `勤務表／freee：${hhmm(r.cell.sheetMins)}／${hhmm(r.cell.freeeMins)}`, '締めた時点の時間を写しとして残します。直すときは開け直します'],
+      lines: [`状態：${SHIME_LABEL[r.cell.status].label}`, `勤務表／freee：${hhmm(r.cell.sheetMins)}／${hhmm(r.cell.freeeMins)}`,
+        ...((todoOf.get(r.key)?.noPunchDays || 0) > 0 ? [`打刻なしの日：${todoOf.get(r.key)!.noPunchDays}日（freee の打刻を本人に直してもらうか、理由を選んで締めます）`] : []),
+        ...((todoOf.get(r.key)?.otH ?? 0) > OT_LINE ? [`残業 ${todoOf.get(r.key)!.otH}h（45h超え）・理由：${otm.get('shime-ot', `${ym}|${r.key}`)?.value || 'まだ選んでいません'}`] : []),
+        '締めた時点の時間を写しとして残します。直すときは開け直します'],
       extra: rs.length ? <ReasonPick reasons={rs} /> : undefined,
       run: async () => {
         const reason = rs.length ? (document.getElementById('shime-reason') as HTMLSelectElement | null)?.value || '' : '';
@@ -153,7 +170,15 @@ export default function ShimePage() {
       <MikeikenNote mk={mk} live={live} />
 
       {live && <>
-        <NotInLegacy what="打刻漏れ・未承認の申請・残業の見込み（締めの前のやること）" />
+        {rerr && <div className="rounded-xl px-4 py-2.5 text-sm" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>{rerr}</div>}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm">
+          <b>締めの前のやること</b>
+          {todoQ.state === 'loading' ? <span className="text-faint">読んでいます…</span> : todoQ.state === 'error' ? <span className="text-bad">読めませんでした（{todoQ.error}）</span> : <>
+            <span className={punchLeft ? 'text-warn' : 'text-ok'}>打刻なしの日がある人 {punchLeft}人</span>
+            <span className={otLeft ? 'text-bad' : 'text-ok'}>残業 {OT_LINE}h 超えで理由がまだの人 {otLeft}人（超えた人 {otOver.length}人）</span>
+            <span className="text-muted">打刻修正・残業・有給の申請の承認は freee の画面で（今の freee 連携の権限に申請が入っていません）</span>
+          </>}
+        </div>
         <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
           <RemainRing remain={lopen.length} total={Math.max(lrows.length, 1)} />
           <div className="text-body"><b>{ymLabel(ym)}でまだ締めていない人 {lopen.length}人</b>
@@ -172,8 +197,8 @@ export default function ShimePage() {
         )}
         <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[820px] border-collapse text-body">
-              <thead><tr className="th-row text-left"><th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">状態</th><th className="px-2 py-2.5 font-semibold">勤務表／freee</th><th className="px-2 py-2.5 font-semibold">ずれ</th><th className="px-4 py-2.5 font-semibold" /></tr></thead>
+            <table className="w-full min-w-[1080px] border-collapse text-body">
+              <thead><tr className="th-row text-left"><th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">状態</th><th className="px-2 py-2.5 font-semibold">勤務表／freee</th><th className="px-2 py-2.5 font-semibold">ずれ</th><th className="px-2 py-2.5 font-semibold">打刻なしの日</th><th className="px-2 py-2.5 font-semibold">残業（freee の月次）</th><th className="px-4 py-2.5 font-semibold" /></tr></thead>
               <tbody>
                 {lrows.map((r, i) => {
                   const st = SHIME_LABEL[r.cell.status];
@@ -183,6 +208,15 @@ export default function ShimePage() {
                       <td className="px-2 py-2.5"><span className="chip" style={{ background: `var(--tone-${st.tone}-bg)`, color: `var(--tone-${st.tone}-fg)` }}>{st.label}</span>{r.cell.status === 'closed' && r.cell.reason && <div className="mt-1 text-xs text-faint">理由：{r.cell.reason}</div>}</td>
                       <td className="num px-2 py-2.5 text-sm">{hhmm(r.cell.sheetMins)}／{hhmm(r.cell.freeeMins)}</td>
                       <td className="px-2 py-2.5 text-sm">{r.cell.diffMins == null ? <span className="text-faint">—</span> : r.cell.diffDays ? <span className="font-semibold text-warn">勤務表のほうが{r.cell.diffMins > 0 ? '長い' : '短い'} {hhmm(r.cell.diffMins)}・ずれた日 {r.cell.diffDays}日</span> : <span className="text-ok">合っている</span>}</td>
+                      <td className="px-2 py-2.5 text-sm">{(() => { const t = todoOf.get(r.key); if (!t || !t.sheetKnown) return <span className="text-faint">—</span>; return t.noPunchDays ? <span className="font-semibold text-warn" title={t.noPunchDates.map((d) => d.slice(5).replace('-', '/')).join('・')}>{t.noPunchDays}日<span className="ml-1 font-normal text-faint">{t.noPunchDates.slice(0, 3).map((d) => d.slice(5).replace('-', '/')).join('・')}{t.noPunchDays > 3 ? '…' : ''}</span></span> : <span className="text-ok">なし</span>; })()}</td>
+                      <td className="px-2 py-2.5 text-sm">{(() => {
+                        const t = todoOf.get(r.key); if (!t || t.otH == null) return <span className="text-faint">—</span>;
+                        const over = t.otH > OT_LINE; const m = otm.get('shime-ot', `${ym}|${r.key}`);
+                        return <div className="flex flex-col items-start gap-1"><span className={`num ${over ? 'font-bold text-bad' : 'text-muted'}`}>{t.otH}h</span>
+                          {over && <select aria-label={`${r.name} の残業の理由`} value={m?.value || ''} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} onChange={(e) => saveOt(r, e.target.value)} className={sel}>
+                            <option value="">{OT_LINE}h 超え・理由を選ぶ</option>{MARK_CHOICES['shime-ot'].map((x) => <option key={x}>{x}</option>)}
+                          </select>}</div>;
+                      })()}</td>
                       <td className="px-4 py-2.5 text-right">{st.todo && <button onClick={() => askClose(r)} disabled={!canApprove} title={lock} className={btn}>締める</button>}
                         {r.cell.status === 'closed' && <button onClick={() => askReopen(r)} disabled={!canApprove} title={lock} className={`${btn} inline-flex items-center gap-1`}><Unlock size={12} />開け直す</button>}</td>
                     </tr>
@@ -262,7 +296,7 @@ export default function ShimePage() {
       )}
       </>}
       {confirm && <ConfirmWrite spec={confirm} onClose={() => setConfirm(null)} />}
-      <p className="text-xs text-faint">勤務表と freee の打刻は日ごとに比べ、1日30分未満のずれは合っている扱いにしています。締めはこの画面の印だけで、freee の月次の締めはしません（見本の中だけで動きます）。残業・欠勤控除など労務の最終判断は社労士に確認してください。</p>
+      <p className="text-xs text-faint">勤務表と freee の打刻は日ごとに比べ、1日30分未満のずれは合っている扱いにしています。締めはこの画面の印だけで、freee の月次の締めはしません。残業は freee の月次（法定外＋法定休日）です。残業・欠勤控除・36協定など労務の最終判断は社労士に確認してください。</p>
     </main>
   );
 }
