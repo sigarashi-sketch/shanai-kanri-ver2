@@ -3,7 +3,7 @@
 //     LINE・勤務区分・シフト表・freee招待・ミンミカ総務手続き7項目・次にやること（今のシステムが上から順に決める）
 //   ★今のシステムには 営業 → 人事 → 労務 の列は無い。「次にやること」の中身で列に振り分けて見せるだけ（読むだけ）
 //   ★次にやることが「対応なし」の人は、参画予定（まだ入場前）の人だけ「完了」に出す（稼働中で対応なしの人は出さない）
-import type { Lane } from '@/lib/jimu-sample';
+import type { Lane } from '@/lib/types/jinji';
 import { staffIdOf } from './staff';
 
 export type IkeJimuRow = {

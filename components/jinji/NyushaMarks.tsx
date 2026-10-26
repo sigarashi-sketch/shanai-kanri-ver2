@@ -9,7 +9,7 @@ import { useLiveWrite, WriteError } from './useLiveWrite';
 // 入社手続きの印（今の入社手続きの画面 nyusha-admin.html と同じ・10-25）。人ごとに 雇用契約サイン〜雇用保険証 を「済み／対象外／まだ」から選ぶ。
 //   ・選んだらすぐ保存（取り消すで戻る）。メモは欄を離れたら保存
 //   ・印は人が付ける（freee・クラウドサインからは取らない）。参画決定から60日以内の人＋付けかけの人
-//   ・見本（ログインしていない）のときは画面の中だけ
+//   ・読めないとき（ログインしていない）は出さない
 type Check = { v: 'done' | 'na'; at?: string; by?: string };
 type Row = { id: string; name: string; decided_at?: string; checks: Record<string, Check>; memo: string; progress?: { done: number; need: number; complete: boolean } };
 type Item = { key: string; label: string; opt?: boolean };
@@ -18,10 +18,6 @@ const URL = '/api/live/nyusha/progress';
 const ITEMS: Item[] = [
   { key: 'sign', label: '雇用契約サイン' }, { key: 'freee', label: 'freee 入社手続き' }, { key: 'rirekisho', label: '履歴書' },
   { key: 'kenshin', label: '健康診断' }, { key: 'gensen', label: '源泉徴収票', opt: true }, { key: 'koyou', label: '雇用保険証', opt: true },
-];
-const SAMPLE: Row[] = [
-  { id: '00000000-0000-0000-0000-000000000001', name: '加藤 葵', decided_at: '2026-10-20', checks: { sign: { v: 'done' } }, memo: '' },
-  { id: '00000000-0000-0000-0000-000000000002', name: '山田 太郎', decided_at: '2026-10-18', checks: {}, memo: '' },
 ];
 const LABEL = { done: '済み', na: '対象外', '': 'まだ' } as const;
 const progressOf = (c: Record<string, Check>, items: Item[]) => {
@@ -36,10 +32,10 @@ export function NyushaMarks() {
   const live = lv.live && !!lv.data;
   const [local, setLocal] = useState<Record<string, Partial<Row>>>({});
   const { send, error, setError } = useLiveWrite(live, () => { setLocal({}); lv.reload(); });
-  if (lv.state === 'loading') return null;
+  if (lv.state === 'loading' || lv.state === 'sample') return null;
   if (lv.state === 'error') return <div className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-muted">入社手続きの印：{lv.error}</div>;
   const items = live && lv.data!.items.length ? lv.data!.items : ITEMS;
-  const rows = (live ? lv.data!.rows : SAMPLE).map((r) => ({ ...r, ...(local[r.id] || {}) }));
+  const rows = (live ? lv.data!.rows : []).map((r) => ({ ...r, ...(local[r.id] || {}) }));
 
   const set = (r: Row, key: string, value: '' | 'done' | 'na') => {
     const prev = r.checks[key]?.v || '';
@@ -64,7 +60,7 @@ export function NyushaMarks() {
     <section className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface">
       <div className="px-4 py-3">
         <h2 className="text-md font-bold">入社手続きの印</h2>
-        <div className="text-sm text-faint">参画決定から60日以内の人と、付けかけの人。選んだらすぐ保存されます（源泉徴収票・雇用保険証は要る人だけ）{live ? '' : '・見本'}</div>
+        <div className="text-sm text-faint">参画決定から60日以内の人と、付けかけの人。選んだらすぐ保存されます（源泉徴収票・雇用保険証は要る人だけ）</div>
       </div>
       <div className="px-4"><WriteError error={error} onClose={() => setError('')} /></div>
       <div className="overflow-x-auto">

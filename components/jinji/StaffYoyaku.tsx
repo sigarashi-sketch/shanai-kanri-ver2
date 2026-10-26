@@ -137,7 +137,7 @@ export function StaffYoyaku({ live, people, yoyaku, today, onDone }: { live: boo
         {gap.state === 'loading' && <div className="text-sm text-muted">読み込み中…</div>}
         {gap.state === 'err' && <div className="text-sm text-bad">読めませんでした：{gap.err}</div>}
         {gap.state === 'ok' && gap.ready === false && <div className="text-sm text-muted">今月（{gap.curYm}）の稼働管理情報一覧がまだ取り込まれていないので、判定できません。</div>}
-        {gap.state === 'ok' && gap.ready !== false && gap.rows.length === 0 && <div className="text-sm text-muted">該当する人はいません{live ? '' : '（見本）'}。</div>}
+        {gap.state === 'ok' && gap.ready !== false && gap.rows.length === 0 && <div className="text-sm text-muted">該当する人はいません。</div>}
         {gap.state === 'ok' && gap.rows.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] border-collapse text-body">

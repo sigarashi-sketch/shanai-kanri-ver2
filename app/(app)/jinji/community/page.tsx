@@ -2,10 +2,10 @@
 
 import { useMemo, useState } from 'react';
 import { Check, Megaphone, Plus, Trash2, Users } from 'lucide-react';
-import { COMMUNITIES, EVENTS, MENDAN_THIS_WEEK, TARGETS, type Attendee, type CEvent } from '@/lib/community-sample';
+import { TARGETS, type Attendee, type CEvent } from '@/lib/types/jinji';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
-import { RemainRing, useMotivation } from '@/components/Motivation';
+import { RemainRing } from '@/components/Motivation';
 import { LiveBanner, useIke } from '@/components/Live';
 import { useLiveRoute } from '@/lib/live/use-live-route';
 import { JINJI_URL, jinjiRead, type JCommunity } from '@/lib/live/jinji';
@@ -31,9 +31,6 @@ const ST_TONE: Record<Attendee['state'], string> = { 参加: 'ok', 未定: 'caut
 
 export default function CommunityPage() {
   const canEdit = usePerms().can('jinji', 'edit');
-  const { hit, toast } = useMotivation();
-  const [events, setEvents] = useState<CEvent[]>(EVENTS);
-  const [called, setCalled] = useState<Record<string, string>>({ e3: '社員みんな' });
   const [target, setTarget] = useState<Record<string, string>>({});
   const [flash, setFlash] = useState<string | null>(null);
   const cm = useLiveRoute<JCommunity>(jinjiRead('community'));
@@ -41,7 +38,7 @@ export default function CommunityPage() {
   const { send, error: wErr, setError: setWErr } = useLiveWrite(cm.live, cm.reload);
   const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
   const [adding, setAdding] = useState(false);
-  // 本物：今の社内システムのコミュニティ（名前・リーダー・サブ・人数）だけ。勉強会・イベントと出欠は今のシステムに無いので見本のまま
+  // 今の社内システムのコミュニティ（名前・リーダー・サブ・人数）。勉強会・イベントと出欠は v2_community_event / v2_community_rsvp（cm）
   const ike = useIke<IkeTeams>('teams?action=list');
   const live = ike.live;
   // 本物は未経験の人だけ（今のプロパーリストに入っている人）：人数はメンバーのうち未経験の人・リーダーも未経験でなければ出さない
@@ -55,7 +52,7 @@ export default function CommunityPage() {
       subleader_name: t.subleader_name && mk.has(t.subleader_name) ? t.subleader_name : null,
     })),
   } : null), [ike.data, mk]);
-  const comms = live ? liveComms : COMMUNITIES;
+  const comms = live ? liveComms : [];
   // 本物の予定と出欠（未経験の人だけ）
   const liveEvents: CEvent[] = useMemo(() => (cm.data?.events || []).map((e) => ({
     id: e.id, date: e.date, time: e.time, title: e.title, kind: e.kind, host: e.host, place: e.place, cap: e.cap,
@@ -63,34 +60,22 @@ export default function CommunityPage() {
   })), [cm.data, mk]);
   const liveCalled = useMemo(() => Object.fromEntries((cm.data?.events || []).filter((e) => e.called_target).map((e) => [e.id, e.called_target])), [cm.data]);
   const L = live && cm.live;
-  const shownEvents = L ? liveEvents : events;
-  const calledNow = L ? liveCalled : called;
+  const shownEvents = L ? liveEvents : [];
+  const calledNow: Record<string, string> = L ? liveCalled : {};
   const remain = shownEvents.filter((e) => !calledNow[e.id]).length;
   const people = useMemo(() => mk.keep((staff.data?.rows || []).filter((x) => x.statusKey !== 'taisha'), 'name').map((x) => x.name).sort((a, b) => a.localeCompare(b, 'ja')), [staff.data, mk]);
   const call = (e: CEvent) => {
     const t = target[e.id] ?? targetsOf(e)[0];
-    if (L) {
-      send({ url: JINJI_URL, body: { action: 'community-call', id: e.id, target: t }, text: `「${e.title}」の参加の呼びかけを済みにしました（${t}）`, sub: '→ 呼びかけたと残しました（LINE は配信の画面から送ってください）', undo: () => ({ url: JINJI_URL, body: { action: 'community-call', id: e.id, target: '' } }) })
-        .then((x) => { if (x) { setFlash(e.id); setTimeout(() => setFlash(null), 1300); } });
-      return;
-    }
-    setCalled((c) => ({ ...c, [e.id]: t }));
-    setFlash(e.id); setTimeout(() => setFlash(null), 1300); hit();
-    toast({ text: `「${e.title}」の参加の呼びかけを作りました（${t}）`, sub: '→ LINE 配信の下書きに入りました（送るのは配信の画面から）', undo: () => setCalled((c) => { const n = { ...c }; delete n[e.id]; return n; }) });
+    send({ url: JINJI_URL, body: { action: 'community-call', id: e.id, target: t }, text: `「${e.title}」の参加の呼びかけを済みにしました（${t}）`, sub: '→ 呼びかけたと残しました（LINE は配信の画面から送ってください）', undo: () => ({ url: JINJI_URL, body: { action: 'community-call', id: e.id, target: '' } }) })
+      .then((x) => { if (x) { setFlash(e.id); setTimeout(() => setFlash(null), 1300); } });
   };
   const setState = (e: CEvent, a: Attendee, state: Attendee['state']) => {
-    if (L) {
-      send({ url: JINJI_URL, body: { action: 'community-rsvp', event_id: e.id, name: a.name, normalized_name: normName(a.name), state }, text: `${a.name} を「${state}」にしました`, sub: `→ ${e.title} の参加者に反映しました`, undo: () => ({ url: JINJI_URL, body: { action: 'community-rsvp', event_id: e.id, name: a.name, normalized_name: normName(a.name), state: a.state } }) });
-      return;
-    }
-    setEvents((es) => es.map((x) => (x.id === e.id ? { ...x, attendees: x.attendees.map((y) => (y.id === a.id ? { ...y, state } : y)) } : x)));
-    setFlash(e.id); setTimeout(() => setFlash(null), 1300); hit();
-    toast({ text: `${a.name} を「${state}」にしました`, sub: `→ ${e.title} の参加者と、社員ページの参加歴に反映しました`, undo: () => setEvents((es) => es.map((x) => (x.id === e.id ? { ...x, attendees: x.attendees.map((y) => (y.id === a.id ? { ...y, state: a.state } : y)) } : x))) });
+    send({ url: JINJI_URL, body: { action: 'community-rsvp', event_id: e.id, name: a.name, normalized_name: normName(a.name), state }, text: `${a.name} を「${state}」にしました`, sub: `→ ${e.title} の参加者に反映しました`, undo: () => ({ url: JINJI_URL, body: { action: 'community-rsvp', event_id: e.id, name: a.name, normalized_name: normName(a.name), state: a.state } }) });
   };
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="コミュニティ" sub={`勉強会・イベントの予定と参加者。呼びかけは「誰に」を選ぶだけ${live ? '' : '・見本データ'}`} />
+      <PageTitle title="コミュニティ" sub={`勉強会・イベントの予定と参加者。呼びかけは「誰に」を選ぶだけ`} />
       <LiveBanner state={ike.state} error={ike.error} onReload={ike.reload} note="コミュニティの名前・リーダー・人数は今の社内システムから。「班分けを直す」で班の人・リーダー・班名を直せます（すぐ保存）。勉強会・イベントの予定・出欠もすぐ保存されます" />
       <MikeikenNote mk={mk} live={ike.live} />
       {live && cm.state === 'error' && <LiveBanner state="error" error={`勉強会・イベントを読めませんでした（${cm.error}）`} onReload={cm.reload} />}
@@ -107,7 +92,7 @@ export default function CommunityPage() {
             <div className="mt-0.5 text-muted">リーダー {c.leader}{c.sub && `・サブ ${c.sub}`}</div>
           </div>
         ))}
-        {(!live || (L && cm.data?.mendanWeek != null)) && <div className="rounded-xl border border-line bg-surface px-4 py-3 text-sm"><div className="text-muted">今週のコミュニティ面談</div><div className="num text-xl font-bold">{L ? cm.data!.mendanWeek : MENDAN_THIS_WEEK}<span className="text-sm text-muted">件</span></div></div>}
+        {L && cm.data?.mendanWeek != null && <div className="rounded-xl border border-line bg-surface px-4 py-3 text-sm"><div className="text-muted">今週のコミュニティ面談</div><div className="num text-xl font-bold">{cm.data!.mendanWeek}<span className="text-sm text-muted">件</span></div></div>}
         {L && canEdit && <button onClick={() => setAdding((v) => !v)} className="btn-secondary inline-flex items-center gap-1.5 self-center"><Plus size={14} />予定を足す</button>}
       </div>
 
@@ -115,6 +100,7 @@ export default function CommunityPage() {
       {live && mk.state === 'ready' && <TeamsEditor teams={liveTeams} onDone={ike.reload} />}
 
       {L && adding && <EventForm hosts={['全体', ...comms.map((c) => c.name)]} onCancel={() => setAdding(false)} onSave={(ev) => send({ url: JINJI_URL, body: { action: 'community-event-save', ...ev }, text: `「${ev.title}」を足しました`, sub: '→ 予定に載りました', undo: (r) => (r.id ? { url: JINJI_URL, body: { action: 'community-event-delete', id: r.id } } : null) }).then((x) => { if (x) setAdding(false); })} />}
+      {!L && (ike.state === 'loading' || cm.state === 'loading') && <div className="rounded-xl border border-line bg-surface px-6 py-8 text-center text-body text-muted">読み込み中…</div>}
       {L && shownEvents.length === 0 && <div className="rounded-xl border border-dashed border-line bg-surface px-6 py-8 text-center text-body text-muted">これからの勉強会・イベントはまだありません。「予定を足す」から入れてください。</div>}
 
       {shownEvents.length > 0 && remain === 0 && <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-6 text-center"><Check className="mx-auto text-ok" size={22} /><div className="mt-1.5 text-body font-bold">予定の呼びかけはぜんぶ済みました</div></div>}
@@ -160,7 +146,7 @@ export default function CommunityPage() {
           );
         })}
       </div>
-      <p className="text-xs text-faint">{L ? '「参加を呼びかける」は呼びかけたと残すだけです（LINE は送りません）。実際に送るのは配信の画面から、送る権限のある人が行います。' : '呼びかけは LINE 配信の下書きに入るだけです。実際に送るのは配信の画面から、送る権限のある人が行います。'}</p>
+      <p className="text-xs text-faint">「参加を呼びかける」は呼びかけたと残すだけです（LINE は送りません）。実際に送るのは配信の画面から、送る権限のある人が行います。</p>
       {confirm && <ConfirmWrite spec={confirm} onClose={() => setConfirm(null)} />}
     </main>
   );

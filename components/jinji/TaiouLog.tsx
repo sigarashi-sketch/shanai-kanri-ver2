@@ -96,7 +96,7 @@ export function TaiouLog({ name, live, rule }: { name: string; live: boolean; ru
         <h3 className="mb-1 text-body font-bold">これまでの対応</h3>
         {loadErr && <div className="text-sm text-bad">{loadErr}</div>}
         {rows === null && !loadErr && <div className="text-sm text-muted">読み込み中…</div>}
-        {rows && rows.length === 0 && <div className="text-sm text-muted">まだ対応歴はありません{live ? '' : '（見本）'}</div>}
+        {rows && rows.length === 0 && <div className="text-sm text-muted">まだ対応歴はありません</div>}
         {rows?.map((e, i) => (
           <div key={e.id || i} className="border-t border-line-soft py-2 first:border-t-0">
             <div className="mb-0.5 flex flex-wrap items-center gap-2 text-sm">

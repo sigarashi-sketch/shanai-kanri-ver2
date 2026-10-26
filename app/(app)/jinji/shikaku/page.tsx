@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Check, CornerUpLeft, FileCheck2, Paperclip } from 'lucide-react';
-import { APPS, MASTER, MONTHLY, PAY_MONTH, S_REJECT, amountOf, yen, type SState, type ShikakuApp } from '@/lib/shikaku-sample';
+import { S_REJECT, yen, type SState, type ShikakuApp } from '@/lib/types/jinji';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
-import { CountUp, RemainRing, useMotivation } from '@/components/Motivation';
+import { CountUp, RemainRing } from '@/components/Motivation';
 import { LiveBanner, useIke } from '@/components/Live';
 import { useLiveRoute } from '@/lib/live/use-live-route';
 import { JINJI_URL, jinjiRead, type JShikakuStage } from '@/lib/live/jinji';
@@ -29,12 +29,8 @@ const STAGE_TONE: Record<SState, string> = { 確認待ち: 'caution', 承認待�
 export default function ShikakuPage() {
   const { can } = usePerms();
   const canEdit = can('jinji', 'edit'), canApprove = can('jinji', 'approve');
-  const { hit, toast } = useMotivation();
   const [tab, setTab] = useState<Tab>('apps');
-  // 並びは開いたときの「段階 → 申請日」で固定（処理しても行が跳ねない）
-  const [sApps, setApps] = useState<ShikakuApp[]>(() => [...APPS].sort((a, b) => STAGES.indexOf(a.state) - STAGES.indexOf(b.state) || a.filedAt.localeCompare(b.filedAt)));
-  const [sMonthly, setMonthly] = useState(MONTHLY);
-  // 本物：今の社内システムの資格手当の申請（未確認＝確認待ち・承認＝毎月の手当）。本物のときは確認・差し戻し・承認・反映を止める
+  // 今の社内システムの資格手当の申請（未確認＝確認待ち・承認＝毎月の手当）
   const ike = useIke<IkeShikakuList>('shikaku-apply?action=list');
   const live = ike.live;
   const mk = useMikeiken();   // 本物は未経験の人だけ（今のプロパーリストに入っている人）
@@ -42,17 +38,17 @@ export default function ShikakuPage() {
   const reloadAll = () => { ike.reload(); stg.reload(); };
   const { send, error: wErr, setError: setWErr } = useLiveWrite(live, reloadAll);
   const L = useMemo(() => shikakuFromIke(ike.data ? { ...ike.data, rows: mk.keep(ike.data.rows || [], 'name') } : null, stg.data?.rows ?? null), [ike.data, mk, stg.data]);
-  const apps: ShikakuApp[] = live ? L.apps : sApps;
-  const monthly = live ? L.monthly : sMonthly;
-  const amt = (a: ShikakuApp) => (a as LiveShikakuApp).amount ?? amountOf(a);
+  const apps: ShikakuApp[] = live ? L.apps : [];
+  const monthly = live ? L.monthly : [];
+  const amt = (a: ShikakuApp) => (a as LiveShikakuApp).amount ?? 0;
   const urlOf = (a: ShikakuApp, f: string) => (f === '合格証' ? (a as LiveShikakuApp).certUrl : (a as LiveShikakuApp).receiptUrl);
   const noW: string | undefined = undefined;
   // 給与に反映する月＝来月（本物）
   const payYm = (() => { const d = new Date(Date.now() + 9 * 3600e3); const m = d.getUTCMonth() + 2; const y = d.getUTCFullYear() + (m > 12 ? 1 : 0); return `${y}-${String(((m - 1) % 12) + 1).padStart(2, '0')}`; })();
-  const payLabel = live ? `${Number(payYm.slice(5))}月` : PAY_MONTH;
+  const payLabel = `${Number(payYm.slice(5))}月`;
   const [stage, setStage] = useState<SState | 'すべて'>('すべて');
   const [reason, setReason] = useState<Record<string, string>>({});
-  const [flash, setFlash] = useState<string | null>(null);
+  const [flash] = useState<string | null>(null);
 
   useEffect(() => { if (new URLSearchParams(window.location.search).get('tab') === 'monthly') setTab('monthly'); }, []);
 
@@ -60,32 +56,20 @@ export default function ShikakuPage() {
   const rows = open.filter((a) => stage === 'すべて' || a.state === stage);
   const total = monthly.reduce((s, m) => s + m.amount, 0);
 
-  const update = (a: ShikakuApp, patch: Partial<ShikakuApp>, text: string, sub: string, extra?: () => void, undoExtra?: () => void) => {
-    // 変えた項目だけ、この申請の元の値に戻す（続けて別の申請を処理しても巻き込まない）
-    const prev = Object.fromEntries(Object.keys(patch).map((k) => [k, a[k as keyof ShikakuApp]])) as Partial<ShikakuApp>;
-    setApps((xs) => xs.map((x) => (x.id === a.id ? { ...x, ...patch } : x)));
-    extra?.();
-    setFlash(a.id); setTimeout(() => setFlash(null), 1300); hit();
-    toast({ text, sub, undo: () => { setApps((xs) => xs.map((x) => (x.id === a.id ? { ...x, ...prev } : x))); undoExtra?.(); } });
-  };
   const liveRow = (a: ShikakuApp) => (a as LiveShikakuApp).ike;
   const SH = '/api/live/shikaku';
-  const confirm = (a: ShikakuApp) => live ? void send({ url: JINJI_URL, body: { action: 'shikaku-check', id: a.id, on: true }, text: `${a.name} の合格証を確かめました`, sub: '→ 承認する人のやることに載りました', undo: () => ({ url: JINJI_URL, body: { action: 'shikaku-check', id: a.id, on: false } }) }) : update(a, { state: '承認待ち' }, `${a.name} の合格証を確かめました`, '→ 承認する人のやることに載りました');
+  const confirm = (a: ShikakuApp) => live ? void send({ url: JINJI_URL, body: { action: 'shikaku-check', id: a.id, on: true }, text: `${a.name} の合格証を確かめました`, sub: '→ 承認する人のやることに載りました', undo: () => ({ url: JINJI_URL, body: { action: 'shikaku-check', id: a.id, on: false } }) }) : undefined;
   const reject = (a: ShikakuApp) => { const r = reason[a.id] ?? defReason(a);
     const row = liveRow(a);
-    if (live && row) { send({ url: SH, body: { action: 'updateStatus', id: a.id, status: '却下', memo: [row.memo, `差し戻し：${r}`].filter(Boolean).join('\n') }, text: `${a.name} の申請を差し戻しました`, sub: `→ 理由「${r}」をメモに残しました（本人への連絡は LINE から）`, undo: () => ({ url: SH, body: { action: 'updateStatus', id: a.id, status: row.status, memo: row.memo ?? '' } }) }); return; } update(a, { state: '差し戻し', reason: r }, `${a.name} の申請を差し戻しました`, `→ 本人に「${r}」で戻しました（インフォメーション）`); };
-  const approve = (a: ShikakuApp) => { const row = liveRow(a); return live && row ? void send({ url: SH, body: { action: 'updateStatus', id: a.id, status: '承認' }, text: `${a.name} の${a.cert}を承認しました（月 ${yen(amt(a))}）`, sub: `→ ${payLabel}の給与に足す一覧に載りました`, undo: () => ({ url: SH, body: { action: 'updateStatus', id: a.id, status: row.status } }) }) : update(a, { state: '反映待ち' }, `${a.name} の${a.cert}を承認しました（月 ${yen(amountOf(a))}）`, `→ ${PAY_MONTH}の給与に足す一覧に載りました`); };
+    if (live && row) { send({ url: SH, body: { action: 'updateStatus', id: a.id, status: '却下', memo: [row.memo, `差し戻し：${r}`].filter(Boolean).join('\n') }, text: `${a.name} の申請を差し戻しました`, sub: `→ 理由「${r}」をメモに残しました（本人への連絡は LINE から）`, undo: () => ({ url: SH, body: { action: 'updateStatus', id: a.id, status: row.status, memo: row.memo ?? '' } }) }); return; } };
+  const approve = (a: ShikakuApp) => { const row = liveRow(a); return live && row ? void send({ url: SH, body: { action: 'updateStatus', id: a.id, status: '承認' }, text: `${a.name} の${a.cert}を承認しました（月 ${yen(amt(a))}）`, sub: `→ ${payLabel}の給与に足す一覧に載りました`, undo: () => ({ url: SH, body: { action: 'updateStatus', id: a.id, status: row.status } }) }) : undefined; };
   const reflect = (a: ShikakuApp) => {
-    if (live) { send({ url: JINJI_URL, body: { action: 'shikaku-reflect', id: a.id, month: payYm }, text: `${a.name} の手当を${payLabel}の給与に反映したと記録しました`, sub: `→ 資格手当 ${yen(amt(a))}。freee の給与への入力は今までどおりです`, undo: () => ({ url: JINJI_URL, body: { action: 'shikaku-reflect', id: a.id, month: '' } }) }); return; }
-    const label = a.plus && MASTER[a.cert]?.plus ? `${a.cert}（${MASTER[a.cert].plus!.label}）` : a.cert;
-    update(a, { state: '反映ずみ' }, `${a.name} の手当を給与に反映しました`, `→ freee の${PAY_MONTH}の給与に「資格手当 ${yen(amountOf(a))}」を足しました・毎月の手当に載りました`,
-      () => setMonthly((m) => [...m, { personId: a.personId, name: a.name, cert: label, amount: amountOf(a), since: '2026/11' }]),
-      () => setMonthly((m) => m.filter((x) => !(x.personId === a.personId && x.cert === label && x.since === '2026/11'))));
+    send({ url: JINJI_URL, body: { action: 'shikaku-reflect', id: a.id, month: payYm }, text: `${a.name} の手当を${payLabel}の給与に反映したと記録しました`, sub: `→ 資格手当 ${yen(amt(a))}。freee の給与への入力は今までどおりです`, undo: () => ({ url: JINJI_URL, body: { action: 'shikaku-reflect', id: a.id, month: '' } }) });
   };
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="資格手当" sub={`本人の申請（LINE の資格手当申請から）を、合格証の確認 → 承認 → 給与に反映 の順に片づけます${live ? '' : '・見本データ'}`} />
+      <PageTitle title="資格手当" sub={`本人の申請（LINE の資格手当申請から）を、合格証の確認 → 承認 → 給与に反映 の順に片づけます`} />
       <LiveBanner state={ike.state} error={ike.error} onReload={ike.reload} note="申請は今の社内システムから。確かめた・承認・差し戻し・給与に反映はすぐ保存されます（給与への反映は「反映した」と残すだけで、freee への入力は今までどおり）。現場経験の加算は確定手当額の欄で直します" />
       <MikeikenNote mk={mk} live={ike.live} />
       {live && stg.state === 'error' && <LiveBanner state="error" error={`段（承認待ち・反映待ち）を読めませんでした（${stg.error}）`} onReload={stg.reload} />}
@@ -111,7 +95,9 @@ export default function ShikakuPage() {
             </div>
           </div>
 
-          {open.length === 0 ? (
+          {!live ? (
+            <div className="rounded-xl border border-line bg-surface px-6 py-10 text-center text-body text-muted">{ike.state === 'error' ? '申請を読めませんでした' : '読み込み中…'}</div>
+          ) : open.length === 0 ? (
             <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-10 text-center">
               <Check className="mx-auto text-ok" size={26} />
               <div className="mt-2 text-md font-bold">資格手当の申請はぜんぶ片づきました</div>
@@ -127,7 +113,6 @@ export default function ShikakuPage() {
                   <tbody>
                     {rows.length === 0 && <tr><td colSpan={6} className="px-4 py-6 text-center text-sm text-muted">「{stage}」の申請はありません。</td></tr>}
                     {rows.map((a, i) => {
-                      const m = MASTER[a.cert];
                       const noCert = !a.files.includes('合格証');
                       const t = STAGE_TONE[a.state];
                       return (
@@ -139,12 +124,6 @@ export default function ShikakuPage() {
                             {noCert && <div className="mt-1 flex items-center gap-1 text-xs font-semibold text-bad"><AlertTriangle size={12} />合格証が付いていません</div>}
                           </td>
                           <td className="num whitespace-nowrap px-2 py-2.5 text-right font-semibold">{yen(amt(a))}{(a as LiveShikakuApp).masterUnknown && <div className="text-xs font-normal text-warn">手当一覧に無い資格（要確認）</div>}
-                            {m?.plus && a.state === '承認待ち' && (
-                              !live && <select aria-label={`${a.name} の現場経験の加算`} value={a.plus ? 'on' : 'off'} disabled={live || !canApprove} onChange={(e) => setApps((xs) => xs.map((x) => (x.id === a.id ? { ...x, plus: e.target.value === 'on' } : x)))} className="mt-1 block min-h-7 w-full rounded-md border border-field bg-surface px-1 text-xs font-normal disabled:opacity-50">
-                                <option value="off">加算なし</option>
-                                <option value="on">＋{yen(m.plus.amount)}（{m.plus.label}）</option>
-                              </select>
-                            )}
                             {live && a.state === '承認待ち' && (a as LiveShikakuApp).masterNote && <div className="mt-1 text-xs font-normal text-warn">{(a as LiveShikakuApp).masterNote}（加算するなら確定手当額を直す）</div>}
                           </td>
                           <td className="px-2 py-2.5"><span className="chip" style={{ background: `var(--tone-${t}-bg)`, color: `var(--tone-${t}-fg)` }}>{a.state}</span></td>
@@ -175,13 +154,14 @@ export default function ShikakuPage() {
         </>) : (
           <div className="overflow-hidden rounded-xl border border-line bg-surface">
             <div className="flex flex-wrap items-baseline gap-3 border-b border-line-soft px-4 py-3">
-              <span className="text-sm text-muted">{live ? '承認ずみの資格手当（1か月）' : `${PAY_MONTH}の資格手当`}</span>
+              <span className="text-sm text-muted">承認ずみの資格手当（1か月）</span>
               <span className="text-xl font-bold">¥<CountUp key={total} to={total} /></span>
               <span className="text-sm text-muted">{monthly.length}人</span>
             </div>
             <div className="overflow-x-auto"><table className="w-full border-collapse text-body">
               <thead><tr className="th-row text-left"><th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">資格</th><th className="px-2 py-2.5 font-semibold">{live ? '申請した月' : 'いつから'}</th><th className="px-4 py-2.5 text-right font-semibold">月の手当</th>{live && <th className="px-4 py-2.5 font-semibold">段階・確定額</th>}</tr></thead>
               <tbody>
+                {monthly.length === 0 && <tr><td colSpan={live ? 5 : 4} className="px-4 py-8 text-center text-sm text-muted">{live ? 'まだありません' : ike.state === 'error' ? '読めませんでした' : '読み込み中…'}</td></tr>}
                 {monthly.map((m, i) => (
                   <tr key={`${m.personId || m.name}-${m.cert}-${m.since}`} className="row mo-fade-in border-t border-line-soft" style={{ ['--i' as string]: i }}>
                     <td className="px-4 py-2.5">{m.personId ? <PersonName name={m.name} className="font-semibold hover:underline underline-offset-2" /> : <PersonName name={m.name} className="font-semibold underline-offset-2 hover:underline" />}</td>

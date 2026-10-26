@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CalendarPlus, Check, CircleAlert } from 'lucide-react';
-import { COHORTS, MENDAN_BY, MENDAN_WHEN, RISK_PEOPLE, type RiskPerson } from '@/lib/rishoku-sample';
+import { MENDAN_WHEN, type RiskPerson } from '@/lib/types/jinji';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
-import { RemainRing, useMotivation } from '@/components/Motivation';
+import { RemainRing } from '@/components/Motivation';
 import { LiveBanner, useIke } from '@/components/Live';
 import { useLiveRoute } from '@/lib/live/use-live-route';
 import { JINJI_URL, jinjiRead, type JMendanList, type JRishoku } from '@/lib/live/jinji';
@@ -53,20 +53,20 @@ export default function RishokuPage() {
   const by = useState<Record<string, string>>({});
   const when = useState<Record<string, string>>({});
   const showLow = useState(false);
-  // 本物：今の社内システムの離職率（直近12か月・人数と率だけ）。1人ずつのリスクは今のシステムに無いので見本のまま
+  // 今の社内システムの離職率（直近12か月・人数と率だけ）。1人ずつのリスクは LiveRiskTab が読む
   const ike = useIke<IkeRishoku>('rishoku?months=12');
   const liveRate = useMemo(() => (ike.live ? rateFromIke(ike.data) : null), [ike.live, ike.data]);
   const go = (t: 'risk' | 'rate') => { setTab(t); window.history.replaceState(null, '', t === 'rate' ? '?tab=rate' : window.location.pathname); };
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="離職リスク・離職率" sub={`点数ではなく「なぜ気になるか」を並べます。勤怠・日報・面談メモから${ike.live ? '' : '・見本データ'}`} />
+      <PageTitle title="離職リスク・離職率" sub={`点数ではなく「なぜ気になるか」を並べます。勤怠・日報・面談メモから`} />
       <LiveBanner state={ike.state} error={ike.error} onReload={ike.reload} note="離職率は今の社内システムの集計（直近12か月・見るだけ）。1人ずつのリスクは今のシステムの欠勤・待機・勤怠・対応歴から。面談を入れるとすぐ保存されます（本人には送りません）" />
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 1 }}>
         {([['risk', '1人ずつのリスク'], ['rate', '離職率（入社月ごと）']] as const).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="tab">{l}</button>
         ))}
       </div>
-      <div key={tab} className="mo-axis">{tab === 'risk' ? (ike.live ? <LiveRiskTab st={{ booked, by, when, showLow }} /> : <RiskTab st={{ booked, by, when, showLow }} />) : liveRate ? <LiveRateTab r={liveRate} /> : <RateTab />}</div>
+      <div key={tab} className="mo-axis">{tab === 'risk' ? <LiveRiskTab st={{ booked, by, when, showLow }} /> : liveRate ? <LiveRateTab r={liveRate} /> : <div className="rounded-xl border border-line bg-surface px-4 py-6 text-body text-muted">{ike.state === 'error' ? '離職率を読めませんでした（上の案内から読み直してください）' : '読み込み中…'}</div>}</div>
       <p className="text-xs text-faint">年齢・性別・健康の申告は材料に入れていません。退職の扱い・面談での聞き方に迷ったら、最終判断は社労士・法務に確認してください。</p>
     </main>
   );
@@ -76,29 +76,23 @@ type Pair<T> = [T, React.Dispatch<React.SetStateAction<T>>];
 type RiskState = { booked: Pair<Record<string, string>>; by: Pair<Record<string, string>>; when: Pair<Record<string, string>>; showLow: Pair<boolean> };
 
 type LiveRisk = { people: RiskPerson[]; booked: Record<string, string>; byOpts: string[]; book: (p: RiskPerson, who: string, when: string) => void; unbook: (p: RiskPerson) => void };
-function RiskTab({ st, lv: L }: { st: RiskState; lv?: LiveRisk }) {
+function RiskTab({ st, lv: L }: { st: RiskState; lv: LiveRisk }) {
   const canEdit = usePerms().can('jinji', 'edit');
-  const { hit, toast } = useMotivation();
-  const [sBooked, setBooked] = st.booked;
-  const booked = L ? L.booked : sBooked;
-  const BY = L ? L.byOpts : MENDAN_BY;
+  const booked = L.booked;
+  const BY = L.byOpts;
   const [by, setBy] = st.by;
   const [when, setWhen] = st.when;
   const [showLow, setShowLow] = st.showLow;
   const [flash, setFlash] = useState<string | null>(null);
-  const unbook = (id: string) => setBooked((b) => { const n = { ...b }; delete n[id]; return n; });
 
-  const rows = (L ? L.people : RISK_PEOPLE).map((p) => { const s = signals(p); return { p, s, lv: levelOf(s) }; }).sort((a, b) => ORDER.indexOf(a.lv) - ORDER.indexOf(b.lv) || b.s.length - a.s.length);
+  const rows = L.people.map((p) => { const s = signals(p); return { p, s, lv: levelOf(s) }; }).sort((a, b) => ORDER.indexOf(a.lv) - ORDER.indexOf(b.lv) || b.s.length - a.s.length);
   const need = rows.filter((r) => r.lv !== 'low');
   const remain = need.filter((r) => !booked[r.p.id]).length;
   const shown = showLow ? rows : need;
 
   const book = (p: RiskPerson) => {
     const who = by[p.id] ?? BY[0]; const w = when[p.id] ?? MENDAN_WHEN[0];
-    if (L) { L.book(p, who, w); setFlash(p.id); setTimeout(() => setFlash(null), 1300); return; }
-    setBooked((b) => ({ ...b, [p.id]: `${who}・${w}` }));
-    setFlash(p.id); setTimeout(() => setFlash(null), 1300); hit();
-    toast({ text: `${p.name} の面談を入れました（${who}・${w}）`, sub: `→ ${who.split('（')[0]} のやることと、予約・面談の一覧に載りました`, undo: () => unbook(p.id) });
+    L.book(p, who, w); setFlash(p.id); setTimeout(() => setFlash(null), 1300);
   };
 
   return (
@@ -128,7 +122,7 @@ function RiskTab({ st, lv: L }: { st: RiskState; lv?: LiveRisk }) {
                 </td>
                 <td className="px-4 py-2.5">
                   {booked[p.id] ? (
-                    <div className="flex flex-wrap items-center gap-2 text-sm"><Check size={14} className="text-ok" />面談 {booked[p.id]}<button onClick={() => { if (L) { L.unbook(p); return; } unbook(p.id); toast({ text: `${p.name} の面談の予定を外しました`, sub: '→ 担当のやることと、予約・面談の一覧から外しました', undo: () => setBooked((b) => ({ ...b, [p.id]: booked[p.id] })) }); }} disabled={!canEdit} title={canEdit ? '面談の予定を外す' : needText('edit')} className="text-sm text-muted disabled:cursor-not-allowed disabled:opacity-40">戻す</button></div>
+                    <div className="flex flex-wrap items-center gap-2 text-sm"><Check size={14} className="text-ok" />面談 {booked[p.id]}<button onClick={() => L.unbook(p)} disabled={!canEdit} title={canEdit ? '面談の予定を外す' : needText('edit')} className="text-sm text-muted disabled:cursor-not-allowed disabled:opacity-40">戻す</button></div>
                   ) : lv !== 'low' ? (
                     <div className="flex flex-wrap items-center gap-1.5">
                       <select aria-label="面談の担当" value={by[p.id] ?? BY[0]} disabled={!canEdit} title={canEdit ? undefined : needText('edit')} onChange={(e) => setBy((x) => ({ ...x, [p.id]: e.target.value }))} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-sm disabled:opacity-50">{BY.map((m) => <option key={m}>{m}</option>)}</select>
@@ -142,48 +136,6 @@ function RiskTab({ st, lv: L }: { st: RiskState; lv?: LiveRisk }) {
           </tbody>
         </table>
       </div>
-    </div>
-  );
-}
-
-function RateTab() {
-  const pct = (v: number | null, n: number) => (v === null ? null : Math.round((v / n) * 100));
-  const total = COHORTS.reduce((a, c) => a + c.n, 0);
-  const judged3 = COHORTS.filter((c) => c.m3 !== null);
-  const avg3 = Math.round((judged3.reduce((a, c) => a + (c.m3 ?? 0), 0) / judged3.reduce((a, c) => a + c.n, 0)) * 100);
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap gap-3">
-        <div className="rounded-xl border border-line bg-surface px-4 py-3"><div className="text-sm text-muted">3か月の定着（判定が出た月）</div><div className="num text-xl font-bold">{avg3}<span className="text-body text-muted">%</span></div></div>
-        <div className="rounded-xl border border-line bg-surface px-4 py-3"><div className="text-sm text-muted">対象の入場者</div><div className="num text-xl font-bold">{total}<span className="text-body text-muted">人</span></div></div>
-      </div>
-      <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-        <table className="w-full min-w-[720px] border-collapse text-body">
-          <thead><tr className="th-row text-left"><th className="px-4 py-2.5 font-semibold">入社月（初回入場）</th><th className="px-2 py-2.5 font-semibold">人数</th>{['3か月', '6か月', '12か月'].map((h) => <th key={h} className="px-2 py-2.5 font-semibold">{h}後も在籍</th>)}</tr></thead>
-          <tbody>
-            {COHORTS.map((c, i) => (
-              <tr key={c.month} className="row border-t border-line-soft">
-                <td className="num px-4 py-2.5 font-semibold">{c.month.replace('-', '年')}月</td>
-                <td className="num px-2 py-2.5">{c.n}人</td>
-                {[c.m3, c.m6, c.m12].map((v, j) => {
-                  const p = pct(v, c.n);
-                  return (
-                    <td key={j} className="px-2 py-2.5">
-                      {p === null ? <span className="text-sm text-faint">まだ届いていない</span> : (
-                        <div className="flex items-center gap-2">
-                          <div className="h-2.5 w-28 shrink-0 overflow-hidden rounded-full bg-sunken"><div className="mo-bar h-full rounded-full" style={{ width: `${p}%`, background: p >= 85 ? 'var(--tone-ok-bar)' : p >= 75 ? 'var(--tone-caution-bar)' : 'var(--tone-bad-bar)', ['--i' as string]: i }} /></div>
-                          <span className="num whitespace-nowrap text-sm">{p}%<span className="ml-1 text-faint">（{v}人）</span></span>
-                        </div>
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <p className="text-xs leading-relaxed text-faint">数え方：初回入場の日から在籍を通しで数えます（現場替え・待機を挟んでも、退社していなければ在籍）。未経験で入った社員だけ。2026年1月以前の入場は、辞めた人の記録が残っておらず高く見えるため出していません。</p>
     </div>
   );
 }
@@ -264,6 +216,7 @@ function LiveRiskTab({ st }: { st: RiskState }) {
     unbook: (p) => { const r = open.get(normName(p.name)); if (!r) return; send({ url: JINJI_URL, body: { action: 'mendan-set', id: r.id, state: '取り消し' }, text: `${p.name} の面談の予定を外しました`, undo: () => ({ url: JINJI_URL, body: { action: 'mendan-set', id: r.id, state: '予定あり' } }) }); },
   };
   if (staff.state === 'loading' || mat.state === 'loading') return <div className="rounded-xl border border-line bg-surface px-4 py-6 text-body text-muted">材料を読んでいます…</div>;
+  if (staff.state === 'error') return <LiveBanner state="error" error={`社員の一覧を読めませんでした（${staff.error}）`} onReload={staff.reload} />;
   return (
     <div className="flex flex-col gap-3">
       {mat.state === 'error' && <LiveBanner state="error" error={`材料を読めませんでした（${mat.error}）`} onReload={mat.reload} />}

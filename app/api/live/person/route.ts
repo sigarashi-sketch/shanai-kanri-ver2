@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     const can = await canOf(role);
     const list = roster?.success ? buildStaffList(roster, Array.isArray(status) ? status : null, sales?.overlay || null, nyusha?.overlay || null, Date.now(), persons) : null;
 
-    // id から名前を決める（id が古い・見本の id なら名前のまま）
+    // id から名前を決める（id が古い形なら名前のまま）
     // 社員の id は a＋応募ID（人の番号）か r＋氏名の番号（前の形）。古いリンクの r… でも当たる
     const byStaffId = id && isLiveStaffId(id) ? list?.rows.filter((s) => staffIdMatches(s, id)) ?? [] : [];
     const byRow = id && !isLiveStaffId(id) ? er.rows.find((r) => r.row === id) ?? null : null;

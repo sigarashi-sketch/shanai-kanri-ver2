@@ -1,7 +1,7 @@
 // コミュニティ：今の社内システムの形 → この画面の型。
 //   読むのは GET /api/teams?action=list（今のコミュニティの画面 teams.html と同じ。テーブル名は班のまま roster_teams）。
 //   今のシステムにあるのはコミュニティの名前・リーダー・サブリーダー・メンバーだけ。勉強会・イベントの予定と出欠は無い
-import type { Community } from '@/lib/community-sample';
+import type { Community } from '@/lib/types/jinji';
 
 export type IkeTeam = {
   id: string; name: string;

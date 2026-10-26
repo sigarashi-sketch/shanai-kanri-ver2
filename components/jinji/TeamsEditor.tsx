@@ -13,7 +13,7 @@ import { useLiveWrite, WriteError } from './useLiveWrite';
 //   ・人はつまんで別の班（または「未割当」）に落とすと動く＝すぐ保存（取り消すで元の班に戻す）
 //   ・リーダー／サブリーダーは班の人から選ぶ・班名は欄を離れたら保存・班を消すと班の人は未割当に戻る（確かめる）
 //   ・直す欄が出るのは 採用・役員・全体管理者 のロールだけ（GET /api/live/teams で確かめる）。ほかの人は見るだけ
-//   ・本物のときだけ（見本には班の人が無い）
+//   ・読めたときだけ出す
 const URL = '/api/live/teams';
 
 export function TeamsEditor({ teams, onDone }: { teams: IkeTeam[]; onDone: () => void }) {

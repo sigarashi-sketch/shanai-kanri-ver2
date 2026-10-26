@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Baby, Check, Plus, Send } from 'lucide-react';
-import { CASES, EXTEND, TODAY, TODOS, type Base, type ExtendKey, type SankyuCase, type Todo } from '@/lib/sankyu-sample';
+import { EXTEND, TODOS, type Base, type ExtendKey, type SankyuCase, type Todo } from '@/lib/types/jinji';
 import { PageTitle } from '@/components/ui';
 import { LiveBanner } from '@/components/Live';
 import { useLiveRoute } from '@/lib/live/use-live-route';
@@ -13,7 +13,7 @@ import { useMikeiken } from '@/components/Mikeiken';
 import { useLiveWrite, WriteError } from '@/components/jinji/useLiveWrite';
 import { PersonName } from '@/components/Person';
 import { needText, usePerms } from '@/components/Perms';
-import { RemainRing, useMotivation } from '@/components/Motivation';
+import { RemainRing } from '@/components/Motivation';
 
 // 産休・育休（人事管理）。
 //   ・出産の予定日を選ぶと、産前（6週・多胎は14週）・産後（8週）・育休（原則1歳の前日まで・延長は最長2歳）を自動で出す
@@ -44,11 +44,7 @@ const WHO_TONE: Record<Todo['who'], string> = { 'うち（人事）': 'info', '�
 
 export default function SankyuPage() {
   const canEdit = usePerms().can('jinji', 'edit');
-  const { hit, toast } = useMotivation();
-  const [cases, setCases] = useState(CASES);
-  const [curId, setCurId] = useState(CASES[0].id);
-  const [ext, setExt] = useState<Record<string, ExtendKey>>({});
-  const [done, setDone] = useState<Record<string, boolean>>({ 'k1:t1': true, 'k1:t2': true });
+  const [curId, setCurId] = useState('');
   const [flash, setFlash] = useState<string | null>(null);
   // 本物
   const sk = useLiveRoute<{ ok: boolean; rows: JSankyu[] }>(jinjiRead('sankyu'));
@@ -62,14 +58,14 @@ export default function SankyuPage() {
   const liveCases: SankyuCase[] = useMemo(() => liveRows.map((r) => { const st = staffBy.get(r.normalized_name); return { id: r.id, personId: r.person_id, person: r.name, site: st?.site || '現場なし', sales: st?.sales || '—', kind: r.kind, due: r.due, multi: r.multi }; }), [liveRows, staffBy]);
   const liveDone = useMemo(() => Object.fromEntries(liveRows.flatMap((r) => Object.entries(r.done || {}).filter(([, v]) => v).map(([t]) => [`${r.id}:${t}`, true]))), [liveRows]);
   const liveExt = useMemo(() => Object.fromEntries(liveRows.map((r) => [r.id, r.extend as ExtendKey])), [liveRows]);
-  const shownCases = L ? liveCases : cases;
-  const doneNow: Record<string, boolean> = L ? liveDone : done;
-  const extNow: Record<string, ExtendKey> = L ? liveExt : ext;
-  const TODAY_NOW = L ? realToday() : TODAY;
+  const shownCases = liveCases;
+  const doneNow: Record<string, boolean> = liveDone;
+  const extNow: Record<string, ExtendKey> = liveExt;
+  const TODAY_NOW = realToday();
   const daysFromToday = (s: string) => Math.round((D(s).getTime() - D(TODAY_NOW).getTime()) / 86400000);
   const people = useMemo(() => mk.keep((staff.data?.rows || []).filter((x) => x.statusKey !== 'taisha'), 'name').map((x) => x.name).sort((a, b) => a.localeCompare(b, 'ja')), [staff.data, mk]);
 
-  useEffect(() => { const p = new URLSearchParams(window.location.search).get('id'); if (p && CASES.some((c) => c.id === p)) setCurId(p); }, []);
+  useEffect(() => { const p = new URLSearchParams(window.location.search).get('id'); if (p) setCurId(p); }, []);
 
   const cur = shownCases.find((c) => c.id === curId) ?? shownCases[0];
   if (!cur) return (
@@ -77,8 +73,9 @@ export default function SankyuPage() {
       <PageTitle title="産休・育休" sub="予定日を選ぶと期間とやることを自動で出します。社保・給付金の申請は労務担当（freee）へ渡すだけ" />
       {sk.state === 'error' && <LiveBanner state="error" error={/権限/.test(sk.error) ? '産休・育休は人事の中（管理者）だけで見ます。この画面を見る権限がありません' : `産休・育休を読めませんでした（${sk.error}）`} onReload={sk.reload} />}
       <WriteError error={wErr} onClose={() => setWErr('')} />
+      {sk.state === 'loading' && <div className="rounded-xl border border-line bg-surface px-6 py-8 text-center text-body text-muted">読み込み中…</div>}
       {L && <>
-        <div className="rounded-xl border border-dashed border-line bg-surface px-6 py-8 text-center text-body text-muted">いま手続き中の産休・育休はありません。</div>
+        <div className="rounded-xl border border-dashed border-line bg-surface px-6 py-8 text-center text-body text-muted">まだありません（いま手続き中の産休・育休はありません）。</div>
         {canEdit && <AddCase people={people} onSave={(v) => send({ url: JINJI_URL, body: { action: 'sankyu-save', ...v }, text: `${v.name} の産休・育休を足しました`, sub: '→ 期間とやることを出しました', undo: (r) => (r.id ? { url: JINJI_URL, body: { action: 'sankyu-close', id: r.id } } : null) })} />}
       </>}
     </main>
@@ -92,36 +89,20 @@ export default function SankyuPage() {
 
   const toggle = (t: Todo & { date: string }) => {
     const k = key(t); const v = !doneNow[k];
-    if (L) {
-      send({ url: JINJI_URL, body: { action: 'sankyu-done', id: cur.id, todo: t.id, on: v }, text: `${cur.person}：「${t.text}」を${v ? '済みにしました' : '未にもどしました'}`, sub: v && t.who === '労務担当（freee）へ渡す' ? '→ 申請は freee 側で労務担当が行います' : undefined, undo: () => ({ url: JINJI_URL, body: { action: 'sankyu-done', id: cur.id, todo: t.id, on: !v } }) })
-        .then((x) => { if (x && v) { setFlash(k); setTimeout(() => setFlash(null), 1300); } });
-      return;
-    }
-    setDone((d) => ({ ...d, [k]: v }));
-    if (!v) return;
-    setFlash(k); setTimeout(() => setFlash(null), 1300); hit();
-    toast({
-      text: `${cur.person}：「${t.text}」を済みにしました`,
-      sub: t.who === '労務担当（freee）へ渡す' ? '→ 労務担当のやることに渡しました（申請は freee 側で）' : t.who === '現場・営業' ? `→ 担当営業（${cur.sales}）のやることから外れました` : '→ 社員ページの手続きの記録に残りました',
-      undo: () => setDone((d) => ({ ...d, [k]: false })),
-    });
+    send({ url: JINJI_URL, body: { action: 'sankyu-done', id: cur.id, todo: t.id, on: v }, text: `${cur.person}：「${t.text}」を${v ? '済みにしました' : '未にもどしました'}`, sub: v && t.who === '労務担当（freee）へ渡す' ? '→ 申請は freee 側で労務担当が行います' : undefined, undo: () => ({ url: JINJI_URL, body: { action: 'sankyu-done', id: cur.id, todo: t.id, on: !v } }) })
+      .then((x) => { if (x && v) { setFlash(k); setTimeout(() => setFlash(null), 1300); } });
   };
   // 予定日・多胎・育休の終わりを変えたら、期間とやることの時期を出し直す（取り消しでこの人の元の値に戻す）
   const patchCase = (patch: Partial<SankyuCase>, text: string) => {
     const id = cur.id;
     const prev = Object.fromEntries(Object.keys(patch).map((k) => [k, cur[k as keyof SankyuCase]])) as Partial<SankyuCase>;
-    if (L) { send({ url: JINJI_URL, body: { action: 'sankyu-save', id, ...patch }, text, sub: '→ 期間とやることの時期を出し直しました', undo: () => ({ url: JINJI_URL, body: { action: 'sankyu-save', id, ...prev } }) }); return; }
-    setCases((cs) => cs.map((c) => (c.id === id ? { ...c, ...patch } : c)));
-    hit();
-    toast({ text, sub: '→ 期間とやることの時期を出し直しました（社員ページの予定にも反映）', undo: () => setCases((cs) => cs.map((c) => (c.id === id ? { ...c, ...prev } : c))) });
+    send({ url: JINJI_URL, body: { action: 'sankyu-save', id, ...patch }, text, sub: '→ 期間とやることの時期を出し直しました', undo: () => ({ url: JINJI_URL, body: { action: 'sankyu-save', id, ...prev } }) });
   };
   const setDue = (v: string) => { if (v && v !== cur.due) patchCase({ due: v }, `${cur.person} の予定日を ${fmt(v)} にしました`); };
   const setMulti = (v: boolean) => patchCase({ multi: v }, `${cur.person} を${v ? '多胎（産前14週）' : '多胎でない（産前6週）'}にしました`);
   const setExtend = (v: ExtendKey) => {
     const id = cur.id, prev = e;
-    if (L) { send({ url: JINJI_URL, body: { action: 'sankyu-save', id, extend: v }, text: `${cur.person} の育休を「${EXTEND.find((x) => x.key === v)!.label}」にしました`, sub: '→ 育休の終わりと、復帰に向けたやることの時期を出し直しました', undo: () => ({ url: JINJI_URL, body: { action: 'sankyu-save', id, extend: prev } }) }); return; }
-    setExt((x) => ({ ...x, [id]: v })); hit();
-    toast({ text: `${cur.person} の育休を「${EXTEND.find((x) => x.key === v)!.label}」にしました`, sub: '→ 育休の終わりと、復帰に向けたやることの時期を出し直しました', undo: () => setExt((x) => ({ ...x, [id]: prev })) });
+    send({ url: JINJI_URL, body: { action: 'sankyu-save', id, extend: v }, text: `${cur.person} の育休を「${EXTEND.find((x) => x.key === v)!.label}」にしました`, sub: '→ 育休の終わりと、復帰に向けたやることの時期を出し直しました', undo: () => ({ url: JINJI_URL, body: { action: 'sankyu-save', id, extend: prev } }) });
   };
   // 人ごとの残りのやること（上の人のボタンに出す）
   const remainOf = (c: SankyuCase) => TODOS.filter((t) => (!t.only || t.only === c.kind) && !doneNow[`${c.id}:${t.id}`]).length;
@@ -135,8 +116,8 @@ export default function SankyuPage() {
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="産休・育休" sub={`予定日を選ぶと期間とやることを自動で出します。社保・給付金の申請は労務担当（freee）へ渡すだけ${L ? '' : '・見本データ'}`} />
-      {sk.state === 'error' && <LiveBanner state="error" error={/権限/.test(sk.error) ? '産休・育休は人事の中（管理者）だけで見ます。この画面を見る権限がありません（下は見本です）' : `産休・育休を読めませんでした（${sk.error}）`} onReload={sk.reload} />}
+      <PageTitle title="産休・育休" sub={`予定日を選ぶと期間とやることを自動で出します。社保・給付金の申請は労務担当（freee）へ渡すだけ`} />
+      {sk.state === 'error' && <LiveBanner state="error" error={/権限/.test(sk.error) ? '産休・育休は人事の中（管理者）だけで見ます。この画面を見る権限がありません' : `産休・育休を読めませんでした（${sk.error}）`} onReload={sk.reload} />}
       <WriteError error={wErr} onClose={() => setWErr('')} />
 
       <div className="mo-fade-up flex flex-wrap gap-2" style={{ ['--i' as string]: 1 }}>

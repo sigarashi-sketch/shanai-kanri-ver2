@@ -11,7 +11,7 @@ import { staffReq, statusPatchOf } from './staffWrite';
 // 社員ページの「名簿の入力」タブ（今の従業員名簿の行・詳細でできた入力を全部ここに・10-25 shoya「いけドンにあったのは全部いれて」）。
 //   ・入れたらすぐ保存（自動保存）＋トーストの「取り消す」で元に戻せる
 //   ・日付はカレンダーで選ぶ・決まった選択肢はプルダウン。駅名だけは文字（社内の担当が入れる欄）
-//   ・見本（ログインしていない）のときは画面の中だけ変わる
+//   ・まだ読めていない（ログインしていない）ときは保存しない（useLiveWrite が止める）
 export const EMPTY_EDIT: StaffEdit = {
   taisha: false, taiki: false, override: '', taikiYotei: '', taishaYotei: '', sai: false, sankaku: false, jitai: false, poa: false,
   nyushaManual: '', shokaiEnd: '', nyuujouRaw: '', hasLine: false, lineGroup: '', lineGroupId: '',
@@ -162,7 +162,7 @@ function LineGroupView({ cur, name, live, off, offTitle, onSaved }: { cur: { nam
   };
   const list = cands ? (cur.id && !cands.some((c) => c.groupId === cur.id) ? [{ groupId: cur.id, name: cur.name, lineName: '', speakers: [], lastMs: 0 }, ...cands] : cands) : [];
   return (
-    <div className="flex flex-col gap-1 text-sm text-muted" title={off ? offTitle : live ? 'グループ名で自動の突き合わせができていないグループから選べます（LINE 側の名前は変わりません）' : '見本なので変えられません'}>
+    <div className="flex flex-col gap-1 text-sm text-muted" title={off ? offTitle : live ? 'グループ名で自動の突き合わせができていないグループから選べます（LINE 側の名前は変わりません）' : 'まだ読めていないので変えられません'}>
       LINEグループ
       {!live || off || !cands
         ? <button type="button" onClick={open} disabled={!live || off} className="min-h-9 max-w-[320px] rounded-[10px] border border-line bg-soft px-2 py-2 text-left text-body text-ink disabled:cursor-default">{cur.has ? cur.name || '（名前なし）' : 'なし'}{live && !off && <span className="ml-1.5 text-xs text-faint">（押すと選べます）</span>}</button>
@@ -180,7 +180,7 @@ export function PersonActions({ name, live, rule, onTaiou }: { name: string; liv
   const [tel, setTel] = useState<string | null>(null);
   const [telErr, setTelErr] = useState('');
   const getTel = () => {
-    if (!live) { setTelErr('見本なので電話番号はありません'); return; }
+    if (!live) { setTelErr('まだ読めていないので電話番号は出せません'); return; }
     fetch('/api/live/staff/read', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ what: 'tel', name }) })
       .then((r) => r.json()).then((j) => { if (j.error) setTelErr(j.error); else if (!j.tel) setTelErr('基本情報フォームに携帯の番号がありません'); else setTel(j.tel); })
       .catch((e) => setTelErr((e as Error).message));
