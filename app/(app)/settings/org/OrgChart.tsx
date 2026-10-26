@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { ArrowDownToLine, GripVertical, KeyRound, Trash2, Users, X } from 'lucide-react';
-import { MODULES } from '@/lib/theme';
+import { KUBUN } from '@/lib/kubun';
 import { levelLabel, moveBefore, newId, unitOwnPerms, type OrgPerson, type Unit } from '@/lib/org';
 import { AddName, DND_PERSON, DND_UNIT, droppedPeople, hasType, NameEdit, PersonChip, type Ctl } from './shared';
 
@@ -119,11 +119,11 @@ function Pick({ ids, ops }: { ids: string[]; ops: Ops }) {
 /** 組織に付けた権限の札（見るだけ）。変えるのは「ロールと役職」の「組織ごとの権限」 */
 function UnitPerms({ u, ctl }: { u: Unit; ctl: Ctl }) {
   const eff = unitOwnPerms(u);
-  const on = MODULES.filter((m) => eff[m.key] !== 'none');
+  const on = KUBUN.filter((m) => eff[m.key] !== 'none');
   return (
     <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-sm" title="変えるのは「ロールと役職」の「組織ごとの権限」">
       <span className="inline-flex items-center gap-0.5 font-semibold text-muted"><KeyRound size={12} />組織の権限</span>
-      {on.length ? on.map((m) => <span key={m.key} className="chip" style={{ background: `var(--s-${m.key})`, color: `var(--d-${m.key})` }}>{m.short} {levelLabel(eff[m.key])}</span>)
+      {on.length ? on.map((m) => <span key={m.key} className="chip" style={{ background: `var(--s-${m.mod})`, color: `var(--d-${m.mod})` }}>{m.label} {levelLabel(eff[m.key])}</span>)
         : <span className="text-faint">なし</span>}
       {u.manageAccess && <span className="chip" style={{ background: 'var(--tone-caution-bg)', color: 'var(--tone-caution-fg)' }}>権限管理</span>}
       <button onClick={() => ctl.openRoles?.()} className="text-xs text-muted underline">変える</button>

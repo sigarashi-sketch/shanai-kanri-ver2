@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
-import { IKE_ORIGIN, ikeToken } from '@/lib/ike';
+import { IKE_ORIGIN, ikeKanawestNow, ikeToken } from '@/lib/ike';
 import { sameSite } from '@/lib/ike-write';
 
 // 稼働表出力（保留）の「勤怠詳細CSVの取り込み」＝今の POST /api/kadohyo?action=parse-csv（読んで返すだけ。DB には入れない）。
 //   ファイル（multipart）なので ikeWrite（JSON だけ）ではなく、同じ確かめをして ファイルだけ 詰め直して渡す
 const MAX = 8 * 1024 * 1024;
 export async function POST(req: Request) {
+  if (await ikeKanawestNow()) return NextResponse.json({ ok: false, success: false, error: 'かな西エリアでは開けません' }, { status: 403 }); // かな西エリアだけの人（lib/kanawest-scope.ts）
   if (!sameSite(req)) return NextResponse.json({ error: 'この画面の外からは取り込めません' }, { status: 403 });
   const t = await ikeToken();
   if (!t) return NextResponse.json({ error: 'not_logged_in' }, { status: 401 });

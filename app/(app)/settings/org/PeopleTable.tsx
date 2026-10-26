@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { PersonName } from '@/components/Person';
 import { LEVELS, atLeast, type Level } from '@/lib/access';
-import { MODULES } from '@/lib/theme';
+import { KUBUN } from '@/lib/kubun';
 import { legacyRoleLabel, personKind, roleOf, unitAndChildren, unitPath, unitPerms, type Assign, type OrgPerson } from '@/lib/org';
 import { PermChips, type Ctl } from './shared';
 
@@ -12,7 +12,7 @@ const SC = 'rounded-md border border-field bg-surface px-1.5 py-1 text-sm';
 type SetFn = (uid: string, patch: Partial<Assign>, text: string, sub?: string) => void;
 type RowProps = { links?: Map<string, { kind: string; name: string }>; p: OrgPerson; ctl: Ctl; set: SetFn; sel: Set<string>; toggle: (id: string, on: boolean) => void; known: Set<string>; unitOpts: React.ReactNode };
 
-// 一覧（表）。所属・役職・ロール・分類ごとの個別の段階を選ぶだけで付ける。チェックしてまとめてロール／所属。
+// 一覧（表）。所属・役職・ロール・区分ごとの個別の段階を選ぶだけで付ける。チェックしてまとめてロール／所属。
 // 要員（会社のメールでない人）はこのシステムに入れない（10-26・lib/innai.ts）＝ロール・段階は付けられず「入れない」と出す
 // links＝教育（bdsh）で Google アカウントと紐づけた人（メール小文字 → 誰）。要員の名前の下に出す（10-25）
 export function PeopleTable({ ctl, list, retired, links }: { ctl: Ctl; list: OrgPerson[]; retired: OrgPerson[]; links?: Map<string, { kind: string; name: string }> }) {
@@ -83,7 +83,7 @@ export function PeopleTable({ ctl, list, retired, links }: { ctl: Ctl; list: Org
 
       <section className="overflow-hidden rounded-xl border border-line bg-surface">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1280px] border-collapse text-body">
+          <table className="w-full min-w-[1700px] border-collapse text-body">
             <thead><tr className="th-row text-left">
               <th className="px-3 py-2.5"><input type="checkbox" aria-label="表示中の全員を選ぶ" checked={allOn} onChange={(e) => setSel(e.target.checked ? new Set(rows.map((p) => p.userId)) : new Set())} /></th>
               <th className="px-2 py-2.5 font-semibold">人</th>
@@ -92,14 +92,14 @@ export function PeopleTable({ ctl, list, retired, links }: { ctl: Ctl; list: Org
               <th className="px-2 py-2.5 font-semibold">所属</th>
               <th className="px-2 py-2.5 font-semibold">役職</th>
               <th className="px-2 py-2.5 font-semibold">ロール</th>
-              {MODULES.map((m) => <th key={m.key} className="px-1.5 py-2.5 font-semibold"><span style={{ color: `var(--c-${m.key})` }}>●</span> {m.short}（個別）</th>)}
+              {KUBUN.map((m) => <th key={m.key} className="px-1.5 py-2.5 font-semibold"><span style={{ color: `var(--c-${m.mod})` }}>●</span> <span className="whitespace-nowrap">{m.label}</span></th>)}
               <th className="px-2 py-2.5 font-semibold">結果の段階</th>
             </tr></thead>
             <tbody>
               {rows.map((p) => <Row key={p.userId} p={p} {...rp} />)}
-              {!rows.length && <tr><td colSpan={12} className="px-4 py-8 text-center text-muted">この絞り込みに当てはまる人はいません</td></tr>}
+              {!rows.length && <tr><td colSpan={8 + KUBUN.length} className="px-4 py-8 text-center text-muted">この絞り込みに当てはまる人はいません</td></tr>}
               {oldRows.length > 0 && (
-                <tr className="border-t border-line"><td colSpan={12} className="px-3 py-2">
+                <tr className="border-t border-line"><td colSpan={8 + KUBUN.length} className="px-3 py-2">
                   <button onClick={() => setOpenRetired((v) => !v)} className="flex items-center gap-1 text-sm font-semibold text-muted">
                     <ChevronRight size={14} style={{ transform: openRetired ? 'rotate(90deg)' : undefined, transition: 'transform 200ms' }} />退職（{oldRows.length}人）
                   </button>
@@ -147,23 +147,23 @@ function Row({ p, ctl, set, sel, toggle, known, unitOpts, links }: RowProps) {
             <option value="">なし</option>{org.titles.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
           </select>
         </td>
-        {yoin ? <td colSpan={MODULES.length + 1} className="px-2 py-2">{noEntry}</td> : <>
+        {yoin ? <td colSpan={KUBUN.length + 1} className="px-2 py-2">{noEntry}</td> : <>
         <td className="px-2 py-2">
           <select aria-label={`${p.name}のロール`} className={sc} value={role.id}
             onChange={(e) => set(p.userId, { role: e.target.value }, `${p.name}さんを「${org.roles.find((r) => r.id === e.target.value)?.label}」にしました`)}>
             {org.roles.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
           </select>
         </td>
-        {MODULES.map((m) => {
+        {KUBUN.map((m) => {
           const fromUnit = up[m.key];
           const floor = atLeast(role.perms[m.key], fromUnit) ? role.perms[m.key] : fromUnit;
           const why = atLeast(role.perms[m.key], fromUnit) ? `ロール「${role.label}」` : `所属「${unitPath(org, a.unit)}」`;
           const own = a.own?.[m.key] ?? 'none';
           return (
             <td key={m.key} className="px-1.5 py-2">
-              <select aria-label={`${p.name}の${m.short}の個別の段階`} className={sc} value={atLeast(own, floor) ? own : floor}
+              <select aria-label={`${p.name}の${m.label}の個別の段階`} className={sc} value={atLeast(own, floor) ? own : floor}
                 title={floor !== 'none' ? `${why}で${LEVELS.find((l) => l.key === floor)!.label}まで持っています` : '個別に付ける段階'}
-                onChange={(e) => set(p.userId, { own: { ...a.own, [m.key]: e.target.value as Level } }, `${p.name}さんの${m.short}を「${LEVELS.find((l) => l.key === e.target.value)!.label}」にしました`)}>
+                onChange={(e) => set(p.userId, { own: { ...a.own, [m.key]: e.target.value as Level } }, `${p.name}さんの${m.label}を「${LEVELS.find((l) => l.key === e.target.value)!.label}」にしました`)}>
                 {LEVELS.map((l) => <option key={l.key} value={l.key} disabled={!atLeast(l.key, floor)}>{l.label}</option>)}
               </select>
             </td>

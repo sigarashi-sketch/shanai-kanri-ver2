@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Check, GripVertical, KeyRound, Pencil } from 'lucide-react';
-import { MODULES } from '@/lib/theme';
+import { KUBUN } from '@/lib/kubun';
 import { levelLabel, orgManage, orgPerms, type OrgPerson, type OrgState } from '@/lib/org';
 
 // 組織表の部品（人の札・結果の段階・名前の直し方・ドラッグの型）
@@ -21,9 +21,9 @@ export function PermChips({ org, userId }: { org: OrgState; userId: string }) {
   const eff = orgPerms(org, a);
   return (
     <span className="inline-flex flex-wrap items-center gap-1">
-      {MODULES.map((m) => eff[m.key] === 'none'
-        ? <span key={m.key} className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)', opacity: 0.6 }}>{m.short} 見ない</span>
-        : <span key={m.key} className="chip" style={{ background: `var(--s-${m.key})`, color: `var(--d-${m.key})` }}>{m.short} {levelLabel(eff[m.key])}</span>)}
+      {KUBUN.map((m) => eff[m.key] === 'none'
+        ? <span key={m.key} className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)', opacity: 0.6 }}>{m.label} 見ない</span>
+        : <span key={m.key} className="chip" style={{ background: `var(--s-${m.mod})`, color: `var(--d-${m.mod})` }}>{m.label} {levelLabel(eff[m.key])}</span>)}
       {orgManage(org, a) && <span className="chip" title="権限管理ができる" style={{ background: 'var(--tone-caution-bg)', color: 'var(--tone-caution-fg)' }}><KeyRound size={11} />権限管理</span>}
     </span>
   );

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { IKE_ORIGIN, ikeFetchCached, ikeToken } from '@/lib/ike';
+import { IKE_ORIGIN, ikeFetchCached, ikeKanawestNow, ikeToken } from '@/lib/ike';
 import { sameSite } from '@/lib/ike-write';
 import { dropUserCache } from '@/lib/cache';
 
@@ -54,6 +54,7 @@ function allowedGet(api: string, rest: string[], sp: URLSearchParams): boolean {
 const LIVE_TTL = 5000;
 
 export async function GET(req: Request, ctx: { params: Promise<{ path: string[] }> }) {
+  if (await ikeKanawestNow()) return NextResponse.json({ ok: false, success: false, error: 'かな西エリアでは開けません' }, { status: 403 }); // かな西エリアだけの人（lib/kanawest-scope.ts）
   const { path } = await ctx.params;
   if (!path.length || !path.every((p) => /^[a-z0-9-]+$/i.test(p))) return NextResponse.json({ error: '行き先が違います' }, { status: 400 });
   const url = new URL(req.url);
@@ -90,6 +91,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ path: string[] 
 }
 
 export async function POST(req: Request, ctx: { params: Promise<{ path: string[] }> }) {
+  if (await ikeKanawestNow()) return NextResponse.json({ ok: false, success: false, error: 'かな西エリアでは開けません' }, { status: 403 }); // かな西エリアだけの人（lib/kanawest-scope.ts）
   const { path } = await ctx.params;
   const url = new URL(req.url);
   const action = url.searchParams.get('action') || '';

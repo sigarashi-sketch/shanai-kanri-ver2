@@ -1,5 +1,7 @@
 import 'server-only';
-import { isListOnlyIkeRole, isRoleKey, roleFromIke, type Member, type Perms } from './access';
+import { isListOnlyIkeRole, isRoleKey, roleFromIke, type Member } from './access';
+import { kAll, toKPerms } from './kubun';
+import { orgAssigned, orgManage, orgPerms, parseOrg, type OrgState } from './org';
 import { ikeFetchCached, ikeToken } from './ike';
 import { isInnaiEmail, tokenEmail } from './innai';
 
@@ -11,6 +13,9 @@ import { isInnaiEmail, tokenEmail } from './innai';
 //   ・名簿（権限管理・組織の画面が並べる人）は、今の権限管理の画面と同じ一覧（/api/admin?action=list・super_admin だけが読める）の
 //     会社のアカウントの人＋共有の設定に入っている人。super_admin でなければ読めないので、共有の設定の人＋本人だけ
 //   ・保存は共有の設定（/api/live/v2-settings）だけ。この端末・サーバーの手元には持たない
+//   ・★10-26 組織表が正：共有の設定の org（組織表）でその人に ロール・所属・個別 のどれかが付いていれば、段階と権限管理は組織表で決める
+//     （その人のキー＝今のシステムの userId＝トークンの sub）。組織表で何も付いていない人だけ、上の members／今のシステムのロールで決める
+//     super_admin は組織表に何と書いてあっても全部の区分を承認＋権限管理（締め出しを防ぐ）
 
 type IkeMe = { authenticated?: boolean; email?: string; role?: string; listOnly?: boolean; ippass?: boolean; error?: string };
 type AdminRow = { email?: string; name?: string; role?: string; mikeiken?: boolean; inDomain?: boolean };
@@ -29,12 +34,24 @@ function tokenName(t: string): string {
   } catch { return ''; }
 }
 
+type SharedValue = { members?: unknown; org?: unknown } | null;
+async function sharedValue(): Promise<SharedValue> {
+  try {
+    const r = await ikeFetchCached<{ value?: SharedValue }>('/api/assistant?action=v2-settings', 30_000, { timeoutMs: 8000, raw: true });
+    return r.ok ? r.data?.value ?? null : null;
+  } catch { return null; }
+}
+/** 全員で共有している設定の組織表。読めなければ null */
+async function sharedOrg(): Promise<OrgState | null> {
+  const v = await sharedValue();
+  return v?.org ? parseOrg(v.org) : null;
+}
+
 /** 全員で共有している設定の members（メールで引く）。読めなければ空 */
 async function sharedMembers(): Promise<Map<string, Member>> {
   const out = new Map<string, Member>();
   try {
-    const r = await ikeFetchCached<{ value?: { members?: unknown } | null }>('/api/assistant?action=v2-settings', 30_000, { timeoutMs: 8000 });
-    const ms = r.ok ? r.data?.value?.members : null;
+    const ms = (await sharedValue())?.members;
     if (!Array.isArray(ms)) return out;
     for (const x of ms as Partial<Member>[]) {
       const email = norm(x?.email || x?.id);
@@ -43,7 +60,7 @@ async function sharedMembers(): Promise<Map<string, Member>> {
         id: email, email, name: String(x.name || email.split('@')[0]),
         division: x.division === '未経験事業部' ? '未経験事業部' : 'その他', kind: '内勤',
         role: isRoleKey(x.role) ? x.role : 'none',
-        own: x.own && typeof x.own === 'object' ? (x.own as Partial<Perms>) : {},
+        own: toKPerms(x.own),
       });
     }
   } catch { /* 読めなければ空 */ }
@@ -57,15 +74,31 @@ function withRole(base: Omit<Member, 'role' | 'own'>, ikeRole: string, shared: M
   return { ...base, ...r };
 }
 
+/** トークンの sub（今のシステムの userId）。組織表の人のキー */
+function tokenSub(t: string): string {
+  try {
+    const part = t.split('.')[1] || '';
+    return String((JSON.parse(Buffer.from(part.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8')) as { sub?: string }).sub || '');
+  } catch { return ''; }
+}
+/** 組織表で段階を決める（付いていなければそのまま） */
+function withOrg(m: Member, userId: string, ikeRole: string, org: OrgState | null): Member {
+  if (ikeRole === 'super_admin') return { ...m, kperms: kAll('approve'), manage: true };
+  const a = org && userId ? org.people[userId] : undefined;
+  if (!org || !orgAssigned(org, a)) return m;
+  return { ...m, kperms: orgPerms(org, a), manage: orgManage(org, a) };
+}
+
 /** いまの人（ログインした本人）。ログインしていない・切れたら not_logged_in */
 export async function loadMe(): Promise<MeLoad> {
   const t = await ikeToken();
   if (!t) return { ok: false, reason: 'not_logged_in' };
   const email = norm(tokenEmail(t));
   try {
-    const [r, shared] = await Promise.all([
-      ikeFetchCached<IkeMe>('/api/auth?action=me', 30_000, { timeoutMs: 10000 }),
+    const [r, shared, org] = await Promise.all([
+      ikeFetchCached<IkeMe>('/api/auth?action=me', 30_000, { timeoutMs: 10000, raw: true }),
       sharedMembers(),
+      sharedOrg(),
     ]);
     if (r.status === 401 || r.data?.authenticated === false) return { ok: false, reason: 'not_logged_in' };
     if (!r.ok) return { ok: false, reason: 'error', error: `今の社内システムに入れるか聞けませんでした（${r.status}）` };
@@ -73,7 +106,7 @@ export async function loadMe(): Promise<MeLoad> {
     const ikeRole = String(r.data.role || '');
     // 未経験事業部か＝今のシステムの ippass（#未経験-クローズ の参加者・super_admin は常に true）。営業共有リストだけのロールは入れない
     const inside = (r.data.ippass === true || ikeRole === 'super_admin') && !(r.data.listOnly ?? isListOnlyIkeRole(ikeRole));
-    const me = withRole({ id: email, email, name: tokenName(t) || shared.get(email)?.name || email.split('@')[0], division: inside ? '未経験事業部' : 'その他', kind: '内勤' }, ikeRole, shared);
+    const me = withOrg(withRole({ id: email, email, name: tokenName(t) || shared.get(email)?.name || email.split('@')[0], division: inside ? '未経験事業部' : 'その他', kind: '内勤' }, ikeRole, shared), tokenSub(t), ikeRole, org);
     return { ok: true, me, ikeRole };
   } catch (e) {
     return { ok: false, reason: 'error', error: (e as Error).message };

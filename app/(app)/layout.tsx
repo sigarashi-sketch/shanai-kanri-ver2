@@ -9,14 +9,14 @@ import { loadMe } from '@/lib/members-store';
 //   ・ログインしていない（トークンが無い・切れた）ときは、メニューも画面も出さず「会社のアカウントでログイン」だけ
 //   ・いまの人＝ログインした本人（lib/members-store.ts loadMe）。見本の人で画面を見せる道は無い
 //   ・未経験事業部の内勤だけが入れる。それ以外は営業共有リストへ（ver2 でも変えない決まり）
-//   分類ごとの「見ない」は Shell がメニューから消し、開いた画面は NoAccess にする。
+//   区分ごとの「見ない」は Shell がメニューから消し、開いた画面は NoAccess にする（段階は組織表が正・lib/members-store.ts）。
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const got = await loadMe();
   if (!got.ok) return <LoginGate error={got.reason === 'error' ? got.error || '今の社内システムに入れるか聞けませんでした' : ''} />;
   const me = got.me;
   if (!canUseApp(me)) redirect('/shared');
   return (
-    <PermsProvider me={me} perms={effectivePerms(me)} manageAccess={canManageAccess(me)}>
+    <PermsProvider me={me} kperms={effectivePerms(me)} manageAccess={canManageAccess(me)}>
       <Shell>{children}</Shell>
     </PermsProvider>
   );

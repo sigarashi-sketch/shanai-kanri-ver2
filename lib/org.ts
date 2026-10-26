@@ -3,17 +3,17 @@
 //   ・組織（部署→チーム）・役職・ロール・個別の段階は、今の社内システムの v2-settings に置いて全員で共有（10-25〜）。
 //     保存できるのは全体管理者（super_admin）だけ。この端末の localStorage は控え（ログインしていない・読めないときはこれで動く）。JSON で書き出し／読み込みも残す
 //   ・今の社内システムのロール（staff など）は参考に出すだけ。変えない
-import { LEVELS, ROLES, type Level, type Member, type Perms } from './access';
-import { MODULES } from './theme';
+import { LEVELS, ROLES, type Level, type Member } from './access';
+import { K_NONE, KUBUN, kMax, toKPerms, type KPerms } from './kubun';
 
-export type OrgRole = { id: string; label: string; perms: Perms; manageAccess: boolean };
+export type OrgRole = { id: string; label: string; perms: KPerms; manageAccess: boolean };
 /** 部署（parent=null）とチーム（parent=部署の id）。並びは配列の順。headId は長。
  *  own・manageAccess＝その組織に付けた権限（10-26 shoya「組織ごとに権限付与したい」・「ロールと役職」の画面で付ける）。
  *  中の人全員に付く（部署に付けた分はチームの人にも付く） */
-export type Unit = { id: string; name: string; parent: string | null; headId?: string; own?: Partial<Perms>; manageAccess?: boolean };
+export type Unit = { id: string; name: string; parent: string | null; headId?: string; own?: Partial<KPerms>; manageAccess?: boolean };
 export type Title = { id: string; label: string };
 /** 人ごとに持つのはこれだけ（キーは今のシステムの userId） */
-export type Assign = { unit?: string; title?: string; role?: string; own?: Partial<Perms> };
+export type Assign = { unit?: string; title?: string; role?: string; own?: Partial<KPerms> };
 export type OrgState = { v: 1; units: Unit[]; titles: Title[]; roles: OrgRole[]; people: Record<string, Assign> };
 
 /** 画面に並べる人（今のシステムから読む・保存しない） */
@@ -24,8 +24,6 @@ export { INNAI_DOMAIN, personKind } from './innai';
 
 export const ORG_STORAGE_KEY = 'v2_org';
 export const NO_ROLE = 'none';
-const RANK: Record<Level, number> = { none: 0, view: 1, edit: 2, approve: 3 };
-const hi = (a: Level, b: Level): Level => (RANK[a] >= RANK[b] ? a : b);
 export const levelLabel = (l: Level) => LEVELS.find((x) => x.key === l)!.label;
 
 export const newId = (p: string) => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -54,9 +52,13 @@ export function initialOrg(): OrgState {
 export function parseOrg(raw: unknown): OrgState | null {
   const o = raw as Partial<OrgState> | null;
   if (!o || o.v !== 1 || !Array.isArray(o.units) || !Array.isArray(o.titles) || !Array.isArray(o.roles) || typeof o.people !== 'object' || !o.people) return null;
-  const roles = o.roles.filter((r) => r && typeof r.id === 'string' && typeof r.label === 'string' && r.perms);
+  // 段階は区分の形にそろえる（10-26 より前に保存した4分類 人事/労務/営業/経理 の値は、その分類の画面が入っている区分に開く・lib/kubun.ts toKPerms）
+  const roles = o.roles.filter((r) => r && typeof r.id === 'string' && typeof r.label === 'string' && r.perms)
+    .map((r) => ({ ...r, perms: kMax(K_NONE, toKPerms(r.perms)) }));
   if (!roles.some((r) => r.id === NO_ROLE)) roles.push({ id: NO_ROLE, label: ROLES.none.label, perms: { ...ROLES.none.perms }, manageAccess: false });
-  return { v: 1, units: o.units.filter((u) => u && typeof u.id === 'string'), titles: o.titles.filter((t) => t && typeof t.id === 'string'), roles, people: o.people };
+  const units = o.units.filter((u) => u && typeof u.id === 'string').map((u) => (u.own ? { ...u, own: toKPerms(u.own) } : u));
+  const people = Object.fromEntries(Object.entries(o.people as Record<string, Assign>).map(([k, a]) => [k, a && a.own ? { ...a, own: toKPerms(a.own) } : a]));
+  return { v: 1, units, titles: o.titles.filter((t) => t && typeof t.id === 'string'), roles, people };
 }
 
 export function loadOrg(): OrgState {
@@ -106,22 +108,21 @@ export function unitChain(s: OrgState, unitId?: string): Unit[] {
   return p ? [p, u] : [u];
 }
 /** 組織そのものに付けた段階 */
-export function unitOwnPerms(u: Unit): Perms {
-  return Object.fromEntries(MODULES.map((m) => [m.key, u.own?.[m.key] ?? 'none'])) as Perms;
+export function unitOwnPerms(u: Unit): KPerms {
+  return kMax(K_NONE, u.own ?? {});
 }
 /** 所属から付く段階（部署とチームの高いほう） */
-export function unitPerms(s: OrgState, unitId?: string): Perms {
-  const ps = unitChain(s, unitId).map(unitOwnPerms);
-  return Object.fromEntries(MODULES.map((m) => [m.key, ps.reduce<Level>((acc, p) => hi(acc, p[m.key]), 'none')])) as Perms;
+export function unitPerms(s: OrgState, unitId?: string): KPerms {
+  return unitChain(s, unitId).map(unitOwnPerms).reduce((acc, p) => kMax(acc, p), K_NONE);
 }
 
-/** その人の分類ごとの段階＝ロール・個別・所属（部署とチーム）の一番高いもの（effectivePerms と同じ考え方） */
-export function orgPerms(s: OrgState, a?: Assign): Perms {
-  const r = roleOf(s, a).perms;
-  const own = a?.own ?? {};
-  const u = unitPerms(s, a?.unit);
-  return Object.fromEntries(MODULES.map((m) => [m.key, hi(hi(r[m.key], own[m.key] ?? 'none'), u[m.key])])) as Perms;
+/** その人の区分ごとの段階＝ロール・個別・所属（部署とチーム）の一番高いもの */
+export function orgPerms(s: OrgState, a?: Assign): KPerms {
+  return kMax(kMax(roleOf(s, a).perms, a?.own ?? {}), unitPerms(s, a?.unit));
 }
+/** 組織表でその人に何か付いているか（ロール・個別・所属のどれか）。付いていなければ組織表では決めない */
+export const orgAssigned = (s: OrgState, a?: Assign) => !!a && (!!(a.role && a.role !== NO_ROLE) || !!(a.unit && s.units.some((u) => u.id === a.unit)) || Object.values(a.own ?? {}).some((l) => l && l !== 'none'));
+export { KUBUN };
 /** 権限管理ができるか＝本人のロールか、所属の組織のロールで持っている */
 export function orgManage(s: OrgState, a?: Assign): boolean {
   return roleOf(s, a).manageAccess || unitChain(s, a?.unit).some((u) => !!u.manageAccess);

@@ -111,7 +111,7 @@ export default function OrgPage() {
 
   return (
     <main className="flex flex-col gap-4 px-6 pb-12 pt-[22px]">
-      <PageTitle title="組織表" sub="部署・チーム・役職・長を決めて、ロールと分類ごとの段階を付けます">
+      <PageTitle title="組織表" sub="部署・チーム・役職・長を決めて、ロールと区分ごとの段階を付けます（ここで付けた権限で入れる画面が決まります）">
         <button onClick={exportJson} className="btn-secondary"><Download size={15} />書き出す</button>
         <button onClick={() => fileRef.current?.click()} className="btn-secondary"><Upload size={15} />読み込む</button>
         <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void importJson(f); e.target.value = ''; }} />

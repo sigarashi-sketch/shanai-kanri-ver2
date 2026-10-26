@@ -2,18 +2,27 @@
 
 import { createContext, useContext } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Lock } from 'lucide-react';
-import { atLeast, LEVELS, type Level, type Member, type Perms } from '@/lib/access';
+import { atLeast, LEVELS, modulePerms, type Level, type Member, type Perms } from '@/lib/access';
+import { kubunOfPath, pageAccess, type KPerms } from '@/lib/kubun';
+export { pageAccess };
 import type { ModuleKey } from '@/lib/theme';
 
-// いまの人の権限を画面に配る。見えない分類はメニューから消え、開いても「権限がありません」。
+// いまの人の権限を画面に配る。段階は区分ごと（lib/kubun.ts・10-26）。見えない区分の画面はメニューから消え、開いても「権限がありません」。
 //   ボタンは can(分類, 'edit' | 'approve') で出し分ける（足りなければ押せない＋理由を出す）。
-type Ctx = { me: Member; perms: Perms; manageAccess: boolean; can: (m: ModuleKey, need: Level) => boolean };
+//   ★can は「いま開いている画面の区分」の段階で答える（呼ぶ側は分類を渡したままでよい）。区分に振っていない画面（ホームなど）では分類の段階
+//   ★かな西エリアだけで開いている要員の画面（kanawestOnly）は「見る」まで＝書く操作は出さない
+type Ctx = { me: Member; perms: Perms; kperms: KPerms; manageAccess: boolean; kanawestOnly: boolean; can: (m: ModuleKey, need: Level) => boolean };
 const PermsCtx = createContext<Ctx | null>(null);
 
-export function PermsProvider({ me, perms, manageAccess, children }: { me: Member; perms: Perms; manageAccess: boolean; children: React.ReactNode }) {
-  const can = (m: ModuleKey, need: Level) => atLeast(perms[m], need);
-  return <PermsCtx.Provider value={{ me, perms, manageAccess, can }}>{children}</PermsCtx.Provider>;
+export function PermsProvider({ me, kperms, manageAccess, children }: { me: Member; kperms: KPerms; manageAccess: boolean; children: React.ReactNode }) {
+  const pathname = usePathname();
+  const perms = modulePerms(kperms);
+  const k = kubunOfPath(pathname);
+  const kanawestOnly = pageAccess(kperms, pathname) === 'kanawest';
+  const can = (m: ModuleKey, need: Level) => (kanawestOnly ? atLeast('view', need) : k ? atLeast(kperms[k], need) : atLeast(perms[m], need));
+  return <PermsCtx.Provider value={{ me, perms, kperms, manageAccess, kanawestOnly, can }}>{children}</PermsCtx.Provider>;
 }
 
 export function usePerms(): Ctx {

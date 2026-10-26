@@ -3,11 +3,11 @@
 import { useState } from 'react';
 import { GripVertical, KeyRound, Network, Trash2 } from 'lucide-react';
 import { LEVELS, atLeast, type Level } from '@/lib/access';
-import { MODULES } from '@/lib/theme';
+import { K_NONE, KUBUN } from '@/lib/kubun';
 import { moveBefore, newId, NO_ROLE, unitAndChildren, unitOwnPerms, type OrgRole, type Title, type Unit } from '@/lib/org';
 import { AddName, DND_ROLE, DND_TITLE, hasType, NameEdit, type Ctl } from './shared';
 
-// ロールの定義（4分類 × 見ない/見る/直す/承認 ＋ 権限管理ができる）と、役職の選択肢。どちらもドラッグで並び替え。
+// ロールの定義（区分 × 見ない/見る/直す/承認 ＋ 権限管理ができる・区分は lib/kubun.ts＝今のいけどんと同じ）と、役職の選択肢。どちらもドラッグで並び替え。
 // 組織ごとの権限（10-26 shoya）：部署・チームにもロールと同じ形で段階を付ける＝中の人全員に付く（部署の分はチームの人にも）
 export function RolesEditor({ ctl }: { ctl: Ctl }) {
   const { org, commit, flash } = ctl;
@@ -21,7 +21,7 @@ export function RolesEditor({ ctl }: { ctl: Ctl }) {
       <section className="grid gap-3 lg:grid-cols-2">
         {org.roles.map((r) => <RoleCard key={r.id} r={r} n={used(r.id)} flash={flash === r.id} ctl={ctl} patchRole={patchRole} />)}
         <div className="flex items-center gap-2 rounded-xl border border-dashed border-field p-4 text-sm text-muted">ロールを作る
-          <AddName placeholder="ロールの名前" onAdd={(v) => { const id = newId('r'); commit((s) => ({ ...s, roles: [...s.roles, { id, label: v, perms: { jinji: 'none', roumu: 'none', eigyo: 'none', keiri: 'none' }, manageAccess: false }] }), `ロール「${v}」を作りました`, { sub: '→ 段階を選んで、一覧で人に付けられます', flash: id }); }} />
+          <AddName placeholder="ロールの名前" onAdd={(v) => { const id = newId('r'); commit((s) => ({ ...s, roles: [...s.roles, { id, label: v, perms: { ...K_NONE }, manageAccess: false }] }), `ロール「${v}」を作りました`, { sub: '→ 段階を選んで、一覧で人に付けられます', flash: id }); }} />
         </div>
       </section>
 
@@ -66,17 +66,17 @@ function RoleCard({ r, n, flash, ctl, patchRole }: { r: OrgRole; n: number; flas
         )}
       </div>
       <div className="mt-3 flex flex-col gap-2">
-        {MODULES.map((m) => (
+        {KUBUN.map((m) => (
           <div key={m.key} className="flex items-center gap-3 text-sm">
-            <span className="w-[72px] font-semibold"><span style={{ color: `var(--c-${m.key})` }}>●</span> {m.short}</span>
-            <div role="radiogroup" aria-label={`${r.label}の${m.short}`} className="inline-flex overflow-hidden rounded-lg border border-field">
+            <span className="w-[100px] shrink-0 font-semibold"><span style={{ color: `var(--c-${m.mod})` }}>●</span> {m.label}</span>
+            <div role="radiogroup" aria-label={`${r.label}の${m.label}`} className="inline-flex overflow-hidden rounded-lg border border-field">
               {LEVELS.map((lv) => {
                 const on = r.perms[m.key] === lv.key;
                 return (
                   <button key={lv.key} role="radio" aria-checked={on} title={lv.hint} disabled={fixed}
-                    onClick={() => { if (!on) patchRole(r.id, { perms: { ...r.perms, [m.key]: lv.key as Level } }, `「${r.label}」の${m.short}を「${lv.label}」にしました`); }}
+                    onClick={() => { if (!on) patchRole(r.id, { perms: { ...r.perms, [m.key]: lv.key as Level } }, `「${r.label}」の${m.label}を「${lv.label}」にしました`); }}
                     className="px-2.5 py-1 text-sm disabled:cursor-not-allowed"
-                    style={on ? { background: `var(--c-${m.key})`, color: `var(--o-${m.key})`, fontWeight: 700 } : { background: 'var(--color-surface)' }}>{lv.label}</button>
+                    style={on ? { background: `var(--c-${m.mod})`, color: `var(--o-${m.mod})`, fontWeight: 700 } : { background: 'var(--color-surface)' }}>{lv.label}</button>
                 );
               })}
             </div>
@@ -128,21 +128,21 @@ function UnitCard({ u, ctl }: { u: Unit; ctl: Ctl }) {
         <span className="text-xs text-faint">{n}人</span>
       </div>
       <div className="mt-3 flex flex-col gap-2">
-        {MODULES.map((m) => {
+        {KUBUN.map((m) => {
           const lo: Level = floor?.[m.key] ?? 'none';
           const cur: Level = atLeast(mine[m.key], lo) ? mine[m.key] : lo;
           return (
             <div key={m.key} className="flex items-center gap-3 text-sm">
-              <span className="w-[72px] font-semibold"><span style={{ color: `var(--c-${m.key})` }}>●</span> {m.short}</span>
-              <div role="radiogroup" aria-label={`${u.name}の${m.short}`} className="inline-flex overflow-hidden rounded-lg border border-field">
+              <span className="w-[100px] shrink-0 font-semibold"><span style={{ color: `var(--c-${m.mod})` }}>●</span> {m.label}</span>
+              <div role="radiogroup" aria-label={`${u.name}の${m.label}`} className="inline-flex overflow-hidden rounded-lg border border-field">
                 {LEVELS.map((lv) => {
                   const on = cur === lv.key;
                   const ng = !atLeast(lv.key, lo);
                   return (
                     <button key={lv.key} role="radio" aria-checked={on} disabled={ng} title={ng ? `部署「${parent?.name}」で${LEVELS.find((x) => x.key === lo)!.label}まで持っています` : lv.hint}
-                      onClick={() => { if (!on) patch({ own: { ...u.own, [m.key]: lv.key as Level } }, `「${u.name}」の${m.short}を「${lv.label}」にしました`); }}
+                      onClick={() => { if (!on) patch({ own: { ...u.own, [m.key]: lv.key as Level } }, `「${u.name}」の${m.label}を「${lv.label}」にしました`); }}
                       className="px-2.5 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-40"
-                      style={on ? { background: `var(--c-${m.key})`, color: `var(--o-${m.key})`, fontWeight: 700 } : { background: 'var(--color-surface)' }}>{lv.label}</button>
+                      style={on ? { background: `var(--c-${m.mod})`, color: `var(--o-${m.mod})`, fontWeight: 700 } : { background: 'var(--color-surface)' }}>{lv.label}</button>
                   );
                 })}
               </div>
