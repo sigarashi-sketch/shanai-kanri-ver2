@@ -1,6 +1,6 @@
 // 想定賃金・粗利：今の社内システムの GET /api/seikyu?action=arari[&ym=YYYY-MM]（請求書ベースの粗利・/seikyu-arari.html）の形 → この画面の行。
 //   ・粗利＝格納した請求書の売上（税抜）− 給与（額面）− 交通費 − 法定福利（19%）。計算は今の API の答えのまま（ここで計算し直さない）
-//   ・給与：手で直した ＞ freee 勤怠の想定賃金（額面＋残業代−控除・打刻0hの人は除く・10-26 shoya「給与は freee に合わせて」）＞ 額面（ミンミカの内定月給）＞ 仮 21万。勤怠は毎朝の取り込み分。交通費：手で直した ＞ 経費の申請 ＞ 仮 25,000円
+//   ・給与：手で直した ＞ freee 勤怠の想定賃金（額面＋残業代−控除・10-26 shoya「全部 freee に合わせる・0日なら0円」＝打刻0日・freee に無い人は0円）。勤怠の計算に載っていない人（退社・名簿なし）だけ 額面 ＞ 仮 21万。勤怠は毎朝の取り込み分。交通費：手で直した ＞ 経費の申請 ＞ 仮 25,000円
 //   ・読むのは runArari（SELECT だけ）。手で直すのは /api/live/arari（今の POST arari-fare / arari-salary・10-26）
 export type ArariPersonLive = {
   key: string; name: string; company: string; shozoku: string; sales: number; billedFare: number;

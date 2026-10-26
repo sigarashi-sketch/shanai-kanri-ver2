@@ -204,7 +204,7 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
         <Link href="/keiri/seikyu" className="btn-secondary">請求書へ</Link>
       </PageTitle>
       {tabs}
-      <LiveBanner state={state} error={error} onReload={reload} note="請求書締め：先方に出した押印ずみの請求書 PDF（格納したもの）の額で売上を出します。今の「請求書ベースの粗利」の計算そのままです。給与は freee の勤怠から出した想定賃金（額面＋残業代−控除）。打刻が無い人だけ額面。freee の勤怠は毎朝5時すぎに前月・当月を取り込んだ分を読みます（開くたびには取りに行きません）。給与・交通費は欄に入れて離れると保存（空にすると元に戻る・今の画面と同じ値）" />
+      <LiveBanner state={state} error={error} onReload={reload} note="請求書締め：先方に出した押印ずみの請求書 PDF（格納したもの）の額で売上を出します。今の「請求書ベースの粗利」の計算そのままです。給与は freee の勤怠から出した想定賃金（額面＋残業代−控除）。打刻0日・freee に勤怠が無い人は0円（直すなら給与の欄で）。freee の勤怠は毎朝5時すぎに前月・当月を取り込んだ分を読みます（開くたびには取りに行きません）。給与・交通費は欄に入れて離れると保存（空にすると元に戻る・今の画面と同じ値）" />
       <MikeikenNote mk={mk} live={true} />
       {d.kintaiSyncedAt && <div className="text-xs text-faint">freee の勤怠：{new Date(d.kintaiSyncedAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} に取り込んだ分（毎朝更新）</div>}
       {d.kintaiNote && <div className="rounded-xl border px-4 py-2.5 text-sm" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)', borderColor: 'var(--tone-warn-bar)' }}>{d.kintaiNote}</div>}
