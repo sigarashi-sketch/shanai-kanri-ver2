@@ -10,7 +10,7 @@ import { postLive } from '@/lib/live/post';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { toArari, wageParts, type ArariLive, type KintaiParts, type LiveArariRow } from '@/lib/live/chingin';
 import { PersonName } from '@/components/Person';
-import { stampedPdfUrl } from '@/lib/live/seikyu-store';
+import { savedPdfUrl, stampedPdfUrl } from '@/lib/live/seikyu-store';
 import { ChinginPl } from './pl';
 import { useLiveRoute } from '@/lib/live/use-live-route';
 import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
@@ -120,10 +120,10 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1040px] border-collapse text-body">
             <thead><tr className="th-row text-left">
-              <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">取引先・所属</th><th className="px-2 py-2.5 text-right font-semibold">勤怠（freee）</th><th className="px-2 py-2.5 text-right font-semibold">売上（請求）</th><th className="px-2 py-2.5 font-semibold">格納した請求書</th><th className="px-2 py-2.5 text-right font-semibold">給与</th><th className="px-2 py-2.5 text-right font-semibold">交通費</th><th className="px-2 py-2.5 text-right font-semibold">法定福利</th><th className="px-2 py-2.5 text-right font-semibold">粗利</th><th className="px-4 py-2.5 text-right font-semibold">粗利率</th>
+              <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">取引先・所属</th><th className="px-2 py-2.5 text-right font-semibold">勤怠（freee）</th><th className="px-2 py-2.5 text-right font-semibold">売上（請求）</th><th className="px-2 py-2.5 font-semibold">請求書</th><th className="px-2 py-2.5 text-right font-semibold">給与</th><th className="px-2 py-2.5 text-right font-semibold">交通費</th><th className="px-2 py-2.5 text-right font-semibold">法定福利</th><th className="px-2 py-2.5 text-right font-semibold">粗利</th><th className="px-4 py-2.5 text-right font-semibold">粗利率</th>
             </tr></thead>
             <tbody>
-              {shown.length === 0 && <tr><td colSpan={10} className="px-4 py-8 text-center text-sm text-muted">この月に格納した請求書がまだありません（または絞り込みに当たる人がいません）。</td></tr>}
+              {shown.length === 0 && <tr><td colSpan={10} className="px-4 py-8 text-center text-sm text-muted">この月の請求書がまだありません（または絞り込みに当たる人がいません）。</td></tr>}
               {shown.map((r, i) => {
                 const t = rateTone(r.rate);
                 return (
@@ -134,7 +134,7 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
                     <td className="num px-2 py-2.5 text-right">{yen(r.sales)}{r.fromYms.length > 0 && <div className="whitespace-nowrap text-xs text-faint" title="後の月の請求書に「◯月稼働分」として載っていた分を、締めの月で入れています">{r.fromYms.map((m) => `${Number(m.slice(5))}月`).join('・')}の請求書から</div>}</td>
                     <td className="w-44 max-w-44 px-2 py-2.5 text-xs">{r.files.length === 0 ? <span className="text-faint">なし</span> : r.files.map((f) => (
                       <div key={f.id} className="mb-1 min-w-0">
-                        <a href={stampedPdfUrl(f.id)} target="_blank" rel="noreferrer" title={f.label} className="block truncate underline underline-offset-2" style={{ color: 'var(--ad)' }}>{f.label.replace(/_.*$/, '')}</a>
+                        <a href={f.saved ? savedPdfUrl(f.id) : stampedPdfUrl(f.id)} target="_blank" rel="noreferrer" title={f.label} className="block truncate underline underline-offset-2" style={{ color: 'var(--ad)' }}>{f.label.replace(/_.*$/, '')}</a>
                         {f.rows.length > 0 ? f.rows.map((x, j) => <div key={j} className="flex min-w-0 gap-1 text-faint" title={x.d}><span className="min-w-0 flex-1 truncate">{x.d}</span><span className="num shrink-0">{x.a.toLocaleString('ja-JP')}</span></div>)
                           : <div className="num text-faint">{yen(f.amount)}</div>}
                         {f.fromYm && <div className="text-faint">{Number(f.fromYm.slice(5))}月の請求書</div>}
@@ -154,7 +154,7 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
           </table>
         </div>
       </div>
-      <p className="text-xs text-faint">売上は格納した請求書（税抜）。法定福利は給与の19%で見積もった概算です。給与・社会保険料・税の扱いの最終判断は社労士・税理士に確認してください。</p>
+      <p className="text-xs text-faint">売上は格納した請求書（税抜）。10月分からは、いけどんで作った請求書（保存した最新の版）を押印前でも入れます。法定福利は給与の19%で見積もった概算です。給与・社会保険料・税の扱いの最終判断は社労士・税理士に確認してください。</p>
       <ChinginPl live />
     </main>
   );

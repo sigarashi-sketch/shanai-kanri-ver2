@@ -39,7 +39,7 @@ export type LiveArariRow = {
   fare: number; fareLabel: string; welfare: number; gross: number; rate: number; temp: boolean; warn: string[];
   salaryManual: boolean; fareManual: boolean; kintai: KintaiParts | null; salaryFromKintai: boolean;
   salesSrc: 'ikedon' | 'stamp' | '';   // 売上の出どころ：請求書づくりの下書き／格納した押印PDF
-  files: Array<{ id: string; label: string; amount: number; fromYm?: string; rows: Array<{ d: string; a: number }> }>;   // rows＝まとめた請求書でもその人の分の行だけ   // 格納した請求書（売上の右にリンクで出す・10-26 shoya）
+  files: Array<{ id: string; label: string; amount: number; fromYm?: string; saved: boolean; rows: Array<{ d: string; a: number }> }>;   // saved＝いけどんで作った請求書（押印前の保存した版・10月分〜）   // rows＝まとめた請求書でもその人の分の行だけ   // 格納した請求書（売上の右にリンクで出す・10-26 shoya）
   fromYms: string[];   // 後の月の請求書に載っていた分（「8月稼働分」などを締めの月で振り分けた）の請求書の月
 };
 
@@ -52,7 +52,7 @@ export function toArari(j: ArariLive | null): LiveArariRow[] {
     temp: (p.salaryDefault && !p.salaryManual) || p.fareSrc === 'default', warn: p.warn || [],
     salaryManual: !!p.salaryManual, fareManual: p.fareSrc === 'manual', kintai: p.kintai || null, salaryFromKintai: p.salarySrc === 'kintai',
     salesSrc: p.salesSrc || '',
-    files: (p.files as Array<{ id: string; number?: string; fileName?: string; amount?: number; fromYm?: string; rows?: Array<{ d?: string; a?: number }> }>).map((f) => ({ id: f.id, label: f.number || f.fileName || '請求書', amount: Number(f.amount) || 0, ...(f.fromYm ? { fromYm: f.fromYm } : {}), rows: (f.rows || []).map((x) => ({ d: String(x.d || ''), a: Number(x.a) || 0 })) })),
+    files: (p.files as Array<{ id: string; number?: string; fileName?: string; amount?: number; fromYm?: string; rows?: Array<{ d?: string; a?: number }>; pdf?: string }>).map((f) => ({ id: f.id, saved: f.pdf === 'saved', label: f.number || f.fileName || '請求書', amount: Number(f.amount) || 0, ...(f.fromYm ? { fromYm: f.fromYm } : {}), rows: (f.rows || []).map((x) => ({ d: String(x.d || ''), a: Number(x.a) || 0 })) })),
     fromYms: [...new Set((p.files as Array<{ fromYm?: string }>).map((f) => f.fromYm).filter((x): x is string => !!x))],
   }));
 }

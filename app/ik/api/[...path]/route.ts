@@ -24,6 +24,8 @@ const SEIKYU_GET = new Set([
   'make', 'genba-inputs', 'month-summary', 'saved-list', 'saved-get', 'saved-pdf', 'saved-pdf-check', 'stamped-list', 'stamped-pdf', 'gk-list', 'gk-file', 'issuers',
   // 格納ページ（?v2pane=store）は下書きを計算せずにこれだけ読む（10-26）
   'store-base',
+  // 格納ページの「請求書勤怠表」タブ（人ごとの請求金額・勤務時間・10-26）
+  'store-sheet',
   // seikyu-sheets.js
   'mnm-sheets', 'mnm-sheet-file',
 ]);
@@ -35,6 +37,7 @@ const SEIKYU_POST = new Set([
   // seikyu-make.html（作成・保存・PDF・押印の格納・勤務表の格納・発行会社・表）
   'genba-save', 'saved-save', 'saved-number', 'saved-del', 'saved-pdf-fix', 'fmt-make', 'paystmt-make',
   'stamped-upload', 'stamped-ext-upload', 'stamped-ext-del', 'gk-upload', 'gk-del', 'store-persons',
+  'store-sheet-set',   // 請求書勤怠表で手で入れる請求金額（請求書ベースの粗利の売上になる・10-26）
   'issuer-set', 'issuer-del', 'table-set', 'sheet-set', 'sheet-save',
   // seikyu-sheets.js
   'sheet-ai', 'mnm-sheet-mark',
