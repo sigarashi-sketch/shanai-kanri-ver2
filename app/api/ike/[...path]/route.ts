@@ -13,7 +13,8 @@ const NOT_ALLOWED = 'この読み口は通していません';
 // '' は action（op）なし。roster のように op で分かれる口は 'op:action'
 const ALLOW: Record<string, readonly string[]> = {
   proxy: ['getProgressData', 'getProgressReplies', 'getMapData', 'getRosterStatus', 'getReplies', 'getGroupNames', 'getSalesTableData', 'getInterviews'],
-  roster: ['getEngineerRows', 'jimu:list', 'kekkin:list', 'shime:board', 'timesheet:list'],
+  roster: ['getEngineerRows', 'jimu:list', 'kekkin:list', 'shime:board', 'timesheet:list', 'shime:unread', 'roumu:marks', 'roumu:contacts', 'roumu:depcall', 'roumu:shime-todo', 'roumu:overtime', 'roumu:haken', 'roumu:shift-patterns'],
+  // ↑ 10-26 労務（roumu:* は今のシステムの GET が SELECT だけ＝_op_roumu.ts。書くのは /api/live/roumu の POST）
   'cases-map': ['list'],
   nippo: ['', 'pl-reps'],
   'partner-list': ['list', 'station'],

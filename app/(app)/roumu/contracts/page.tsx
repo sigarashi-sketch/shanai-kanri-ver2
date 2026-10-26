@@ -1,13 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, Bell, Check, Info, ShieldCheck } from 'lucide-react';
 import { CONTRACTS, DOC_LABELS, LEVEL_STYLE, contractDecided as decided, contractLevel as levelOf, ikenOf, type DispatchContract, type Intent, type Level } from '@/lib/roumu-sample';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
-import { NotInLegacy } from '@/components/Live';
+import { LiveBanner, useIke } from '@/components/Live';
+import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
+import { postLive } from '@/lib/live/post';
+import type { IkeHaken, IkeHakenRow } from '@/lib/live/roumu';
 import { stageTo, useRule } from '@/components/AlertStore';
 import { numOf } from '@/lib/alert-rules';
 import { PersonName } from '@/components/Person';
@@ -19,9 +22,25 @@ import { PersonName } from '@/components/Person';
 //   ・更新の意向は選ぶだけ（自由入力にしない）。営業は「更新」「終了」を提案まで、確定は労務の権限（直す）の人。確定すれば通知は止まる（10-25）
 //   ・事業所単位の抵触日と意見聴取の期限（抵触日の1か月前）・書類（個別契約書・派遣元管理台帳・就業条件明示）の有無も出す（10-25）
 //   ・準委任の行も出すが、抵触日・書類・通知は対象外（派遣ではない＝現場からの指揮命令はできない）
-//   ・今の社内システムに派遣契約のデータが無いので、この画面はいつも見本。ほかの一覧に載せたと言う知らせには「（見本）」を付ける
-const SAMPLE = true;
-const mihon = (t: string) => (SAMPLE ? `${t}（見本）` : t);
+//   ・本物（10-26）：契約の形・派遣先・契約の始まりと終わりは稼働管理情報一覧のいちばん新しい月の行（派遣/準委任）。
+//     抵触日（個人単位・事業所単位）・書類・更新の意向（提案と確定）・意向確認を頼んだ印は今のシステムの haken_contracts（0370）
+//     抵触日（個人単位）が空なら「同じ派遣先で派遣だった行のいちばん早い開始日＋3年」を目安で出す（組織単位までは見ていない）
+//   ・見本のときの知らせには「（見本）」を付ける
+const DAY = 86400000;
+const slash = (iso: string) => iso.replace(/-/g, '/');
+function liveContract(r: IkeHakenRow, today: number): DispatchContract & { raw: IkeHakenRow } {
+  const left = (iso: string) => (iso ? Math.round((Date.parse(iso) - today) / DAY) : 99999);
+  const haken = r.kind === '派遣';
+  return {
+    personId: r.nn, name: r.name, site: r.site || '—', sales: r.rep || '未設定', kind: r.kind,
+    start: slash(r.hakenFrom || r.start), end: r.end ? slash(r.end) : '（終わりの日が無い）', daysLeft: left(r.end),
+    conflictOn: haken && r.conflictOn ? slash(r.conflictOn) : '', conflictDays: haken ? left(r.conflictOn) : 99999,
+    officeConflictOn: haken && r.officeConflictOn ? slash(r.officeConflictOn) : '', officeConflictDays: haken ? left(r.officeConflictOn) : 99999,
+    docs: haken ? r.docs : null, intent: r.intent, confirmed: r.confirmed,
+    asked: r.askedAt ? `${new Date(r.askedAt).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' })} ${r.askedTo || ''}に頼んだ` : undefined,
+    raw: r,
+  };
+}
 const ORDER: Level[] = ['danger', 'warn', 'caution', 'ok'];
 const INTENTS: Intent[] = ['未確認', '派遣先と調整中', '更新', '終了'];
 const QUASI_NOTE = '準委任：現場からの指揮命令はできません';
@@ -35,21 +54,39 @@ export default function ContractsPage() {
   const contractLevel = (c: DispatchContract) => levelOf(c, days);
   const STEP_TO = (lv: Level) => stageTo(rule, lv);
   const { hit, toast } = useMotivation();
-  const [rows, setRows] = useState<DispatchContract[]>(CONTRACTS);
+  const hq = useIke<IkeHaken>('roster?op=roumu&action=haken');
+  const live = hq.live && !!hq.data?.ok;
+  const mk = useMikeiken();
+  const mihon = (t: string) => (live ? t : `${t}（見本）`);
+  const [today] = useState(() => Date.parse(new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10)));
+  // 本物は未経験の人だけ。準委任は終わりが近い人だけ（通知の対象外・参考に出す）
+  const liveRows = live ? mk.keep(hq.data!.rows, 'name').map((r) => liveContract(r, today)).filter((c) => c.kind === '派遣' || c.daysLeft <= days[0]) : [];
+  const [rows0, setRows] = useState<DispatchContract[]>(CONTRACTS);
+  const rows: DispatchContract[] = live ? liveRows : rows0;
+  const [werr, setWerr] = useState('');
+  const write = async (body: Record<string, unknown>) => { setWerr(''); try { await postLive('/api/live/roumu', body); hq.reload(); return true; } catch (e) { setWerr((e as Error).message); return false; } };
   const [asked, setAsked] = useState<Record<string, boolean>>({});
   const [flash, setFlash] = useState<string | null>(null);
   const [openNote, setOpenNote] = useState<string | null>(null);   // 準委任の説明を開いた行
   // 並びは、はじめの段階と残り日数で固定（意向を選ぶたびに行が下へ逃げないように。決まった行は薄くする）
-  const first = Object.fromEntries(CONTRACTS.map((c) => [c.personId, contractLevel(c)]));
+  const [firstLive, setFirstLive] = useState<Record<string, Level> | null>(null);
+  useEffect(() => { if (live && !firstLive) setFirstLive(Object.fromEntries(liveRows.map((c) => [c.personId, contractLevel(c)]))); }, [live, firstLive, liveRows]);
+  const first: Record<string, Level> = live ? { ...Object.fromEntries(liveRows.map((c) => [c.personId, contractLevel(c)])), ...(firstLive || {}) } : Object.fromEntries(CONTRACTS.map((c) => [c.personId, contractLevel(c)]));
   const near = (c: DispatchContract) => Math.min(c.daysLeft, c.conflictDays, ikenOf(c)?.days ?? Infinity);
   const sorted = [...rows].sort((a, b) => (a.kind === '準委任' ? 1 : 0) - (b.kind === '準委任' ? 1 : 0) || ORDER.indexOf(first[a.personId]) - ORDER.indexOf(first[b.personId]) || near(a) - near(b));
   const open = rows.filter((r) => contractLevel(r) !== 'ok').length;
-  const openTotal = CONTRACTS.filter((r) => contractLevel(r) !== 'ok').length;
+  const openTotal = live ? Object.values(first).filter((l) => l !== 'ok').length : CONTRACTS.filter((r) => contractLevel(r) !== 'ok').length;
   const undecided = rows.filter((r) => r.kind === '派遣' && !decided(r)).length;
 
   const pulse = (id: string) => { setFlash(id); setTimeout(() => setFlash(null), 1300); };
   // 意向を選ぶ＝提案（確定は外れる）。更新・終了は労務が「確定」するまで通知は止まらない
   const setIntent = (c: DispatchContract, intent: Intent) => {
+    if (live) {
+      const prev = c.intent;
+      write({ action: 'haken-save', nn: c.personId, name: c.name, intent }).then((ok) => { if (!ok) return; pulse(c.personId); hit();
+        toast({ text: `${c.name} の更新の意向を「${intent}」${intent === '更新' || intent === '終了' ? 'で提案しました' : 'にしました'}`, sub: intent === '更新' || intent === '終了' ? '→ 労務の確定を待っています（確定するまで知らせは続きます）' : '→ 今の社内システムに残しました', undo: () => { write({ action: 'haken-save', nn: c.personId, intent: prev }); } }); });
+      return;
+    }
     const prev = { intent: c.intent, confirmed: c.confirmed };
     const proposal = intent === '更新' || intent === '終了';
     setRows((rs) => rs.map((r) => (r.personId === c.personId ? { ...r, intent, confirmed: false } : r)));
@@ -62,6 +99,11 @@ export default function ContractsPage() {
   };
   const confirmIntent = (c: DispatchContract) => {
     if (!canConfirm) return;
+    if (live) {
+      write({ action: 'haken-confirm', nn: c.personId }).then((ok) => { if (!ok) return; pulse(c.personId); hit();
+        toast({ text: `${c.name} の「${c.intent}」を確定しました`, sub: '→ 知らせは止まりました', undo: () => { write({ action: 'haken-confirm', nn: c.personId, undo: true }); } }); });
+      return;
+    }
     setRows((rs) => rs.map((r) => (r.personId === c.personId ? { ...r, confirmed: true } : r)));
     pulse(c.personId); hit();
     toast({
@@ -72,6 +114,11 @@ export default function ContractsPage() {
   };
   const ask = (c: DispatchContract, to: string[]) => {
     if (to.length === 0) return;
+    if (live) {
+      write({ action: 'haken-ask', nn: c.personId, to }).then((ok) => { if (!ok) return; pulse(c.personId); hit();
+        toast({ text: `${c.name} の意向確認を頼んだ印を付けました`, sub: `→ ${to.join('・')} への連絡はチャットで（ここからは送りません）`, undo: () => { write({ action: 'haken-ask', nn: c.personId, undo: true }); } }); });
+      return;
+    }
     setAsked((a) => ({ ...a, [c.personId]: true }));
     pulse(c.personId); hit();
     toast({ text: `${c.name} の意向確認を頼みました`, sub: mihon(`→ ${to.join('・')} のやることに載りました`), undo: () => setAsked((a) => ({ ...a, [c.personId]: false })) });
@@ -79,10 +126,11 @@ export default function ContractsPage() {
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="派遣契約" sub="派遣契約の終わりと抵触日が近い人。更新するか決まるまで、段階ごとに知らせます（準委任は通知の対象外）・見本データ" />
-      {/* 今の社内システムには派遣契約の終わり・抵触日・更新の意向を持つ画面も表も無い（稼働の終了日はあるが抵触日とは別物なのでつながない） */}
-      <NotInLegacy what="派遣契約の終わり・抵触日・書類・更新の意向" />
-      <p className="flex items-start gap-1.5 text-sm text-muted"><ShieldCheck size={14} className="mt-0.5 shrink-0" />法令の判断は労務・専門家に確認してください。更新・終了は営業が提案して、労務が確定します。</p>
+      <PageTitle title="派遣契約" sub={live ? `派遣契約の終わりと抵触日が近い人（稼働管理情報一覧の ${hq.data?.tab} の行）。更新するか決まるまで段階で色を付けます（準委任は通知の対象外・終わりが近い人だけ参考に出す）` : '派遣契約の終わりと抵触日が近い人。更新するか決まるまで、段階ごとに知らせます（準委任は通知の対象外）・見本データ'} />
+      <LiveBanner state={hq.live && !hq.data?.ok ? 'error' : hq.state} error={hq.error || hq.data?.error} onReload={hq.reload} note="抵触日・書類・更新の意向は本物に書きます。抵触日（個人単位）が空の人は、同じ派遣先で派遣だった行のいちばん早い開始日から3年の目安（組織単位までは見ていません）。意向確認を頼むは印だけ（送りません）" />
+      <MikeikenNote mk={mk} live={live} />
+      {werr && <div className="rounded-xl px-4 py-2.5 text-sm" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>{werr}</div>}
+      <p className="flex items-start gap-1.5 text-sm text-muted"><ShieldCheck size={14} className="mt-0.5 shrink-0" />抵触日・意見聴取・雇用安定措置など法令の最終判断は社労士に確認してください。更新・終了は営業が提案して、労務が確定します。</p>
 
       <div className="mo-fade-up flex flex-wrap items-stretch gap-3" style={{ ['--i' as string]: 1 }}>
         <div className="flex min-w-[240px] items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
@@ -138,12 +186,16 @@ export default function ContractsPage() {
                     <td className="num px-2 py-2.5">{c.end}<span className="ml-1 text-xs" style={{ color: c.daysLeft <= 45 ? 'var(--color-bad)' : 'var(--color-faint)' }}>あと{c.daysLeft}日</span></td>
                     {quasi ? naCell : (
                       <td className="num px-2 py-2.5">
-                        {c.conflictOn}<span className="ml-1 text-xs" style={{ color: conflictFirst ? 'var(--color-bad)' : 'var(--color-faint)' }}>あと{c.conflictDays}日</span>
+                        {live && <DateEdit value={(c as { raw?: IkeHakenRow }).raw?.conflictGuess ? '' : (c as { raw?: IkeHakenRow }).raw?.conflictOn || ''} label={`${c.name} の抵触日（個人単位）`} canEdit={canConfirm} onSave={(v) => write({ action: 'haken-save', nn: c.personId, name: c.name, conflictOn: v })} />}
+                        {c.conflictOn ? <>{c.conflictOn}<span className="ml-1 text-xs" style={{ color: conflictFirst ? 'var(--color-bad)' : 'var(--color-faint)' }}>あと{c.conflictDays}日</span></> : <span className="text-faint">—</span>}
+                        {live && (c as { raw?: IkeHakenRow }).raw?.conflictGuess && c.conflictOn && <div className="text-xs text-faint">目安（派遣の始まり {c.start}＋3年）</div>}
                         {conflictFirst && <div className="mo-shake mt-1 flex items-start gap-1 text-xs text-bad"><AlertTriangle size={13} className="mt-0.5 shrink-0 text-bad" />次の更新で抵触日を超えます。同じ組織では続けられません</div>}
                       </td>
                     )}
                     {quasi ? naCell : (
-                      <td className="num px-2 py-2.5">{c.officeConflictOn}<span className="ml-1 text-xs" style={{ color: c.officeConflictDays <= c.daysLeft + 31 ? 'var(--color-bad)' : 'var(--color-faint)' }}>あと{c.officeConflictDays}日</span></td>
+                      <td className="num px-2 py-2.5">
+                        {live && <DateEdit value={(c as { raw?: IkeHakenRow }).raw?.officeConflictOn || ''} label={`${c.name} の事業所単位の抵触日`} canEdit={canConfirm} onSave={(v) => write({ action: 'haken-save', nn: c.personId, name: c.name, officeConflictOn: v })} />}
+                        {c.officeConflictOn ? <>{c.officeConflictOn}<span className="ml-1 text-xs" style={{ color: c.officeConflictDays <= c.daysLeft + 31 ? 'var(--color-bad)' : 'var(--color-faint)' }}>あと{c.officeConflictDays}日</span></> : <span className="text-faint">{live ? '派遣先の通知を入れる' : '—'}</span>}</td>
                     )}
                     {quasi || !iken ? naCell : (
                       <td className="num px-2 py-2.5" title="派遣先が延ばすなら、この日までに過半数労働組合などの意見を聞く">
@@ -153,9 +205,14 @@ export default function ContractsPage() {
                     {quasi || !c.docs ? naCell : (
                       <td className="px-2 py-2.5">
                         <div className="flex max-w-[220px] flex-wrap gap-1">
-                          {DOC_LABELS.map((d) => c.docs![d.key]
-                            ? <span key={d.key} className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}><Check size={11} />{d.label}</span>
-                            : <span key={d.key} className="chip" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>{d.label} 無し</span>)}
+                          {DOC_LABELS.map((d) => {
+                            const on = c.docs![d.key];
+                            const chip = on ? <><Check size={11} />{d.label}</> : <>{d.label} 無し</>;
+                            const style = on ? { background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' } : { background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' };
+                            if (!live) return <span key={d.key} className="chip" style={style}>{chip}</span>;
+                            return <button key={d.key} className="chip disabled:cursor-not-allowed" style={style} disabled={!canConfirm} title={canConfirm ? (on ? 'そろっていない に戻す' : 'そろった にする') : '書類の印は労務の権限（直す）の人だけ'}
+                              onClick={() => write({ action: 'haken-save', nn: c.personId, name: c.name, docs: { ...c.docs!, [d.key]: !on } }).then((ok) => { if (ok) { hit(); toast({ text: `${c.name} の${d.label}を「${on ? '無し' : 'そろった'}」にしました`, sub: '→ 今の社内システムに残しました' }); } })}>{chip}</button>;
+                          })}
                         </div>
                       </td>
                     )}
@@ -187,7 +244,17 @@ export default function ContractsPage() {
           </table>
         </div>
       </div>
-      <p className="text-xs text-faint">法令の判断は労務・専門家に確認してください（抵触日・意見聴取・契約終了の扱い（雇用安定措置など）・書類の要否）。準委任の人に現場が直接指示を出すと偽装請負になるおそれがあります。</p>
+      <p className="text-xs text-faint">最終判断は社労士に確認してください（抵触日・意見聴取・契約終了の扱い（雇用安定措置など）・書類の要否）。準委任の人に現場が直接指示を出すと偽装請負になるおそれがあります。</p>
     </main>
   );
+}
+
+// 抵触日の手入れ（内勤の入力）。空にすると目安（個人単位）／空欄（事業所単位）に戻る
+function DateEdit({ value, label, canEdit, onSave }: { value: string; label: string; canEdit: boolean; onSave: (v: string) => Promise<boolean> }) {
+  const [v, setV] = useState(value);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => setV(value), [value]);
+  return <input type="date" aria-label={label} value={v} disabled={!canEdit || busy} title={canEdit ? '派遣先の通知・社労士の確認に合わせて入れる（空にすると目安に戻す）' : '抵触日は労務の権限（直す）の人だけ'}
+    onChange={(e) => setV(e.target.value)} onBlur={() => { if (v === value) return; setBusy(true); onSave(v).finally(() => setBusy(false)); }}
+    className="mb-1 block min-h-7 rounded-lg border border-field bg-surface px-1.5 text-xs disabled:opacity-50" />;
 }

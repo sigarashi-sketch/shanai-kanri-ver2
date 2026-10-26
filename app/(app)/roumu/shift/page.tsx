@@ -8,7 +8,10 @@ import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
 import { PersonName } from '@/components/Person';
-import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { LiveBanner, useIke } from '@/components/Live';
+import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
+import { postLive } from '@/lib/live/post';
+import { nnOf, nudge, nudgeSub, patternOf, useMarks, type IkeShiftPatterns, type ShiftPattern } from '@/lib/live/roumu';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { shiftMissingOf, shiftMonthOf, shiftPeopleOf, type IkeTodayTargets, type IkeShiftDetail, type IkeShiftList, type IkeShiftMonth } from '@/lib/live/shift';
 
@@ -58,10 +61,18 @@ export default function ShiftPage() {
   const M = live ? shiftMonthOf(month) : SHIFT_MONTH;
   const livePeople = live ? [...(tq.live ? shiftMissingOf(tq2, lq.data?.rows || [], month) : []), ...shiftPeopleOf(lq2, details, month)] : null;
   const rowsP: (ShiftPerson & { times?: string[] })[] = livePeople || people;
-  const okEdit = canEdit && !live;
-  const block = live ? LIVE_WRITE_BLOCKED : !canEdit ? needText('edit') : undefined;
+  const okEdit = canEdit;
+  const block = !canEdit ? needText('edit') : undefined;
+  // 本物（10-26）：シフトの呼び名（shift_patterns）・提出のお願い（LINE・既定は送らない＝印だけ）
+  const pq = useIke<IkeShiftPatterns>(live ? 'roster?op=roumu&action=shift-patterns' : null);
+  const pats = pq.data?.ok ? pq.data.rows : [];
+  const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
+  const sm = useMarks(['nudge-shift'], today.slice(0, 7), live);
+  const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
+  const askedOf = (p: ShiftPerson) => (live ? !!sm.get('nudge-shift', `${today}|${nnOf(p.name)}`) : !!asked[p.personId]);
+  const CELL_LOCK = '本人がスマホで入れたシフトです（ここからは直せません）';
   const days = Array.from({ length: M.days }, (_, i) => ({ d: i + 1, dow: (M.firstDow + i) % 7 }));
-  const waiting = rowsP.filter((p) => p.state !== '提出済み' && !asked[p.personId]);
+  const waiting = rowsP.filter((p) => p.state !== '提出済み' && !askedOf(p));
   const notSubmitted = rowsP.filter((p) => p.state !== '提出済み');
 
   const setCell = (p: ShiftPerson, i: number, k: ShiftKind) => {
@@ -73,6 +84,14 @@ export default function ShiftPage() {
     toast({ text: `${p.name} の ${SHIFT_MONTH.month}/${i + 1} を「${k || '空欄'}」にしました`, sub: '→ 当日の出勤状況（未打刻の判定）と、本人のシフト画面に反映しました', undo: () => put(prev) });
   };
   const ask = (ps: ShiftPerson[]) => {
+    if (live) {
+      setConfirm({
+        title: ps.length > 1 ? `${ps.length}人にシフトの提出をお願いする` : `${ps[0].name} にシフトの提出をお願いする`, okLabel: 'お願いする',
+        lines: ['本人の公式LINE（1:1）に決まった文を1通ずつ送ります（30人まで）', 'いまは送信を止めている設定なら、送らずに「お願いした」の印だけ残します'],
+        run: async () => { const j = await nudge('shift', today, ps.slice(0, 30).map((p) => ({ nn: nnOf(p.name) }))); hit(ps.length); sm.reload(); toast({ text: ps.length > 1 ? `${ps.length}人に提出のお願いをしました` : `${ps[0].name} に提出のお願いをしました`, sub: nudgeSub(j) }); },
+      });
+      return;
+    }
     const ids = ps.map((p) => p.personId);
     setAsked((a) => ({ ...a, ...Object.fromEntries(ids.map((id) => [id, true])) }));
     hit(ps.length);
@@ -84,9 +103,9 @@ export default function ShiftPage() {
       <PageTitle title="シフト表" sub={live ? `${M.year}年${M.label}・本人が入れたシフト（20日を過ぎたら翌月を集める）` : `${SHIFT_MONTH.year}年${SHIFT_MONTH.label}・シフト勤務の人だけ・提出の締切は ${SHIFT_MONTH.deadline}・見本データ`}>
         <Link href="/roumu/today" className="btn-secondary">当日の出勤状況へ</Link>
       </PageTitle>
-      <LiveBanner state={mq.live ? lq.state : mq.state} error={mq.error || lq.error} onReload={() => { mq.reload(); lq.reload(); }} note="見るだけです。シフトは本人がスマホで入れます（ここからは直せません）。提出のお願いは今の社内システムの配信から" />
+      <LiveBanner state={mq.live ? lq.state : mq.state} error={mq.error || lq.error} onReload={() => { mq.reload(); lq.reload(); }} note="シフトは本人がスマホで入れます（ここからは直せません）。提出のお願い（LINE）は確認のあとで送ります（送信を止めている間は印だけ）。呼び名は時間がぴったり合うシフトに付きます" />
       <MikeikenNote mk={mk} live={live} />
-      {live && <NotInLegacy what="早番・遅番などの名前" />}
+      {live && <PatternBar pats={pats} canEdit={canEdit} reload={pq.reload} onDone={(t) => { hit(); toast({ text: t, sub: '→ 今の社内システムに残しました' }); }} />}
       {live && tq.state === 'loading' && <div className="text-sm text-faint">まだ出していない人（未提出）を探しています…</div>}
 
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
@@ -125,18 +144,29 @@ export default function ShiftPage() {
                       <div className="text-xs text-faint">{p.site}</div>
                       <div className="mt-1 flex items-center gap-1.5">
                         <span className="chip" style={{ background: STATE_STYLE[p.state].bg, color: STATE_STYLE[p.state].fg }}>{p.state}</span>
-                        {p.state !== '提出済み' && (asked[p.personId]
+                        {p.state !== '提出済み' && (askedOf(p)
                           ? <span className="text-xs text-ok">お願い済み</span>
                           : <button onClick={() => ask([p])} disabled={!okEdit} title={block} className="text-xs font-semibold disabled:opacity-40" style={{ color: 'var(--ad)' }}>お願いする</button>)}
                       </div>
                     </td>
                     {p.days.map((k, i) => {
+                      const pat = live && k === '出勤' ? patternOf(p.times?.[i] || '', pats) : undefined;
+                      if (live) {
+                        const tone = pat ? pat.tone : !k && p.state === '提出済み' ? 'mute' : KIND[k]?.tone || 'mute';
+                        const label = pat ? pat.short : k === '出勤' ? '出' : k === '休み' ? '休' : !k && p.state === '提出済み' ? '休' : '';
+                        return (
+                          <td key={i} className="p-0.5">
+                            <span title={`${p.times?.[i] ? `${pat ? `${pat.name} ` : ''}${p.times[i]}・` : ''}${CELL_LOCK}`} className="flex h-8 w-8 items-center justify-center rounded-md text-sm font-semibold"
+                              style={{ background: label ? `var(--tone-${tone}-bg)` : 'transparent', color: `var(--tone-${tone}-fg)`, opacity: !k && p.state === '提出済み' ? 0.55 : 1, border: label ? 'none' : '1px dashed var(--color-line)' }}>{label}</span>
+                          </td>
+                        );
+                      }
                       const implied = !k && p.state === '提出済み';
                       const meta = KIND[k] || KIND[''];
                       const tone = implied ? 'mute' : meta.tone;
                       return (
                         <td key={i} className={`p-0.5 ${flash === `${p.personId}-${i}` ? 'mo-flash' : ''}`}>
-                          <select aria-label={`${p.name} ${M.month}/${i + 1}`} value={k} disabled={!okEdit} title={live ? (p.times?.[i] ? `${p.times[i]}（${LIVE_WRITE_BLOCKED}）` : LIVE_WRITE_BLOCKED) : !canEdit ? needText('edit') : meta.time || undefined}
+                          <select aria-label={`${p.name} ${M.month}/${i + 1}`} value={k} disabled={!okEdit} title={!canEdit ? needText('edit') : meta.time || undefined}
                             onChange={(e) => setCell(p, i, e.target.value as ShiftKind)}
                             className="h-8 w-8 cursor-pointer appearance-none rounded-md text-center text-sm font-semibold disabled:cursor-not-allowed"
                             style={{ background: k || implied ? `var(--tone-${tone}-bg)` : 'transparent', color: `var(--tone-${tone}-fg)`, opacity: implied ? 0.55 : 1, border: k || implied ? 'none' : '1px dashed var(--color-line)' }}>
@@ -154,7 +184,55 @@ export default function ShiftPage() {
           </table>
         </div>
       </div>
-      <p className="text-xs text-faint">本人はスマホのシフト画面から1日ずつ入れて提出します。ここで直したものも本人の画面に出ます（見本の中だけで動きます）。</p>
+      {confirm && <ConfirmWrite spec={confirm} onClose={() => setConfirm(null)} />}
+      <p className="text-xs text-faint">本人はスマホのシフト画面から1日ずつ入れて提出します。{live ? '直すのは本人の画面から（ここからは直せません）。' : 'ここで直したものも本人の画面に出ます（見本の中だけで動きます）。'}</p>
     </main>
+  );
+}
+
+// シフトの呼び名（早番・遅番など）。本人が入れた時間がぴったり合えば、その名前と1文字でマスに出す（本人の入力は変えない）。内勤が足す・消す
+const PTONES = [['ok', '緑'], ['info', '青'], ['caution', '黄'], ['warn', '橙'], ['purple', '紫'], ['mute', '灰']] as const;
+function PatternBar({ pats, canEdit, reload, onDone }: { pats: ShiftPattern[]; canEdit: boolean; reload: () => void; onDone: (t: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [f, setF] = useState({ name: '', short: '', start: '', end: '', tone: 'ok' });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
+  const lock = !canEdit ? needText('edit') : undefined;
+  const add = async () => {
+    setBusy(true); setErr('');
+    try { await postLive('/api/live/roumu', { action: 'shift-pattern-save', ...f, sort: pats.length }); setF({ name: '', short: '', start: '', end: '', tone: 'ok' }); reload(); onDone(`呼び名「${f.name}」を足しました`); }
+    catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+  };
+  const remove = (p: ShiftPattern) => setConfirm({ title: `呼び名「${p.name}」を消す`, okLabel: '消す', danger: true, lines: ['本人が入れたシフトは消えません。マスの名前が「出」に戻るだけです'],
+    run: async () => { await postLive('/api/live/roumu', { action: 'shift-pattern-remove', id: p.id }); reload(); onDone(`呼び名「${p.name}」を消しました`); } });
+  const inp = 'min-h-8 rounded-lg border border-field bg-surface px-2 text-sm';
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <b>シフトの呼び名</b>
+        {pats.length === 0 && <span className="text-muted">まだありません（時間のマスは「出」で出ます）</span>}
+        {pats.map((p) => (
+          <span key={p.id} className="chip inline-flex items-center gap-1" style={{ background: `var(--tone-${p.tone}-bg)`, color: `var(--tone-${p.tone}-fg)` }}>
+            {p.short} {p.name} {p.start_time.replace(/^0/, '')}〜{p.end_time.replace(/^0/, '')}
+            {open && <button aria-label={`${p.name} を消す`} onClick={() => remove(p)} disabled={!canEdit} title={lock} className="ml-0.5 disabled:opacity-40">×</button>}
+          </span>
+        ))}
+        <button onClick={() => setOpen((v) => !v)} className="ml-auto text-sm font-semibold" style={{ color: 'var(--ad)' }}>{open ? '閉じる' : '呼び名を足す・消す'}</button>
+      </div>
+      {open && (
+        <div className="flex flex-wrap items-center gap-2">
+          <input aria-label="名前" placeholder="早番" maxLength={12} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} className={`${inp} w-24`} />
+          <input aria-label="1文字" placeholder="早" maxLength={2} value={f.short} onChange={(e) => setF({ ...f, short: e.target.value })} className={`${inp} w-14`} />
+          <input aria-label="始まり" type="time" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value })} className={inp} />
+          <span>〜</span>
+          <input aria-label="終わり" type="time" value={f.end} onChange={(e) => setF({ ...f, end: e.target.value })} className={inp} />
+          <select aria-label="色" value={f.tone} onChange={(e) => setF({ ...f, tone: e.target.value })} className={inp}>{PTONES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+          <button onClick={add} disabled={!canEdit || busy || !f.name || !f.short || !f.start || !f.end} title={lock} className="btn-primary btn-sm">{busy ? '足しています…' : '足す'}</button>
+          {err && <span className="text-bad">{err}</span>}
+        </div>
+      )}
+      {confirm && <ConfirmWrite spec={confirm} onClose={() => setConfirm(null)} />}
+    </div>
   );
 }

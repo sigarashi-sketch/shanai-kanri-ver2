@@ -7,7 +7,9 @@ import { NOW, TODAY_ROWS, TODAY_TOTAL, type TodayRow } from '@/lib/kintai-sample
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
-import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { LiveBanner, useIke } from '@/components/Live';
+import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
+import { nudge, nudgeSub, setMark, useMarks, type IkeDepCall } from '@/lib/live/roumu';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { KINMU_CHOICES, TODAY_NOTE_MAX, todayFromIke, withTodayRows, type IkeAbsence, type IkeToday, type IkeTodayRow } from '@/lib/live/today';
 import { postLive } from '@/lib/live/post';
@@ -38,15 +40,32 @@ export default function TodayPage() {
   const full = useIke<IkeToday>(quick.live && date ? `kintai-today?date=${date}` : null);
   const absence = useIke<IkeAbsence>(quick.live && date ? `attendance-board?action=absence&date=${date}` : null);
   const live = quick.live;
+  const block = !canEdit ? needText('edit') : undefined;
+  const okEdit = canEdit;
+  // 本物（10-26）：出発報告の届き具合（送らない・読むだけ）と、結果・現場に伝えた・促した の印（roumu_marks）
+  const dep = useIke<IkeDepCall>(live && date ? 'roster?op=roumu&action=depcall' : null);
+  const marks = useMarks(['today-result', 'today-site', 'nudge-punch', 'nudge-depcall'], date ? date.slice(0, 7) : undefined, live && !!date);
+  const mkey = (id: string) => `${date}|${id}`;
+  const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
+  const [werr, setWerr] = useState('');
   const best = full.live && full.data?.ok ? full.data : quick.data;
   // 本物は未経験の人だけ（今のプロパーリストに入っている人）。出勤予定・出勤済みの数も絞った人で数え直す
   const mk = useMikeiken();
   const L = live ? todayFromIke(withTodayRows(best, (rs) => mk.keep(rs, 'name')), absence.live ? absence.data : null) : null;
-  const ALL = L ? L.rows : TODAY_ROWS;
+  const depOf = new Map((dep.data?.ok ? dep.data.rows : []).map((x) => [x.nn, x]));
+  const ALL = L ? L.rows.map((r) => {
+    const d = depOf.get(r.personId);
+    if (!d || (d.state !== 'missing' && d.state !== 'over')) return r;
+    const tail = `出発の連絡なし（締切 ${d.deadline}・始業 ${d.start}）`;
+    if (r.state === '始業前' || r.state === '取得できていない') return { ...r, state: '出発コール未着' as const, contact: tail };
+    if (r.state === '未打刻') return { ...r, memo: [tail, r.memo].filter(Boolean).join(' ／ ') };
+    return r;
+  }) : TODAY_ROWS;
+  // 本物は「済んだ」を印から読む（見本は画面の中だけ）
+  const doneOf = (id: string) => (live ? marks.get('today-result', mkey(id))?.value || (marks.get('today-site', mkey(id)) ? '現場に伝えた' : '') : done[id]);
+  const nudgedOf = (id: string, st: TodayRow['state']) => (live ? !!marks.get(st === '未打刻' ? 'nudge-punch' : 'nudge-depcall', mkey(id)) : !!nudged[id]);
   const TOTAL = L ? { planned: L.planned, done: L.done } : TODAY_TOTAL;
   const AT = L ? { date: L.date, time: L.time } : NOW;
-  const block = live ? LIVE_WRITE_BLOCKED : !canEdit ? needText('edit') : undefined;
-  const okEdit = canEdit && !live;
   const rawOf = (key: string) => best?.rows?.find((x) => x.key === key);
   const saved = (text: string) => { hit(); toast({ text, sub: '→ 今の社内システムに保存しました' }); };
   const loadErr = live && best && !best.ok ? (typeof best.error === 'string' ? best.error : best.error?.message) : '';
@@ -54,19 +73,37 @@ export default function TodayPage() {
   const reps = ['すべて', ...Array.from(new Set(ALL.map((r) => r.sales)))];
   const mine = ALL.filter((r) => sales === 'すべて' || r.sales === sales);
   const need = mine.filter((r) => NEED.includes(r.state)).sort((a, b) => NEED.indexOf(a.state) - NEED.indexOf(b.state) || (b.late ?? 0) - (a.late ?? 0));
-  const open = need.filter((r) => !done[r.personId]);
+  const open = need.filter((r) => !doneOf(r.personId));
   const others = mine.filter((r) => !NEED.includes(r.state));
   // 上の数は「担当営業で絞る」に合わせる（出勤予定・出勤済みの全体数は見本の総数から）
-  const noPunch = mine.filter((r) => r.state === '未打刻' && !done[r.personId]).length;
+  const noPunch = mine.filter((r) => r.state === '未打刻' && !doneOf(r.personId)).length;
 
   const pulse = (id: string) => { setFlash(id); setTimeout(() => setFlash(null), 1300); };
   const settle = (r: TodayRow, what: string, sub: string) => {
+    if (live && date) {
+      const kind = what === '現場に伝えた' ? 'today-site' : 'today-result';
+      const val = what === '現場に伝えた' ? '伝えた' : what;
+      setWerr('');
+      setMark(kind, mkey(r.personId), val, { nn: r.personId, ym: date.slice(0, 7) })
+        .then(() => { pulse(r.personId); hit(); marks.reload(); toast({ text: `${r.person}：${what}`, sub: '→ 今の社内システムに残しました', undo: () => { setMark(kind, mkey(r.personId), '').then(() => marks.reload()).catch((e) => setWerr((e as Error).message)); } }); })
+        .catch((e) => setWerr(`${r.person}：${(e as Error).message}`));
+      return;
+    }
     setDone((d) => ({ ...d, [r.personId]: what }));
     pulse(r.personId); hit();
     // 取り消しはこの人の分だけ戻す（続けて処理した別の人は戻さない）
     toast({ text: `${r.person}：${what}`, sub, undo: () => setDone((d) => { const n = { ...d }; delete n[r.personId]; return n; }) });
   };
-  const nudge = (r: TodayRow) => {
+  const askNudge = (r: TodayRow) => {
+    if (live && date) {
+      const kind = r.state === '未打刻' ? 'punch' : 'depcall';
+      setConfirm({
+        title: `${r.person} に${kind === 'punch' ? '打刻' : '出発の連絡'}を促す`, okLabel: '促す',
+        lines: ['本人の公式LINE（1:1）に決まった文を1通送ります', 'いまは送信を止めている設定なら、送らずに「促した」の印だけ残します'],
+        run: async () => { const j = await nudge(kind, date, [{ nn: r.personId }]); pulse(r.personId); hit(); marks.reload(); toast({ text: `${r.person} に${kind === 'punch' ? '打刻' : '出発の連絡'}を促しました`, sub: nudgeSub(j) }); },
+      });
+      return;
+    }
     setNudged((n) => ({ ...n, [r.personId]: true }));
     pulse(r.personId); hit();
     toast({ text: `${r.person} に${r.state === '未打刻' ? '打刻' : '出発コール'}を促しました`, sub: '→ あおいから本人の LINE に送りました。返事はチャットに届きます', undo: () => setNudged((n) => ({ ...n, [r.personId]: false })) });
@@ -81,14 +118,15 @@ export default function TodayPage() {
         </select>
       </PageTitle>
       <LiveBanner state={loadErr ? 'error' : quick.state} error={quick.error || loadErr} onReload={() => { quick.reload(); full.reload(); absence.reload(); }}
-        note={`勤務区分・メモは本物に保存します（変えたらすぐ保存）。促す・結果の記録・現場への連絡は今の社内システムの画面から。${full.state === 'error' ? 'freee からの取り直しが間に合わなかったので、前に取った打刻で出しています。' : ''}${absence.state === 'error' ? '欠勤・遅刻の連絡は読めませんでした。' : ''}`} />
+        note={`勤務区分・メモ・結果・現場に伝えた は本物に保存します。促す（LINE）は確認のあとで送ります（送信を止めている間は印だけ）。出発の連絡は名簿で「出発報告」を付けた人だけ見ます。${full.state === 'error' ? 'freee からの取り直しが間に合わなかったので、前に取った打刻で出しています。' : ''}${absence.state === 'error' ? '欠勤・遅刻の連絡は読めませんでした。' : ''}`} />
       <MikeikenNote mk={mk} live={live} />
-      {live && <NotInLegacy what="出発コールの未着" />}
+      {werr && <div className="rounded-xl px-4 py-2.5 text-sm" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>{werr}</div>}
+      {live && dep.state === 'error' && <div className="text-sm text-muted">出発報告の届き具合は読めませんでした（{dep.error}）</div>}
 
       <div className="mo-fade-up grid grid-cols-2 gap-3 md:grid-cols-4" style={{ ['--i' as string]: 1 }}>
         {[
           ['出勤予定', TOTAL.planned, '人', 'var(--color-ink)'],
-          ['出勤済み', TOTAL.done + Object.values(done).filter((x) => x.startsWith('打ち忘れ')).length, '人', 'var(--color-ok)'],
+          ['出勤済み', TOTAL.done + (live ? need.filter((r) => doneOf(r.personId).startsWith('打ち忘れ')).length : Object.values(done).filter((x) => x.startsWith('打ち忘れ')).length), '人', 'var(--color-ok)'],
           ['未打刻', noPunch, '人', noPunch ? 'var(--color-bad)' : 'var(--color-ok)'],
           ['対応が要る', open.length, '件', open.length ? 'var(--color-warn)' : 'var(--color-ok)'],
         ].map(([l, n, u, c]) => (
@@ -122,7 +160,7 @@ export default function TodayPage() {
               </tr></thead>
               <tbody>
                 {need.map((r, i) => {
-                  const d = done[r.personId];
+                  const d = doneOf(r.personId);
                   const tone = STATE_TONE[r.state];
                   return (
                     <tr key={r.personId} className={`mo-fade-in border-t border-line-soft align-top ${flash === r.personId ? 'mo-flash' : 'row'} ${d ? 'opacity-55' : ''}`} style={{ ['--i' as string]: i }}>
@@ -138,8 +176,8 @@ export default function TodayPage() {
                         {d ? <span className="inline-flex items-center gap-1 text-sm font-semibold text-ok"><Check size={14} />{d}</span>
                           : r.state === '未打刻' || r.state === '出発コール未着' ? (
                             <div className="flex flex-wrap items-center gap-2">
-                              {nudged[r.personId] ? <span className="text-sm text-faint">促しました・返事待ち</span>
-                                : <button onClick={() => nudge(r)} disabled={!okEdit} title={block} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-sm font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Bell size={14} />あおいで促す</button>}
+                              {nudgedOf(r.personId, r.state) ? <span className="text-sm text-faint">促しました・返事待ち</span>
+                                : <button onClick={() => askNudge(r)} disabled={!okEdit} title={block} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-sm font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Bell size={14} />あおいで促す</button>}
                               <select aria-label={`${r.person} の結果`} value="" disabled={!okEdit} title={block} onChange={(e) => e.target.value && settle(r, e.target.value, resultSub(e.target.value))} className="min-h-8 rounded-lg border border-field bg-surface px-2 text-sm disabled:opacity-50">
                                 <option value="">結果を選ぶ…</option>
                                 {RESULTS.map((x) => <option key={x} value={x}>{x}</option>)}
@@ -177,7 +215,8 @@ export default function TodayPage() {
           </ul>
         )}
       </div>
-      <p className="text-xs text-faint">シフトが空欄の日は休みとして扱います（今のシステムと同じ）。特別休暇の名前は freee の設定に合わせます。</p>
+      {confirm && <ConfirmWrite spec={confirm} onClose={() => setConfirm(null)} />}
+      <p className="text-xs text-faint">シフトが空欄の日は休みとして扱います（今のシステムと同じ）。特別休暇の名前は freee の設定に合わせます。遅刻・欠勤の扱い（控除など）の最終判断は社労士に確認してください。</p>
     </main>
   );
 }
