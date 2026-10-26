@@ -9,15 +9,10 @@ import { Card, HoryuFrame, Msg, horyuPost, inputCls, tdCls, thCls, useHoryu, fmt
 //   ※開くと、今のシステムが組織名を調べて控える（今の画面を開いたときと同じ）。まだの IP が残っていれば少しずつ読み直す
 type Row = { email: string; name: string; ip: string; ua: string; first_at: string; last_at: string; hits: number; days: number; org: string; kind: string; place?: string; label?: string; flags?: string[]; night_days?: number; weekend_days?: number };
 const DAYS = [7, 30, 90, 180];
-const S_ROWS: Row[] = [
-  { email: 'nakamura@example.com', name: '中村（見本）', ip: '192.0.2.10', ua: 'Mac・Chrome', first_at: new Date(Date.now() - 86400000 * 20).toISOString(), last_at: new Date().toISOString(), hits: 820, days: 18, org: '見本回線', kind: 'isp', place: '東京都', label: '本社', flags: [] },
-  { email: 'tanaka@example.com', name: '田中（見本）', ip: '198.51.100.7', ua: 'iPhone・Safari', first_at: new Date(Date.now() - 86400000 * 2).toISOString(), last_at: new Date(Date.now() - 3600000).toISOString(), hits: 40, days: 2, org: '見本モバイル', kind: 'mobile', place: '大阪府', flags: ['はじめての場所'], night_days: 1 },
-];
 
 export default function AccessLogPage() {
   const [days, setDays] = useState(30);
   const r = useHoryu<{ rows: Row[]; pending: number; needsMigration?: boolean; canLabel?: boolean }>('access-log', { days });
-  const sample = r.state === 'sample';
   const [q, setQ] = useState('');
   const [labels, setLabels] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState<{ text: string; bad?: boolean }>({ text: '' });
@@ -25,11 +20,10 @@ export default function AccessLogPage() {
   const pending = r.data?.pending ?? 0;
   const reload = r.reload;
   useEffect(() => { if (!pending) return; const t = setTimeout(() => void reload(), 4000); return () => clearTimeout(t); }, [pending, reload]);
-  const rows = useMemo(() => (sample ? S_ROWS : r.data?.rows ?? []).filter((x) => !q || `${x.name}${x.email}${x.ip}${x.org}${x.label ?? ''}`.includes(q)), [sample, r.data, q]);
+  const rows = useMemo(() => (r.data?.rows ?? []).filter((x) => !q || `${x.name}${x.email}${x.ip}${x.org}${x.label ?? ''}`.includes(q)), [r.data, q]);
 
   const saveLabel = async (ip: string) => {
     const label = (labels[ip] ?? '').trim();
-    if (sample) { setMsg({ text: `見本なので保存はしていません（${ip} → ${label || '名前を外す'}）` }); return; }
     const res = await horyuPost('access-log-label', { ip, label });
     setMsg(res.ok ? { text: label ? `${ip} を「${label}」にしました` : `${ip} の名前を外しました` } : { text: res.error, bad: true });
     if (res.ok) void r.reload();

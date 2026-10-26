@@ -35,7 +35,7 @@ export const HORYU_PAGE_KEY: Record<string, string> = {
 
 export type PageAccess = { role: string; pageAccess: Record<string, boolean> };
 
-/** その人に保留の画面を出してよいか。pa が無い（ログインしていない・読めない）ときは出す＝見本で動く */
+/** その人に保留の画面を出してよいか。pa が無い（ログインしていない・読めない）ときは出す（中身は各画面が読めたときだけ） */
 export function horyuVisible(href: string, pa: PageAccess | null): boolean {
   if (!pa) return true;
   const key = HORYU_PAGE_KEY[href];

@@ -19,9 +19,6 @@ const man = (y: number) => `${y < 0 ? '−' : ''}${Math.round(Math.abs(y) / 1000
 const jstYm = (back: number) => { const j = new Date(Date.now() + 9 * 3600e3); const d = new Date(Date.UTC(j.getUTCFullYear(), j.getUTCMonth() - back, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`; };
 const mLabel = (ym: string) => `${Number(ym.slice(5))}月`;
 const YMS = [5, 4, 3, 2, 1, 0].map(jstYm);
-// 見本（本物の数字ではない）
-const SAMPLE: M[] = YMS.map((ym, i) => { const n = 60 + i * 3; const sales = n * 520000; const gross = Math.round(sales * (0.2 + i * 0.004)); return { ym, provisional: i === 5, n, sales, cost: sales - gross, gross, ok: true, loading: false }; });
-const SAMPLE_SGA = 7_800_000;
 const HEADS = [-10, -5, 0, 5, 10, 20, 30];
 const PER = [-20, -10, -5, 0, 5, 10, 20];
 
@@ -36,14 +33,14 @@ export function ChinginPl({ live }: { live: boolean }) {
   const mk = useMikeiken();
   // 6か月ぶんを並べて読む（数は決まっているので順番は変わらない）
   const ms = [useMonth(YMS[0], live, mk), useMonth(YMS[1], live, mk), useMonth(YMS[2], live, mk), useMonth(YMS[3], live, mk), useMonth(YMS[4], live, mk), useMonth(YMS[5], live, mk)];
-  const months = live ? ms : SAMPLE;
+  const months = ms;
   const done = months.filter((m) => m.ok && !m.provisional && m.n > 0);
   const last3 = done.slice(-3);
   const perHead = last3.length ? last3.reduce((s, m) => s + m.gross / m.n, 0) / last3.length : 0;
   const base = last3[last3.length - 1];
   const plYm = base?.ym || YMS[4];
   const pl = useIke<Pl>(live ? `chingin?action=pl&ym=${plYm}` : null);
-  const sga = live ? (pl.data?.inputs?.sga || []).reduce((s, l) => s + (Number(l.amount) || 0), 0) : SAMPLE_SGA;
+  const sga = (pl.data?.inputs?.sga || []).reduce((s, l) => s + (Number(l.amount) || 0), 0);
   const bep = perHead > 0 ? Math.ceil(sga / perHead) : 0;
   const [dh, setDh] = useState(0);
   const [dp, setDp] = useState(0);
@@ -55,7 +52,7 @@ export function ChinginPl({ live }: { live: boolean }) {
 
   return (
     <section className="mo-fade-up flex flex-col gap-3" style={{ ['--i' as string]: 4 }}>
-      <h2 className="text-md font-bold">月ごとの損益・損益分岐・シナリオ{!live && <span className="ml-2 text-sm font-normal text-faint">見本データ</span>}</h2>
+      <h2 className="text-md font-bold">月ごとの損益・損益分岐・シナリオ</h2>
       <div className="overflow-x-auto rounded-xl border border-line bg-surface">
         <table className="w-full min-w-[720px] border-collapse text-body">
           <thead><tr className="th-row text-left"><th className="px-4 py-2.5 font-semibold">月</th><th className="px-2 py-2.5 font-semibold">売上と粗利</th><th className="px-2 py-2.5 text-right font-semibold">人数</th><th className="px-2 py-2.5 text-right font-semibold">原価</th><th className="px-2 py-2.5 text-right font-semibold">粗利率</th><th className="px-4 py-2.5 text-right font-semibold">1人あたり粗利</th></tr></thead>
@@ -83,7 +80,7 @@ export function ChinginPl({ live }: { live: boolean }) {
         <div className="rounded-xl border border-line bg-surface px-4 py-3">
           <div className="text-sm text-muted">損益分岐（販管費をまかなえる人数）</div>
           <div className="num text-xl font-bold">{bep ? `${bep}人` : '—'}{base && bep ? <span className={`ml-2 text-body font-semibold ${base.n >= bep ? 'text-ok' : 'text-bad'}`}>いま {base.n}人（{base.n >= bep ? `+${base.n - bep}` : `−${bep - base.n}`}）</span> : null}</div>
-          <div className="text-xs text-faint">販管費 {man(sga)}／月（{mLabel(plYm)}・{live ? (pl.data?.sgaSource ? '事業計画の内訳' : '手入力') : '見本'}）÷ 1人あたり粗利 {man(perHead)}（確定した直近{last3.length}か月の平均）</div>
+          <div className="text-xs text-faint">販管費 {man(sga)}／月（{mLabel(plYm)}・{pl.data?.sgaSource ? '事業計画の内訳' : '手入力'}）÷ 1人あたり粗利 {man(perHead)}（確定した直近{last3.length}か月の平均）</div>
         </div>
         <div className="rounded-xl border border-line bg-surface px-4 py-3">
           <div className="text-sm text-muted">シナリオ（選ぶだけ）</div>

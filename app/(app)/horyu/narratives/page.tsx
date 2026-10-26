@@ -4,9 +4,8 @@ import { useState } from 'react';
 import { LiveBanner } from '@/components/Live';
 import { PageTitle } from '@/components/ui';
 import { PersonName } from '@/components/Person';
-import { HoryuNote, Panel, fmtDate, fmtDateTime, useHoryu } from '@/components/Horyu';
+import { HoryuNote, Panel, fmtDate, fmtDateTime, useHoryu, HoryuLoading } from '@/components/Horyu';
 import { useLiveRoute } from '@/lib/live/use-live-route';
-import { NARR_PERSON_SAMPLE, NARR_SAMPLE } from '@/lib/horyu-sample';
 import { NARR_LABEL, type NarrPerson, type NarrRes } from '@/lib/horyu';
 
 // 決着ナラティブ（今の narratives.html の「読む」部分を写したもの・保留）。
@@ -17,13 +16,13 @@ const TONE = { jitai: 'bad', sankaku: 'ok', poa: 'warn', pending: 'mute' } as co
 
 export default function NarrativesPage() {
   const [run, setRun] = useState('');
-  const h = useHoryu<NarrRes>('narr', NARR_SAMPLE, run ? `&run=${run}` : '');
+  const h = useHoryu<NarrRes>('narr', run ? `&run=${run}` : '');
   const d = h.d;
   const [path, setPath] = useState('');
   const [row, setRow] = useState('');
   const runId = d?.run?.id || '';
   const one = useLiveRoute<NarrPerson>(row && h.live ? `/api/live/horyu?view=narr-person&run=${runId}&row=${row}` : null);
-  const person: NarrPerson | null = !row ? null : h.live ? (one.live ? one.data : null) : NARR_PERSON_SAMPLE;
+  const person: NarrPerson | null = row && one.live ? one.data : null;
   const hits = (d?.rows || []).filter((r) => !path || r.node_path === path || r.node_path.startsWith(path + '/'));
 
   return (
@@ -35,6 +34,7 @@ export default function NarrativesPage() {
       </PageTitle>
       <HoryuNote>見るだけです。抽出・整理のやり直しは今の社内システムの画面から。健康の欄は出していません。</HoryuNote>
       <LiveBanner state={h.state} error={h.error} onReload={h.reload} note="見るだけです" />
+      <HoryuLoading state={h.state} />
       {d && !d.run && <div className="rounded-xl border border-line bg-surface px-4 py-6 text-center text-body text-muted">終わった抽出がまだありません</div>}
       {d?.run && <div className="grid gap-3.5 xl:grid-cols-[300px_1fr_1fr]">
         <Panel title="木" sub={`${d.rows.length}件の発言`}>

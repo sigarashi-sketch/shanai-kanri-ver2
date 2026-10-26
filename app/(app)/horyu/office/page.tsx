@@ -2,8 +2,7 @@
 
 import { LiveBanner } from '@/components/Live';
 import { PageTitle } from '@/components/ui';
-import { Bars, HoryuNote, Panel, fmtDateTime, useHoryu } from '@/components/Horyu';
-import { OFFICE_SAMPLE } from '@/lib/horyu-sample';
+import { Bars, HoryuNote, Panel, fmtDateTime, useHoryu, HoryuLoading } from '@/components/Horyu';
 import type { OfficeRes } from '@/lib/horyu';
 
 // 内勤の今日の画面（今の office.html＝ドット絵のオフィスを、ふつうの一覧にしたもの・保留）。管理者だけ（今のシステムが決める）。
@@ -12,9 +11,9 @@ import type { OfficeRes } from '@/lib/horyu';
 const ACTIVE_MS = 10 * 60_000;
 
 export default function OfficePage() {
-  const h = useHoryu<OfficeRes>('office', OFFICE_SAMPLE);
+  const h = useHoryu<OfficeRes>('office');
   const d = h.d;
-  const now = h.live ? Date.now() : Date.parse('2026-10-25T11:45:00+09:00');
+  const now = Date.now();
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="内勤の今日の画面" sub={d ? `${d.date}・${d.members.length}人` : ''}>
@@ -22,6 +21,7 @@ export default function OfficePage() {
       </PageTitle>
       <HoryuNote>今の画面のドット絵のオフィスは、ふつうの一覧にしました。数字は今日の0時からです。</HoryuNote>
       <LiveBanner state={h.state} error={h.error} onReload={h.reload} note="見るだけです" />
+      <HoryuLoading state={h.state} />
       {d && <div className="grid gap-3.5 xl:grid-cols-[1.4fr_1fr]">
         <div className="grid gap-3 md:grid-cols-2">
           {d.members.map((m, i) => {

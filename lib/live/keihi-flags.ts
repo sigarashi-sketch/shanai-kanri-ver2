@@ -135,21 +135,3 @@ export function flagsForClaim(resp: Pick<KeihiFlagsResp, 'people'> | null, c: Pi
   const overlap: KeihiFlag[] = hit.size ? [{ kind: 'zure', tone: 'bad', label: `申請した日が打刻なし・欠勤 ${hit.size}日`, lines: [...hit].sort().map((d) => `${dayJa(d)} に交通費の申請あり`), note: '通勤の申請は申請のときに打刻を照らしています。そのあと打刻が消された・欠勤に直された日かもしれません' }] : [];
   return [...overlap, ...fs];
 }
-
-// ---- 見本（ログインなし）：申請 id → 印。架空の人・日付 ----
-export const KEIHI_FLAGS_SAMPLE: Record<string, KeihiFlag[]> = {
-  c1: [
-    { kind: 'dakoku', tone: 'bad', label: '打刻漏れ 2日', lines: [`${dayJa('2026-10-07')} 出勤の打刻なしのまま`, `${dayJa('2026-10-21')} 出勤の打刻なしのまま`] },
-    { kind: 'kekkin', tone: 'warn', label: '欠勤 1日', lines: [`${dayJa('2026-10-14')} LINE で欠勤の連絡`] },
-  ],
-  c3: [{ kind: 'shift', tone: 'bad', label: 'シフト表 未提出', lines: ['11月のシフトを1日も入れていません（勤務区分 シフト）'] }],
-  c5: [{ kind: 'dakoku', tone: 'caution', label: '打刻を後から直した 3日', lines: [`${dayJa('2026-10-02')} 打ち忘れて後から直した`, `${dayJa('2026-10-09')} 打ち忘れて後から直した`, `${dayJa('2026-10-16')} 打ち忘れて後から直した`] }],
-  c7: [
-    { kind: 'zure', tone: 'bad', label: '申請した日が打刻なし・欠勤 1日', lines: [`${dayJa('2026-10-08')} に交通費の申請あり`], note: '通勤の申請は申請のときに打刻を照らしています。そのあと打刻が消された・欠勤に直された日かもしれません' },
-    { kind: 'kekkin', tone: 'warn', label: '欠勤 1日', lines: [`${dayJa('2026-10-08')} 欠勤管理に手で追加`] },
-  ],
-  c8: [
-    { kind: 'shift', tone: 'warn', label: 'シフト表 下書きのまま', lines: ['10月のシフトは入れかけで、提出していません（勤務区分 夜勤）'] },
-    { kind: 'zure', tone: 'caution', label: '勤務表とずれ 2日', lines: ['現場の勤務表と freee の打刻が 2日ぶん合っていません'], note: '日ごとの中身は勤怠の締めの画面で見られます' },
-  ],
-};

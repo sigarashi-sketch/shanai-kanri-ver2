@@ -41,7 +41,7 @@ export async function POST(req: Request) {
   }
 }
 
-// ログインしているかだけ返す（画面が「見本／本物」を決めるため・今のシステムは呼ばない）
+// ログインしているかだけ返す（画面が本物を出せるか決めるため・今のシステムは呼ばない）
 export async function GET() {
   if (!(await ikeToken())) return NextResponse.json({ error: 'not_logged_in' }, { status: 401 });
   return NextResponse.json({ ok: true });

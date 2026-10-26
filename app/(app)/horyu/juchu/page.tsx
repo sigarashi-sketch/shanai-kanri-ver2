@@ -7,7 +7,7 @@ import { needText, usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
 import { LiveBanner, useIke } from '@/components/Live';
 import { errText, horyuPost } from '@/lib/horyu-post';
-import { JUCHU, type JuchuCase } from '@/lib/horyu-sample';
+import type { JuchuCase } from '@/lib/types/keiri';
 import { HoryuNote } from '../HoryuNote';
 
 // 案件受注（保留）。今の社内システムの「案件受注」（juchu.html）。新規開拓アプリで営業が入れた案件を見て、営業共有リストへ転記する。
@@ -26,8 +26,7 @@ const tone = (t: string) => ({ background: `var(--tone-${t}-bg)`, color: `var(--
 export default function JuchuPage() {
   const jc = useIke<{ ok: boolean; cases: JuchuCase[]; migrationRequired?: boolean }>('kaitaku-cases?action=list&archived=1');
   const live = jc.live;
-  const [local, setLocal] = useState<JuchuCase[]>(JUCHU);
-  const cases = live ? jc.data?.cases ?? [] : local;
+  const cases = live ? jc.data?.cases ?? [] : [];
   const can = usePerms().can('eigyo', 'edit');
   const { hit, toast } = useMotivation();
   const [tab, setTab] = useState<'all' | 'new' | 'done' | 'arch'>('all'), [q, setQ] = useState(''), [busy, setBusy] = useState('');
@@ -36,16 +35,16 @@ export default function JuchuPage() {
     && (!q || `${c.company_name} ${c.headline}`.toLowerCase().includes(q.toLowerCase())));
 
   const stock = async (c: JuchuCase) => {
+    if (!live) return;
     setBusy(c.id + 's');
-    if (!live) { await new Promise((r) => setTimeout(r, 400)); setLocal((l) => l.map((x) => (x.id === c.id ? { ...x, stock_case_no: 'P261025-000000' } : x))); toast({ text: '営業共有リストへ転記しました（見本）' }); setBusy(''); return; }
     const r = await horyuPost<{ caseNo?: string }>('juchu', { op: 'stock', id: c.id });
     setBusy('');
     if (!r.ok) { toast({ text: `転記できませんでした：${errText(r)}` }); return; }
     hit(); toast({ text: `営業共有リストへ転記しました${r.data.caseNo ? `（案件番号 ${r.data.caseNo}）` : ''}`, sub: '→ 案件進捗にも載ります' }); jc.reload();
   };
   const archive = async (c: JuchuCase, archived: boolean) => {
+    if (!live) return;
     setBusy(c.id + 'a');
-    if (!live) { setLocal((l) => l.map((x) => (x.id === c.id ? { ...x, archived } : x))); setBusy(''); return; }
     const r = await horyuPost('juchu', { op: 'archive', id: c.id, archived });
     setBusy('');
     if (!r.ok) { toast({ text: `できませんでした：${errText(r)}` }); return; }
@@ -69,7 +68,7 @@ export default function JuchuPage() {
         <button className={ghost} onClick={jc.reload}><RefreshCw size={12} />再読み込み</button>
       </div>
       {jc.state === 'loading' && <div className="py-8 text-center text-[13px] text-faint">読み込み中…</div>}
-      {jc.state !== 'loading' && !shown.length && <div className="rounded-xl border border-line bg-surface p-6 text-center text-[12.5px] text-muted">該当する案件がありません。</div>}
+      {live && !shown.length && <div className="rounded-xl border border-line bg-surface p-6 text-center text-[12.5px] text-muted">該当する案件がありません。</div>}
       <div className="flex flex-col gap-3">
         {shown.map((c) => (
           <article key={c.id} className="rounded-xl border border-line bg-surface">

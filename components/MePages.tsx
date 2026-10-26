@@ -5,7 +5,7 @@ import type { PageAccess } from '@/lib/horyu-access';
 
 // ログインした人のロールとページ権限（/api/live/me-pages）を画面で使う（10-26）。
 //   ・1回読んだら、このタブの中では使い回す（メニューと各画面で何度も聞かない）
-//   ・ログインしていない・読めないときは null（メニューは全部出す・ボタンは見本の動き）
+//   ・ログインしていない・読めないときは null（メニューは全部出す・ボタンは押せない）
 let memo: Promise<PageAccess | null> | null = null;
 function load(): Promise<PageAccess | null> {
   if (!memo) {

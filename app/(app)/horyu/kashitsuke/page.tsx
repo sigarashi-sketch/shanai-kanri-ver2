@@ -21,32 +21,24 @@ const STATUS: Record<string, string> = { open: '回収中', done: '完了', waiv
 const FLAG: Record<string, string> = { taisha: '退社', taisha_yotei: '退社予定', kyushoku: '休職', taijou: '退場', taiki: '待機', unknown: '名簿に見つからない' };
 
 const today = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
-const S_ROWS: Loan[] = [
-  { id: 's1', kind: 'kashitsuke', company: '本社', name: '佐藤 健太', amount: 100000, contract: '有', lent_on: '2026-08-10', due_on: null, transfer: '振込済', uriage_memo: '', status: 'open', memo: '',
-    reps: [{ id: 'r1', loan_id: 's1', due_on: '2026-09-30', amount: 20000, method: 'tenbiki', paid_on: '2026-09-30', paid_amount: 20000, memo: '' }, { id: 'r2', loan_id: 's1', due_on: '2026-10-31', amount: 20000, method: 'tenbiki', paid_on: null, paid_amount: null, memo: '' }],
-    sum: { planned: 100000, paid: 20000, remaining: 80000, overdue: 0, overdueCount: 0, overdueDays: 0, nextDue: '2026-10-31', nextAmount: 20000, noSchedule: false, unplanned: 60000 }, flag: '' },
-  { id: 's2', kind: 'maebarai', company: '本社', name: '高橋 健', amount: 50000, contract: '', lent_on: '2026-10-05', due_on: '2026-10-25', transfer: '手渡し', uriage_memo: '', status: 'open', memo: '',
-    reps: [{ id: 'r3', loan_id: 's2', due_on: '2026-10-25', amount: 50000, method: 'tenbiki', paid_on: null, paid_amount: null, memo: '' }],
-    sum: { planned: 50000, paid: 0, remaining: 50000, overdue: 0, overdueCount: 0, overdueDays: 0, nextDue: '2026-10-25', nextAmount: 50000, noSchedule: false, unplanned: 0 }, flag: 'taiki' },
-];
 
 type View = 'open' | 'all' | 'deleted';
 
 export default function KashitsukePage() {
   const [view, setView] = useState<View>('open');
   const r = useHoryu<{ rows: Loan[]; today: string }>('kashitsuke', { deleted: view === 'deleted' ? 1 : undefined });
-  const sample = r.state === 'sample';
+  const sample = !r.live; // 本物が読めていないときは書かない
   const [open, setOpen] = useState('');
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
   const [msg, setMsg] = useState<{ text: string; bad?: boolean }>({ text: '' });
-  const all = sample ? S_ROWS : r.data?.rows ?? [];
+  const all = r.data?.rows ?? [];
   const rows = view === 'open' ? all.filter((l) => l.status === 'open') : all;
   const totalRemain = rows.reduce((s, l) => s + (l.status === 'open' ? l.sum.remaining : 0), 0);
   const totalOver = rows.reduce((s, l) => s + l.sum.overdue, 0);
 
   const act = async (body: Record<string, unknown>, done: string) => {
-    if (sample) { setMsg({ text: `見本なので保存はしていません（${done}）` }); return false; }
+    if (sample) return false;
     const res = await horyuPost('kashitsuke', body);
     setMsg(res.ok ? { text: done } : { text: res.error, bad: true });
     if (res.ok) void r.reload();
@@ -68,7 +60,7 @@ export default function KashitsukePage() {
       </div>
       <Msg text={msg.text} bad={msg.bad} />
       {importing && <ImportForm sample={sample} today={r.data?.today || today()} onDone={(text) => { setMsg({ text }); setImporting(false); void r.reload(); }} />}
-      {adding && <AddForm onSave={async (b) => { const ok = await act({ action: 'add', ...b }, `${b.name} の貸付を足しました`); if (ok || sample) setAdding(false); }} />}
+      {adding && <AddForm onSave={async (b) => { const ok = await act({ action: 'add', ...b }, `${b.name} の貸付を足しました`); if (ok) setAdding(false); }} />}
       <Card>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[860px] border-collapse text-body">
@@ -201,7 +193,7 @@ function ImportForm({ sample, today: t, onDone }: { sample: boolean; today: stri
   const body = (dry: boolean) => ({ action: 'import', text, year: Number(year), rollYear: roll, pastPaid: past, dry });
   const check = async () => {
     setErr(''); setPv(null);
-    if (sample) { setErr('見本なので読み込みはしていません（ログインすると今のシステムで読みます）'); return; }
+    if (sample) return;
     setBusy(true);
     const res = await horyuPost<Preview>('kashitsuke', body(true));
     setBusy(false);

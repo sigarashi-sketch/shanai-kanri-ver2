@@ -5,8 +5,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { LiveBanner } from '@/components/Live';
 import { PageTitle } from '@/components/ui';
 import { PersonName } from '@/components/Person';
-import { HoryuNote, Panel, useHoryu } from '@/components/Horyu';
-import { NYUUJOU_SAMPLE } from '@/lib/horyu-sample';
+import { HoryuNote, Panel, useHoryu, HoryuLoading } from '@/components/Horyu';
 import type { NyuujouItem, NyuujouRes } from '@/lib/horyu';
 
 // 入場日カレンダー（今の nyuujou.html を写したもの・保留）。プロパーリストの入場日を月のカレンダーに並べる。
@@ -16,7 +15,7 @@ const addMonth = (ym: string, k: number) => { const [y, m] = ym.split('-').map(N
 const tone = (x: NyuujouItem) => (x.jitai ? 'bad' : x.poa ? 'warn' : x.kettei ? 'ok' : 'mute');
 
 export default function NyuujouPage() {
-  const h = useHoryu<NyuujouRes>('nyuujou', NYUUJOU_SAMPLE);
+  const h = useHoryu<NyuujouRes>('nyuujou');
   const d = h.d;
   const today = d?.today || new Date().toISOString().slice(0, 10);
   const [ym, setYm] = useState('');
@@ -43,6 +42,7 @@ export default function NyuujouPage() {
       </PageTitle>
       <HoryuNote>人は未経験の人だけ。色：緑＝参画決定・黄＝ぽあ・赤＝辞退。</HoryuNote>
       <LiveBanner state={h.state} error={h.error} onReload={h.reload} note="見るだけです。入場日はプロパーリストで直します" />
+      <HoryuLoading state={h.state} />
       {d && <>
         <section className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface">
           <div className="grid grid-cols-7 border-b border-line-soft text-center text-xs text-faint">{WD.map((w) => <div key={w} className="py-1.5">{w}</div>)}</div>

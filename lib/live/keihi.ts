@@ -1,8 +1,7 @@
 // 交通費・経費：今の社内システムの GET /api/keihi?action=adminList&status=申請中 の形 → この画面の Claim。
 //   ・判定は今のシステムのまま（通勤日は申請のときに freee 打刻と照合済み・定期は月末の見回り・バスは本人の入力）。ここで計算し直さない
 //   ・今の画面（keihi-admin.html）が出している印（手入力・バス・定期・領収書なし）を「先に確かめたこと」に並べる
-import type { Claim, ClaimKind, ClaimLine } from '../keihi-sample';
-import type { Check } from '../kintai-sample';
+import type { Check, Claim, ClaimKind, ClaimLine } from '../types/keiri';
 
 export type KeihiItem = {
   id: string; claim_id: string; kind: 'transit' | 'expense' | string; used_on: string; category: string; amount_yen: number;

@@ -11,7 +11,6 @@ import { useMotivation } from '@/components/Motivation';
 import { PersonName } from '@/components/Person';
 import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
 import { postLive } from '@/lib/live/post';
-import { CLAIMS } from '@/lib/keihi-sample';
 
 // 交通費・経費の「月次」「稟議」タブ（10-25 今の keihi-admin.html から移し替え）。
 //   月次：GET /api/keihi?action=monthly&ym= … その月の承認・支払済を人ごとに合計（給与の振込みに載せる額）
@@ -40,13 +39,7 @@ export function KeihiMonthlyTab({ live, mk }: { live: boolean; mk: Mikeiken }) {
   const hasMf = mfRows.length > 0;
   const [src, setSrc] = useState<'ike' | 'mf'>('ike');
   const showMf = hasMf && src === 'mf';
-  const people: MonthlyPerson[] = live
-    ? (ok && ike.data ? mk.keep(ike.data.people || [], 'name') : [])
-    : Object.values(CLAIMS.reduce<Record<string, MonthlyPerson>>((a, c) => {
-      const p = a[c.person] || { name: c.person, claims: 0, commute_yen: 0, other_yen: 0, total_yen: 0 };
-      p.claims++; p.total_yen += c.amount; if (c.kind === '出張・面談') p.other_yen += c.amount; else p.commute_yen += c.amount;
-      a[c.person] = p; return a;
-    }, {}));
+  const people: MonthlyPerson[] = live && ok && ike.data ? mk.keep(ike.data.people || [], 'name') : [];
   const sum = people.reduce((s, p) => ({ c: s.c + p.commute_yen, o: s.o + p.other_yen, t: s.t + p.total_yen }), { c: 0, o: 0, t: 0 });
   return (
     <div className="flex flex-col gap-3">
@@ -61,7 +54,6 @@ export function KeihiMonthlyTab({ live, mk }: { live: boolean; mk: Mikeiken }) {
         )}
         {showMf ? <div><b>マネフォの申請 {mfRows.length}件</b><span className="num ml-2 text-muted">合計 {yen(mfRows.reduce((t, r) => t + r.amount, 0))}</span><div className="text-sm text-muted">この月はマネーフォワード経費でも申請していた分です（10/26 書き出しの CSV から {ymLabel(ym)}分を抜き出し・未経験の人だけ）</div></div> : <div><b>承認・支払済 {people.length}人</b><span className="num ml-2 text-muted">通勤 {yen(sum.c)}・その他 {yen(sum.o)}・合計 {yen(sum.t)}</span>
           {live && ok && (ike.data?.pending || 0) > 0 && <div className="text-sm text-warn">この月の申請中・差し戻し中が {ike.data!.pending}件あります（全員分の数）</div>}
-          {!live && <div className="text-sm text-faint">見本データです（ログインすると今の社内システムの月次が出ます）</div>}
         </div>}
         {live && mf.state === 'error' && <div className="text-sm text-bad">マネフォの分が読めませんでした（{mf.error}）</div>}
       </div>
@@ -81,7 +73,7 @@ export function KeihiMonthlyTab({ live, mk }: { live: boolean; mk: Mikeiken }) {
                 <td className="px-4 py-2.5 text-sm">{!live ? '—' : p.freee_employee_id ? <span className="text-ok">結び付き済み</span> : <span className="text-warn">未紐付け（手で確かめる）</span>}</td>
               </tr>
             ))}
-            {people.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-muted">{live && ike.state === 'loading' ? '読んでいます…' : 'この月の承認済みの申請はありません'}</td></tr>}
+            {people.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-muted">{!live || ike.state === 'loading' ? '読み込み中…' : 'この月の承認済みの申請はありません'}</td></tr>}
           </tbody>
         </table>
       </div>
@@ -96,7 +88,6 @@ export function KeihiMonthlyTab({ live, mk }: { live: boolean; mk: Mikeiken }) {
             })}>この月の承認済みを支払済にする</button>
         </div>
       )}
-      {!live && <p className="text-xs text-faint">支払済にする操作は、ログインすると今の社内システムに書きます（定期の打刻の確認が済んでから）。</p>}
       </>}
       {confirm && <ConfirmWrite spec={confirm} onClose={() => setConfirm(null)} />}
     </div>
@@ -142,10 +133,6 @@ function MfClaimsList({ rows }: { rows: MfKeihi['rows'] }) {
 
 type Ringi = { id: string; linked_name?: string | null; title: string; detail?: string | null; amount_yen: number; planned_on?: string | null; status: string; created_at: string; decision_comment?: string | null };
 type RingiList = { ok?: boolean; ringi: Ringi[]; error?: string };
-const RINGI_SAMPLE: Ringi[] = [
-  { id: 's1', linked_name: '見本 太郎', title: '資格の参考書', detail: '基本情報の問題集', amount_yen: 3080, planned_on: '2026-11-01', status: '申請中', created_at: '2026-10-22T01:00:00Z' },
-  { id: 's2', linked_name: '見本 花子', title: '研修の受講料', detail: 'オンライン講座', amount_yen: 12000, planned_on: '2026-11-10', status: '申請中', created_at: '2026-10-23T02:00:00Z' },
-];
 
 export function KeihiRingiTab({ live, mk }: { live: boolean; mk: Mikeiken }) {
   const canApprove = usePerms().can('keiri', 'approve');
@@ -155,10 +142,10 @@ export function KeihiRingiTab({ live, mk }: { live: boolean; mk: Mikeiken }) {
   // 見送りの理由はその都度手で打つ（本人の LINE に届く・10-25 shoya）
   const [why, setWhy] = useState<Record<string, string>>({});
   const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
-  const rows = (live ? (ike.data?.ringi ? mk.keep(ike.data.ringi, 'linked_name') : []) : RINGI_SAMPLE).filter((r) => !done[r.id]);
+  const rows = (live && ike.data?.ringi ? mk.keep(ike.data.ringi, 'linked_name') : []).filter((r) => !done[r.id]);
   const decide = (r: Ringi, decision: 'approve' | 'reject', comment = '') => {
     const name = r.linked_name || '（氏名がまだ決まらない）';
-    if (!live) { setDone((d) => ({ ...d, [r.id]: decision })); hit(); toast({ text: `${name} の稟議を${decision === 'approve' ? '承認' : '見送り'}にしました（見本）`, undo: () => setDone((d) => { const n = { ...d }; delete n[r.id]; return n; }) }); return; }
+    if (!live) return;
     setConfirm({
       title: `${name} の稟議「${r.title}」を${decision === 'approve' ? '承認する' : '見送る'}`, okLabel: decision === 'approve' ? '承認する' : '見送る', danger: decision === 'reject',
       lines: [`金額：${yen(r.amount_yen)}${r.planned_on ? `・予定日 ${r.planned_on}` : ''}`, ...(comment ? [`理由：${comment}`] : [])],
@@ -170,10 +157,10 @@ export function KeihiRingiTab({ live, mk }: { live: boolean; mk: Mikeiken }) {
     <div className="flex flex-col gap-3">
       <div className="rounded-xl border border-line bg-surface px-4 py-3 text-body"><b>判断待ちの稟議 {rows.length}件</b>
         {!canApprove && <span className="ml-2 text-sm text-bad">{needText('approve')}</span>}
-        {!live && <div className="text-sm text-faint">見本データです（ログインすると今の社内システムの稟議が出ます）</div>}
       </div>
       {live && ike.state === 'error' && <div className="rounded-xl px-4 py-2.5 text-sm" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>{ike.error}</div>}
-      {rows.length === 0 && (live ? ike.state !== 'loading' : true) && (
+      {(!live || ike.state === 'loading') && <div className="rounded-xl border border-line bg-surface px-6 py-8 text-center text-sm text-muted">読み込み中…</div>}
+      {rows.length === 0 && live && ike.state !== 'loading' && (
         <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-8 text-center"><Check className="mx-auto text-ok" size={24} /><div className="mt-2 text-body font-bold">判断待ちの稟議はありません</div></div>
       )}
       {rows.map((r) => (

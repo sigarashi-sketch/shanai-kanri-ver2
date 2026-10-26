@@ -4,9 +4,8 @@ import { useState } from 'react';
 import { LiveBanner } from '@/components/Live';
 import { PageTitle } from '@/components/ui';
 import { PersonName } from '@/components/Person';
-import { HoryuNote, Kpi, Panel, Seg, fmtDate, fmtDateTime, useHoryu } from '@/components/Horyu';
+import { HoryuNote, Kpi, Panel, Seg, fmtDate, fmtDateTime, useHoryu, HoryuLoading } from '@/components/Horyu';
 import { useLiveRoute } from '@/lib/live/use-live-route';
-import { STORY_PERSON_SAMPLE, STORY_SAMPLE } from '@/lib/horyu-sample';
 import { OUTCOME_LABEL, type Outcome, type Story, type StoryList } from '@/lib/horyu';
 
 // 承諾者ストーリー（今の shoudaku.html を写したもの・保留）。
@@ -21,10 +20,10 @@ export default function ShoudakuStory() {
   const [days, setDays] = useState<(typeof DAYS)[number][0]>('120');
   const [f, setF] = useState<Outcome | 'all'>('all');
   const [pick, setPick] = useState('');
-  const h = useHoryu<StoryList>('story', STORY_SAMPLE, `&days=${days}`);
+  const h = useHoryu<StoryList>('story', `&days=${days}`);
   const d = h.d;
   const one = useLiveRoute<Story>(pick && h.live ? `/api/live/horyu?view=story-person&name=${encodeURIComponent(pick)}` : null);
-  const st: Story | null = !pick ? null : h.live ? (one.live ? one.data : null) : { ...STORY_PERSON_SAMPLE, name: pick };
+  const st: Story | null = pick && one.live ? one.data : null;
   const rows = (d?.people || []).filter((p) => f === 'all' || p.outcome === f);
 
   return (
@@ -34,6 +33,7 @@ export default function ShoudakuStory() {
       </PageTitle>
       <HoryuNote>人は未経験の人だけ。本文は今のシステムで連絡先・URL を伏せたものです。</HoryuNote>
       <LiveBanner state={h.state} error={h.error} onReload={h.reload} note="見るだけです" />
+      <HoryuLoading state={h.state} />
       {d && <>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {(['sankaku', 'jitai', 'poa'] as const).map((k) => <Kpi key={k} label={`${OUTCOME_LABEL[k]}までの日数（中央値）`} value={d.medians[k] == null ? '—' : `${d.medians[k]}日`} sub={`${d.counts[k]}名`} />)}

@@ -2,8 +2,7 @@
 
 import { LiveBanner } from '@/components/Live';
 import { PageTitle } from '@/components/ui';
-import { Bars, HoryuNote, Kpi, Panel, pct, useHoryu } from '@/components/Horyu';
-import { COHORT_SAMPLE } from '@/lib/horyu-sample';
+import { Bars, HoryuNote, Kpi, Panel, pct, useHoryu, HoryuLoading } from '@/components/Horyu';
 import type { CohortRes } from '@/lib/horyu';
 
 // 承諾者の月別・段階（今のホームの「承諾者分析」の数字＝/api/cohort?kpi=1 を写したもの・保留）。
@@ -12,13 +11,14 @@ import type { CohortRes } from '@/lib/horyu';
 const WAIT_LABEL: Record<string, string> = { '0-7': '7日以内', '8-14': '8〜14日', '15-30': '15〜30日', '31+': '31日以上', missing: '日付なし' };
 
 export default function CohortPage() {
-  const h = useHoryu<CohortRes>('cohort', COHORT_SAMPLE);
+  const h = useHoryu<CohortRes>('cohort');
   const d = h.d;
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="承諾者の月別・段階" sub="承諾した人がどこまで進み、どこで落ちたか" />
       <HoryuNote>数字だけの画面です（人の名前は出ません）。</HoryuNote>
       <LiveBanner state={h.state} error={h.error} onReload={h.reload} note="見るだけです" />
+      <HoryuLoading state={h.state} />
       {d && !d.ready && <div className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-muted">まだ同期されたデータがありません</div>}
       {d && <>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">

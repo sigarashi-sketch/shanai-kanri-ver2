@@ -8,27 +8,23 @@ import { Card, HoryuFrame, Msg, btnCls, horyuPost, inputCls, useHoryu } from '@/
 //   保存は今の /api/chat?action=saveCalendarSettings（全部を置き換える）。予約の画面の設定とは別のキー
 type Org = { label: string; calendarId: string };
 type Cal = { organizerId: string; organizers: Org[]; guests: string[]; sendInvites: boolean };
-const S_CAL: Cal = { organizerId: 'hearing@example.com', organizers: [{ label: '採用の共有カレンダー（見本）', calendarId: 'hearing@example.com' }], guests: ['saiyou-a@example.com', 'saiyou-b@example.com'], sendInvites: true };
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 export default function CalendarSettingsPage() {
   const r = useHoryu<{ calendar: Cal }>('calendar');
-  const sample = r.state === 'sample';
   const [cal, setCal] = useState<Cal | null>(null);
   const [dirty, setDirty] = useState(false);
   const [newOrg, setNewOrg] = useState<Org>({ label: '', calendarId: '' });
   const [newGuest, setNewGuest] = useState('');
   const [msg, setMsg] = useState<{ text: string; bad?: boolean }>({ text: '' });
   useEffect(() => {
-    if (sample) setCal(S_CAL);
-    else if (r.data?.calendar) { const c = r.data.calendar; setCal({ organizerId: c.organizerId || '', organizers: c.organizers || [], guests: c.guests || [], sendInvites: c.sendInvites !== false }); }
+    if (r.data?.calendar) { const c = r.data.calendar; setCal({ organizerId: c.organizerId || '', organizers: c.organizers || [], guests: c.guests || [], sendInvites: c.sendInvites !== false }); }
     setDirty(false);
-  }, [sample, r.data]);
+  }, [r.data]);
   const upd = (c: Cal) => { setCal(c); setDirty(true); };
 
   const save = async () => {
     if (!cal) return;
-    if (sample) { setMsg({ text: '見本なので保存はしていません' }); setDirty(false); return; }
     const res = await horyuPost<{ warnings?: string[] }>('calendar-save', { calendar: cal });
     setMsg(res.ok ? { text: `保存しました${res.data.warnings?.length ? `（${res.data.warnings.join('・')}）` : ''}` } : { text: res.error, bad: true });
     if (res.ok) void r.reload();

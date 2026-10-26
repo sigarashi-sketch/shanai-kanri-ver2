@@ -4,8 +4,7 @@ import { useState } from 'react';
 import { LiveBanner } from '@/components/Live';
 import { PageTitle } from '@/components/ui';
 import { PersonName } from '@/components/Person';
-import { HoryuNote, Panel, Seg, fmtDate, useHoryu } from '@/components/Horyu';
-import { ORPHANS_SAMPLE } from '@/lib/horyu-sample';
+import { HoryuNote, Panel, Seg, fmtDate, useHoryu, HoryuLoading } from '@/components/Horyu';
 import type { OrphansRes } from '@/lib/horyu';
 
 // 営業リスト外グループ（今の orphans.html を写したもの・保留）。
@@ -15,7 +14,7 @@ import type { OrphansRes } from '@/lib/horyu';
 const HIDE = ['ぽあ', '辞退', '参画決定', '稼働中', '営業停止'];
 
 export default function OrphansPage() {
-  const h = useHoryu<OrphansRes>('orphans', ORPHANS_SAMPLE);
+  const h = useHoryu<OrphansRes>('orphans');
   const d = h.d;
   const [tab, setTab] = useState<'groups' | 'unlinked'>('groups');
   const unl = [...(d?.unlinked || [])].sort((a, b) => Number(a.status.some((s) => HIDE.includes(s))) - Number(b.status.some((s) => HIDE.includes(s))));
@@ -26,6 +25,7 @@ export default function OrphansPage() {
       </PageTitle>
       <HoryuNote>見るだけです。人は未経験の人だけ（グループ名に未経験の人の名前が入っているものは「リスト外」に数えません）。</HoryuNote>
       <LiveBanner state={h.state} error={h.error} onReload={h.reload} note="見るだけです" />
+      <HoryuLoading state={h.state} />
       {d?.error && <div className="text-sm text-bad">{d.error}</div>}
       {d && tab === 'groups' && <Panel title="リスト外グループ" sub={`全 ${d.groupTotal}グループのうち ${d.groups.length}`}>
         <ul className="flex flex-col text-sm">{[...d.groups].sort((a, b) => b.lastActivity - a.lastActivity).map((g, i) => <li key={g.name + i} className="flex flex-wrap items-center gap-2 border-t border-line-soft py-1.5 first:border-t-0"><b>{g.name || '（名前なし）'}</b>{g.eki && <span className="text-muted">{g.eki}</span>}{g.tags.map((t) => <span key={t} className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>{t}</span>)}<span className="ml-auto text-faint">{g.lastActivity ? `最後の動き ${fmtDate(new Date(g.lastActivity).toISOString())}` : '動きなし'}</span></li>)}</ul>

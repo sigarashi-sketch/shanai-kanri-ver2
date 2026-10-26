@@ -5,13 +5,18 @@ import { useLiveRoute } from '@/lib/live/use-live-route';
 import type { HoryuView } from '@/lib/horyu';
 
 // 保留（あとで決める）の画面で使い回す部品。
-//   ・useHoryu(view, sample) … /api/live/horyu?view=… を読む。ログインしていなければ見本（sample）を返す
+//   ・useHoryu(view) … /api/live/horyu?view=… を読む。読めたときだけ d に入る（読み込み中・読めない・ログインなしは null＝見本は出さない）
 //   ・Panel / Kpi / Bars / Spark … 見た目は今の ver2（components/ui・globals.css）に合わせた小さな箱と横棒
 //   ・HoldButton … 取り消せない操作は長押し（0.9秒）
 //   ・postHoryu … /api/live/horyu/write に kind を渡して書く（行き先はサーバ側で決め打ち）
-export function useHoryu<T>(view: HoryuView, sample: T, params = '') {
+export function useHoryu<T>(view: HoryuView, params = '') {
   const r = useLiveRoute<T>(`/api/live/horyu?view=${view}${params}`);
-  return { ...r, d: (r.live && r.data ? r.data : r.state === 'sample' || r.state === 'loading' ? sample : null) as T | null };
+  return { ...r, d: (r.live && r.data ? r.data : null) as T | null };
+}
+
+/** 読み込み中の一言（LiveBanner は読み込み中に何も出さないので、その下に置く） */
+export function HoryuLoading({ state }: { state: string }) {
+  return state === 'loading' ? <div className="py-10 text-center text-body text-muted">読み込み中…</div> : null;
 }
 
 export async function postHoryu(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; [k: string]: unknown }> {

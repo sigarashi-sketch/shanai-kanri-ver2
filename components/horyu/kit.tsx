@@ -5,7 +5,7 @@ import { Lock, PauseCircle, TriangleAlert } from 'lucide-react';
 import { PageTitle } from '@/components/ui';
 
 // 保留（あとで決める）の画面の共通の道具（10-25）。
-//   ・useHoryu(name) は /api/live/horyu/<name> を読む。ログインしていなければ sample（見本データ）、
+//   ・useHoryu(name) は /api/live/horyu/<name> を読む。ログインしていなければ error（「ログインしてください」・見本は出さない 10-26）、
 //     今のシステムが 403 なら forbidden（何も出さない）
 //   ・horyuPost(name, body) は同じ口の POST（行き先はサーバーで決め打ち・lib/ike-write.ts）
 export type HState = 'loading' | 'live' | 'sample' | 'forbidden' | 'error';
@@ -23,7 +23,7 @@ export function useHoryu<T>(name: string | null, params?: Record<string, string 
       const r = await fetch(`/api/live/horyu/${name}${qs ? `?${qs}` : ''}`, { cache: 'no-store' });
       const j = (await r.json().catch(() => ({}))) as T & { error?: string | { message?: string }; ok?: boolean };
       if (my !== seq.current) return;
-      if (r.status === 401 && j.error === 'not_logged_in') { setState('sample'); return; }
+      if (r.status === 401 && j.error === 'not_logged_in') { setError('ログインしてください'); setState('error'); return; }
       if (r.status === 403) { setState('forbidden'); return; }
       const msg = typeof j.error === 'string' ? j.error : j.error?.message;
       if (!r.ok || (j.ok === false && msg)) { setError(msg || `読めませんでした（${r.status}）`); setState('error'); return; }
@@ -44,7 +44,7 @@ export async function horyuPost<T = Record<string, unknown>>(name: string, body:
   } catch (e) { return { ok: false, data: {} as T, error: (e as Error).message }; }
 }
 
-/** 保留の画面の枠。見本／本物／権限なし／読めない を出し分ける。 */
+/** 保留の画面の枠。本物／権限なし／読めない／読み込み中 を出し分ける。 */
 export function HoryuFrame({ title, sub, state, error, onReload, actions, children }: {
   title: string; sub?: string; state: HState; error?: string; onReload?: () => void; actions?: React.ReactNode; children: React.ReactNode;
 }) {
@@ -62,13 +62,12 @@ export function HoryuFrame({ title, sub, state, error, onReload, actions, childr
       <PageTitle title={title} sub={sub}>{actions}</PageTitle>
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-soft px-4 py-2 text-sm text-muted">
         <PauseCircle size={14} />保留中の画面です（あとで本採用か決めます）。
-        {state === 'sample' && <><span>いまは見本データです（本物の名前ではありません）。</span><a href="/api/ike-auth/start" className="btn-primary ml-auto btn-sm">ログインして本物を見る</a></>}
         {state === 'live' && <span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}>本物のデータ</span>}
       </div>
       {state === 'error' && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border px-4 py-2.5 text-sm" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)', borderColor: 'var(--tone-bad-bar)' }}>
           <TriangleAlert size={14} />{error || '読めませんでした'}
-          {onReload && <button onClick={onReload} className="ml-auto font-semibold underline">もう一度</button>}
+          {error === 'ログインしてください' ? <a href="/api/ike-auth/start" className="ml-auto font-semibold underline">ログインする</a> : onReload && <button onClick={onReload} className="ml-auto font-semibold underline">もう一度</button>}
         </div>
       )}
       {state === 'loading' ? <div className="py-10 text-center text-body text-muted">読んでいます…</div> : children}

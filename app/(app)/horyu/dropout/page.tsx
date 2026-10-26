@@ -3,8 +3,7 @@
 import { LiveBanner } from '@/components/Live';
 import { PageTitle } from '@/components/ui';
 import { PersonName } from '@/components/Person';
-import { HoryuNote, Kpi, Panel, fmtDate, useHoryu } from '@/components/Horyu';
-import { DROPOUT_SAMPLE } from '@/lib/horyu-sample';
+import { HoryuNote, Kpi, Panel, fmtDate, useHoryu, HoryuLoading } from '@/components/Horyu';
 import type { DropoutRes } from '@/lib/horyu';
 
 // dropout した人（今の dropout-list.html を写したもの・保留）。dropout（飛び）の印が付いた人を新しい順に、営業リストの担当・チェックを重ねて。
@@ -12,13 +11,14 @@ import type { DropoutRes } from '@/lib/horyu';
 const PHASE: Record<string, string> = { eigyo: '営業中', kettei: '参画決定後', kadou: '稼働中' };
 
 export default function DropoutPage() {
-  const h = useHoryu<DropoutRes>('dropout', DROPOUT_SAMPLE);
+  const h = useHoryu<DropoutRes>('dropout');
   const rows = h.d?.rows || [];
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="dropout した人" sub="連絡が取れなくなった（飛んだ）人" />
       <HoryuNote>人は未経験の人だけ。印はプロパーリスト・従業員名簿で付け外しします。</HoryuNote>
       <LiveBanner state={h.state} error={h.error} onReload={h.reload} note="見るだけです" />
+      <HoryuLoading state={h.state} />
       {h.d && <>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {(['eigyo', 'kettei', 'kadou'] as const).map((p) => <Kpi key={p} label={`${PHASE[p]}に dropout`} value={`${rows.filter((r) => r.phase === p).length}名`} />)}

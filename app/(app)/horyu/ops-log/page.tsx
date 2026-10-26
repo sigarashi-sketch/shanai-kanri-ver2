@@ -7,10 +7,6 @@ import { Card, HoryuFrame, inputCls, tdCls, thCls, useHoryu, fmtAt } from '@/com
 //   見られるかは今のページ権限 ops-log（既定は管理者）。403 なら何も出さない
 type Row = { id: number; at: string; actor: string; action: string; target: string; detail: Record<string, string>; ok: boolean; status: number | null; ms: number | null; source: string };
 const jstToday = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
-const S_ROWS: Row[] = [
-  { id: 1, at: new Date(Date.now() - 600000).toISOString(), actor: 'nakamura@example.com', action: 'roster:saveEngineerRow', target: '見本 太郎', detail: { fields: 'eki' }, ok: true, status: 200, ms: 220, source: 'proxy' },
-  { id: 2, at: new Date(Date.now() - 3600000).toISOString(), actor: 'tanaka@example.com', action: 'kashitsuke:pay', target: '—', detail: {}, ok: false, status: 400, ms: 80, source: 'kashitsuke' },
-];
 
 export default function OpsLogPage() {
   const [date, setDate] = useState(jstToday);
@@ -20,7 +16,7 @@ export default function OpsLogPage() {
   const [deb, setDeb] = useState({ actor: '', act: '' });
   useEffect(() => { const t = setTimeout(() => setDeb({ actor: actor.trim(), act: act.trim() }), 400); return () => clearTimeout(t); }, [actor, act]);
   const r = useHoryu<{ rows: Row[]; truncated?: boolean; needsMigration?: boolean }>('ops-log', { date, actor: deb.actor, act: deb.act, ng: ng ? 1 : undefined });
-  const rows = r.state === 'sample' ? S_ROWS.filter((x) => (!ng || !x.ok) && (!deb.actor || x.actor.includes(deb.actor)) && (!deb.act || x.action.includes(deb.act))) : r.data?.rows ?? [];
+  const rows = r.data?.rows ?? [];
 
   return (
     <HoryuFrame title="操作ログ" sub="だれが・いつ・何を変えたか（新しい順・見るだけ）" state={r.state} error={r.error} onReload={r.reload}>

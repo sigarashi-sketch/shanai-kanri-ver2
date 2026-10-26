@@ -12,7 +12,7 @@ import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { PersonName } from '@/components/Person';
 import { errText, horyuPost } from '@/lib/horyu-post';
 import { download, makeZip } from '@/lib/zip';
-import { GENBA, KADO_ROSTER, SAMPLE_FARES, sampleDays, type DayRow, type FareRow, type GenbaData, type KadoRoster, type KadoRow } from '@/lib/horyu-sample';
+import type { DayRow, FareRow, GenbaData, KadoRoster, KadoRow } from '@/lib/types/keiri';
 import { HoryuNote } from '../HoryuNote';
 
 // 稼働表出力（保留）。今の社内システムの「稼働表出力」（kadohyo.html）と「現場稼動表」（genba-kadohyo.html）を2つのタブにしたもの。
@@ -57,7 +57,7 @@ function Output() {
   const perms = usePerms();
   const can = perms.can('roumu', 'edit') || perms.can('eigyo', 'edit');
   const { hit, toast } = useMotivation();
-  const all: KadoRow[] = useMemo(() => (live ? mk.keep(rs.data?.rows ?? [], 'name') : KADO_ROSTER), [live, rs.data, mk]);
+  const all: KadoRow[] = useMemo(() => (live ? mk.keep(rs.data?.rows ?? [], 'name') : []), [live, rs.data, mk]);
   const [kind, setKind] = useState<'freee' | 'all'>('freee'), [shozoku, setShozoku] = useState(''), [joukyou, setJoukyou] = useState(''), [q, setQ] = useState('');
   const [selN, setSelN] = useState<Record<string, boolean>>({});
   const [pick, setPick] = useState<Record<string, { employeeId: string; companyId: string }>>({});
@@ -82,7 +82,7 @@ function Output() {
 
   const uploadCsv = async (files: FileList | null) => {
     if (!files?.length) return;
-    if (!live) { setCsvLog([{ tone: 'mute', label: '見本', text: 'ログインすると 勤怠詳細CSV を読み取ります（見本では読みません）' }]); return; }
+    if (!live) return;
     setCsvLog([{ tone: 'mute', label: '解析中', text: '…' }]);
     const fd = new FormData();
     [...files].forEach((f, i) => fd.append(`file${i}`, f, f.name));
@@ -102,6 +102,7 @@ function Output() {
   };
 
   const run = async () => {
+    if (!live) return;
     const formats = [...(xlsx ? ['xlsx'] : []), ...(pdf ? ['pdf'] : [])] as ('xlsx' | 'pdf')[];
     const targets = chosen.filter(ready);
     const jobs = targets.flatMap((r) => formats.map((f) => ({ r, f })));
@@ -110,8 +111,7 @@ function Output() {
     setProg({ done: 0, total: jobs.length, text: '生成中…', list: [] });
     for (const [i, { r, f }] of jobs.entries()) {   // 1件ずつ（今と同じ・今のシステムの関数を同時にたくさん起こさない）
       const name = `稼働表_${ym.replace('-', '')}_${r.name.replace(/\s/g, '')}.${f}`;
-      if (!live) { files.push({ name, blob: new Blob([`見本の稼働表（${r.name}・${ymLabel(ym)}）`], { type: 'text/plain' }) }); list.push({ ok: true, text: `${name}（見本）` }); }
-      else {
+      {
         const id = ids(r), fl = fares[r.normName];
         const target = { name: r.name, employeeId: id?.employeeId ?? '', companyId: id?.companyId ?? '', ...(csvDays[r.normName] ? { days: csvDays[r.normName] } : {}), ...(fl?.length ? { fares: fl } : {}) };
         const res = await fetch('/api/live/horyu/kadohyo-export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ym, format: f, includeFare: withFare, target }) }).catch(() => null);
@@ -134,7 +134,7 @@ function Output() {
     download(await makeZip(files), zn);
     hit();
     setProg((p) => p && { ...p, text: `完了 — ${zn}（${files.length - (fails.length ? 1 : 0)} ファイル${fails.length ? ` / 失敗 ${fails.length} 件` : ''}）` });
-    toast({ text: `稼働表を ${files.length - (fails.length ? 1 : 0)} ファイル作りました${live ? '' : '（見本）'}` });
+    toast({ text: `稼働表を ${files.length - (fails.length ? 1 : 0)} ファイル作りました` });
   };
 
   return (
@@ -166,7 +166,7 @@ function Output() {
             </tr></thead>
             <tbody>
               {rs.state === 'loading' && <tr><td colSpan={7} className="p-5 text-faint">読み込み中…</td></tr>}
-              {rs.state !== 'loading' && rows.length === 0 && <tr><td colSpan={7} className="p-5 text-faint">{kind === 'freee' && all.length ? '該当者がいません（この月の名簿に freee勤怠提出の人がいません。「対象者」を全員にすると出ます）' : '該当者がいません（対象月の従業員名簿に行がありません）'}</td></tr>}
+              {live && rows.length === 0 && <tr><td colSpan={7} className="p-5 text-faint">{kind === 'freee' && all.length ? '該当者がいません（この月の名簿に freee勤怠提出の人がいません。「対象者」を全員にすると出ます）' : '該当者がいません（対象月の従業員名簿に行がありません）'}</td></tr>}
               {rows.map((r) => { const f = fareOf(r); return (
                 <tr key={r.normName} className="border-b border-line-soft align-top" style={r.taisha ? { opacity: 0.6 } : undefined}>
                   <td className="p-2"><input type="checkbox" aria-label={`${r.name}を選ぶ`} checked={!!selN[r.normName]} onChange={(e) => setSelN((s) => ({ ...s, [r.normName]: e.target.checked }))} /></td>
@@ -222,7 +222,7 @@ function Output() {
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button className="btn-primary inline-flex min-h-10 items-center gap-1.5 rounded-[10px] px-4 text-[13.5px] font-semibold disabled:opacity-40"
-            disabled={!can || !chosen.length || !forms || chosen.length === need.length || (!!prog && prog.done < prog.total)} title={can ? undefined : needText('edit')} onClick={run}>
+            disabled={!live || !can || !chosen.length || !forms || chosen.length === need.length || (!!prog && prog.done < prog.total)} title={can ? undefined : needText('edit')} onClick={run}>
             <FileDown size={15} />稼働表を出力（{(chosen.length - need.length) * forms} ファイル）</button>
           {need.length > 0 && <span className="text-[12px] text-warn">※ {need.map((r) => r.name).join('・')} は勤怠が未取得です（CSV を取り込むか、従業員を選択してください）</span>}
         </div>
@@ -262,8 +262,7 @@ function FareDialog({ row, ym, live, can, ids, csv, cached, onSaved, onClose }: 
     (async () => {
       let ds: DayRow[] = csv ?? [];
       let saved: FareRow[] = cached ?? [];
-      if (!live) { ds = csv ?? sampleDays(ym); saved = cached ?? (row.fare?.rows ? SAMPLE_FARES : []); }
-      else {
+      if (live) {
         const [d, f] = await Promise.all([
           !csv && empId && compId ? horyuPost<{ days?: DayRow[] }>('kadohyo-days', { ym, employee_id: empId, company_id: compId }) : null,
           cached ? null : horyuPost<{ rows?: FareRow[] }>('kadohyo-fares', { op: 'get', ym, name: row.name }),
@@ -283,14 +282,14 @@ function FareDialog({ row, ym, live, can, ids, csv, cached, onSaved, onClose }: 
   const copyPrev = async () => {
     const [y, m] = ym.split('-').map(Number), d = new Date(y, m - 2, 1), prev = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     setMsg('前月を読み込み中…');
-    const rows = live ? await horyuPost<{ rows?: FareRow[] }>('kadohyo-fares', { op: 'get', ym: prev, name: row.name }).then((r) => (r.ok ? r.data.rows ?? [] : [])) : SAMPLE_FARES;
+    const rows = live ? await horyuPost<{ rows?: FareRow[] }>('kadohyo-fares', { op: 'get', ym: prev, name: row.name }).then((r) => (r.ok ? r.data.rows ?? [] : [])) : [];
     if (!rows.length) { setMsg(`${ymLabel(prev)}の交通費はありません`); return; }
     setLines(rows.map((r, i) => ({ ...toLine(r), date: days[i]?.date ?? '' })));   // 日付は当月の稼働日へ順に（前月の日付は持ってこない）
     setMsg(`${ymLabel(prev)}から ${rows.length} 行コピーしました（日付は要確認）`);
   };
   const save = async (close: boolean) => {
     const rows = (lines ?? []).map(toRow).filter((r) => (r.date || r.note) && r.fare);
-    if (!live) { onSaved(rows); setMsg('保存しました（見本）'); if (close) onClose(); return; }
+    if (!live) return;
     setBusy(true); setMsg('保存しています…');
     const r = await horyuPost('kadohyo-fares', { ym, name: row.name, rows });
     setBusy(false);
@@ -344,9 +343,9 @@ function Genba() {
   const g = useIke<GenbaData>(`genba-kadohyo${ym ? `?ym=${ym}` : ''}`);
   const live = g.live;
   const mk = useMikeiken();
-  const d = live ? g.data : GENBA;
-  const items = useMemo(() => (live ? mk.keep(d?.items ?? [], 'name') : d?.items ?? []), [live, d, mk]);
-  const missing = useMemo(() => (live ? mk.keep(d?.missing ?? [], 'name') : d?.missing ?? []), [live, d, mk]);
+  const d = live ? g.data : null;
+  const items = useMemo(() => (live ? mk.keep(d?.items ?? [], 'name') : []), [live, d, mk]);
+  const missing = useMemo(() => (live ? mk.keep(d?.missing ?? [], 'name') : []), [live, d, mk]);
   const [q, setQ] = useState(''), [tantou, setTantou] = useState('');
   const tantous = [...new Set([...items, ...missing].map((x) => x.tantou).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ja'));
   const shown = items.filter((p) => (!tantou || p.tantou === tantou) && (!q || [p.name, p.shozoku, p.tantou, ...p.files.map((f) => f.filename)].join(' ').toLowerCase().includes(q.toLowerCase())));
@@ -371,7 +370,7 @@ function Genba() {
             <thead><tr className="border-b border-line-soft text-left text-[11.5px] text-faint"><th className="p-2">氏名</th><th className="p-2">担当</th><th className="p-2">所属</th><th className="p-2">勤務表</th></tr></thead>
             <tbody>
               {g.state === 'loading' && <tr><td colSpan={4} className="p-5 text-faint">読み込み中…</td></tr>}
-              {g.state !== 'loading' && !shown.length && <tr><td colSpan={4} className="p-5 text-faint">{d?.ym ? '該当する人はいません' : 'まだ取り込まれた勤務表がありません'}</td></tr>}
+              {live && !shown.length && <tr><td colSpan={4} className="p-5 text-faint">{d?.ym ? '該当する人はいません' : 'まだ取り込まれた勤務表がありません'}</td></tr>}
               {shown.map((p) => (
                 <tr key={p.normalizedName} className="border-b border-line-soft align-top">
                   <td className="whitespace-nowrap p-2"><PersonName name={p.name} />{p.jitai ? <span className="chip ml-1" style={tone('bad')}>辞退</span> : p.kadouChu ? <span className="chip ml-1" style={tone('ok')}>稼働中</span> : null}</td>
