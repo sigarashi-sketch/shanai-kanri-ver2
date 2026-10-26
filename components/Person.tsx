@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { PEOPLE, PROPERS } from '@/lib/sample';
 import type { PersonCandidate, PersonRes } from '@/lib/live/person';
@@ -17,7 +18,7 @@ import { SkeletonRows } from './ui';
 //   ・ログインしていれば本物（/api/live/person を1回だけ読み、その返りを中に渡す＝中で読み直さない）、していなければ見本から探す
 //   ・同姓同名は実在する（10-21）。名前で2人以上当たったら、採用担当・所属・最寄駅を並べて選んでもらう
 //   ・見せてよい中身はロールで決まる（チャット・基本情報＝管理者と採用だけ・単価＝管理者と営業だけ。サーバー側で伏せる）
-//   ・窓ではなく画面の右に並べる aside（Shell の横並びの最後・10-26）
+//   ・窓ではなく画面の一番上（ヘッダーのすぐ下・全幅）に出す section（10-26）
 const norm = (s: string) => s.replace(/[\s　]+/g, '');
 
 export function PersonName({ name, id, className, children }: { name: string; id?: string; className?: string; children?: React.ReactNode }) {
@@ -46,6 +47,9 @@ function sampleRes(name: string, id?: string): PersonRes {
 /** Shell に1つだけ置く。'person:open' を受けて右にこの人の社員ページ（いなければ要員ページ）を出す。 */
 export function PersonHost() {
   const [got, setGot] = useState<Got | null>(null);
+  // 別の画面に移ったら閉じる（上に残り続けないように）
+  const pathname = usePathname();
+  useEffect(() => { setGot(null); }, [pathname]);
   useEffect(() => {
     const open = async (e: Event) => {
       const d = (e as CustomEvent<{ name: string; id?: string }>).detail;
@@ -54,6 +58,7 @@ export function PersonHost() {
       const id = d.id || undefined;
       const same = (g: Got | null) => g?.name === name && g?.id === id;
       setGot({ name, id, live: false });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       try {
         const r = await fetch('/api/live/person', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, id }) });
         const j = (await r.json().catch(() => ({}))) as Partial<PersonRes> & { error?: string };
@@ -74,10 +79,9 @@ export function PersonHost() {
   const c = cands.length === 1 ? cands[0] : cands.find((x) => x.key === got.pick) ?? null;
   const page = c?.staff ? `/jinji/staff/${encodeURIComponent(c.staff.id)}` : c?.proper ? `/eigyo/proper/${encodeURIComponent(c.proper.id)}` : '';
   return (
-    // 小窓（重ねる窓）ではなく、同じページの右に並べて出す（10-26 shoya「名前を押したら小窓でなく同じページで出して」）。
-    // 後ろの画面はそのまま触れる。Esc か × で閉じる
-    <aside aria-label={`${got.name} さんの情報`} onKeyDown={(e) => { if (e.key === 'Escape') close(); }}
-      className="sticky top-0 flex h-screen w-[min(520px,45vw)] shrink-0 flex-col border-l border-line bg-base">
+    // 小窓でも右でもなく、画面の一番上に全幅で出す（下の一覧はそのまま続く・10-26 shoya「上に表示しろって右じゃなくて」）。× か Esc で閉じる
+    <section aria-label={`${got.name} さんの情報`} onKeyDown={(e) => { if (e.key === 'Escape') close(); }}
+      className="mo-fade-in flex flex-col border-b-2 bg-base" style={{ borderColor: 'var(--a)' }}>
       <div className="flex flex-wrap items-center gap-2 border-b border-line bg-surface px-4 py-2 text-sm">
         {many && c && <button type="button" onClick={() => setGot({ ...got, pick: undefined })} className="inline-flex min-h-8 items-center gap-0.5 rounded-lg border border-field px-2 font-semibold text-muted"><ChevronLeft size={13} />選び直す</button>}
         <span className="text-faint">{c?.staff ? '社員ページ' : c?.proper ? '要員ページ' : ''}</span>
@@ -88,7 +92,7 @@ export function PersonHost() {
         {page && <a href={page} title="この画面からページに移る" className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-field px-2.5 font-semibold text-muted">ページで開く<ChevronRight size={12} /></a>}
         <button aria-label="閉じる" onClick={close} className="flex size-8 items-center justify-center rounded-lg border border-line"><X size={15} /></button>
       </div>
-      <div className="flex-1 overflow-y-auto">
+      <div>
         {!res && !got.error && <SkeletonRows rows={8} className="p-4" />}
         {got.error && <div className="px-4 py-16 text-center text-body text-bad">{got.error}{got.error.includes('ログイン') && <a href="/api/ike-auth/start" className="ml-2 underline">もう一度ログイン</a>}</div>}
         {res?.notMikeiken && <div className="px-4 py-16 text-center text-body text-faint">{got.name} さんは未経験の人ではないので出していません</div>}
@@ -96,7 +100,7 @@ export function PersonHost() {
         {many && !c && <Chooser name={got.name} cands={cands} onPick={(k) => setGot({ ...got, pick: k })} />}
         {c && res && <Body key={c.key} c={c} res={res} live={got.live} />}
       </div>
-    </aside>
+    </section>
   );
 }
 

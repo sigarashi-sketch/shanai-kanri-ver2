@@ -125,10 +125,11 @@ export function Shell({ members, children }: { members: { id: string; name: stri
               <ViewerSwitch members={members} current={me.id} />
             </div>
           </header>
+          {/* 名前を押した人は、画面の一番上に出す（右でも小窓でもない・10-26 shoya「上に表示しろ」） */}
+          <PersonHost />
           {blocked ? <NoAccess label={group!.label} /> : children}
         </div>
         <div id="drawer-root" />
-        <PersonHost />
       </div>
       </AlertProvider>
       </YoyakuProvider>

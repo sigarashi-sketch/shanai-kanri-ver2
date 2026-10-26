@@ -182,6 +182,8 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
   const setMode = (m: 'list' | 'table') => { setModeRaw(m); try { localStorage.setItem('v2_proper_mode', m); } catch { /* なくても動く */ } };
   const [selRow, setSelRow] = useState<string | null>(null);
   const selP = selRow ? rows.find((p) => p.r.row === selRow) ?? null : null;
+  const paneRef = useRef<HTMLElement | null>(null);
+  useEffect(() => { if (selRow) paneRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, [selRow]);
 
   // ---- dropout（飛び）の印。取り消す＝印を戻し、一緒に変わったチェック（辞退・参画決定・稼働中）も前の値で保存し直す ----
   const setDrop = useCallback(async (p: PRow, on: boolean, phase: string, after: string, undo?: boolean) => {
@@ -390,6 +392,34 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
   return (
     <div className="flex flex-col gap-3">
       <ScoreNote scores={scores} />
+      {/* 押した人は一覧の上に出す（右ではない・10-26 shoya「上に表示しろ」） */}
+      {selP && (
+        <aside aria-label={`${selP.r.name} の詳細`} ref={paneRef} className="mo-fade-in flex flex-col overflow-hidden rounded-xl border-2 bg-surface" style={{ borderColor: 'var(--a)' }}>
+          <div className="border-b border-line px-4 py-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0"><div className="truncate text-md font-bold">{selP.r.name}</div>
+                <div className="truncate text-sm text-muted">担当 {s(selP.v.tantou) || '未割当'}　／　{s(selP.v.shozoku) || '所属未入力'}{selP.r.active ? '' : '　／　営業中ではありません'}</div></div>
+              <button aria-label="閉じる" onClick={() => setSelRow(null)} className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-line"><X size={15} /></button>
+            </div>
+            {scores.state !== 'off' && <div className="mt-1.5 flex flex-wrap gap-1.5">{(['skill', 'join', 'decline'] as ScoreKind[]).map((k) => <ScoreBadge key={k} s={scores.map.get(selP.r.row)} kind={k} meta={scores.meta} name={selP.r.name} />)}</div>}
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {(['営業中', '営業止め', '参画決定', '辞退'] as const).map((t) => {
+                const now = t === '営業中' ? selP.status === '営業中' : t === '営業止め' ? selP.v.poa === true : t === '参画決定' ? selP.v.sankaku_kettei === true : selP.v.jitai === true;
+                return <button key={t} type="button" disabled={ro} title={roTitle ?? `押すと「${t}」にする（日付も入れます）`} onClick={() => setStatusFor({ p: selP, tab: t })} aria-pressed={now}
+                  className="min-h-8 rounded-lg border px-2.5 text-sm font-semibold disabled:opacity-40" style={now ? { background: 'var(--a)', color: 'var(--ao)', borderColor: 'var(--a)' } : { borderColor: 'var(--color-field)' }}>{t}</button>;
+              })}
+              {colByKey.get('dropout')?.cell(selP)}
+            </div>
+          </div>
+          <div>
+            <div className="grid grid-cols-2 gap-x-3 sm:grid-cols-4 lg:grid-cols-7 gap-y-1.5 border-b border-line px-4 py-3 text-sm">
+              {PANE_KEYS.map((k) => { const c = colByKey.get(k); return c ? <label key={k} className="flex min-w-0 flex-col"><span className="text-xs text-muted">{c.label}</span><span className="min-w-0 [&>button.block]:truncate">{c.cell(selP)}</span></label> : null; })}
+              {colByKey.get('memo') && <label className="col-span-full flex flex-col"><span className="text-xs text-muted">メモ</span>{colByKey.get('memo')!.cell(selP)}</label>}
+            </div>
+            <ProperDetail key={selP.r.row} id={selP.r.row} embedded />
+          </div>
+        </aside>
+      )}
       <div className="flex items-start gap-3">
       <div className="@container min-w-0 flex-1 overflow-hidden rounded-xl border border-line bg-surface">
         <div className="flex flex-wrap items-center gap-2 px-3.5 py-3">
@@ -455,33 +485,6 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
           </table>
         </div>}
       </div>
-      {selP && (
-        <aside aria-label={`${selP.r.name} の詳細`} className="sticky top-3 flex max-h-[calc(100vh-24px)] w-[420px] shrink-0 flex-col overflow-hidden rounded-xl border border-line bg-surface">
-          <div className="border-b border-line px-4 py-3">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0"><div className="truncate text-md font-bold">{selP.r.name}</div>
-                <div className="truncate text-sm text-muted">担当 {s(selP.v.tantou) || '未割当'}　／　{s(selP.v.shozoku) || '所属未入力'}{selP.r.active ? '' : '　／　営業中ではありません'}</div></div>
-              <button aria-label="閉じる" onClick={() => setSelRow(null)} className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-line"><X size={15} /></button>
-            </div>
-            {scores.state !== 'off' && <div className="mt-1.5 flex flex-wrap gap-1.5">{(['skill', 'join', 'decline'] as ScoreKind[]).map((k) => <ScoreBadge key={k} s={scores.map.get(selP.r.row)} kind={k} meta={scores.meta} name={selP.r.name} />)}</div>}
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {(['営業中', '営業止め', '参画決定', '辞退'] as const).map((t) => {
-                const now = t === '営業中' ? selP.status === '営業中' : t === '営業止め' ? selP.v.poa === true : t === '参画決定' ? selP.v.sankaku_kettei === true : selP.v.jitai === true;
-                return <button key={t} type="button" disabled={ro} title={roTitle ?? `押すと「${t}」にする（日付も入れます）`} onClick={() => setStatusFor({ p: selP, tab: t })} aria-pressed={now}
-                  className="min-h-8 rounded-lg border px-2.5 text-sm font-semibold disabled:opacity-40" style={now ? { background: 'var(--a)', color: 'var(--ao)', borderColor: 'var(--a)' } : { borderColor: 'var(--color-field)' }}>{t}</button>;
-              })}
-              {colByKey.get('dropout')?.cell(selP)}
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 border-b border-line px-4 py-3 text-sm">
-              {PANE_KEYS.map((k) => { const c = colByKey.get(k); return c ? <label key={k} className="flex min-w-0 flex-col"><span className="text-xs text-muted">{c.label}</span><span className="min-w-0 [&>button.block]:truncate">{c.cell(selP)}</span></label> : null; })}
-              {colByKey.get('memo') && <label className="col-span-2 flex flex-col"><span className="text-xs text-muted">メモ</span>{colByKey.get('memo')!.cell(selP)}</label>}
-            </div>
-            <ProperDetail key={selP.r.row} id={selP.r.row} embedded />
-          </div>
-        </aside>
-      )}
       </div>
       {picker && <ColPicker cols={ordered} isShown={shownCol} onToggle={toggleCol} onOrder={(order) => setPrefsSave({ ...(prefs ?? { hidden: [], shown: [] }), order })} onReset={() => { setPrefsSave({ order: [], hidden: [], shown: [] }); }} onClose={() => setPicker(false)} />}
       {statusFor && <StatusDialog p={statusFor.p} start={statusFor.tab} hasCol={(k) => !live || !!data?.columns.some((c) => c.col === k)} onClose={() => setStatusFor(null)} onGo={(patch) => { const p = statusFor.p; setStatusFor(null); void save(p, patch); }} />}
