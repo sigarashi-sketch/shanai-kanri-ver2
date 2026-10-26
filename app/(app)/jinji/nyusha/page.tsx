@@ -8,7 +8,6 @@ import { PersonName } from '@/components/Person';
 import { PageTitle, SkeletonRows } from '@/components/ui';
 import { NyushaMarks } from '@/components/jinji/NyushaMarks';
 import { useLiveRoute } from '@/lib/live/use-live-route';
-import { SHEET_SAMPLE } from '@/lib/nyusha-sample';
 import { SHEET_HEADER, SHEET_TAB, SHEET_URL, fmtSheetDate, rowKind, sortSheetRows, type NyushaSheetLive, type SheetFilter, type SheetRow } from '@/lib/live/nyusha';
 
 // 入社手続き（人事管理）＝労務の「freee送信管理」スプシの「参画決定者」タブと同じ列・同じ名前（A〜L）。
@@ -17,7 +16,7 @@ import { SHEET_HEADER, SHEET_TAB, SHEET_URL, fmtSheetDate, rowKind, sortSheetRow
 //   ・本物（/api/live/nyusha）はスプシと同じ材料の今の GET から組み立てる。メール・freee送信・送信日・メモ・辞退/入社取消は
 //     スプシにだけある（今の社内システムにスプシを読む口がまだ無い）ので「—」にして、スプシへのリンクを出す
 //   ?p=<社員id> でその人の行に印を付けて送る（社員ページから）
-//   ★見本はログインしていないときだけ。読み込み中は「読み込み中」、読めなかったときはエラーだけ（見本の人を出さない・10-25）
+//   ★見本は出さない。読み込み中は「読み込み中」、読めなかったときはエラーだけ（10-26）
 const FILTERS: SheetFilter[] = ['すべて', '未送信', '送信済み', '辞退・取消'];
 const SHEET_ONLY = 'スプシにだけある列（今の社内システムにスプシを読む口がまだ無い）';
 
@@ -27,9 +26,8 @@ export default function NyushaPage() {
   const lv = useLiveRoute<NyushaSheetLive>('/api/live/nyusha');
   const mk = useMikeiken();   // 本物は未経験の人だけ（今のプロパーリストに入っている人）。サーバ側でも絞っている
   const live = lv.live && !!lv.data;
-  const sample = lv.state === 'sample';
-  const full = sample || (live && lv.data!.source === 'sheet');   // 見本・スプシそのもの＝全部の列がある
-  const rows: SheetRow[] = useMemo(() => (live ? mk.keep(lv.data!.rows || [], 'name') : sample ? SHEET_SAMPLE : []), [live, sample, lv.data, mk]);
+  const full = live && lv.data!.source === 'sheet';   // スプシそのもの＝全部の列がある
+  const rows: SheetRow[] = useMemo(() => (live ? mk.keep(lv.data!.rows || [], 'name') : []), [live, lv.data, mk]);
   const [filter, setFilter] = useState<SheetFilter>('すべて');
   const [focus, setFocus] = useState<string | null>(null);
 
@@ -42,7 +40,7 @@ export default function NyushaPage() {
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="入社手続き" sub={`参画が決まった人。労務の「freee送信管理」スプシ（${SHEET_TAB}）と同じ列です${sample ? '・見本データ' : ''}`}>
+      <PageTitle title="入社手続き" sub={`参画が決まった人。労務の「freee送信管理」スプシ（${SHEET_TAB}）と同じ列です`}>
         <a href={SHEET_URL} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border border-line bg-surface px-3 text-body font-semibold" style={{ color: 'var(--ad)' }}>
           <FileSpreadsheet size={15} />スプシを開く<ExternalLink size={12} />
         </a>
@@ -50,7 +48,7 @@ export default function NyushaPage() {
       <LiveBanner state={lv.state} error={lv.error} onReload={lv.reload} note={full ? '労務のスプシ（参画決定者タブ）をそのまま読んでいます（見るだけ・書き込みはスプシで）' : '今の社内システムから、スプシと同じ材料（参画決定・入社日・入場日・額面）で組み立てています（見るだけ）'} />
       <MikeikenNote mk={mk} live={live} />
 
-      {!live && !sample && lv.state === 'loading' && <div className="rounded-xl border border-line bg-surface"><SkeletonRows /></div>}
+      {!live && lv.state === 'loading' && <div className="rounded-xl border border-line bg-surface"><SkeletonRows /></div>}
       {live && !full && (
         <div className="rounded-xl border px-4 py-3 text-sm" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)', borderColor: 'transparent' }}>
           <b>メールアドレス・freee送信・送信日・メモ・辞退・入社取消・辞退・取消日</b> は労務のスプシにだけあります。
@@ -60,7 +58,7 @@ export default function NyushaPage() {
         </div>
       )}
 
-      {(live || sample) && <>
+      {live && <>
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <div className="text-body">
           {!full ? <><b>{rows.length}人</b><span className="ml-2 text-muted">参画決定が 10/1 以降（9月決定で10月以降に入場の人を含む）</span></>

@@ -5,7 +5,7 @@
 //   手当の額は 確定手当額（allowance_amount）→ 無ければマスタの額（master_amount）。現場経験の年数は今のシステムに無い
 //   ★10-26：「確認待ち→承認待ち」「反映待ち→反映ずみ」の段は今のシステムの v2_shikaku_stage（/api/live/jinji?what=shikaku）に置いた。
 //     未確認＋確かめた＝承認待ち／承認＋反映した月なし＝反映待ち（申請の一覧にも出す）／承認＋反映した月あり＝反映ずみ
-import type { ShikakuApp } from '@/lib/shikaku-sample';
+import type { ShikakuApp } from '@/lib/types/jinji';
 import type { JShikakuStage } from '@/lib/live/jinji';
 
 export type IkeShikakuRow = {

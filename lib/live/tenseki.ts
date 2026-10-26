@@ -5,7 +5,7 @@
 //   ★今のシステムの状態は 確認待ち → 確定（勤怠の紐付けを転籍日で割る）／却下 の3つだけ。ver2 の5段の手続きは無い
 import { jstToday, staffIdOf } from './staff';
 import { normName } from './eigyo-common';
-import type { Yoyaku } from '@/lib/yoyaku-sample';
+import type { Yoyaku } from '@/lib/types/jinji';
 
 type Evidence = { items?: { source: string; match?: string; from_retire?: string; to_entry?: string }[]; date_edited?: boolean };
 export type IkeLedger = {

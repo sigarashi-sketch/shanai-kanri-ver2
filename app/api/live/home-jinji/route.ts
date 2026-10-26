@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { ikeFetch, ikeToken } from '@/lib/ike';
 import { SALES_ROLES, buildHomeJinji, isMine, normName, type IkeInterview, type IkeNyuujou, type IkeRosterRows, type IkeRosterStatus, type IkeStoryList } from '@/lib/live/home-jinji';
 import type { EngineerRows } from '@/lib/live/eigyo-common';
-import type { FeedPost } from '@/lib/home-jinji-sample';
+import type { FeedPost } from '@/lib/types/jinji';
 import type { JFeedRaw } from '@/lib/live/jinji';
 
 // ホーム人事の本物。今の社内システムの読むだけの GET をまとめて、フィードの投稿にして返す。
@@ -48,7 +48,7 @@ export async function GET() {
       soft(getJson<EngineerRows>('/api/roster?action=getEngineerRows&area=main'), 'プロパーリスト', warn),
       scope === 'mine' ? soft(getJson<IkeRosterRows>('/api/proxy?action=getRosterData'), '担当営業（名簿）', warn) : Promise.resolve(null),
     ]);
-    // 定期面談・メモ・再アサイン・LINE 友だち追加（読めなければ見本のまま＝missing に残す）
+    // 定期面談・メモ・再アサイン・LINE 友だち追加（読めなければ missing に残す＝画面は「読めませんでした」だけ出す）
     const feed = await getJson<{ ok: boolean; rows: JFeedRaw[]; warnings?: string[] }>(`/api/jinji-v2?action=feed&days=${DAYS}`).catch((e) => { if (e instanceof AuthGone) throw e; return null; });
     const mikeiken = engineers?.rows ? new Map(engineers.rows.map((r) => [normName(r.name), r.name] as [string, string]).filter(([k]) => !!k)) : null;
     let reps: Map<string, string[]> | null = null;

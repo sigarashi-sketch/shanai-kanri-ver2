@@ -4,12 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BadgeCheck, Building2, ChevronLeft, ChevronRight, DoorOpen, Flag, Heart, MessageCircle, NotebookPen, Repeat, Signpost, Smartphone, Users, X, type LucideIcon } from 'lucide-react';
 import { PageTitle } from '@/components/ui';
 import { PersonName } from '@/components/Person';
-import { usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
 import { LiveBanner } from '@/components/Live';
 import FeedScene, { clothOf } from '@/components/FeedScene';
 import { useLiveRoute } from '@/lib/live/use-live-route';
-import { TYPE_LABEL, jstDay, samplePosts, type FeedPost, type FeedType, type HomeJinjiData } from '@/lib/home-jinji-sample';
+import { TYPE_LABEL, jstDay, type FeedPost, type FeedType, type HomeJinjiData } from '@/lib/types/jinji';
 
 // ホーム人事：要員の動きを Instagram 風に。上＝ストーリー（種類ごとの丸。押すと全画面で1人ずつ送る）、下＝フィード（絵つきの投稿）。
 //   見える範囲：管理者・人事は全員分、営業は自分が担当営業の人だけ（本物はサーバ側 /api/live/home-jinji で絞る）。出すのは未経験（プロパーリストにいる人）だけ
@@ -46,20 +45,14 @@ const ago = (iso: string, now: number) => {
 };
 
 export default function HomeJinjiPage() {
-  const { me } = usePerms();
   const { toast } = useMotivation();
   const lv = useLiveRoute<HomeJinjiData>('/api/live/home-jinji');
   const [now, setNow] = useState(0);
-  const [sample, setSample] = useState<FeedPost[]>([]);
-  useEffect(() => { const t = Date.now(); setNow(t); setSample(samplePosts(t)); }, []);
+  useEffect(() => { setNow(Date.now()); }, []);
 
-  // 見本のときの「見え方」：営業なら自分（苗字）が担当の人だけ
-  const sampleSales = me.kind === '営業' ? me.name.replace(/（.*$/, '').trim() : '';
-  const samplePostsShown = useMemo(() => (sampleSales ? sample.map((p) => ({ ...p, people: p.people.filter((x) => x.sales === sampleSales) })).filter((p) => p.people.length) : sample), [sample, sampleSales]);
   const live = lv.live && lv.data ? lv.data : null;
-  const posts = live ? live.posts : samplePostsShown;
-  const scope = live ? live.scope : sampleSales ? 'mine' : 'all';
-  const missingSample = live ? samplePostsShown.filter((p) => live.missing.includes(p.type)) : [];
+  const posts = useMemo(() => live?.posts ?? [], [live]);
+  const scope = live ? live.scope : 'all';
 
   const today = now ? jstDay(new Date(now).toISOString()) : '';
   const stories = useMemo(() => buildStories(posts, today), [posts, today]);
@@ -81,14 +74,14 @@ export default function HomeJinjiPage() {
 
   return (
     <div className="mx-auto flex max-w-[640px] flex-col gap-4 px-1 py-2">
-      <PageTitle title="ホーム人事" sub={scope === 'mine' ? `${live?.me || sampleSales || 'あなた'}さんが担当営業の人だけ・直近7日` : '未経験の人の動き・直近7日'} />
+      <PageTitle title="ホーム人事" sub={scope === 'mine' ? `${live?.me || 'あなた'}さんが担当営業の人だけ・直近7日` : '未経験の人の動き・直近7日'} />
       <LiveBanner state={lv.state} error={lv.error} onReload={lv.reload}
         note={`本物のデータ（承諾・参画決定・辞退・現場デビュー・現場面談・退社・定期面談・メモ・再アサイン・採用LINEの友だち追加）。${scope === 'mine' ? '担当営業があなたの人だけ。' : ''}反応は画面の中だけです`} />
       {live?.warnings.map((w) => <div key={w} className="rounded-xl border border-line bg-soft px-4 py-2 text-sm text-muted">{w}</div>)}
 
       {/* ストーリー */}
       <div className="mo-fade-up flex gap-3.5 overflow-x-auto rounded-2xl border border-line bg-surface px-4 py-3.5">
-        {stories.length === 0 && <div className="py-3 text-sm text-faint">いまは新しい動きはありません</div>}
+        {stories.length === 0 && <div className="py-3 text-sm text-faint">{lv.state === 'loading' ? '読み込み中…' : 'いまは新しい動きはありません'}</div>}
         {stories.map((s, k) => {
           const Icon = ICON[s.type]; const done = seen.has(s.key);
           return (
@@ -113,15 +106,14 @@ export default function HomeJinjiPage() {
       )}
 
       {/* フィード */}
-      {lv.state !== 'loading' && shown.length === 0 && (
+      {live && shown.length === 0 && (
         <div className="rounded-2xl border border-line bg-surface px-5 py-10 text-center text-body text-muted">直近7日に{scope === 'mine' ? 'あなたが担当の人の' : ''}動きはありませんでした。静かな1週間です。</div>
       )}
       {shown.map((p, k) => <PostCard key={p.id} p={p} k={k} now={now} liked={!!likes[p.id]} pop={pop === p.id} cheer={cheer[p.id]} onLike={() => like(p.id)} onCheer={(c) => { setCheer((m) => ({ ...m, [p.id]: m[p.id] === c ? '' : c })); if (!told) { setTold(true); toast({ text: '反応しました', sub: '→ この画面の中だけ（誰にも届かず、どこにも残りません）' }); } }} />)}
 
       {live && live.missing.length > 0 && (
         <div className="flex flex-col gap-3 border-t border-line pt-4">
-          <div className="text-sm text-muted">定期面談・メモ・再アサイン・採用LINEの友だち追加を読めませんでした（下は見本です）</div>
-          {missingSample.map((p, k) => <div key={p.id} className="opacity-70"><PostCard p={p} k={k} now={now} liked={false} pop={false} sampleTag onLike={() => {}} onCheer={() => {}} /></div>)}
+          <div className="text-sm text-muted">定期面談・メモ・再アサイン・採用LINEの友だち追加を読めませんでした（この種類は出していません）</div>
         </div>
       )}
 
@@ -130,7 +122,7 @@ export default function HomeJinjiPage() {
   );
 }
 
-function PostCard({ p, k, now, liked, pop, cheer, onLike, onCheer, sampleTag }: { p: FeedPost; k: number; now: number; liked: boolean; pop: boolean; cheer?: string; onLike: () => void; onCheer: (c: string) => void; sampleTag?: boolean }) {
+function PostCard({ p, k, now, liked, pop, cheer, onLike, onCheer }: { p: FeedPost; k: number; now: number; liked: boolean; pop: boolean; cheer?: string; onLike: () => void; onCheer: (c: string) => void }) {
   const Icon = ICON[p.type]; const lead = p.people[0]?.name || '';
   return (
     <article className="mo-fade-up overflow-hidden rounded-2xl border border-line bg-surface" style={{ ['--i' as string]: k }}>
@@ -140,7 +132,6 @@ function PostCard({ p, k, now, liked, pop, cheer, onLike, onCheer, sampleTag }: 
           <div className="truncate">{p.people.length === 1 ? <PersonName name={lead} /> : <b>{p.people.length}人</b>}</div>
           <div className="text-xs text-faint">{p.sub || TYPE_LABEL[p.type]}{now ? ` ・ ${ago(p.at, now)}` : ''}</div>
         </div>
-        {sampleTag && <span className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>見本</span>}
         <span className="chip" style={{ background: `var(--tone-${TONE[p.type]}-bg)`, color: `var(--tone-${TONE[p.type]}-fg)` }}><Icon size={12} />{TYPE_LABEL[p.type]}</span>
       </header>
       <div className="relative" onDoubleClick={() => !liked && onLike()}>

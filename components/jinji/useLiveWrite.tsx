@@ -6,7 +6,7 @@ import { useMotivation } from '@/components/Motivation';
 
 // 人事の画面から書くときの共通の道具（10-25）。入れたらすぐ保存（自動保存）＋「→ どこに効いたか」のトーストと「取り消す」。
 //   ・本物（live）… /api/live/** の POST に送る（行き先は各ルートが決め打ち）。失敗したら画面を元に戻して、上に理由を出す
-//   ・見本（ログインしていない）… 画面の中だけ変える（今の社内システムには書かない）
+//   ・まだ読めていない（読み込み中・ログインしていない）… 保存しない。画面を戻して理由を出す（見本の書き込みはしない）
 //   ・apply/revert … 押した瞬間に画面を変える／戻す（保存を待たない）
 //   ・undo … 保存が通ったあとの「取り消す」で送り直す中身（答えから作れる。null なら画面を戻すだけ）
 export type WriteReq = {
@@ -37,12 +37,8 @@ export function useLiveWrite(live: boolean, onDone?: () => void) {
 
   const send = useCallback(async (w: WriteReq): Promise<Record<string, unknown> | null> => {
     setError('');
+    if (!live) { setError('まだデータを読めていないので保存できません（読み込みが終わってから、またはログインしてから押してください）'); return null; }
     w.apply?.();
-    if (!live) {
-      hit();
-      toast({ text: w.text, sub: `${w.sub ? `${w.sub}・` : ''}見本なので今の社内システムには書いていません`, undo: w.revert });
-      return {};
-    }
     setBusy((n) => n + 1);
     const { ok, j } = await postJson(w.url, w.body);
     setBusy((n) => n - 1);

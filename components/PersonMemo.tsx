@@ -12,7 +12,7 @@ export function PersonMemo({ name, live, id, initial }: { name: string; live: bo
     if (initial) return;
     let on = true;
     setRes(null);
-    if (!live) { setRes({ memo: '（見本）土日休み希望・事務系を希望。面談は 10/22 に実施', summary: '' }); return; }
+    if (!live) return;   // まだ読めていない＝読み込み中のまま（見本は出さない）
     fetch('/api/live/person', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, id }) })
       .then(async (r) => (await r.json().catch(() => ({}))) as Partial<PersonRes> & { error?: string })
       .then((j) => {

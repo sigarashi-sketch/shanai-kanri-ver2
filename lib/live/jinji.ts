@@ -1,5 +1,5 @@
 // 人事の「今のシステムに無かったもの」（/api/live/jinji → 今の /api/jinji-v2・表は legacy sql/0376）の型と変換（10-26）。
-import type { Field, Yoyaku } from '@/lib/yoyaku-sample';
+import type { Field, Yoyaku } from '@/lib/types/jinji';
 
 export const JINJI_URL = '/api/live/jinji';
 export const jinjiRead = (what: string) => `${JINJI_URL}?what=${what}`;

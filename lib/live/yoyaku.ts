@@ -2,7 +2,7 @@
 //   今のシステムにある予約は従業員名簿の「待機の予約」「退社の予約」だけ（roster_status.taiki_yotei_bi / taisha_yotei_bi）。
 //   読むのは GET /api/proxy?action=getRosterStatus。適用されると日付が空に戻る＝ここに出るのは「これから」の予約だけ。
 //   ・待機の予約：その日の朝6:00に待機が入る ／ 退社の予約：日報の退職日。翌朝6:00に退社が入る
-import type { Yoyaku } from '@/lib/yoyaku-sample';
+import type { Yoyaku } from '@/lib/types/jinji';
 
 export type IkeRosterStatus = {
   normalized_name: string; name: string;

@@ -1,23 +1,20 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { FIELD_RULES, YOYAKU, daysFrom, fmtDate, type Yoyaku } from '@/lib/yoyaku-sample';
+import { FIELD_RULES, daysFrom, fmtDate, type Yoyaku } from '@/lib/types/jinji';
 
-// 変更の予約を全画面で1つにする置き場（変更の予約・ホーム・社員ページ・社員一覧が同じものを読む）。
-//   本番前の手元版はこの端末に覚えるだけ。本物につなぐときは DB の予約テーブル1つに置き換える。
+// 変更の予約を全画面で1つにする置き場（ホーム・社員ページが同じものを読む）。
+//   見本の予約は持たない（10-26）。本物の予約は変更の予約の画面（/api/live/jinji と名簿の予約）から読む。
+//   前の手元版がこの端末に覚えた分（見本が混ざっている）は読まずに消す。
 const KEY = 'v2_yoyaku';
 type Ctx = { rows: Yoyaku[]; setRows: (f: (rs: Yoyaku[]) => Yoyaku[]) => void; reset: () => void };
 const YoyakuCtx = createContext<Ctx | null>(null);
 
 export function YoyakuProvider({ children }: { children: React.ReactNode }) {
-  const [rows, set] = useState<Yoyaku[]>(YOYAKU);
-  useEffect(() => { try { const v = localStorage.getItem(KEY); if (v) set(JSON.parse(v)); } catch { /* 見本のまま */ } }, []);
-  const setRows = (f: (rs: Yoyaku[]) => Yoyaku[]) => set((rs) => {
-    const next = f(rs);
-    try { localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* noop */ }
-    return next;
-  });
-  const reset = () => { try { localStorage.removeItem(KEY); } catch { /* noop */ } set(YOYAKU); };
+  const [rows, set] = useState<Yoyaku[]>([]);
+  useEffect(() => { try { localStorage.removeItem(KEY); } catch { /* noop */ } }, []);
+  const setRows = (f: (rs: Yoyaku[]) => Yoyaku[]) => set((rs) => f(rs));
+  const reset = () => set([]);
   return <YoyakuCtx.Provider value={{ rows, setRows, reset }}>{children}</YoyakuCtx.Provider>;
 }
 

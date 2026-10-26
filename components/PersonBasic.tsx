@@ -9,12 +9,6 @@ type Res = {
   answered?: boolean; facts?: [string, string][]; analysis?: { label: string; value: string }[];
   work?: { company: string; from: string; to: string; emp: string; job: string; description: string }[]; note?: string; error?: string;
 };
-const SAMPLE: Res = {
-  answered: true,
-  facts: [['よみがな', 'みほん たろう'], ['年齢', '24'], ['最寄駅', '見本駅'], ['最終学歴', '高校卒業'], ['使えるツール', 'Excel・Word'], ['夜勤', '可'], ['出張', '不可']],
-  analysis: [{ label: '仕事で大事にしたいこと', value: '成長できる環境（見本）' }, { label: '希望の働き方', value: '日勤・土日休み（見本）' }],
-  work: [{ company: '見本商事', from: '2022-04', to: '2025-03', emp: '正社員', job: '販売', description: '店舗での接客と在庫管理（見本）' }],
-};
 
 /** person＝人の番号（応募ID）。同姓同名のとき、その人の回答だけを出す（わからなければ氏名で・10-25） */
 export function PersonBasic({ name, live, person }: { name: string; live: boolean; person?: string }) {
@@ -22,7 +16,7 @@ export function PersonBasic({ name, live, person }: { name: string; live: boolea
   useEffect(() => {
     let on = true;
     setRes(null);
-    if (!live) { setRes(SAMPLE); return; }
+    if (!live) return;   // まだ読めていない＝読み込み中のまま（見本は出さない）
     fetch('/api/live/basic-info', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, person: person || undefined }) })
       .then(async (r) => (await r.json().catch(() => ({ error: `読めませんでした（${r.status}）` }))) as Res)
       .then((j) => { if (on) setRes(j); })
@@ -35,7 +29,6 @@ export function PersonBasic({ name, live, person }: { name: string; live: boolea
   if (!res.answered) return <div className="py-10 text-center text-faint">{res.note || '基本情報フォームの回答がありません'}</div>;
   return (
     <div className="flex flex-col gap-4">
-      {!live && <span className="chip self-start">見本</span>}
       {!!res.facts?.length && (
         <dl className="grid grid-cols-2 gap-x-5 gap-y-2.5">
           {res.facts.map(([k, v]) => <div key={k} className="min-w-0"><dt className="text-xs text-faint">{k}</dt><dd className="whitespace-pre-wrap break-words">{v}</dd></div>)}

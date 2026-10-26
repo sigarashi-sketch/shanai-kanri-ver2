@@ -4,7 +4,7 @@
 //   ここに出すのは まだ決着していない人（outcome='open'＝参画・辞退・ぽあ のどれでもない）だけ。
 //   応募ID・最寄駅・入社予定日・返信の間隔・フォロー面談の記録は、今のシステムの一覧に無い
 //   （返信の間隔・フォーム・入社日は別の GET から app/api/live/saiyou-signals が集める＝下の liveSignalLines）
-import type { Acceptor } from '@/lib/saiyou-sample';
+import type { Acceptor } from '@/lib/types/jinji';
 
 export type IkeShoudakuPerson = { name: string; norm: string; tantou: string; shoudaku_at: string; outcome: 'open' | 'sankaku' | 'jitai' | 'poa'; outcome_at: string | null; days: number | null };
 export type IkeShoudakuList = {

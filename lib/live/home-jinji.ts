@@ -7,7 +7,7 @@
 //   ・担当営業             … /api/proxy?action=getRosterData の rep（稼働管理情報一覧の営業）＋ 面談カンバンの salesRep
 //   本物の名前・単価はここに書かない（形とキー名だけ）
 import { normName } from './eigyo-common';
-import { GROUP_TEXT, toPosts, type FeedPerson, type FeedPost, type FeedType } from '@/lib/home-jinji-sample';
+import { GROUP_TEXT, toPosts, type FeedPerson, type FeedPost, type FeedType } from '@/lib/types/jinji';
 
 export type IkeStoryList = { people?: Array<{ name: string; norm?: string; tantou?: string; shoudaku_at: string; outcome: 'sankaku' | 'jitai' | 'poa' | 'open'; outcome_at: string | null }> };
 export type IkeNyuujou = { items?: Array<{ name: string; nn?: string; date: string; tantou?: string; jitai?: boolean; poa?: boolean }> };

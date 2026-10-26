@@ -3,20 +3,16 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronRight, Search } from 'lucide-react';
-import { PEOPLE, STATUS_COUNTS } from '@/lib/sample';
 import { GhostButton, PageTitle, Pill, PrimaryButton, TONE, SkeletonRows } from '@/components/ui';
 import { useMotivation } from '@/components/Motivation';
 import { needText, usePerms } from '@/components/Perms';
-import { isPending, useYoyaku, yoyakuLine } from '@/components/YoyakuStore';
 import { LiveBanner, useIke } from '@/components/Live';
 import { tensekiMarks, toTensekiLive, type IkeTensekiList } from '@/lib/live/tenseki';
 import { normName } from '@/lib/live/eigyo-common';
-import { TENSEKI } from '@/lib/tenseki-sample';
-import { TODAY } from '@/lib/yoyaku-sample';
 import { useLiveRoute } from '@/lib/live/use-live-route';
 import { MIKEIKEN_NOTE } from '@/lib/live/mikeiken';
 import { STATUS_LABEL, STATUS_ORDER, jstToday, slashDate, type LiveStaffList, type StaffEdit } from '@/lib/live/staff';
-import type { LiveStaffListX, StaffYoyaku as YoyakuRow } from '@/lib/live/staff-extra';
+import type { LiveStaffListX } from '@/lib/live/staff-extra';
 import { rulePhaseOf, type StaffWrite } from '@/lib/live/staff-write';
 import { ColumnPicker, useColumns, type ColDef } from '@/components/jinji/ColumnPicker';
 import { StaffYoyaku } from '@/components/jinji/StaffYoyaku';
@@ -24,7 +20,7 @@ import { useLiveWrite, WriteError } from '@/components/jinji/useLiveWrite';
 import { staffReq } from '@/components/jinji/staffWrite';
 import { EMPTY_EDIT } from '@/components/jinji/StaffOps';
 
-// 見本（PEOPLE）と本物（今の従業員名簿）を同じ形に揃えて並べる
+// 今の従業員名簿を一覧の形に揃えて並べる
 type Row = {
   id: string; name: string; sub: string; status: string; site: string; siteSub?: string; contract: string; contractEnd?: string;
   station: string; price: string; sales: string; recruiter: string; kana: string; kintai: { text: string; tone: string }; tag?: string;
@@ -47,17 +43,13 @@ const DEFAULT_COLS = ['status', 'site', 'contract', 'station', 'price', 'kintai'
 const CHECK_COLS = new Set(['sankaku', 'sai', 'jitai', 'taiki', 'taisha']);
 
 export function StaffList({ embedded = false }: { embedded?: boolean }) {
-  const { hit, toast } = useMotivation();
+  const { toast } = useMotivation();
   const canEdit = usePerms().can('jinji', 'edit');
-  const { rows: yoyaku } = useYoyaku();
   const { data, state, error, reload, live } = useLiveRoute<LiveStaffList & Partial<LiveStaffListX>>('/api/live/staff');
-  // 現場の列の下に、いちばん近い予約を1行（変更の予約と同じデータ・見本のときだけ）
-  const nextOf = (id: string) => (live ? undefined : yoyaku.filter((r) => r.personId === id && isPending(r)).sort((a, b) => a.date.localeCompare(b.date))[0]);
   // 転籍（転籍台帳はページに出さず名簿に混ぜる・10-25）。台帳は今のシステムで super_admin と労務事務だけ読める＝読めなければ出ないだけ
   const tk = useIke<IkeTensekiList>(live ? 'tenseki?action=list' : null);
   const tmarks = useMemo(() => {
-    if (!live) return tensekiMarks(TENSEKI, TODAY);
-    if (!tk.live || !tk.data) return new Map<string, { text: string; pending: boolean; ambiguous?: boolean }>();
+    if (!live || !tk.live || !tk.data) return new Map<string, { text: string; pending: boolean; ambiguous?: boolean }>();
     const t = toTensekiLive(tk.data);
     return tensekiMarks(t.rows, t.today, (data?.rows || []).map((r) => r.name));
   }, [live, tk.live, tk.data, data]);
@@ -89,20 +81,15 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
       edit: { ...EMPTY_EDIT, ...(p.edit || {}), ...(ov[p.name] || {}) },
       rule: data.rule?.ok ? data.rule.n[normName(p.name)] ?? 0 : undefined,
     }))
-    : PEOPLE.map((p) => ({
-      ...p, sub: `${p.no}・${p.joined.slice(0, 7)}入社`, contractEnd: p.contractEnd, company: '', joined: p.joined.replaceAll('/', '-'), start: '', end: '', nyuujou: '', taijou: '', taishaBi: '',
-      edit: { ...EMPTY_EDIT, taiki: p.status === '待機', taisha: p.status === '退社', sankaku: p.status === '入場予定', ...(ov[p.name] || {}) }, rule: 0,
-    }))), [live, data, ov]);
-  const tabs = live
-    ? [{ label: 'すべて', n: all.length }, ...STATUS_ORDER.map((k) => ({ label: STATUS_LABEL[k], n: all.filter((p) => p.status === STATUS_LABEL[k]).length })).filter((t) => t.n > 0)]
-    : STATUS_COUNTS.map((s) => ({ label: s.label as string, n: s.label === 'すべて' ? all.length : all.filter((p) => p.status === s.label).length }));
+    : []), [live, data, ov]);
+  const tabs = [{ label: 'すべて', n: all.length }, ...STATUS_ORDER.map((k) => ({ label: STATUS_LABEL[k], n: all.filter((p) => p.status === STATUS_LABEL[k]).length })).filter((t) => t.n > 0)];
   const opts = (k: 'recruiter' | 'sales' | 'contract') => Array.from(new Set(all.map((p) => p[k]).filter((v) => v && v !== '—'))).sort((a, b) => a.localeCompare(b, 'ja'));
   const rows = useMemo(() => all.filter((p) => (tab === 'すべて' || p.status === tab) && (!q || (p.name + p.kana + p.site + (p.siteSub || '') + p.station).includes(q))
     && (!f.recruiter || p.recruiter === f.recruiter) && (!f.sales || p.sales === f.sales) && (!f.contract || p.contract === f.contract)), [all, tab, q, f]);
   const shown = rows.slice(0, limit);
   const toggle = (id: string) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   // 一括の LINE・書類の回収は人に届く送信なので、本物ではここから送らない（1人ずつは右上の「連絡」から）
-  const block = live ? 'LINE・書類の回収の依頼は、右上の「連絡」から1人ずつ送ってください（ここからまとめては送りません）' : undefined;
+  const block = 'LINE・書類の回収の依頼は、右上の「連絡」から1人ずつ送ってください（ここからまとめては送りません）';
 
   // KPI（今の名簿の上の数字と同じ定義・いま絞っている行で数える）
   const kpi = [
@@ -147,7 +134,7 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
     const d = (v: string) => (v ? <span className="num">{slashDate(v)}</span> : <span className="text-faint">—</span>);
     switch (k) {
       case 'status': return <Pill>{p.status}</Pill>;
-      case 'site': return <>{p.site}{p.siteSub && <div className="text-xs text-faint">{p.siteSub}</div>}{nextOf(p.id) && <Link href="/jinji/yoyaku" className="block text-xs font-semibold hover:underline" style={{ color: 'var(--ad)' }}>{yoyakuLine(nextOf(p.id)!)}</Link>}</>;
+      case 'site': return <>{p.site}{p.siteSub && <div className="text-xs text-faint">{p.siteSub}</div>}</>;
       case 'contract': return <>{p.contract}{p.contractEnd && <div className="text-xs font-semibold text-warn">{p.contractEnd}</div>}</>;
       case 'station': return p.station;
       case 'price': return <span className="num">{p.price}</span>;
@@ -169,7 +156,7 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
   };
   const colDefs = cols.keys.map((k) => COLS.find((c) => c.k === k)!).filter(Boolean);
   const nCols = colDefs.length + 3;
-  const yoyakuList = useMemo(() => (live ? data?.yoyaku || [] : SAMPLE_YOYAKU), [live, data]);
+  const yoyakuList = useMemo(() => (live ? data?.yoyaku || [] : []), [live, data]);
   const yoyakuN = yoyakuList.length;
   const people = useMemo(() => all.map((p) => ({ name: p.name, kana: p.kana, taisha: p.edit.taisha, taiki: p.edit.taiki, override: p.edit.override })), [all]);
 
@@ -178,10 +165,8 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
   return (
     <Wrap className={`flex flex-col gap-3.5 ${embedded ? 'pb-[120px]' : 'px-4 pb-[120px] pt-[22px] sm:px-6'}`}>
       {!embedded && (
-        <PageTitle title="社員一覧" sub={live ? '今の従業員名簿と同じ判定で状態を出しています。チェックはその場で保存されます。名前か行を押すと画面の上に社員ページの中身、右の矢印でページに移ります' : '状態は日付つきの履歴から自動で決まります。名前か行を押すと画面の上に社員ページの中身、右の矢印でページに移ります'}>
-          {live
-            ? <GhostButton onClick={() => { const n = downloadCsv(rows, data?.month || ''); toast({ text: `${n}人を CSV に書き出しました`, sub: '→ ダウンロードに入りました（いま絞り込んでいる人だけ・単価と住所は入れていません）' }); }}>CSV</GhostButton>
-            : <GhostButton onClick={() => toast({ text: `${rows.length}人を CSV に書き出しました（見本）`, sub: '→ ダウンロードに入る想定です（いまは見本なのでファイルは作りません）' })}>CSV</GhostButton>}
+        <PageTitle title="社員一覧" sub={live ? '今の従業員名簿と同じ判定で状態を出しています。チェックはその場で保存されます。名前か行を押すと画面の上に社員ページの中身、右の矢印でページに移ります' : '名前か行を押すと画面の上に社員ページの中身、右の矢印でページに移ります'}>
+          {live && <GhostButton onClick={() => { const n = downloadCsv(rows, data?.month || ''); toast({ text: `${n}人を CSV に書き出しました`, sub: '→ ダウンロードに入りました（いま絞り込んでいる人だけ・単価と住所は入れていません）' }); }}>CSV</GhostButton>}
           {canEdit ? <Link href="/jinji/nyusha" className="btn-primary">＋ 社員を追加</Link> : <PrimaryButton disabled title={needText('edit')}>＋ 社員を追加</PrimaryButton>}
         </PageTitle>
       )}
@@ -205,7 +190,7 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
         {kpi.map((x) => (
           <div key={x.l} className="rounded-xl border border-line bg-surface px-3.5 py-2.5" title={x.tip}>
             <div className="text-sm font-semibold text-muted">{x.l}</div>
-            <div className="num text-xl font-bold tracking-tight">{x.n == null ? <span className="text-faint" title="見本では出しません">—</span> : x.n}</div>
+            <div className="num text-xl font-bold tracking-tight">{x.n == null ? <span className="text-faint">—</span> : x.n}</div>
           </div>
         ))}
       </div>
@@ -263,14 +248,14 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
                   <td className="px-3.5 py-2"><Link href={`/jinji/staff/${encodeURIComponent(p.id)}`} className="inline-flex rounded p-1 hover:bg-soft" aria-label={`${p.name}の社員ページを開く`}><ChevronRight size={16} className="text-faint" /></Link></td>
                 </tr>
               ))}
-              {state !== 'loading' && rows.length === 0 && <tr><td colSpan={nCols} className="px-4 py-10 text-center text-body text-muted">この条件の社員はいません{live ? '' : '（見本データは一部の人だけです）'}</td></tr>}
+              {state !== 'loading' && rows.length === 0 && <tr><td colSpan={nCols} className="px-4 py-10 text-center text-body text-muted">{live ? 'この条件の社員はいません' : state === 'error' ? '名簿を読めませんでした' : 'まだありません'}</td></tr>}
             </tbody>
           </table>
         </div>
         {rows.length > shown.length && (
           <button onClick={() => setLimit((n) => n + PAGE)} className="w-full border-t border-line-soft py-2.5 text-sm font-semibold" style={{ color: 'var(--ad)' }}>さらに表示（残り {rows.length - shown.length}人）</button>
         )}
-        <div className="flex items-center justify-between border-t border-line-soft px-3.5 py-2.5 text-sm text-muted"><span>全{rows.length}件</span><span>{live ? `${data?.month || ''}の名簿・状態は今日（${data?.today || ''}）の判定` : '見本データは一部の人だけです'}</span></div>
+        <div className="flex items-center justify-between border-t border-line-soft px-3.5 py-2.5 text-sm text-muted"><span>全{rows.length}件</span><span>{live ? `${data?.month || ''}の名簿・状態は今日（${data?.today || ''}）の判定` : ''}</span></div>
       </div>
       </div>
       </>)}
@@ -278,21 +263,14 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
       {sel.size > 0 && view === 'roster' && (
         <div className="mo-scale-in fixed bottom-7 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2.5 rounded-[14px] bg-sumi py-2 pl-[18px] pr-2 text-body text-white shadow-[0_12px_32px_rgba(25,27,46,.28)]">
           <b className="num">{sel.size}人を選択中</b><span className="h-5 w-px bg-white/20" />
-          <button disabled={live} title={block} onClick={() => { const before = sel; hit(); toast({ undo: () => setSel(before), text: `${sel.size}人にLINEを送る準備をしました`, sub: '→ 連絡の下書きに入りました' }); setSel(new Set()); }} className="min-h-9 rounded-[9px] bg-white/10 px-3 text-body disabled:cursor-not-allowed disabled:text-white/50">LINEで送る</button>
-          <button disabled={live} title={block} onClick={() => { const before = sel; hit(); toast({ undo: () => setSel(before), text: `${sel.size}人に書類の回収を依頼しました`, sub: '→ 入社手続きの提出待ちに載りました' }); setSel(new Set()); }} className="min-h-9 rounded-[9px] bg-white/10 px-3 text-body disabled:cursor-not-allowed disabled:text-white/50">書類の回収を依頼</button>
-          {live
-            ? <button onClick={() => { go('yoyaku'); setSel(new Set()); }} className="inline-flex min-h-9 items-center rounded-[9px] px-3.5 text-body font-bold" style={{ background: 'var(--a)', color: 'var(--ao)' }}>待機・退社を予約</button>
-            : canEdit
-              ? <Link href="/jinji/yoyaku" className="btn inline-flex min-h-9 items-center rounded-[9px] px-3.5 text-body font-bold" style={{ background: 'var(--a)', color: 'var(--ao)' }}>変更を予約（{sel.size}人）</Link>
-              : <span title={needText('edit')} className="inline-flex min-h-9 cursor-not-allowed items-center rounded-[9px] bg-white/10 px-3 text-body text-white/50">変更の予約は「直す」の権限が要ります</span>}
+          <button disabled title={block} className="min-h-9 rounded-[9px] bg-white/10 px-3 text-body disabled:cursor-not-allowed disabled:text-white/50">LINEで送る</button>
+          <button disabled title={block} className="min-h-9 rounded-[9px] bg-white/10 px-3 text-body disabled:cursor-not-allowed disabled:text-white/50">書類の回収を依頼</button>
+          <button onClick={() => { go('yoyaku'); setSel(new Set()); }} className="inline-flex min-h-9 items-center rounded-[9px] px-3.5 text-body font-bold" style={{ background: 'var(--a)', color: 'var(--ao)' }}>待機・退社を予約</button>
         </div>
       )}
     </Wrap>
   );
 }
-
-// 見本の予約（ログインしていないとき）
-const SAMPLE_YOYAKU: YoyakuRow[] = [{ name: PEOPLE[2].name, kind: 'taiki', date: '2026-11-01' }];
 
 // 社員一覧の CSV（本物・10-26）。いま絞り込んでいる人だけ・画面に出ている列だけ（単価・住所・電話は入れない）。ブラウザの中で作るだけ
 function downloadCsv(rows: Row[], month: string): number {
