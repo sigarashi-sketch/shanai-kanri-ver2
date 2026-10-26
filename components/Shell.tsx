@@ -16,6 +16,8 @@ import { ThemeSwitch } from './ThemeSwitch';
 import { YoyakuProvider } from './YoyakuStore';
 import { AlertProvider } from './AlertStore';
 import { LiveIndicator } from './Live';
+import { useMePages } from './MePages';
+import { horyuVisible } from '@/lib/horyu-access';
 
 const MODULE_ICON: Record<ModuleKey, typeof Users> = { jinji: Users, roumu: Clock, eigyo: Briefcase, keiri: ReceiptText };
 
@@ -24,6 +26,9 @@ export function Shell({ members, children }: { members: { id: string; name: stri
   const { group } = findNav(pathname);
   const { notes } = useColors();
   const { me, perms, manageAccess } = usePerms();
+  // 保留のメニューは今の社内システムのページ権限で出し分ける（見られない人には出さない・10-26）。読めないあいだは全部出す
+  const { pa } = useMePages();
+  const horyu = NAV_HORYU.filter((it) => horyuVisible(it.href, pa));
   const [open, setOpen] = useState(true);
   const module = group?.module ?? 'home';
   const visible = NAV.filter((g) => perms[g.module] !== 'none');
@@ -77,13 +82,13 @@ export function Shell({ members, children }: { members: { id: string; name: stri
             );
           })}
           {/* 保留（あとで決める）＝今の画面を写しただけで、置き場所をまだ決めていないもの（lib/nav.ts NAV_HORYU） */}
-          {NAV_HORYU.length > 0 && (
+          {horyu.length > 0 && (
             <div className="flex flex-col gap-px">
               <div className="side-strong flex items-center gap-2 px-2.5 py-1 text-sm font-semibold">
                 <span className="side-ring flex size-5 shrink-0 items-center justify-center rounded-md ring-1"><Archive size={12} strokeWidth={2.2} /></span>
                 {open && '保留（あとで決める）'}
               </div>
-              {open && NAV_HORYU.map((it) => {
+              {open && horyu.map((it) => {
                 const active = pathname === it.href || pathname.startsWith(it.href + '/');
                 return (
                   <Link key={it.href} href={it.href} className={`side-hover flex items-center rounded-lg py-1.5 pl-[38px] pr-2.5 ${active ? 'side-on font-semibold' : ''}`}>

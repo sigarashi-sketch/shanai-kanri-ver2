@@ -122,19 +122,55 @@ export function StaffOps({ staff, live, recruiters, onDone }: { staff: LiveStaff
               {rec.map((x) => <option key={x} value={x}>{x}</option>)}
             </select>
           </label>
-          <LineGroupView cur={{ name: v.lineGroup, has: v.hasLine }} />
+          <LineGroupView cur={{ name: v.lineGroup, has: v.hasLine, id: v.lineGroupId }} name={name} live={live} off={off} offTitle={offTitle} onSaved={onDone} />
         </div>
       ))}
     </div>
   );
 }
 
-// LINEグループは見るだけ（今のシステムに紐付けを保存する口が無いため・10-25 決定）。紐付けは今の従業員名簿の画面で
-function LineGroupView({ cur }: { cur: { name: string; has: boolean } }) {
+// LINEグループの手動紐付け（今の従業員名簿の詳細のプルダウンと同じ・/api/live/line-group・10-26）。
+//   候補＝名前で自動の突き合わせができていないグループだけ。選んでも LINE 側のグループ名は変わらない。外すと自動の突き合わせに戻る
+type LgCand = { groupId: string; name: string; lineName: string; speakers: string[]; lastMs: number };
+function LineGroupView({ cur, name, live, off, offTitle, onSaved }: { cur: { name: string; has: boolean; id: string }; name: string; live: boolean; off: boolean; offTitle?: string; onSaved?: () => void }) {
+  const [cands, setCands] = useState<LgCand[] | null>(null);
+  const [val, setVal] = useState(cur.id);
+  const [msg, setMsg] = useState<{ text: string; bad?: boolean } | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { setVal(cur.id); }, [cur.id]);
+  const open = () => {
+    if (cands || !live || off) return;
+    fetch(`/api/live/line-group?name=${encodeURIComponent(name)}`, { cache: 'no-store' }).then((r) => r.json())
+      .then((j) => { if (j.error) setMsg({ text: j.error, bad: true }); else setCands(j.candidates || []); })
+      .catch((e) => setMsg({ text: (e as Error).message, bad: true }));
+  };
+  const label = (c: LgCand) => {
+    const sub = [c.lineName && `LINE上の名前: ${c.lineName}`, c.speakers.length && `発言: ${c.speakers.join('・')}`, c.lastMs && `最終 ${new Date(c.lastMs).toLocaleDateString('ja-JP')}`].filter(Boolean);
+    return `${c.name || '（名前なし）'}${sub.length ? `（${sub.join(' / ')}）` : ''}`;
+  };
+  const save = async (groupId: string) => {
+    const g = cands?.find((c) => c.groupId === groupId);
+    if (!window.confirm(groupId ? `${name} さんに LINE グループ「${g?.name || '（名前なし）'}」を紐付けます。LINE 側のグループ名は変わりません。` : `${name} さんの LINE グループの紐付けを外します（グループ名からの自動の突き合わせに戻ります）。`)) { setVal(cur.id); return; }
+    setBusy(true); setMsg(null);
+    try {
+      const r = await fetch('/api/live/line-group', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, groupId }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.error) { setMsg({ text: j.error || `保存できませんでした（${r.status}）`, bad: true }); setVal(cur.id); return; }
+      setMsg({ text: groupId ? 'LINEグループを紐付けました' : '紐付けを外しました' });
+      setCands(null); onSaved?.();
+    } finally { setBusy(false); }
+  };
+  const list = cands ? (cur.id && !cands.some((c) => c.groupId === cur.id) ? [{ groupId: cur.id, name: cur.name, lineName: '', speakers: [], lastMs: 0 }, ...cands] : cands) : [];
   return (
-    <div className="flex flex-col gap-1 text-sm text-muted" title="ここでは変えられません（今の従業員名簿の画面で紐付けます）">
+    <div className="flex flex-col gap-1 text-sm text-muted" title={off ? offTitle : live ? 'グループ名で自動の突き合わせができていないグループから選べます（LINE 側の名前は変わりません）' : '見本なので変えられません'}>
       LINEグループ
-      <span className="min-h-9 max-w-[320px] rounded-[10px] border border-line bg-soft px-2 py-2 text-body text-ink">{cur.has ? cur.name || '（名前なし）' : 'なし'}</span>
+      {!live || off || !cands
+        ? <button type="button" onClick={open} disabled={!live || off} className="min-h-9 max-w-[320px] rounded-[10px] border border-line bg-soft px-2 py-2 text-left text-body text-ink disabled:cursor-default">{cur.has ? cur.name || '（名前なし）' : 'なし'}{live && !off && <span className="ml-1.5 text-xs text-faint">（押すと選べます）</span>}</button>
+        : <select value={val} disabled={busy} onChange={(e) => { setVal(e.target.value); void save(e.target.value); }} className="min-h-9 max-w-[320px] rounded-[10px] border border-field bg-surface px-2 text-body text-ink">
+            <option value="">— 紐付けなし（グループ名から自動）—</option>
+            {list.map((c) => <option key={c.groupId} value={c.groupId}>{label(c)}</option>)}
+          </select>}
+      {msg && <span className={msg.bad ? 'text-bad' : ''}>{msg.text}</span>}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { ikeToken } from '@/lib/ike';
+import { ikeFetch, ikeToken } from '@/lib/ike';
 import { ikeWrite, sameSite } from '@/lib/ike-write';
 import { ikeRole } from '@/lib/live/role';
 import { loadMikeikenSet } from '@/lib/live/mikeiken-server';
@@ -9,9 +9,17 @@ import { isMikeiken } from '@/lib/live/mikeiken';
 //   assign {name, team_id|null}（班へ動かす／未割当へ）・setLeader / setSubLeader {id, name|''}・createTeam {name}・renameTeam {id, name}・deleteTeam {id, move_to?}
 //   ★action は下の決まった中からだけ（行き先はここで決め打ち）。書けるのは今のシステムで 採用・役員・全体管理者（＋個別に許された人）だけ＝判定は今のシステム（403 はそのまま返す）
 //   ★人を動かす・役に就けるのは未経験の人（今のプロパーリストに入っている人）だけ
-// 書けるロール＝今のシステム api/_teams.ts の TEAMS_WRITE_ROLES の写し。個別に許された人（TEAMS_WRITE_EMAILS）は今のシステムが読み出す口を出していないので、ver2 ではロールだけで決める
-const WRITE_ROLES = ['staff_recruit', 'executive', 'super_admin'];
-const canWrite = async () => WRITE_ROLES.includes(await ikeRole());
+// 書けるか＝今のシステムに聞く（GET /api/teams?action=canWrite・ロール＋個別に許された人 TEAMS_WRITE_EMAILS・10-26）。
+//   その口がまだ無い（古い今のシステム）ときだけ、ロールの写し（api/_teams.ts の TEAMS_WRITE_ROLES＋admin）で決める
+const WRITE_ROLES = ['staff_recruit', 'executive', 'super_admin', 'admin'];
+const canWrite = async (): Promise<boolean> => {
+  try {
+    const r = await ikeFetch('/api/teams?action=canWrite', undefined, 10000);
+    const j = (await r.json().catch(() => ({}))) as { ok?: boolean; canWrite?: unknown };
+    if (r.ok && j.ok && typeof j.canWrite === 'boolean') return j.canWrite;
+  } catch { /* 下のロールで決める */ }
+  return WRITE_ROLES.includes(await ikeRole());
+};
 
 /** 班分けを直す欄を出してよいか（ログインした人のロールで決める） */
 export async function GET() {
@@ -26,7 +34,7 @@ const idOk = (v: unknown) => typeof v === 'string' && /^[0-9a-zA-Z-]{1,64}$/.tes
 export async function POST(req: Request) {
   if (!sameSite(req)) return NextResponse.json({ error: 'この画面の外からは保存できません' }, { status: 403 });
   if (!(await ikeToken())) return NextResponse.json({ error: 'not_logged_in' }, { status: 401 });
-  if (!(await canWrite())) return NextResponse.json({ error: 'あなたのロールでは班分けを直せません（採用・役員・全体管理者だけ）' }, { status: 403 });
+  if (!(await canWrite())) return NextResponse.json({ error: '班分けを直す権限がありません（採用・役員・管理者と、個別に許された人だけ）' }, { status: 403 });
   const b = ((await req.json().catch(() => null)) || {}) as Record<string, unknown>;
   const action = ACTIONS.find((a) => a === b.action);
   if (!action) return NextResponse.json({ error: '書く種類が違います' }, { status: 400 });

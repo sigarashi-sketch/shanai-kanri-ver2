@@ -2,10 +2,11 @@
 
 import { Fragment, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { FreeeSyncButton } from '@/components/horyu/Ops';
 import { Card, HoryuFrame, Msg, Tabs, btnCls, horyuPost, inputCls, tdCls, thCls, useHoryu, yen } from '@/components/horyu/kit';
 
 // freee 請求書（保留・10-25）。今の /freee-invoices.html と同じ中身を読む（DB に取り込みずみの分だけ）。
-//   ・freee そのものは呼ばない（取り込み・接続確認は今の画面と毎晩の自動取り込みのまま）
+//   ・取り込み＝「freee から取り込む」（全体管理者だけ・確認の窓のあと・毎晩の自動と同じ関数 sync_all・/api/live/horyu/ops・10-26）。接続確認・再認可は今の画面のまま
 //   ・取引先→上位会社の紐づけだけここから直せる（今の map_upsert）。請求書づくり（seikyu）には触らない
 type Company = { company_id: string; parent: boolean };
 type Invoice = { company_id: string; invoice_id: number; invoice_number: string; subject: string; partner_label: string; joi: string; billing_date: string; payment_date: string; sending_status: string; deal_status: string; amount_including_tax: number; canceled: boolean };
@@ -46,7 +47,8 @@ export default function FreeeInvoicesPage() {
   const total = groups.reduce((s, g) => s + g.total_including_tax, 0);
 
   return (
-    <HoryuFrame title="freee 請求書" sub="freee に出した請求書を、月・事業所・上位会社ごとに見る（取り込みずみの分）" state={sum.state} error={sum.error} onReload={sum.reload}>
+    <HoryuFrame title="freee 請求書" sub="freee に出した請求書を、月・事業所・上位会社ごとに見る（取り込みずみの分）" state={sum.state} error={sum.error} onReload={sum.reload}
+      actions={<FreeeSyncButton sample={sum.state === 'sample'} onDone={() => void sum.reload()} />}>
       <div className="mo-fade-up flex flex-wrap items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <button className={btnCls} onClick={() => setYm(shiftYm(ym, -1))}>前の月</button>
         <input type="month" value={ym} onChange={(e) => e.target.value && setYm(e.target.value)} aria-label="請求月" className={inputCls} />

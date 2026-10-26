@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { Copy, Search } from 'lucide-react';
+import { MnmPanel } from './MnmPanel';
 import { PersonName } from '@/components/Person';
 import { Card, HoryuFrame, Msg, btnCls, horyuPost, inputCls, tdCls, thCls, useHoryu } from '@/components/horyu/kit';
 
 // 契約報告の雛形（保留・10-25）。今の /keiyaku-houkoku.html と同じ：
-//   要員を選ぶ → 報告区分 → 条件詳細を貼る → 52項目と雛形の文（どこから取ったか付き）。保存も送信もしない（報告フォームは人が押す）
-//   MNM への送信（① 案件確定 ② 稼働追加）はここには入れていない（今の画面から）
+//   要員を選ぶ → 報告区分 → 条件詳細を貼る → 52項目と雛形の文（どこから取ったか付き）。値はその場で直せる。報告フォームへは人が貼って押す
+//   4. MNM に登録（① 案件確定 → ② 稼働追加）も今の画面と同じ口（10-26）。押したときだけ・確認の窓のあと
+//     ★試し送りか本番かは今のシステムの MNM_DRY_RUN が決める（true の間は MNM に登録されない）。ver2 からは変えられない
 type Person = { name: string; shozoku: string; last?: { tab: string; houkoku: string; joi: string; start: string; end: string } };
 type Field = { key: string; value: string; src: string; why: string };
 type Built = { houkoku: string; fields: Field[]; warnings: string[]; notes: string[]; template: string; history?: { joi: string; joiCount: number; personTab: string } };
@@ -56,7 +58,9 @@ export default function KeiyakuPage() {
     setBusy(false);
     if (r.ok) setBuilt(r.data); else setMsg({ text: r.error, bad: true });
   };
-  const copy = async () => { if (!built) return; try { await navigator.clipboard.writeText(built.template); setMsg({ text: '雛形の文をコピーしました。報告フォームに貼ってください' }); } catch { setMsg({ text: 'コピーできませんでした', bad: true }); } };
+  // 雛形の文は値を直したら作り直す（今の画面の buildTemplate と同じ規則）
+  const template = (b: Built) => ['# 社内ツール「契約報告の雛形」で作成（' + new Date().toISOString().slice(0, 10) + '）', ...b.fields.filter((f) => f.value.trim()).map((f) => `${f.key}: ${f.value.trim()}`)].join('\n') + '\n';
+  const copy = async () => { if (!built) return; try { await navigator.clipboard.writeText(template(built)); setMsg({ text: '雛形の文をコピーしました。報告フォームに貼ってください' }); } catch { setMsg({ text: 'コピーできませんでした', bad: true }); } };
 
   return (
     <HoryuFrame title="契約報告の雛形" sub="条件詳細から契約報告の52項目を作る（保存・送信はしません）" state={opts.state} error={opts.error} onReload={opts.reload}>
@@ -102,7 +106,11 @@ export default function KeiyakuPage() {
                     {built.fields.map((f) => (
                       <tr key={f.key} className="border-t border-line-soft align-top">
                         <td className={`${tdCls} whitespace-nowrap font-semibold`}>{f.key}</td>
-                        <td className={`${tdCls} whitespace-pre-wrap`} style={/★/.test(f.value) ? { color: 'var(--tone-bad-fg)' } : undefined}>{f.value || <span className="text-faint">—</span>}</td>
+                        <td className={tdCls}>
+                          <textarea value={f.value} rows={Math.min(4, Math.max(1, f.value.split('\n').length))} aria-label={f.key}
+                            onChange={(e) => { const v = e.target.value; setBuilt((b) => b && { ...b, fields: b.fields.map((x) => (x.key === f.key ? { ...x, value: v, src: 'user', why: '手で直した' } : x)) }); }}
+                            className={`${inputCls} w-full min-w-[220px] font-[inherit]`} style={/★/.test(f.value) ? { color: 'var(--tone-bad-fg)' } : undefined} />
+                        </td>
                         <td className={`${tdCls} text-sm text-muted`}>{SRC_LABEL[f.src] ?? f.src}{f.why ? `・${f.why}` : ''}</td>
                       </tr>
                     ))}
@@ -113,6 +121,7 @@ export default function KeiyakuPage() {
           )}
         </Card>
       </div>
+      {built && person && <MnmPanel live={live} name={person.name} houkoku={built.fields.find((f) => f.key === '報告区分')?.value || built.houkoku} fields={built.fields} />}
     </HoryuFrame>
   );
 }
