@@ -13,6 +13,9 @@ import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { toArari, wageParts, type ArariLive, type KintaiParts, type LiveArariRow } from '@/lib/live/chingin';
 import { PersonName } from '@/components/Person';
 import { ChinginPl } from './pl';
+import { useLiveRoute } from '@/lib/live/use-live-route';
+import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
+import type { MfKeihi } from '@/app/api/live/keihi-mf/route';
 
 // 想定賃金・粗利（経理管理）。人ごとに 売上（請求・税抜）− 給与 − 交通費 − 法定福利（19%）＝ 粗利 と粗利率。
 //   ・額面の正はミンミカの内定月給（現場の契約単価の欄は使わない）。内定が無い人は 仮21万
@@ -22,6 +25,8 @@ import { ChinginPl } from './pl';
 //   本物（ログイン中）：今の GET /api/seikyu?action=arari（請求書ベースの粗利）を読む。金額は今の API の答えのまま。
 //     給与・交通費を手で直す（10-26）：欄に入れて離れたら保存（/api/live/arari → 今の POST arari-salary / arari-fare）。
 //     空にすると元（額面／経費の申請か 仮 25,000円）に戻す。保存したら読み直し・取り消しは toast から（前の値に戻す）
+//     マネフォの月（10-26 shoya「MF の9月分の交通費は想定粗利にある人は写して」）：MF の申請（承認済み・承認待ち）を人ごとに足し、
+//     この表にいる人の交通費の欄へ同じ口（arari-fare＝手で直した値）でまとめて入れる。選んで確認の窓を出してから書く
 const yen = (n: number) => `${n < 0 ? '−' : ''}¥${Math.abs(n).toLocaleString('ja-JP')}`;
 const pct = (r: number) => `${(r * 100).toFixed(1)}%`;
 const rateTone = (r: number) => (r < 0.15 ? 'bad' : r < 0.25 ? 'warn' : 'ok');
@@ -215,6 +220,7 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
           <div className="text-sm"><b>仮の値が残る {temp.length}人</b><div className="text-muted">給与・交通費の欄に本当の値を入れると片づきます</div></div>
         </div>
       </div>
+      <MfFareImport rows={rows} ym={d.ym} canEdit={canEdit} onDone={reload} />
       {d.unknown?.length > 0 && <div className="rounded-xl border px-4 py-2.5 text-sm" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)', borderColor: 'var(--tone-warn-bar)' }}>誰の分か決まらない請求書が {d.unknown.length}件あります（粗利に入っていません）。今の請求書作成の「格納」で人を選んでください。</div>}
 
       <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
@@ -260,6 +266,88 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
       <p className="text-xs text-faint">売上は格納した請求書（税抜）。法定福利は給与の19%で見積もった概算です。給与・社会保険料・税の扱いの最終判断は社労士・税理士に確認してください。</p>
       <ChinginPl live />
     </main>
+  );
+}
+
+// マネフォの交通費をまとめて写す（10-26）。MF の CSV は1行＝1申請で、交通費とそれ以外の内訳が無い＝申請の合計をそのまま入れる
+const MF_USE = new Set(['承認済み', '第一承認待ち']);
+const nk = (s: string) => s.replace(/[\s　]/g, '');
+function MfFareImport({ rows, ym, canEdit, onDone }: { rows: LiveArariRow[]; ym: string; canEdit: boolean; onDone: () => void }) {
+  const { hit, toast } = useMotivation();
+  const mf = useLiveRoute<MfKeihi>(`/api/live/keihi-mf?ym=${ym}`);
+  const [open, setOpen] = useState(false);
+  const [pick, setPick] = useState<Record<string, boolean>>({});
+  const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
+  const mfRows = mf.live && mf.data?.ym === ym ? mf.data.rows : [];
+  const by = new Map<string, { yen: number; n: number; st: string[] }>();
+  for (const x of mfRows) {
+    if (!MF_USE.has(x.status)) continue;
+    const t = by.get(nk(x.name)) || { yen: 0, n: 0, st: [] };
+    t.yen += x.amount; t.n++; if (!t.st.includes(x.status)) t.st.push(x.status);
+    by.set(nk(x.name), t);
+  }
+  const hits = rows.map((r) => ({ r, m: by.get(nk(r.name)) })).filter((x): x is { r: LiveArariRow; m: { yen: number; n: number; st: string[] } } => !!x.m);
+  const done = hits.filter(({ r, m }) => r.fareManual && r.fare === m.yen);
+  const todo = hits.filter((h) => !done.includes(h));
+  const on = (h: (typeof hits)[number]) => pick[h.r.key] ?? !h.r.fareManual;   // 手で直した値がある人は既定で外す
+  const sel = todo.filter(on);
+  if (!mfRows.length) return null;
+  const run = async () => {
+    const prev = sel.map(({ r }) => ({ key: r.key, value: r.fareManual ? r.fare : null }));
+    let ok = 0; const ng: string[] = [];
+    for (const { r, m } of sel) {
+      try { await postLive('/api/live/arari', { kind: 'fare', ym, key: r.key, value: m.yen }); ok++; } catch (e) { ng.push(`${r.name}（${(e as Error).message}）`); }
+    }
+    hit();
+    toast({
+      text: `マネフォの交通費を ${ok}人に入れました${ng.length ? `・入らなかった ${ng.length}人` : ''}`,
+      sub: ng.length ? ng.join('、') : '→ 粗利を計算し直しました（今の請求書ベースの粗利にも同じ値が入ります）',
+      undo: () => { Promise.all(prev.map((p) => postLive('/api/live/arari', { kind: 'fare', ym, ...p }))).then(onDone).catch((e) => toast({ text: '取り消せませんでした', sub: (e as Error).message })); },
+    });
+    setOpen(false); onDone();
+  };
+  return (
+    <div className="rounded-xl border border-line bg-surface">
+      <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 text-sm">
+        <span><b>マネフォの{ymJa(ym)}の交通費</b><span className="ml-2 text-muted">この表にいる {hits.length}人（写し済み {done.length}人・まだ {todo.length}人）</span></span>
+        <button type="button" className="btn-secondary btn-sm ml-auto" onClick={() => setOpen(!open)} aria-expanded={open}>{open ? '閉じる' : '中身を見て写す'}</button>
+      </div>
+      {open && (
+        <div className="border-t border-line-soft px-4 py-3">
+          <p className="mb-2 text-xs text-muted">マネフォの申請（承認済み・第一承認待ち）を人ごとに足した額を、交通費の欄に入れます（手で直した値として残ります）。MF の CSV には交通費とそれ以外の内訳が無いので、申請の合計をそのまま入れます。手で直した値がある人は外してあります。</p>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] border-collapse text-body">
+              <thead><tr className="th-row text-left"><th className="w-8 px-2 py-2" /><th className="px-2 py-2 font-semibold">社員</th><th className="px-2 py-2 text-right font-semibold">今の交通費</th><th className="px-2 py-2 text-right font-semibold">マネフォ</th><th className="px-2 py-2 font-semibold">マネフォの申請</th></tr></thead>
+              <tbody>
+                {hits.map((h) => {
+                  const isDone = done.includes(h);
+                  return (
+                    <tr key={h.r.key} className={`border-t border-line-soft ${isDone ? 'opacity-50' : ''}`}>
+                      <td className="px-2 py-1.5"><input type="checkbox" aria-label={`${h.r.name} を写す`} disabled={isDone || !canEdit} checked={!isDone && on(h)} onChange={(e) => setPick({ ...pick, [h.r.key]: e.target.checked })} /></td>
+                      <td className="px-2 py-1.5 font-semibold">{h.r.name}</td>
+                      <td className="num px-2 py-1.5 text-right">{yen(h.r.fare)}<div className="text-xs text-faint">{h.r.fareLabel}</div></td>
+                      <td className="num px-2 py-1.5 text-right font-semibold">{yen(h.m.yen)}</td>
+                      <td className="px-2 py-1.5 text-sm text-muted">{isDone ? '写し済み' : `${h.m.n}件・${h.m.st.join('・')}`}</td>
+                    </tr>
+                  );
+                })}
+                {hits.length === 0 && <tr><td colSpan={5} className="px-2 py-6 text-center text-sm text-muted">この表にいる人で、マネフォに申請がある人はいません</td></tr>}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <span className="text-sm text-muted">{sel.length}人を選んでいます</span>
+            <button type="button" className="btn-primary btn-sm ml-auto" disabled={!canEdit || !sel.length} title={!canEdit ? needText('edit') : undefined}
+              onClick={() => setConfirm({
+                title: `マネフォの交通費を ${sel.length}人に入れる`, okLabel: '交通費に入れる',
+                lines: [`${ymJa(ym)}の交通費の欄に、マネフォの申請の合計を入れます（${yen(sel.reduce((t, x) => t + x.m.yen, 0))}）`, '今の請求書ベースの粗利にも同じ値が入ります（手で直した値として残る・欄を空にすると元に戻る）', '入れたあと、知らせの「取り消す」でまとめて前の値に戻せます'],
+                run,
+              })}>選んだ人に入れる</button>
+          </div>
+        </div>
+      )}
+      {confirm && <ConfirmWrite spec={confirm} onClose={() => setConfirm(null)} />}
+    </div>
   );
 }
 
