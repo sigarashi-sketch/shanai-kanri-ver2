@@ -4,8 +4,7 @@ import { useState } from 'react';
 import { LiveBanner } from '@/components/Live';
 import { PageTitle } from '@/components/ui';
 import { PersonName } from '@/components/Person';
-import { HoryuNote, Kpi, Panel, Seg, Spark, fmtDateTime, pct, useHoryu } from '@/components/Horyu';
-import { RICH_SAMPLE } from '@/lib/horyu-sample';
+import { HoryuNote, Kpi, Panel, Seg, Spark, fmtDateTime, pct, useHoryu, HoryuLoading } from '@/components/Horyu';
 import type { RichPeriod, RichRes } from '@/lib/horyu';
 
 // リッチメニューの反応（今の richmenu-stats.html を写したもの・保留）。
@@ -15,7 +14,7 @@ const MENU: Record<string, string> = { kadou: '稼働中', sales: '営業中', b
 
 export default function RichmenuPage() {
   const [period, setPeriod] = useState<RichPeriod>('last_30d');
-  const h = useHoryu<RichRes>('richmenu', RICH_SAMPLE, `&period=${period}`);
+  const h = useHoryu<RichRes>('richmenu', `&period=${period}`);
   const d = h.d;
   const [act, setAct] = useState('');
   const top = d?.actions[0]?.action || '';
@@ -27,6 +26,7 @@ export default function RichmenuPage() {
       </PageTitle>
       <HoryuNote>営業中メニューは「勉強会」以外がリンクのボタンで、押されても記録が残りません（0件は「押されていない」ではありません）。</HoryuNote>
       <LiveBanner state={h.state} error={h.error} onReload={h.reload} note="見るだけです" />
+      <HoryuLoading state={h.state} />
       {d && <>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <Kpi label="押された回数" value={d.totals.taps} />

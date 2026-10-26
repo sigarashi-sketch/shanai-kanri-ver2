@@ -9,7 +9,6 @@ import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { PersonName } from '@/components/Person';
 import { postLive } from '@/lib/live/post';
 import { SHIME_LABEL, SHIME_WHY, defaultShimeYm, hhmm, hhmmSigned, shimeRowsOf, ymLabel, type IkeShimeBoard, type IkeShimeDetail, type IkeShimeStatus, type ShimeLiveRow } from '@/lib/live/shime';
-import { SHOGO_SAMPLE_BOARD, shogoSampleDetail } from '@/lib/kintai-shogo-sample';
 
 // 勤怠の照合（経理管理・10-26 shoya「上位から送られてきた勤怠と freee 照合したい・要員ごとに比較するページ」）。
 //   ・月を選ぶ → 要員ごとに「上位の勤務表の合計／freee の合計／差／ずれた日」を並べる（未経験の人だけ）
@@ -111,9 +110,8 @@ function DetailPanel({ d, onClose }: { d: IkeShimeDetail; onClose: () => void })
 export default function KintaiShogoPage() {
   const ike = useIke<IkeShimeBoard>('roster?op=shime&action=board');
   const live = ike.live && !!ike.data?.ok;
-  const sample = ike.state === 'sample';
   const mk = useMikeiken();
-  const board = live ? ike.data : sample ? SHOGO_SAMPLE_BOARD : null;
+  const board = live ? ike.data : null;
   const [ym, setYm] = useState('');
   useEffect(() => { if (board && !ym) setYm(defaultShimeYm(board)); }, [board, ym]);
   const rows = useMemo(() => (board ? shimeRowsOf(live ? { ...board, rows: mk.keep(board.rows || [], 'name') } : board, ym) : []), [board, live, mk, ym]);
@@ -132,7 +130,7 @@ export default function KintaiShogoPage() {
   const open = (r: ShimeLiveRow) => {
     setSel({ key: r.key, name: r.name });
     topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    if (!live) { const d = shogoSampleDetail(r.key); setDet(d ? { st: 'ok', d } : { st: 'error', error: '見本にいません' }); return; }
+    if (!live) return;
     setDet({ st: 'loading' });
     postLive<IkeShimeDetail>('/api/live/shime', { action: 'detail', ym, key: r.key })
       .then((d) => setDet((x) => (x ? { st: 'ok', d } : x)))

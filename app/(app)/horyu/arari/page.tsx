@@ -12,15 +12,10 @@ type Parsed = { tanka: { monthly: number | null; method: string | null; snippet:
 type Row = { id: string; name: string; status: string; home: string; ok: boolean; error?: string; sales?: number; gakumen?: number; shaho?: number; fare?: number | null; gross?: number | null; grossExFare?: number; rate?: number | null; fareNote?: string; route?: string; minutes?: number | null };
 type Hist = { id: number; updated_at: string; created_name: string; case_title: string; site_station: string; sales_monthly: number; name: string; gakumen: number; fare_monthly: number | null; gross: number | null; margin_rate: number | null };
 
-const S_PEOPLE: Person[] = [
-  { id: 's1', name: '佐藤 健太', eki: '川崎', shozoku: '本社', gakumen: 250000, status: '営業中', active: true },
-  { id: 's2', name: '高橋 健', eki: '大宮', shozoku: '本社', gakumen: 240000, status: '営業中', active: true },
-];
-const S_HIST: Hist[] = [{ id: 1, updated_at: new Date().toISOString(), created_name: '営業 見本', case_title: 'インフラ運用（見本）', site_station: '品川', sales_monthly: 420000, name: '佐藤 健太', gakumen: 250000, fare_monthly: 12000, gross: 118000, margin_rate: 0.281 }];
 
 export default function ArariPage() {
   const hist = useHoryu<{ rows: Hist[]; note?: string }>('arari-history');
-  const live = hist.state !== 'sample';
+  const live = hist.state === 'live';
   const [text, setText] = useState('');
   const [parsed, setParsed] = useState<Parsed | null>(null);
   const [station, setStation] = useState('');
@@ -33,10 +28,10 @@ export default function ArariPage() {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [busy, setBusy] = useState('');
   const [msg, setMsg] = useState<{ text: string; bad?: boolean }>({ text: '' });
-  const list = live ? (qq ? found.data?.people ?? [] : []) : S_PEOPLE.filter((p) => !qq || p.name.includes(qq));
+  const list = live && qq ? found.data?.people ?? [] : [];
 
   const parse = async () => {
-    if (!live) { setParsed({ tanka: { monthly: 420000, method: '人月', snippet: '単価 42万' }, floor: { state: 'ok', message: '' }, salesDefault: 420000, station: '品川', stations: ['品川'], title: '見本の案件', commute: { mode: 'normal', label: '通常' } }); setStation('品川'); setSales('420000'); return; }
+    if (!live) return;
     setBusy('parse');
     const r = await horyuPost<Parsed>('arari-parse', { text });
     setBusy('');
@@ -46,7 +41,7 @@ export default function ArariPage() {
   };
   const calc = async () => {
     if (!picked.length) { setMsg({ text: '要員を選んでください', bad: true }); return; }
-    if (!live) { setRows(picked.map((p) => ({ id: p.id, name: p.name, status: p.status, home: p.eki, ok: true, sales: Number(sales) || 420000, gakumen: p.gakumen ?? 250000, shaho: 37500, fare: 12000, gross: (Number(sales) || 420000) - (p.gakumen ?? 250000) - 37500 - 12000, rate: 0.28, route: `${p.eki} → ${station || '品川'}（見本）`, minutes: 35 }))); setMsg({ text: '見本の計算です（記録はしていません）' }); return; }
+    if (!live) return;
     setBusy('calc'); setMsg({ text: '' });
     const r = await horyuPost<{ rows: Row[]; saved: number; remaining: number | null }>('arari-calc', { text, station, sales, ids: picked.map((p) => p.id) });
     setBusy('');
@@ -127,7 +122,7 @@ export default function ArariPage() {
           <table className="w-full min-w-[760px] border-collapse text-body">
             <thead><tr className="th-row"><th className={thCls}>いつ</th><th className={thCls}>だれが</th><th className={thCls}>案件・現場駅</th><th className={thCls}>要員</th><th className={`${thCls} text-right`}>売上</th><th className={`${thCls} text-right`}>粗利</th><th className={`${thCls} text-right`}>率</th></tr></thead>
             <tbody>
-              {(live ? hist.data?.rows ?? [] : S_HIST).map((h) => (
+              {(hist.data?.rows ?? []).map((h) => (
                 <tr key={h.id} className="border-t border-line-soft">
                   <td className={`${tdCls} num whitespace-nowrap`}>{fmtAt(h.updated_at)}</td><td className={tdCls}>{h.created_name || '—'}</td>
                   <td className={tdCls}>{h.case_title || '—'}<div className="text-xs text-faint">{h.site_station}</div></td>

@@ -4,8 +4,7 @@ import { useState } from 'react';
 import { LiveBanner } from '@/components/Live';
 import { PageTitle } from '@/components/ui';
 import { PersonName } from '@/components/Person';
-import { Bars, HoldButton, HoryuNote, Kpi, Panel, Seg, Spark, fmtDate, fmtDateTime, pct, postHoryu, useHoryu } from '@/components/Horyu';
-import { DASH_SAMPLE } from '@/lib/horyu-sample';
+import { Bars, HoldButton, HoryuNote, Kpi, Panel, Seg, Spark, fmtDate, fmtDateTime, pct, postHoryu, useHoryu, HoryuLoading } from '@/components/Horyu';
 import { LEFT_RESULT, type DashRes } from '@/lib/horyu';
 import { MnmSyncButton, opsPost } from '@/components/horyu/Ops';
 import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
@@ -17,7 +16,7 @@ import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
 type JK = 'm' | 'l' | 'y';
 
 export default function HoryuDashboard() {
-  const h = useHoryu<DashRes>('dash', DASH_SAMPLE);
+  const h = useHoryu<DashRes>('dash');
   const d = h.d;
   const [jk, setJk] = useState<JK>('m');
   const [openYm, setOpenYm] = useState('');
@@ -29,15 +28,17 @@ export default function HoryuDashboard() {
   const [mode, setMode] = useState<string | null>(null);
 
   const act = async (id: string, kind: 'left-handle' | 'left-jitai') => {
+    if (!h.live) return;
     setBusy(id); setMsg('');
-    const r = h.live ? await postHoryu({ kind, id }) : { ok: true };
+    const r = await postHoryu({ kind, id });
     setBusy('');
     if (r.ok) setGone((g) => ({ ...g, [id]: kind === 'left-jitai' ? '辞退にチェックして対応済みにしました' : '対応済みにしました' }));
     else setMsg(r.error || '保存できませんでした');
   };
   const changeMode = async (m: string) => {
+    if (!h.live) return;
     setMsg('');
-    const r = h.live ? await postHoryu({ kind: 'left-mode', mode: m }) : { ok: true };
+    const r = await postHoryu({ kind: 'left-mode', mode: m });
     if (r.ok) setMode(m); else setMsg(r.error || '切り替えられませんでした');
   };
 
@@ -52,11 +53,12 @@ export default function HoryuDashboard() {
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="ダッシュボード" sub={`参画決定・月次推移・退会検知・稼働・案件・送信・面談${d?.generatedAt ? `（集計 ${d.generatedAt}）` : ''}`}>
-        <MnmSyncButton sample={h.state === 'sample'} onDone={() => h.reload()} />
+        <MnmSyncButton sample={!h.live} onDone={() => h.reload()} />
         <button onClick={h.reload} className="btn-secondary">読み直す</button>
       </PageTitle>
       <HoryuNote>人は未経験の人だけ（今のプロパーリストに入っている人）。</HoryuNote>
       <LiveBanner state={h.state} error={h.error} onReload={h.reload} note="本物のデータです。退会検知の「辞退にチェック」「対応済み」「自動モード」はここから今の社内システムに保存されます" />
+      <HoryuLoading state={h.state} />
       {!!d?.errors.length && <div className="rounded-xl border px-4 py-2 text-sm" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)', borderColor: 'var(--tone-warn-bar)' }}>読めなかったところ：{d.errors.join('／')}</div>}
       {msg && <div className="rounded-xl border px-4 py-2 text-sm" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)', borderColor: 'var(--tone-bad-bar)' }}>{msg}</div>}
 
@@ -67,7 +69,7 @@ export default function HoryuDashboard() {
               <div className="flex items-end gap-3"><span className="num text-3xl font-bold">{j.count}</span><span className="pb-2 text-body">名</span><span className="pb-2 text-sm text-muted">{j.diff}</span></div>
               <div className="mt-2 flex flex-wrap gap-1.5">{j.names.map((x) => <span key={x.name + x.decidedOn} className="chip" style={{ background: 'var(--as)', color: 'var(--ad)' }}><PersonName name={x.name} className="font-bold" /><span className="font-normal text-faint">{fmtDate(x.decidedOn)}</span></span>)}</div>
               {!!d.joined?.undated.length && <div className="mt-2 text-sm text-muted">決定日が分からない人 {d.joined.undated.length}名：{d.joined.undated.map((n, i) => <span key={n}>{i ? '、' : ''}<PersonName name={n} /></span>)}</div>}
-              <JoinedDateEdit names={[...new Set([...(d.joined?.undated || []), ...j.names.map((x) => x.name)])]} sample={h.state === 'sample'} onDone={h.reload} />
+              <JoinedDateEdit names={[...new Set([...(d.joined?.undated || []), ...j.names.map((x) => x.name)])]} sample={!h.live} onDone={h.reload} />
             </> : <div className="text-sm text-faint">読めませんでした</div>}
           </Panel>
 
@@ -185,7 +187,7 @@ function JoinedDateEdit({ names, sample, onDone }: { names: string[]; sample: bo
   if (!names.length) return null;
   const go = (clear: boolean) => {
     if (!name || (!clear && !date)) return;
-    if (sample) { setMsg('見本なので保存はしていません'); return; }
+    if (sample) return;
     setSpec({
       title: clear ? '決定日の手入力を消す' : '参画決定日を入れる', okLabel: clear ? '消す' : '保存する', danger: clear,
       lines: [clear ? `${name} さんの手で入れた決定日を消します（自動で記録した日付に戻ります）` : `${name} さんの参画決定日を ${date.replaceAll('-', '/')} にします`, 'ダッシュボードの月の数・月次推移に効きます'],

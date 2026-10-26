@@ -14,25 +14,11 @@ type Person = { name: string; shozoku: string; last?: { tab: string; houkoku: st
 type Field = { key: string; value: string; src: string; why: string };
 type Built = { houkoku: string; fields: Field[]; warnings: string[]; notes: string[]; template: string; history?: { joi: string; joiCount: number; personTab: string } };
 
-const S_PEOPLE: Person[] = [
-  { name: '佐藤 健太', shozoku: '本社', last: { tab: '2026年09月', houkoku: '新規_正社員', joi: '見本システムズ', start: '2026/09/01', end: '2026/12/31' } },
-  { name: '佐々木 葵', shozoku: '本社' },
-];
-const S_BUILT: Built = {
-  houkoku: '継続_正社員', warnings: ['終了日が条件詳細に無いので、前回の報告から引き継ぎました（★要確認）'], notes: [],
-  fields: [
-    { key: '要員名', value: '佐藤 健太', src: 'person', why: '選んだ要員' },
-    { key: '上位会社', value: '見本システムズ', src: 'history', why: '2026年09月の報告' },
-    { key: '開始日', value: '2027/01/01', src: 'text', why: '条件詳細「1月〜」' },
-    { key: '単価', value: '450000', src: 'text', why: '条件詳細「45万」' },
-  ],
-  template: '# 見本\n要員名: 佐藤 健太\n上位会社: 見本システムズ\n開始日: 2027/01/01\n単価: 450000',
-};
 const SRC_LABEL: Record<string, string> = { text: '条件詳細', history: '前回の報告', joi: '同じ上位の報告', person: '要員', fixed: '決まり', default: '既定', user: 'ログインした人', calc: '計算' };
 
 export default function KeiyakuPage() {
   const opts = useHoryu<{ kinds: string[]; koyou: string[] }>('keiyaku-options');
-  const live = opts.state !== 'sample';
+  const live = opts.state === 'live';
   const [q, setQ] = useState('');
   const [qq, setQq] = useState('');
   useEffect(() => { const t = setTimeout(() => setQq(q.trim()), 400); return () => clearTimeout(t); }, [q]);
@@ -46,13 +32,13 @@ export default function KeiyakuPage() {
   const [msg, setMsg] = useState<{ text: string; bad?: boolean }>({ text: '' });
   const [built, setBuilt] = useState<Built | null>(null);
 
-  const kinds = live ? opts.data?.kinds ?? [] : ['新規', '継続', '再アサイン', '契約終了'];
-  const koyous = live ? opts.data?.koyou ?? [] : ['正社員', '契約社員', '個人', 'BP'];
-  const list = live ? (qq ? people.data?.people ?? [] : []) : S_PEOPLE.filter((p) => !qq || p.name.includes(qq));
+  const kinds = live ? opts.data?.kinds ?? [] : [];
+  const koyous = live ? opts.data?.koyou ?? [] : [];
+  const list = live && qq ? people.data?.people ?? [] : [];
 
   const build = async () => {
     if (!person || !kind || !koyou) { setMsg({ text: '要員・報告区分を選んでください', bad: true }); return; }
-    if (!live) { setBuilt(S_BUILT); setMsg({ text: '見本の雛形です' }); return; }
+    if (!live) return;
     setBusy(true); setMsg({ text: '' });
     const r = await horyuPost<Built>('keiyaku-build', { name: person.name, kind, koyou, shienhi, text });
     setBusy(false);

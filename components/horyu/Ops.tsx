@@ -7,7 +7,7 @@ import { useMePages } from '@/components/MePages';
 import { Card, Msg, inputCls } from './kit';
 
 // 影響の大きい「動かす」ボタン（10-26）。行き先は /api/live/horyu/ops（kind ごとに決め打ち・super_admin だけ）。
-//   ・全体管理者でない人には押せない（理由を出す）。見本のときは書かない
+//   ・全体管理者でない人には押せない（理由を出す）。sample＝本物が読めていないとき（読み込み中・ログインなし）は押せない
 //   ・押すと必ず確認の窓（何が起きるか・だれに届くか）を出してから動かす
 type R = { ok: boolean; status: number; data: Record<string, unknown> & { error?: string } };
 export async function opsPost(kind: string, extra: Record<string, unknown> = {}): Promise<R> {
@@ -26,7 +26,7 @@ export function MnmSyncButton({ sample, onDone }: { sample: boolean; onDone?: (m
   const [spec, setSpec] = useState<ConfirmSpec | null>(null);
   const [msg, setMsg] = useState<{ text: string; bad?: boolean }>({ text: '' });
   const click = () => {
-    if (sample) { setMsg({ text: '見本なので同期はしていません' }); return; }
+    if (sample) return;
     setSpec({
       title: 'MNM 同期を回す', okLabel: '同期する',
       lines: ['ミンナのミカタ（MNM）の内容を、この社内システムの DB に写します（5分ごとの自動と同じ）', '40秒で区切ります。終わらなかった分は次の回が続きからやります', 'MNM には何も書きません'],
@@ -41,7 +41,7 @@ export function MnmSyncButton({ sample, onDone }: { sample: boolean; onDone?: (m
   };
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
-      <button onClick={click} disabled={ready && !isSuper && !sample} title={ready && !isSuper && !sample ? SUPER_ONLY : 'MNM の内容を DB に写します'} className="btn-secondary btn-sm"><RefreshCw size={13} />MNM 同期</button>
+      <button onClick={click} disabled={sample || (ready && !isSuper)} title={ready && !isSuper ? SUPER_ONLY : 'MNM の内容を DB に写します'} className="btn-secondary btn-sm"><RefreshCw size={13} />MNM 同期</button>
       <Msg text={msg.text} bad={msg.bad} />
       {spec && <ConfirmWrite spec={spec} onClose={() => setSpec(null)} />}
     </span>
@@ -54,9 +54,9 @@ export function FreeeSyncButton({ sample, onDone }: { sample: boolean; onDone?: 
   const [months, setMonths] = useState('1');
   const [spec, setSpec] = useState<ConfirmSpec | null>(null);
   const [msg, setMsg] = useState<{ text: string; bad?: boolean }>({ text: '' });
-  const off = ready && !isSuper && !sample;
+  const off = sample || (ready && !isSuper);
   const click = () => {
-    if (sample) { setMsg({ text: '見本なので取り込みはしていません' }); return; }
+    if (sample) return;
     setSpec({
       title: 'freee 請求書を取り込む', okLabel: '取り込む',
       lines: [`請求日が直近${months}か月の請求書を、全事業所ぶん freee から読み直して DB に入れます（毎晩の自動と同じ）`, 'freee には何も書きません。1社読めなくても、ほかの事業所は続けます', '時間がかかるときは途中で区切り、明細の残りは次の回が続けます'],
@@ -74,7 +74,7 @@ export function FreeeSyncButton({ sample, onDone }: { sample: boolean; onDone?: 
       <select value={months} onChange={(e) => setMonths(e.target.value)} className={inputCls} aria-label="取り込む期間" disabled={off}>
         <option value="1">直近1か月</option><option value="2">直近2か月</option><option value="3">直近3か月</option>
       </select>
-      <button onClick={click} disabled={off} title={off ? SUPER_ONLY : undefined} className="btn-secondary btn-sm"><RefreshCw size={13} />freee から取り込む</button>
+      <button onClick={click} disabled={off} title={off && !sample ? SUPER_ONLY : undefined} className="btn-secondary btn-sm"><RefreshCw size={13} />freee から取り込む</button>
       <Msg text={msg.text} bad={msg.bad} />
       {spec && <ConfirmWrite spec={spec} onClose={() => setSpec(null)} />}
     </span>
@@ -87,7 +87,7 @@ type Groups = { groups?: { id: string; name: string }[]; current?: { id?: string
 /** 未打刻アラート：送らずに確かめる → 通知先の LINE グループを選ぶ → 本番と同じ条件で送る */
 export function KintaiAlertPanel({ sample }: { sample: boolean }) {
   const { isSuper, ready } = useMePages();
-  const off = ready && !isSuper && !sample;
+  const off = sample || (ready && !isSuper);
   const [dry, setDry] = useState<Dry | null>(null);
   const [groups, setGroups] = useState<Groups | null>(null);
   const [gq, setGq] = useState('');
@@ -98,7 +98,7 @@ export function KintaiAlertPanel({ sample }: { sample: boolean }) {
   const errText = (d: Dry) => (typeof d.error === 'string' ? d.error : d.error?.message) || '';
 
   const check = async () => {
-    if (sample) { setMsg({ text: '見本なので確かめていません（ログインすると今のシステムで数えます）' }); return; }
+    if (sample) return;
     setBusy('dry'); setMsg({ text: '' });
     const r = await opsPost('kintai-alert-dry');
     setBusy('');
@@ -106,7 +106,7 @@ export function KintaiAlertPanel({ sample }: { sample: boolean }) {
     setDry(r.data as Dry);
   };
   const loadGroups = async () => {
-    if (sample) { setMsg({ text: '見本なので通知先は読んでいません' }); return; }
+    if (sample) return;
     setBusy('groups');
     const r = await opsPost('kintai-alert-groups');
     setBusy('');
@@ -144,8 +144,8 @@ export function KintaiAlertPanel({ sample }: { sample: boolean }) {
       <div className="flex flex-col gap-3 px-4 pb-4 text-sm">
         <div className="flex flex-wrap items-center gap-2">
           <button onClick={check} disabled={!!busy} className="btn-secondary btn-sm">{busy === 'dry' ? '数えています…' : '送らずに確かめる'}</button>
-          <button onClick={run} disabled={!dry || off || !!busy} title={off ? SUPER_ONLY : !dry ? '先に「送らずに確かめる」を押してください' : undefined} className="btn-secondary btn-sm"><BellRing size={13} />送る</button>
-          <button onClick={loadGroups} disabled={!!busy || off} title={off ? SUPER_ONLY : undefined} className="btn-secondary btn-sm">{busy === 'groups' ? '読んでいます…' : '通知先を見る・変える'}</button>
+          <button onClick={run} disabled={!dry || off || !!busy} title={off && !sample ? SUPER_ONLY : !dry ? '先に「送らずに確かめる」を押してください' : undefined} className="btn-secondary btn-sm"><BellRing size={13} />送る</button>
+          <button onClick={loadGroups} disabled={!!busy || off} title={off && !sample ? SUPER_ONLY : undefined} className="btn-secondary btn-sm">{busy === 'groups' ? '読んでいます…' : '通知先を見る・変える'}</button>
         </div>
         <Msg text={msg.text} bad={msg.bad} />
         {dry && (
@@ -162,7 +162,7 @@ export function KintaiAlertPanel({ sample }: { sample: boolean }) {
             <div className="w-full text-muted">いまの通知先：<b className="text-ink">{groups.current?.name || '未設定'}</b></div>
             <label className="flex flex-col gap-1 text-muted">グループ名で絞る<input value={gq} onChange={(e) => setGq(e.target.value)} className={`${inputCls} w-[180px]`} /></label>
             <label className="flex flex-col gap-1 text-muted">通知先<select value={gid} onChange={(e) => setGid(e.target.value)} className={`${inputCls} max-w-[320px]`}><option value="">選ぶ</option>{shownGroups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select></label>
-            <button onClick={saveGroup} disabled={off || !gid || gid === groups.current?.id} title={off ? SUPER_ONLY : undefined} className="btn-primary btn-sm">保存する</button>
+            <button onClick={saveGroup} disabled={off || !gid || gid === groups.current?.id} title={off && !sample ? SUPER_ONLY : undefined} className="btn-primary btn-sm">保存する</button>
           </div>
         )}
       </div>

@@ -118,7 +118,7 @@ export function MnmPanel({ live, name, houkoku, fields }: { live: boolean; name:
 
   return (
     <Card title="4. MNM に登録する" right={s && <span className="chip" style={{ background: s.dryRun ? 'var(--tone-ok-bg)' : 'var(--tone-bad-bg)', color: s.dryRun ? 'var(--tone-ok-fg)' : 'var(--tone-bad-fg)' }}>{modeTxt}</span>}>
-      {!live ? <p className="text-sm text-muted">ログインすると、ここから MNM に ① 案件確定・② 稼働追加を送れます（見本では送りません）。</p> : (
+      {!live ? <p className="text-sm text-muted">読み込みが終わると、ここから MNM に ① 案件確定・② 稼働追加を送れます。</p> : (
         <div className="flex flex-col gap-1 text-sm">
           {!s ? <span className="text-muted">{st.state === 'error' ? `MNM の状態を読めませんでした: ${st.error}` : '読み込み中…'}</span> : (<>
             {!s.configured && <span style={{ color: 'var(--tone-bad-fg)' }}>MNM 連携の設定がまだです: {s.configProblem}</span>}

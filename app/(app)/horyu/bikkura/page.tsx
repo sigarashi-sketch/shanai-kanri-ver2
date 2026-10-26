@@ -24,32 +24,17 @@ const SETTING_LABEL: Array<[string, string]> = [
   ['daily_draw_cap', '1日にまわせる回数（0=なし）'], ['hold_cap_draws', 'マイルを持てるのは何回分まで（0=なし）'],
 ];
 
-const now = Date.now();
-const S_APPROVALS: Approvals = {
-  max_miles: 100, miles_per_draw: 5,
-  pending: [{ id: 1, name: '事務 見本A', kind: '連絡・対応', minutes: 30, memo: '取引先との日程調整（見本）', at: new Date(now - 3600000).toISOString(), mine: false }],
-  recent: [{ id: 2, name: '事務 見本B', kind: '名簿・書類', minutes: 20, memo: '書類の確認（見本）', at: new Date(now - 86400000).toISOString(), mine: false, status: 'approved', miles: 2, reason: '', decided_by_name: '管理 見本', decided_at: new Date(now - 80000000).toISOString() }],
-};
-const S_DASH: Dash = { kpi: { tasks: 412, tasks_prev: 380, hours: 96.5, hours_prev: 90, manual_ratio: 12, capped_people: 1, draws: 38, waiting: 2, hit_rate: 29 }, kinds: [], people: [
-  { email: 'a@example.com', name: '事務 見本A', role: '営業事務', count: 160, hours: 38.2, manual: 12, day_avg: 32, draws: 14, capped: true },
-  { email: 'b@example.com', name: '事務 見本B', role: '労務事務', count: 120, hours: 29.4, manual: 8, day_avg: 24, draws: 10, capped: false },
-] };
-const S_DRAWS = { waiting: [{ id: 11, email: 'a@example.com', drawn_at: new Date(now - 7200000).toISOString(), result: 'gold', prize_name_snapshot: 'お菓子セット（見本）' }], recent: [] as Draw[] };
-const S_SETTINGS: SettingsRes = { settings: { miles_per_draw: 5, daily_mile_cap: 30, manual_daily_cap: 10, gold_rate: 0.03, silver_rate: 0.27, pity_after: 15, pity_gold_rate: 0.1, title_days: 7, weekly_gold_per_person: 1, weekly_guarantee_draws: 10, weekly_silver_per_person: 0, weekly_silver_guarantee_draws: 0, daily_silver_per_person: 1, daily_draw_cap: 6, hold_cap_draws: 6 }, own: true, role: '', jimu_roles: ['営業事務', '労務事務', '経理事務'], roles_with_own: [] };
-const S_USERS: User[] = [{ email: 'a@example.com', name: '事務 見本A', role: 'staff', bikkura: true, since: '2026-09-12', jimu_role: '営業事務', approver: false }];
-
 type TabKey = 'approve' | 'dash' | 'draws' | 'settings' | 'users';
 
 export default function BikkuraPage() {
   const ap = useHoryu<Approvals>('bikkura-approvals');
   const dr = useHoryu<{ waiting: Draw[]; recent: Draw[] }>('bikkura-draws');
-  const sample = ap.state === 'sample' || dr.state === 'sample';
-  const canApprove = sample || ap.state === 'live';
-  const canAdmin = sample || dr.state === 'live';
-  const state: HState = sample ? 'sample' : ap.state === 'loading' || dr.state === 'loading' ? 'loading' : canApprove || canAdmin ? 'live' : ap.state === 'error' ? 'error' : 'forbidden';
+  const canApprove = ap.state === 'live';
+  const canAdmin = dr.state === 'live';
+  const state: HState = ap.state === 'loading' || dr.state === 'loading' ? 'loading' : canApprove || canAdmin ? 'live' : ap.state === 'error' ? 'error' : 'forbidden';
   const tabs = [
-    ...(canApprove ? [{ key: 'approve' as TabKey, label: '承認', badge: (sample ? S_APPROVALS : ap.data)?.pending.length }] : []),
-    ...(canAdmin ? [{ key: 'dash' as TabKey, label: 'ダッシュボード' }, { key: 'draws' as TabKey, label: '受け取り待ち', badge: (sample ? S_DRAWS : dr.data)?.waiting.length }, { key: 'settings' as TabKey, label: '設定' }, { key: 'users' as TabKey, label: '使える人' }] : []),
+    ...(canApprove ? [{ key: 'approve' as TabKey, label: '承認', badge: ap.data?.pending.length }] : []),
+    ...(canAdmin ? [{ key: 'dash' as TabKey, label: 'ダッシュボード' }, { key: 'draws' as TabKey, label: '受け取り待ち', badge: dr.data?.waiting.length }, { key: 'settings' as TabKey, label: '設定' }, { key: 'users' as TabKey, label: '使える人' }] : []),
   ];
   const [tab, setTab] = useState<TabKey>('approve');
   const cur = tabs.find((t) => t.key === tab) ? tab : tabs[0]?.key;
@@ -57,16 +42,16 @@ export default function BikkuraPage() {
   return (
     <HoryuFrame title="たまげたポン 管理" sub="画面の外のタスクの承認・使われ方・景品の受け取り・設定" state={state} error={ap.error} onReload={() => { void ap.reload(); void dr.reload(); }}>
       <Tabs<TabKey> tabs={tabs} value={cur ?? 'approve'} onChange={setTab} />
-      {cur === 'approve' && <ApproveTab sample={sample} data={sample ? S_APPROVALS : ap.data} reload={ap.reload} />}
-      {cur === 'dash' && <DashTab sample={sample} />}
-      {cur === 'draws' && <DrawsTab sample={sample} data={sample ? S_DRAWS : dr.data} reload={dr.reload} />}
-      {cur === 'settings' && <SettingsTab sample={sample} />}
-      {cur === 'users' && <UsersTab sample={sample} />}
+      {cur === 'approve' && <ApproveTab data={ap.data} reload={ap.reload} />}
+      {cur === 'dash' && <DashTab />}
+      {cur === 'draws' && <DrawsTab data={dr.data} reload={dr.reload} />}
+      {cur === 'settings' && <SettingsTab />}
+      {cur === 'users' && <UsersTab />}
     </HoryuFrame>
   );
 }
 
-function ApproveTab({ sample, data, reload }: { sample: boolean; data: Approvals | null; reload: () => void }) {
+function ApproveTab({ data, reload }: { data: Approvals | null; reload: () => void }) {
   const [miles, setMiles] = useState<Record<number, string>>({});
   const [reason, setReason] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(0);
@@ -76,7 +61,6 @@ function ApproveTab({ sample, data, reload }: { sample: boolean; data: Approvals
     const m = Number(miles[p.id] ?? 1);
     if (approve && !(Number.isInteger(m) && m >= 0 && m <= data.max_miles)) { setMsg({ text: `マイルは0〜${data.max_miles}の整数で`, bad: true }); return; }
     if (!approve && !(reason[p.id] || '').trim()) { setMsg({ text: '却下するときは理由を入れてください', bad: true }); return; }
-    if (sample) { setMsg({ text: `見本なので保存はしていません（${approve ? `承認 ${m}マイル` : '却下'}）` }); return; }
     setBusy(p.id);
     const r = await horyuPost('bikkura-decide', { id: p.id, approve, miles: m, reason: reason[p.id] || '' });
     setBusy(0);
@@ -126,13 +110,13 @@ function ApproveTab({ sample, data, reload }: { sample: boolean; data: Approvals
   );
 }
 
-function DashTab({ sample }: { sample: boolean }) {
+function DashTab() {
   const today = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
   const weekAgo = new Date(Date.now() + 9 * 3600000 - 6 * 86400000).toISOString().slice(0, 10);
   const [from, setFrom] = useState(weekAgo);
   const [to, setTo] = useState(today);
-  const d = useHoryu<Dash>(sample ? null : 'bikkura-dashboard', { from, to });
-  const data = sample ? S_DASH : d.data;
+  const d = useHoryu<Dash>('bikkura-dashboard', { from, to });
+  const data = d.data;
   const k = data?.kpi;
   const tile = (label: string, v: string, prev?: string) => (
     <div className="rounded-xl border border-line bg-surface px-4 py-3"><div className="text-sm text-muted">{label}</div><div className="num text-xl font-bold">{v}</div>{prev && <div className="text-xs text-faint">前の期間 {prev}</div>}</div>
@@ -142,7 +126,7 @@ function DashTab({ sample }: { sample: boolean }) {
       <div className="flex flex-wrap items-center gap-2">
         <input type="date" value={from} onChange={(e) => e.target.value && setFrom(e.target.value)} aria-label="いつから" className={inputCls} />〜
         <input type="date" value={to} onChange={(e) => e.target.value && setTo(e.target.value)} aria-label="いつまで" className={inputCls} />
-        {!sample && d.state === 'error' && <Msg text={d.error} bad />}
+        {d.state === 'error' && <Msg text={d.error} bad />}
       </div>
       {k && <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
         {tile('タスク数', String(k.tasks), String(k.tasks_prev))}{tile('推定工数', `${k.hours}h`, `${k.hours_prev}h`)}
@@ -163,12 +147,11 @@ function DashTab({ sample }: { sample: boolean }) {
   );
 }
 
-function DrawsTab({ sample, data, reload }: { sample: boolean; data: { waiting: Draw[]; recent: Draw[] } | null; reload: () => void }) {
+function DrawsTab({ data, reload }: { data: { waiting: Draw[]; recent: Draw[] } | null; reload: () => void }) {
   const [msg, setMsg] = useState<{ text: string; bad?: boolean }>({ text: '' });
   const [busy, setBusy] = useState(0);
   if (!data) return null;
   const fulfill = async (d: Draw) => {
-    if (sample) { setMsg({ text: '見本なので保存はしていません' }); return; }
     setBusy(d.id);
     const r = await horyuPost('bikkura-fulfill', { id: d.id });
     setBusy(0);
@@ -196,10 +179,10 @@ function DrawsTab({ sample, data, reload }: { sample: boolean; data: { waiting: 
   );
 }
 
-function SettingsTab({ sample }: { sample: boolean }) {
+function SettingsTab() {
   const [role, setRole] = useState('');
-  const s = useHoryu<SettingsRes>(sample ? null : 'bikkura-settings', { role });
-  const data = sample ? S_SETTINGS : s.data;
+  const s = useHoryu<SettingsRes>('bikkura-settings', { role });
+  const data = s.data;
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState<{ text: string; bad?: boolean }>({ text: '' });
   const [busy, setBusy] = useState(false);
@@ -208,7 +191,6 @@ function SettingsTab({ sample }: { sample: boolean }) {
   const save = async () => {
     const settings: Record<string, unknown> = { ...data.settings };
     for (const [k] of SETTING_LABEL) { const n = Number(val(k)); if (!Number.isFinite(n)) { setMsg({ text: '数字で入れてください', bad: true }); return; } settings[k] = n; }
-    if (sample) { setMsg({ text: '見本なので保存はしていません' }); return; }
     setBusy(true);
     const r = await horyuPost('bikkura-settings', { role, settings });
     setBusy(false);
@@ -233,13 +215,12 @@ function SettingsTab({ sample }: { sample: boolean }) {
   );
 }
 
-function UsersTab({ sample }: { sample: boolean }) {
-  const u = useHoryu<{ users: User[]; jimu_roles: string[] }>(sample ? null : 'bikkura-users');
-  const users = sample ? S_USERS : u.data?.users ?? [];
-  const roles = sample ? ['営業事務', '労務事務', '経理事務'] : u.data?.jimu_roles ?? [];
+function UsersTab() {
+  const u = useHoryu<{ users: User[]; jimu_roles: string[] }>('bikkura-users');
+  const users = u.data?.users ?? [];
+  const roles = u.data?.jimu_roles ?? [];
   const [msg, setMsg] = useState<{ text: string; bad?: boolean }>({ text: '' });
   const grant = async (x: User, patch: Record<string, unknown>) => {
-    if (sample) { setMsg({ text: '見本なので保存はしていません' }); return; }
     const r = await horyuPost('bikkura-grant', { email: x.email, ...patch });
     setMsg(r.ok ? { text: `${x.name} を直しました` } : { text: r.error, bad: true });
     if (r.ok) void u.reload();

@@ -14,23 +14,9 @@ type Role = { role: string; label: string; custom: boolean; base?: string; baseL
 type Cell = { value: boolean; overridden: boolean; def: boolean };
 type Matrix = { pages: PageDef[]; roles: Role[]; cells: Record<string, Record<string, Cell>>; counts: Record<string, number>; needsMigration?: boolean; customReady?: boolean; bases?: { role: string; label: string }[] };
 
-const S: Matrix = {
-  pages: [{ key: 'proper', title: 'プロパーリスト', section: '営業' }, { key: 'arari-sim', title: '粗利試算', section: '案件' }, { key: 'ops-log', title: '操作ログ', section: '管理' }, { key: 'page-access', title: 'ロール別ページ表示', section: '管理', lock: 'super' }],
-  roles: [{ role: 'admin', label: '管理者', custom: false }, { role: 'sales_admin', label: '営業管理', custom: false }, { role: 'staff_sales', label: '営業', custom: false }],
-  cells: {
-    proper: { admin: { value: true, overridden: false, def: true }, sales_admin: { value: true, overridden: false, def: true }, staff_sales: { value: true, overridden: false, def: true } },
-    'arari-sim': { admin: { value: true, overridden: false, def: true }, sales_admin: { value: true, overridden: false, def: true }, staff_sales: { value: false, overridden: true, def: true } },
-    'ops-log': { admin: { value: true, overridden: false, def: true }, sales_admin: { value: false, overridden: false, def: false }, staff_sales: { value: false, overridden: false, def: false } },
-    'page-access': { admin: { value: false, overridden: false, def: false }, sales_admin: { value: false, overridden: false, def: false }, staff_sales: { value: false, overridden: false, def: false } },
-  },
-  counts: { admin: 3, sales_admin: 2, staff_sales: 6 },
-};
-
 export default function PageAccessPage() {
   const r = useHoryu<Matrix>('page-access');
-  const sample = r.state === 'sample';
-  const [local, setLocal] = useState<Matrix>(S);
-  const m = sample ? local : r.data;
+  const m = r.data;
   const [busy, setBusy] = useState('');
   const [msg, setMsg] = useState<{ text: string; bad?: boolean }>({ text: '' });
   const sections = m ? [...new Set(m.pages.map((p) => p.section))] : [];
@@ -39,9 +25,8 @@ export default function PageAccessPage() {
   const [newBase, setNewBase] = useState('');
   const bases = m?.bases ?? (m?.roles ?? []).filter((x) => !x.custom).map((x) => ({ role: x.role, label: x.label }));
 
-  // ロールの作成・名前変更・削除。見本なら書かない。本物は確認の窓 → 今のシステム（super_admin だけ通る）
+  // ロールの作成・名前変更・削除。確認の窓 → 今のシステム（super_admin だけ通る）
   const roleOp = (spec: { title: string; lines: string[]; okLabel: string; danger?: boolean; body: Record<string, string>; done: string }) => {
-    if (sample) { setMsg({ text: `見本なので保存はしていません（${spec.done}）` }); return; }
     setConfirm({
       title: spec.title, lines: spec.lines, okLabel: spec.okLabel, danger: spec.danger,
       run: async () => {
@@ -77,11 +62,6 @@ export default function PageAccessPage() {
   const set = async (p: PageDef, role: Role, visible: boolean | null) => {
     if (!m) return;
     const label = `${p.title} を ${role.label} に${visible === null ? '既定に戻しました' : visible ? '出すようにしました' : '出さないようにしました'}`;
-    if (sample) {
-      const c = m.cells[p.key][role.role];
-      setLocal({ ...m, cells: { ...m.cells, [p.key]: { ...m.cells[p.key], [role.role]: visible === null ? { ...c, value: c.def, overridden: false } : { ...c, value: visible, overridden: visible !== c.def } } } });
-      setMsg({ text: `見本なので保存はしていません（${label}）` }); return;
-    }
     setBusy(`${p.key}|${role.role}`);
     const res = await horyuPost('page-access-set', { role: role.role, key: p.key, visible });
     setBusy('');

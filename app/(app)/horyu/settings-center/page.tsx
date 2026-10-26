@@ -23,25 +23,6 @@ type Preview = { label: string; plan: 'apply' | 'request' | 'deny'; changes: { l
 
 const STATE_LABEL: Record<string, string> = { ok: '反映ずみ', undone: '元に戻した', pending: '承認待ち', closed: '決まった', withdrawn: '取り下げ', revert: '元に戻す操作' };
 const LEVEL_LABEL: Record<Level, string> = { edit: '編集できる', approve: '承認つき', view: '見るだけ', hide: '見えない' };
-const S_ROWS: Row[] = [
-  { id: 1, at: new Date(Date.now() - 3600000).toISOString(), actor: 'kanri@example.com', section: 'active', sectionLabel: '稼働中の人', label: '未打刻アラートの時刻', action: 'save', actionLabel: '保存', state: 'ok', changes: ['送る時刻'], canUndo: true },
-  { id: 2, at: new Date(Date.now() - 86400000).toISOString(), actor: 'eigyo@example.com', section: 'sales', sectionLabel: '営業', label: 'あいさつの文', action: 'request', actionLabel: '承認の依頼', state: 'pending', changes: null },
-];
-const S_CENTER: Center = {
-  role: 'super_admin', levels: { sales: 'edit', admin: 'edit' }, sections: [{ key: 'sales', label: '営業' }, { key: 'admin', label: '管理' }],
-  items: [
-    { id: 's1', section: 'sales', page: 'haishin', group: '配信できる時間帯', label: '配信できる時間を決める', type: 'toggle', store: { kind: 'app_settings', key: 'send_safety', path: 'hoursOn' }, wired: true, inline: true },
-    { id: 's2', section: 'sales', page: 'haishin', group: '配信できる時間帯', label: '送れる時間（はじめ）', type: 'time', store: { kind: 'app_settings', key: 'send_safety', path: 'hoursStart' }, wired: true, inline: true },
-    { id: 's3', section: 'sales', page: 'haishin', group: '送る前の安全確認', label: 'NGワード', type: 'list', store: { kind: 'app_settings', key: 'send_safety', path: 'ngWords' }, wired: true, inline: true },
-    { id: 's4', section: 'admin', page: 'team', group: '承認の流れ', label: '承認されないまま放置されたら取り下げるまで', type: 'number', unit: '日', min: 1, max: 30, store: { kind: 'app_settings', key: 'settings_approval', path: 'expireDays' }, wired: true, inline: true },
-  ],
-  values: {
-    send_safety: { value: { hoursOn: true, hoursStart: '09:00', ngWords: ['見本の言葉'] }, updatedAt: null, exists: true, label: '配信の安全確認', section: 'sales' },
-    settings_approval: { value: { expireDays: 7 }, updatedAt: null, exists: true, label: '承認の流れ', section: 'admin' },
-  },
-  pending: [],
-};
-
 const storeKeyOf = (i: Item) => (i.store.kind === 'user_prefs' ? 'user_prefs' : i.store.key || '');
 const curOf = (i: Item, values: Record<string, Val>): unknown => {
   const v = values[storeKeyOf(i)]?.value;
@@ -55,8 +36,8 @@ export default function SettingsCenterPage() {
   const [tab, setTab] = useState<'items' | 'pending' | 'history' | 'ops'>('items');
   const c = useHoryu<Center>('settings-center');
   const h = useHoryu<{ rows: Row[] }>(tab === 'history' ? 'settings-history' : null);
-  const sample = c.state === 'sample';
-  const center = sample ? S_CENTER : c.data;
+  const sample = !c.live; // 本物が読めていない（読み込み中・ログインなし・読めない）ときは書かない
+  const center = c.data;
   const [msg, setMsg] = useState<{ text: string; bad?: boolean }>({ text: '' });
   const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
   const pendingN = center?.pending?.length ?? 0;
@@ -67,7 +48,7 @@ export default function SettingsCenterPage() {
       <Msg text={msg.text} bad={msg.bad} />
       {tab === 'items' && center && <Items center={center} sample={sample} setMsg={setMsg} setConfirm={setConfirm} reload={c.reload} />}
       {tab === 'pending' && center && <PendingList center={center} sample={sample} setMsg={setMsg} setConfirm={setConfirm} reload={c.reload} />}
-      {tab === 'history' && <History rows={sample ? S_ROWS : h.data?.rows ?? []} loading={!sample && h.state === 'loading'} error={h.state === 'error' ? h.error : ''} sample={sample} setMsg={setMsg} setConfirm={setConfirm} reload={() => { void h.reload(); void c.reload(); }} />}
+      {tab === 'history' && <History rows={h.data?.rows ?? []} loading={h.state === 'loading'} error={h.state === 'error' ? h.error : ''} sample={sample} setMsg={setMsg} setConfirm={setConfirm} reload={() => { void h.reload(); void c.reload(); }} />}
       {tab === 'ops' && (
         <div className="flex flex-col gap-3.5">
           <KintaiAlertPanel sample={sample} />
@@ -101,7 +82,7 @@ function Items({ center, sample, setMsg, setConfirm, reload }: { center: Center 
     const sk = storeKeyOf(i);
     const cur = center.values[sk];
     const whole = i.store.path ? { ...((cur?.value && typeof cur.value === 'object' ? cur.value : {}) as Record<string, unknown>), [i.store.path]: next } : next;
-    if (sample) { setMsg({ text: `見本なので保存はしていません（${i.label} → ${show(next)}）` }); return; }
+    if (sample) return;
     const pv = await horyuPost<Preview>('settings-preview', { storeKey: sk, value: whole });
     if (!pv.ok) { setMsg({ text: hintOf(pv), bad: true }); return; }
     const p = pv.data;
@@ -180,7 +161,7 @@ function ItemRow({ item: i, value, canEdit, onSave }: { item: Item; value: unkno
 
 function PendingList({ center, sample, setMsg, setConfirm, reload }: { center: Center } & Ctl) {
   const act = (p: Pending, op: 'approve' | 'withdraw') => {
-    if (sample) { setMsg({ text: `見本なので保存はしていません（${p.label}を${op === 'approve' ? '承認' : '取り下げ'}）` }); return; }
+    if (sample) return;
     setConfirm({
       title: `${p.label}を${op === 'approve' ? '承認する' : '取り下げる'}`, okLabel: op === 'approve' ? '承認する' : '取り下げる', danger: op === 'withdraw',
       lines: [`依頼：${p.requestedBy.split('@')[0]}（${fmtAt(p.requestedAt)}）`, ...(changeText(p.changes) ? [`変わる所：${changeText(p.changes)}`] : []), op === 'approve' ? '承認するとすぐ反映されます。変更履歴から元に戻せます' : '取り下げると反映されません'],
@@ -222,7 +203,7 @@ function History({ rows, loading, error, sample, setMsg, setConfirm, reload }: {
   const sections = useMemo(() => [...new Map(rows.map((x) => [x.section, x.sectionLabel])).entries()], [rows]);
   const shown = rows.filter((x) => !sec || x.section === sec);
   const revert = (x: Row) => {
-    if (sample) { setMsg({ text: `見本なので元に戻していません（${x.label}）` }); return; }
+    if (sample) return;
     setConfirm({
       title: `${x.label}を元に戻す`, okLabel: '元に戻す',
       lines: [`${fmtAt(x.at)} に ${x.actor.split('@')[0] || '—'} が変えた分を、その前の値に戻します`, ...(changeText(x.changes) ? [`戻る所：${changeText(x.changes)}`] : []), '戻したことも変更履歴に残ります'],

@@ -22,12 +22,6 @@ type Col = { name: string; label: string; kind: string };
 type QueryRes = { columns: Col[]; rows: Record<string, unknown>[]; truncated: boolean; dropped: number };
 type Share = { email: string; can_edit: boolean };
 
-const S_TREE: TreeFolder[] = [{ id: 'f1', title: '営業（見本）', level: 'view', pages: [{ id: '00000000-0000-0000-0000-000000000001', title: '今月の成約（見本）', level: 'view' }] }];
-const S_BLOCKS: Block[] = [{ id: 'h', type: 'heading', title: '今月の成約' }, { id: 'k', type: 'kpi', title: '成約数' }, { id: 't', type: 'table', title: '担当ごと' }];
-const S_RESULT: Record<string, QueryRes> = {
-  k: { columns: [{ name: 'n', label: '成約数', kind: 'num' }], rows: [{ n: 12 }], truncated: false, dropped: 0 },
-  t: { columns: [{ name: 'tantou', label: '担当', kind: 'text' }, { name: 'n', label: '成約数', kind: 'num' }], rows: [{ tantou: '営業 見本A', n: 7 }, { tantou: '営業 見本B', n: 5 }], truncated: false, dropped: 0 },
-};
 const TYPE_LABEL: Record<string, string> = { heading: '見出し', text: '文章', divider: '区切り', kpi: '数字', table: '表', chart: 'グラフ' };
 const uid = () => 'b' + Math.random().toString(36).slice(2, 9);
 const newBlock = (type: 'heading' | 'text' | 'divider'): Block =>
@@ -37,8 +31,8 @@ const move = <T,>(a: T[], from: number, to: number) => { const b = [...a]; const
 
 export default function CustomPagesPage() {
   const tree = useHoryu<{ folders: TreeFolder[]; canCreate?: boolean }>('cp-tree');
-  const sample = tree.state === 'sample';
-  const folders = sample ? S_TREE : tree.data?.folders ?? [];
+  const sample = !tree.live; // 本物が読めていないときは書かない
+  const folders = tree.data?.folders ?? [];
   const canCreate = !sample && !!tree.data?.canCreate;
   const [pageId, setPageId] = useState('');
   const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
@@ -128,7 +122,7 @@ function PageView({ id, sample, onChanged, onDeleted, onShare }: { id: string; s
   if (!sample && p.state !== 'live') return <div className="rounded-xl border border-line bg-surface px-4 py-8 text-center text-body text-muted">{p.state === 'forbidden' ? 'このページは共有されていません' : p.error}</div>;
   const page = p.data?.page;
   const canEdit = !sample && p.data?.level === 'edit';
-  const blocks = sample ? S_BLOCKS : page?.doc.blocks ?? [];
+  const blocks = page?.doc.blocks ?? [];
 
   const save = async () => {
     if (!edit || !page) return;
@@ -250,7 +244,7 @@ function ShareDialog({ target, onClose }: { target: { type: 'folder' | 'page'; i
 }
 
 function DataBlock({ pageId, block, sample }: { pageId: string; block: Block; sample: boolean }) {
-  const [res, setRes] = useState<QueryRes | null>(sample ? S_RESULT[block.id] ?? null : null);
+  const [res, setRes] = useState<QueryRes | null>(null);
   const [err, setErr] = useState('');
   useEffect(() => {
     if (sample) return;

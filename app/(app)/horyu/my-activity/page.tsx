@@ -2,8 +2,7 @@
 
 import { LiveBanner } from '@/components/Live';
 import { PageTitle } from '@/components/ui';
-import { HoryuNote, Kpi, Panel, useHoryu } from '@/components/Horyu';
-import { MYACT_SAMPLE } from '@/lib/horyu-sample';
+import { HoryuNote, Kpi, Panel, useHoryu, HoryuLoading } from '@/components/Horyu';
 import type { MyActRes } from '@/lib/horyu';
 
 // 自分の行動（今の画面の上の「今日の処理」・金曜の「週のふりかえり」・月間の参画リング＝/api/my-activity を1枚にしたもの・保留）。
@@ -13,7 +12,7 @@ const WD = ['月', '火', '水', '木', '金', '土', '日'];
 const diff = (a: number, b: number) => (a - b > 0 ? `先週より +${a - b}` : a - b < 0 ? `先週より ${a - b}` : '先週と同じ');
 
 export default function MyActivityPage() {
-  const h = useHoryu<MyActRes>('myact', MYACT_SAMPLE);
+  const h = useHoryu<MyActRes>('myact');
   const d = h.d;
   const g = d?.goal;
   const ratio = g && g.goal > 0 && g.done != null ? Math.min(1, g.done / g.goal) : 0;
@@ -22,6 +21,7 @@ export default function MyActivityPage() {
       <PageTitle title="自分の行動" sub="今日の処理・今週のふりかえり・今月の参画（自分の分だけ）" />
       <HoryuNote>数字はあなたの分だけです。ほかの人とは並べません。</HoryuNote>
       <LiveBanner state={h.state} error={h.error} onReload={h.reload} note="見るだけです" />
+      <HoryuLoading state={h.state} />
       {d && !d.signedIn && <div className="text-sm text-muted">ログインした人が分からないので 0 から始まっています</div>}
       {d && <div className="grid gap-3.5 lg:grid-cols-3">
         <Panel title="今日の処理" sub={d.today?.weekAvg != null ? `先週の1日平均 ${d.today.weekAvg}件` : undefined}>

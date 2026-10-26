@@ -6,7 +6,7 @@ import { PageTitle } from '@/components/ui';
 import { useMotivation } from '@/components/Motivation';
 import { DrawerPortal } from '@/components/DrawerPortal';
 import { errText, horyuPost } from '@/lib/horyu-post';
-import { CLIENT_LIST, type ClientList, type ClientPerson, type HistoryGroup, type MatchRead } from '@/lib/horyu-sample';
+import type { ClientList, ClientPerson, HistoryGroup, MatchRead } from '@/lib/types/keiri';
 import { HoryuNote } from '../HoryuNote';
 
 // 客先向けの画面（保留）。今の社内システムの客先の画面（client.html「ご紹介可能なメンバー」）を写したもの。
@@ -15,7 +15,7 @@ import { HoryuNote } from '../HoryuNote';
 //   ・案件から探す（match）＝案件文 → 条件を読み取って合う人。並びは「必須が全部合う人」が先、その中は 歓迎条件の一致×10＋通勤の回答あり
 //   ・意向を確認してほしい（request）＝意向確認依頼に「客先：○○」で積む・よろずやに知らせる／今回は見送り（decline）＝理由の記録だけ
 //   ・お名前は出ない（イニシャル・年代・スキルだけ）。体のこと（既往歴）は今のシステムが「ないと答えた人」だけに絞っていて、中身は返ってこない
-//   ・ログインしていないときは見本
+//   ・ログインしていないときは「ログインしてください」（見本は出さない・10-26）
 type Tab = 'match' | 'catalog' | 'map' | 'history';
 const keyFromHash = (h: string) => /[#&]k=([A-Za-z0-9_-]+)/.exec(h)?.[1] ?? '';
 const ghost = 'inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border border-line bg-surface px-2.5 text-[12px] font-semibold disabled:opacity-40';
@@ -23,19 +23,9 @@ const inp = 'min-h-9 w-full rounded-[10px] border border-field bg-surface px-2.5
 const tone = (t: string) => ({ background: `var(--tone-${t}-bg)`, color: `var(--tone-${t}-fg)` });
 const when = (iso: string) => { const d = new Date(iso); return isNaN(d.getTime()) ? '' : `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 
-function sampleMatch(people: ClientPerson[], text: string): { read: MatchRead; results: ClientPerson[] } {
-  const want = ['ITパスポート', 'CCNA', 'MOS'].filter((w) => text.includes(w)), must = ['Excel'].filter((w) => text.includes(w));
-  const results = people.map((p) => {
-    const hits = want.filter((w) => p.shikaku.includes(w));
-    const fit = [...must.map((m) => ({ ok: p.tools.includes(m) ? true : false, text: p.tools.includes(m) ? m : `${m}（経験の記載なし）` })), ...hits.map((h) => ({ ok: true as boolean | null, text: `${h}（歓迎条件）` })), { ok: null, text: '通勤エリアは担当から確認します' }];
-    return { ...p, fit, mustAll: must.every((m) => p.tools.includes(m)), score: hits.length * 10 };
-  }).sort((a, b) => (a.mustAll === b.mustAll ? b.score - a.score : a.mustAll ? -1 : 1));
-  return { read: { station: '', start: /(\d{1,2})月/.exec(text)?.[0] ?? '', must, want }, results };
-}
-
 export default function ClientPage() {
   const [key, setKey] = useState(''), [paste, setPaste] = useState('');
-  const [state, setState] = useState<'idle' | 'loading' | 'live' | 'sample' | 'error'>('idle'), [err, setErr] = useState('');
+  const [state, setState] = useState<'idle' | 'loading' | 'live' | 'error'>('idle'), [err, setErr] = useState('');
   const [d, setD] = useState<ClientList | null>(null);
   const [tab, setTab] = useState<Tab>('match');
   const [caseText, setCaseText] = useState(''), [station, setStation] = useState(''), [matching, setMatching] = useState(false);
@@ -50,16 +40,13 @@ export default function ClientPage() {
   const load = async (k: string) => {
     setState('loading'); setErr('');
     const r = await horyuPost<ClientList>('client', { op: 'list', key: k });
-    if (r.status === 401 && r.data.error === 'not_logged_in') { setD(CLIENT_LIST); setState('sample'); return; }
+    if (r.status === 401 && r.data.error === 'not_logged_in') { setErr('ログインしてください'); setState('error'); return; }
     if (!r.ok) { setErr(r.data.error === 'revoked' ? 'このリンクは停止されています' : r.data.error === 'invalid' ? 'リンクが正しくありません' : errText(r)); setState('error'); return; }
     setD(r.data); setState('live');
   };
   useEffect(() => {
     const k = keyFromHash(window.location.hash);
     if (k) { setKey(k); load(k); }
-    else { // 鍵が無くても、ログインしていなければ見本を出す
-      fetch('/api/ike/client-view?action=links', { cache: 'no-store' }).then((r) => { if (r.status === 401) { setD(CLIENT_LIST); setState('sample'); } }).catch(() => {});
-    }
   }, []);
   const openPasted = () => {
     const k = keyFromHash(paste) || (/^[A-Za-z0-9_-]{16,128}$/.test(paste.trim()) ? paste.trim() : '');
@@ -75,34 +62,35 @@ export default function ClientPage() {
   const runMatch = async () => {
     const t = caseText.trim();
     if (!t) { toast({ text: '案件情報を貼り付けてください' }); return; }
+    if (!live) return;
     setMatching(true);
-    if (!live) { const m = sampleMatch(people, t); setRead(m.read); setResults(m.results); setMatching(false); return; }
     const r = await horyuPost<{ read: MatchRead; results: ClientPerson[] }>('client', { op: 'match', key, caseText: t, station });
     setMatching(false);
     if (!r.ok) { toast({ text: errText(r) }); return; }
     setRead(r.data.read); setResults(r.data.results);
   };
   const request = async () => {
+    if (!live) return;
     const refs = [...sel];
     setSending(true);
-    if (!live) { await new Promise((r) => setTimeout(r, 400)); setD((x) => x && { ...x, mine: { ...x.mine, ...Object.fromEntries(refs.map((r) => [r, 'request'])) } }); }
-    else {
+    {
       const r = await horyuPost<{ accepted?: string[] }>('client', { op: 'request', key, refs, source: tab === 'match' ? 'match' : 'catalog', caseText: tab === 'match' ? caseText : '' });
       if (!r.ok) { setSending(false); setConfirm(false); toast({ text: errText(r) }); return; }
       setD((x) => x && { ...x, mine: { ...x.mine, ...Object.fromEntries((r.data.accepted ?? []).map((a) => [a, 'request'])) } });
     }
     setSending(false); setConfirm(false); setSel(new Set()); setHistory(null);
-    toast({ text: `受け付けました。担当からご連絡します${live ? '' : '（見本）'}` });
+    toast({ text: '受け付けました。担当からご連絡します' });
   };
   const decline = async (ref: string, reason: string) => {
     setDeclining(null);
-    if (live) { const r = await horyuPost('client', { op: 'decline', key, ref, reason, caseText }); if (!r.ok) { toast({ text: errText(r) }); return; } }
+    if (!live) return;
+    { const r = await horyuPost('client', { op: 'decline', key, ref, reason, caseText }); if (!r.ok) { toast({ text: errText(r) }); return; } }
     setD((x) => x && { ...x, mine: { ...x.mine, [ref]: 'decline' } }); setSel((s) => { const n = new Set(s); n.delete(ref); return n; });
-    toast({ text: `見送りにしました${live ? '' : '（見本）'}` });
+    toast({ text: '見送りにしました' });
   };
   useEffect(() => {
     if (tab !== 'history' || history !== null || !d) return;
-    if (!live) { setHistory(Object.keys(mine).length ? [{ at: new Date().toISOString(), kind: 'request', source: 'catalog', caseNo: '', caseTitle: '', reason: '', people: Object.keys(mine).map((r) => ({ ref: r, no: find(r)?.no ?? '', initial: find(r)?.initial ?? '', listed: true })) }] : []); return; }
+    if (!live) return;
     horyuPost<{ history: HistoryGroup[] }>('client', { op: 'history', key }).then((r) => setHistory(r.ok ? r.data.history : []));
   }, [tab, history, d]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -160,7 +148,6 @@ export default function ClientPage() {
           <div className="flex flex-wrap gap-2"><input value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="https://…/client.html#k=…" className={`${inp} flex-1`} /><button className="btn-primary min-h-9 rounded-[10px] px-4 text-[13px] font-semibold" onClick={openPasted}>開く</button></div>
         </section>
       ) : state === 'loading' || !d ? <div className="py-10 text-center text-[13px] text-faint">読み込み中…</div> : (<>
-        {state === 'sample' && <div className="rounded-xl border border-line bg-soft px-4 py-2.5 text-[12.5px] text-muted">いまは見本データです（本物の客先の画面はログインして、客先向けリンクの URL で開きます）。</div>}
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3">
           <Users size={18} /><b>ご紹介可能なメンバー</b><span className="text-[12px] text-faint">{new Date().getMonth() + 1}月{new Date().getDate()}日時点</span>
           <b className="ml-auto">{d.client} 様</b>

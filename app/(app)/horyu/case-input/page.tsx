@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Archive, CalendarDays, Check, RotateCcw, Sparkles, Undo2 } from 'lucide-react';
-import { CATS, JOBS, MODES, PASTE_RESULT, PASTE_SAMPLE, SRC_LABEL, type Cat } from '@/lib/map-sample';
+import { CATS, MODES, SRC_LABEL, type Cat } from '@/lib/map-sample'; // 職種・通勤手段の選択肢だけ（案件の見本は使わない）
 import type { CaseMapRow } from '@/lib/live/map';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
@@ -31,14 +31,6 @@ const inp = 'min-h-9 w-full rounded-[10px] border border-field bg-surface px-2.5
 const ghost = 'inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border border-line bg-surface px-2.5 text-[12px] font-semibold disabled:opacity-40';
 const STATUS: Record<string, string> = { open: '掲載中', filled: '充足', closed: '終了' };
 
-function sampleRows(): Row[] {
-  return JOBS.map((j) => ({
-    id: j.id, case_no: j.case_no, source: j.source, owner_name: j.owner, company: j.company ?? '', title: j.title, category: j.category,
-    station: j.station ?? '', access: j.access ?? '', area: j.area ?? '', lat: null, lng: null, summary: j.summary, pay: j.pay ?? '', hours: j.hours ?? '', holiday: j.holiday ?? '',
-    start_text: j.start ?? '', require_text: j.require ?? '', commute_modes: j.modes, status: j.status, reserve_date: j.reserve ?? null, reserve_note: j.reserveNote ?? '',
-    filled_at: j.doneOn ?? null, filled_note: j.doneNote ?? '', pinnable: !j.area,
-  }));
-}
 const toForm = (r: Row): Form => ({
   title: r.title, company: r.company, category: (CATS as readonly string[]).includes(r.category) ? (r.category as Cat) : 'その他', pinnable: r.pinnable !== false && !r.area,
   station: r.station, access: r.access, address: r.address ?? '', area: r.area, pay: r.pay, hours: r.hours, holiday: r.holiday, start_text: r.start_text,
@@ -48,9 +40,8 @@ const toForm = (r: Row): Form => ({
 export default function CaseInputPage() {
   const cm = useIke<List>('cases-map?action=list');
   const live = cm.live;
-  const [local, setLocal] = useState<Row[]>(sampleRows);
-  const rows = live ? cm.data?.rows ?? [] : local;
-  const can = usePerms().can('eigyo', 'edit') && (!live || cm.data?.can_edit !== false);
+  const rows = live ? cm.data?.rows ?? [] : [];
+  const can = usePerms().can('eigyo', 'edit') && live && cm.data?.can_edit !== false;
   const { hit, toast } = useMotivation();
   const [text, setText] = useState(''), [form, setForm] = useState<Form>(EMPTY), [touched, setTouched] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<Row | null>(null), [busy, setBusy] = useState(''), [readNote, setReadNote] = useState('');
@@ -63,10 +54,10 @@ export default function CaseInputPage() {
 
   const extract = async () => {
     if (text.trim().length < 10) { toast({ text: '案件文が短すぎます' }); return; }
+    if (!live) return;
     setBusy('extract');
     let fields: Partial<Form> & { commute_modes?: string[] };
-    if (!live) { await new Promise((r) => setTimeout(r, 700)); const p = PASTE_RESULT; fields = { title: p.title, category: p.category, pay: p.pay, start_text: p.start, hours: p.hours, holiday: p.holiday, require_text: p.require, station: p.station, access: p.access, summary: p.summary, commute_modes: p.modes }; setReadNote('見本の読み取りです'); }
-    else {
+    {
       const r = await horyuPost<{ via?: string; note?: string; fields?: Record<string, unknown>; station?: { ok?: boolean; station?: string; reason?: string } | null }>('cases-map', { op: 'extract', text });
       if (!r.ok) { setBusy(''); toast({ text: `読み取れませんでした：${errText(r)}` }); return; }
       const f = r.data.fields || {};
@@ -89,29 +80,21 @@ export default function CaseInputPage() {
     if (form.pinnable && !form.station.trim()) { toast({ text: '最寄駅は必須です（駅が無い案件はエリア指定に）' }); return; }
     if (!form.pinnable && !form.area.trim()) { toast({ text: 'エリア指定の案件はエリア名が必須です' }); return; }
     const body = { ...form, station: form.pinnable ? form.station : '', area: form.pinnable ? '' : form.area, case_text: text };
+    if (!live) return;
     setBusy('save');
-    if (!live) {
-      await new Promise((r) => setTimeout(r, 400));
-      if (editing) setLocal((l) => l.map((r) => (r.id === editing.id ? { ...r, ...body } : r)));
-      else setLocal((l) => [...l, { ...sampleRows()[0], ...body, id: `n${Date.now()}`, case_no: Math.max(...l.map((x) => x.case_no)) + 1, source: 'ike', owner_name: 'あなた', status: 'open', reserve_date: null, reserve_note: '', filled_at: null, filled_note: '' }]);
-    } else {
+    {
       const r = await horyuPost<{ notify?: { posted?: boolean; error?: string }; row?: Row }>('cases-map', editing ? { op: 'update', id: editing.id, ...body } : { op: 'create', ...body });
       if (!r.ok) { setBusy(''); toast({ text: `保存できませんでした：${errText(r)}` }); return; }
       cm.reload();
     }
     setBusy(''); hit();
-    toast({ text: editing ? `No.${editing.case_no} を直しました${live ? '' : '（見本）'}` : `案件を登録しました${live ? '' : '（見本）'}`, sub: editing ? undefined : '→ 案件マップに出ます（#未経験-案件共有 にも1本流れます）' });
+    toast({ text: editing ? `No.${editing.case_no} を直しました` : '案件を登録しました', sub: editing ? undefined : '→ 案件マップに出ます（#未経験-案件共有 にも1本流れます）' });
     reset(); setText('');
   };
 
   const act = async (r: Row, op: 'fill' | 'close' | 'unreserve' | 'reopen', extra: Record<string, unknown> = {}) => {
     const label = op === 'fill' ? (extra.kind === 'reserve' ? '充足予約' : '充足') : op === 'close' ? '終了' : op === 'unreserve' ? '予約を外す' : '再掲載';
-    if (!live) {
-      setLocal((l) => l.map((x) => x.id !== r.id ? x : op === 'fill' && extra.kind === 'reserve' ? { ...x, reserve_date: String(extra.date), reserve_note: String(extra.note ?? '') }
-        : op === 'fill' ? { ...x, status: 'filled', filled_at: '2026-10-25', filled_note: '手動で充足', reserve_date: null } : op === 'close' ? { ...x, status: 'closed', filled_at: '2026-10-25', filled_note: '終了', reserve_date: null }
-          : op === 'unreserve' ? { ...x, reserve_date: null, reserve_note: '' } : { ...x, status: 'open', filled_at: null, filled_note: '' }));
-      toast({ text: `No.${r.case_no} を「${label}」にしました（見本）` }); return;
-    }
+    if (!live) return;
     setBusy(r.id + op);
     const res = await horyuPost('cases-map', { op, id: r.id, ...extra });
     setBusy('');
@@ -121,7 +104,7 @@ export default function CaseInputPage() {
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-24 pt-[22px]">
-      <PageTitle title="案件の抽出・修正" sub={`案件文を貼ると欄に分けます。登録ずみの案件を直す・充足・終了もここから${live ? '' : '・見本データ'}`} />
+      <PageTitle title="案件の抽出・修正" sub={`案件文を貼ると欄に分けます。登録ずみの案件を直す・充足・終了もここから`} />
       <HoryuNote from="案件マップ（案件入力）" />
       <LiveBanner state={cm.state} error={cm.error} onReload={cm.reload} note="今の案件マップの案件です。ここで保存すると今の案件マップに入ります" />
       <div className="grid gap-3.5 lg:grid-cols-[1fr_420px]">
@@ -131,11 +114,10 @@ export default function CaseInputPage() {
             {editing && <button className={ghost} onClick={reset}><Undo2 size={12} />新しい案件に戻す</button>}
           </div>
           {!editing && <>
-            <textarea value={text} onChange={(e) => setText(e.target.value)} rows={7} placeholder={`Slack やメールの案件文をそのまま貼り付け\n\n例）\n${PASTE_SAMPLE}`} className="w-full rounded-[10px] border border-field bg-surface p-2.5 text-[13px]" />
+            <textarea value={text} onChange={(e) => setText(e.target.value)} rows={7} placeholder="Slack やメールの案件文をそのまま貼り付け" className="w-full rounded-[10px] border border-field bg-surface p-2.5 text-[13px]" />
             <div className="flex flex-wrap items-center gap-2">
               <button className="btn-primary inline-flex min-h-9 items-center gap-1 rounded-[10px] px-3 text-[13px] font-semibold disabled:opacity-40" disabled={!can || busy === 'extract'} title={can ? undefined : needText('edit')} onClick={extract}>
                 <Sparkles size={14} />{busy === 'extract' ? '読み取り中…' : '自動で読み取る'}</button>
-              {!live && <button className={ghost} onClick={() => setText(PASTE_SAMPLE)}>見本の案件文を入れる</button>}
               {readNote && <span className="text-[12px] text-muted">{readNote}（手で直した欄はそのまま）</span>}
             </div>
           </>}
@@ -175,7 +157,7 @@ export default function CaseInputPage() {
           </div>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="案件名・会社・駅・番号で絞り込み" className={inp} />
           <div className="flex max-h-[640px] flex-col gap-2 overflow-y-auto">
-            {shown.length === 0 && <div className="py-6 text-center text-[12px] text-faint">{cm.state === 'loading' ? '読み込み中…' : '該当する案件がありません'}</div>}
+            {shown.length === 0 && <div className="py-6 text-center text-[12px] text-faint">{!live ? '読み込み中…' : '該当する案件がありません'}</div>}
             {shown.map((r) => (
               <div key={r.id} className="rounded-lg border p-2.5 text-[12.5px]" style={{ borderColor: editing?.id === r.id ? 'var(--a)' : 'var(--color-line)' }}>
                 <div className="flex items-center gap-1.5">

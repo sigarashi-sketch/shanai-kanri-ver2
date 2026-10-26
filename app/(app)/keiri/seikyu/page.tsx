@@ -13,23 +13,12 @@ import { savedPdfUrl, stampedPdfUrl, type IkeMonthSum, type SeikyuStoreLive, typ
 // 請求書（経理管理）＝格納した請求書を正にした、月ごと・取引先マスタの会社ごとの一覧（10-25 shoya「請求書は請求書格納したところベースに」）。
 //   ・数え方は今の格納タブと同じ（10-25「1」）：その会社の名簿の人（未経験）が全員、格納した請求書（押印ずみ・別で作った）に載っているか
 //   ・ログイン中は /api/live/seikyu-store（今の GET だけ）。見るだけ。PDF を置く・人を選ぶは「請求書・勤務表の格納」ページから
-//   ・ログインしていなければ見本（本物の会社名・人ではない）。★見本はログインしていないときだけ。読み込み中・読めなかったときは見本を出さない（10-25）
+//   ・見本は出さない（10-26）。読み込み中は「読んでいます…」、読めなければ LiveBanner のエラー
 const yen = (n: number) => `¥${n.toLocaleString('ja-JP')}`;
 const TONE: Record<StoreState, string> = { 全員載っている: 'ok', 載っていない人あり: 'bad', 押印し直しが要る: 'warn', 人を選ぶ: 'warn', まだ: 'mute' };
 const STATES: StoreState[] = ['載っていない人あり', '人を選ぶ', '押印し直しが要る', 'まだ', '全員載っている'];
 const ymLabel = (ym: string) => `${Number(ym.slice(0, 4))}年${Number(ym.slice(5, 7))}月分`;
 const md = (iso: string) => (iso ? `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}` : '');
-
-const SAMPLE: SeikyuStoreLive = {
-  ym: '2026-09', savedN: 3, stampedN: 3, pending: 0, generatedAt: '',
-  months: [{ ym: '2026-09', n: 3, total: 2_860_000, stamped: 2 }, { ym: '2026-08', n: 3, total: 2_640_000, stamped: 3 }],
-  companies: [
-    { key: 'a', company: 'A社', state: '載っていない人あり', people: 3, on: ['山田 太郎', '鈴木 一郎'], off: ['伊藤 誠'], invs: [{ id: 'i1', number: 'INV-0912', partner: 'A社', total: 1_320_000, stamped: { id: 's1', at: '2026-10-02T10:00:00Z' }, stale: false }], ext: [], cardDone: true },
-    { key: 'b', company: 'B社', state: '押印し直しが要る', people: 1, on: [], off: ['渡辺 涼'], invs: [{ id: 'i2', number: 'INV-0915', partner: 'B社', total: 495_000, stamped: { id: 's2', at: '2026-10-01T10:00:00Z' }, stale: true }], ext: [], cardDone: true },
-    { key: 'c', company: 'C社', state: 'まだ', people: 2, on: [], off: ['高橋 健', '中村 優'], invs: [{ id: 'i3', number: 'INV-0903', partner: 'C社', total: 1_045_000, stamped: null, stale: false }], ext: [], cardDone: false },
-    { key: 'd', company: 'D社', state: '全員載っている', people: 1, on: ['加藤 葵'], off: [], invs: [], ext: [{ id: 'e1', name: 'D社_9月分_請求書', at: '2026-10-02T08:00:00Z', unread: false }], cardDone: true },
-  ],
-};
 
 export default function SeikyuPage() {
   const [ym, setYm] = useState('');
@@ -38,7 +27,7 @@ export default function SeikyuPage() {
   const qs = [ym && `ym=${ym}`, fresh && `refresh=1&n=${fresh}`].filter(Boolean).join('&');
   const lv = useLiveRoute<SeikyuStoreLive>(`/api/live/seikyu-store${qs ? `?${qs}` : ''}`);
   const live = lv.live && !!lv.data;
-  const d: SeikyuStoreLive | null = live ? lv.data! : lv.state === 'sample' ? SAMPLE : null;
+  const d: SeikyuStoreLive | null = live ? lv.data! : null;
   const busy = live && !!ym && d!.ym !== ym;
   const [filter, setFilter] = useState<'すべて' | StoreState>('すべて');
   const cs = useMemo(() => d?.companies ?? [], [d]);
@@ -51,7 +40,7 @@ export default function SeikyuPage() {
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="請求書" sub={`格納した請求書を正にした一覧です。会社の名簿の人が全員、格納した請求書に載っているかを見ます${lv.state === 'sample' ? '・見本データ' : ''}`}>
+      <PageTitle title="請求書" sub={`格納した請求書を正にした一覧です。会社の名簿の人が全員、格納した請求書に載っているかを見ます`}>
         {live && <button type="button" onClick={() => setFresh(Date.now())} disabled={lv.state === 'loading'} className="inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border border-field px-3 text-body font-semibold text-muted disabled:opacity-40">読み直す</button>}
         <Link href="/keiri/kakunou" className="btn-primary"><FolderInput size={15} />格納する</Link>
       </PageTitle>

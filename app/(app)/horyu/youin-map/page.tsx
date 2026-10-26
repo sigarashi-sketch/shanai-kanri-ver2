@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Check, MapPin, RefreshCw, Search, Train, X } from 'lucide-react';
-import { BAY, MAP_H, MAP_W, RAILS, SLACK_CASES, STATIONS, YOUIN, YOUIN_COUNTS, stationOf, xy, type Youin } from '@/lib/map-sample';
+import { BAY, MAP_H, MAP_W, RAILS, STATIONS, stationOf, xy, type Youin } from '@/lib/map-sample'; // 地図の土台（駅の座標・湾・路線）だけ。人・案件の見本は使わない
 import { liveYouin, type MapData } from '@/lib/live/map';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
@@ -20,7 +20,7 @@ import { HoryuNote } from '../HoryuNote';
 //   ・「案件を更新」＝ Slack から案件を取り直す（今の proxy?action=syncSlackCache・/api/live/horyu/sync-slack）
 //   ・「転記＆配信先設定」は今は配信ページの中に埋め込んだときだけ動く。ver2 では配信ページにつなぐ先がまだ無いので、案件文と名前を写すだけ
 //   ・人は未経験の人だけ。名前を押すと人の小窓（PersonName）
-//   ・地図は見本の簡易な地図（SVG）。座標が枠の外の駅は一覧だけ
+//   ・地図は簡易な地図（SVG）。座標が枠の外の駅は一覧だけ
 const pct = (lat: number, lng: number) => { const p = xy(lat, lng); return { left: `${(p.x / MAP_W) * 100}%`, top: `${(p.y / MAP_H) * 100}%` }; };
 const ghost = 'inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border border-line bg-surface px-2.5 text-[12px] font-semibold disabled:opacity-40';
 
@@ -56,7 +56,7 @@ export default function YouinMapPage() {
   const live = md.live;
   const ly = useMemo(() => liveYouin(live ? md.data : null), [live, md.data]);
   const mk = useMikeiken();
-  const YOUIN_ = live ? mk.keep(ly.youin, 'name') : YOUIN, CASES_ = live ? ly.cases : SLACK_CASES;
+  const YOUIN_ = live ? mk.keep(ly.youin, 'name') : [], CASES_ = live ? ly.cases : [];
   const at = (n?: string) => (n ? (live ? ly.pos.get(n) ?? stationOf(n) : stationOf(n)) : undefined);
   const canEdit = usePerms().can('eigyo', 'edit');
   const { hit, toast } = useMotivation();
@@ -78,7 +78,7 @@ export default function YouinMapPage() {
     setGot(r.ok ? r.data : { error: errText(r) });
   };
   const refresh = async () => {
-    if (!live) { setLoading(true); setTimeout(() => { setLoading(false); toast({ text: '案件を更新しました（見本）', sub: '→ Slack から案件を取り直して地図を描き直しました' }); }, 800); return; }
+    if (!live) return;
     setLoading(true);
     const r = await horyuPost<{ added?: number }>('sync-slack', {});
     setLoading(false);
@@ -97,14 +97,14 @@ export default function YouinMapPage() {
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-24 pt-[22px]">
-      <PageTitle title="要員マップ" sub={`営業中の要員を最寄駅に、Slack の案件を現場の駅に出します${live ? '' : '・見本データ'}`} />
+      <PageTitle title="要員マップ" sub={`営業中の要員を最寄駅に、Slack の案件を現場の駅に出します`} />
       <HoryuNote from="要員マップ" />
       <LiveBanner state={md.state} error={md.error} onReload={md.reload} note="今の要員マップの中身です（60秒ごとに読み直し）。地図は簡易な地図のまま（枠の外の駅は一覧だけ）" />
       <MikeikenNote mk={mk} live={live} />
       <div className="grid gap-3.5 lg:grid-cols-[340px_1fr]">
         <aside className="flex flex-col gap-2.5 self-start rounded-xl border border-line bg-surface p-3">
           <div className="flex items-center gap-2">
-            <button className={ghost} onClick={refresh} disabled={loading || !canEdit} title={canEdit ? undefined : needText('edit')}><RefreshCw size={12} className={loading ? 'animate-spin' : ''} />{loading ? '案件取得中…' : '案件を更新'}</button>
+            <button className={ghost} onClick={refresh} disabled={!live || loading || !canEdit} title={canEdit ? undefined : needText('edit')}><RefreshCw size={12} className={loading ? 'animate-spin' : ''} />{loading ? '案件取得中…' : '案件を更新'}</button>
             <span className="text-[12px] text-muted">地図表示 <b className="text-ink">{shown.length}</b>名 / 案件 <b className="text-ink">{CASES_.length}</b>件</span>
           </div>
           <div className="rounded-lg bg-soft px-2.5 py-2 text-[11.5px] leading-relaxed text-muted">
@@ -112,9 +112,7 @@ export default function YouinMapPage() {
               対象 {md.data?.counts?.target ?? '—'}名（除外 {md.data?.counts?.excluded ?? '—'}名）／最寄駅あり {YOUIN_.length - noStation.length}・なし {noStation.length}<br />
               {(md.data?.counts?.pendingPeople ?? 0) > 0 && <>座標取得待ち {md.data?.counts?.pendingPeople}名 → もう一度読み直すと表示されます<br /></>}
               {ly.outside > 0 && <>簡易な地図の枠の外 {ly.outside}名<br /></>}
-            </>) : (<>
-              対象 {YOUIN_COUNTS.target}名（除外 {YOUIN_COUNTS.excluded}名）／最寄駅あり {YOUIN.length - noStation.length}・なし {noStation.length}（見本）<br />
-            </>)}
+            </>) : md.state === 'loading' ? <>読み込み中…<br /></> : null}
             <button className="font-semibold underline" style={{ color: 'var(--ad)' }} onClick={() => setNoSt((v) => !v)}>最寄駅が空の {noStation.length}名を見る</button>
             {noSt && <span className="block">{noStation.map((y, i) => <span key={y.id}>{i > 0 && '、'}<PersonName name={y.name} /></span>)}（営業用リストの最寄駅を埋めると地図に出ます）</span>}
           </div>
@@ -123,7 +121,7 @@ export default function YouinMapPage() {
           <div className="flex items-center justify-between border-t border-line-soft pt-2 text-[13px] font-bold">案件情報（{CASES_.length}）
             <span className="text-[11.5px] font-normal"><button className="underline" onClick={() => setHidden({})}>全表示</button> / <button className="underline" onClick={() => setHidden(Object.fromEntries(CASES_.map((c) => [c.kNo, true])))}>全非表示</button></span></div>
           <div className="flex max-h-[520px] flex-col gap-2 overflow-y-auto">
-            {CASES_.length === 0 && <div className="py-4 text-center text-[12px] text-faint">案件がありません</div>}
+            {live && CASES_.length === 0 && <div className="py-4 text-center text-[12px] text-faint">案件がありません</div>}
             {CASES_.map((c) => { const isSel = selCase === c.kNo; return (
               <div key={c.kNo} className="rounded-lg border p-2.5 text-[12px]" style={{ borderColor: isSel ? 'var(--a)' : 'var(--color-line)', background: isSel ? 'var(--as)' : undefined }}>
                 <div className="flex items-center gap-2">
@@ -194,14 +192,7 @@ export default function YouinMapPage() {
               </dl>
               <div className="rounded-lg bg-soft p-3 text-[12.5px]"><div className="mb-1 font-semibold">面談可能日程{got.availability?.updatedAt && <span className="ml-1 font-normal text-faint">（{got.availability.updatedAt} 取込）</span>}</div>
                 {got.availability?.items?.length ? got.availability.items.map((d) => <div key={d.label} className="flex gap-2"><span className="w-24 text-muted">{d.label}</span>{d.val}</div>) : <span className="text-faint">まだありません</span>}</div>
-            </>)) : (<>
-              <dl className="grid grid-cols-[84px_1fr] gap-y-2 text-[13px]">
-                <dt className="text-faint">最寄駅</dt><dd>{detail.station}</dd>
-                <dt className="text-faint">タグ</dt><dd className="flex flex-wrap gap-1">{detail.tags.map((t) => <Tag key={t} t={t} />)}</dd>
-                <dt className="text-faint">サマリ</dt><dd>{detail.summary}</dd><dt className="text-faint">前職経験</dt><dd>{detail.career}</dd>
-              </dl>
-              <div className="rounded-lg bg-soft p-3 text-[12.5px]"><div className="mb-1 font-semibold">面談可能日程</div>{detail.dates.length ? detail.dates.map((d) => <div key={d}>{d}</div>) : <span className="text-faint">まだありません</span>}</div>
-            </>)}
+            </>)) : null}
             <p className="text-[11.5px] text-faint">営業用リストのメモはここには出しません（出すかはあとで決めます）。</p>
           </aside>
         </DrawerPortal>

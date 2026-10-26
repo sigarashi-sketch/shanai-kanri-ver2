@@ -8,7 +8,7 @@ import { useMotivation } from '@/components/Motivation';
 import { LiveBanner, useIke } from '@/components/Live';
 import { PersonName } from '@/components/Person';
 import { errText, horyuPost } from '@/lib/horyu-post';
-import { CLIENT_LINKS, MENTION_CANDIDATES, type ClientLink, type Mention } from '@/lib/horyu-sample';
+import type { ClientLink, Mention } from '@/lib/types/keiri';
 import { HoryuNote } from '../HoryuNote';
 
 // 客先向けリンク（保留）。今の社内システムの「客先向けリンク」（client-links.html）。
@@ -32,9 +32,8 @@ export function ClientLinks({ origin }: { origin: string }) {
   const lk = useIke<{ ok: boolean; links: ClientLink[] }>('client-view?action=links');
   const mc = useIke<{ ok: boolean; candidates: Mention[] }>(lk.live ? 'client-view?action=mentionCandidates' : null);
   const live = lk.live;
-  const [local, setLocal] = useState<ClientLink[]>(CLIENT_LINKS);
-  const links = live ? lk.data?.links ?? [] : local;
-  const cands = live ? mc.data?.candidates ?? [] : MENTION_CANDIDATES;
+  const links = live ? lk.data?.links ?? [] : [];
+  const cands = live ? mc.data?.candidates ?? [] : [];
   const can = usePerms().can('eigyo', 'edit');
   const { hit, toast } = useMotivation();
   const [label, setLabel] = useState(''), [note, setNote] = useState(''), [mention, setMention] = useState<Set<string>>(new Set());
@@ -46,12 +45,9 @@ export function ClientLinks({ origin }: { origin: string }) {
 
   const issue = async () => {
     if (!label.trim()) { toast({ text: '客先名を入れてください' }); return; }
+    if (!live) return;
     setBusy('issue');
-    if (!live) {
-      const token = 'SAMPLE' + Math.random().toString(36).slice(2, 12);
-      setLocal((l) => [{ id: `l${Date.now()}`, label, note, created_by: 'あなた', created_at: new Date().toISOString(), expires_at: null, revoked_at: null, last_seen_at: null, view_count: 0, token, counts: { request: 0, decline: 0 }, events: [], mention: cands.filter((c) => mention.has(c.uid)) }, ...l]);
-      setIssued({ label, url: urlOf(token) });
-    } else {
+    {
       const r = await horyuPost<{ token?: string }>('client-links', { op: 'issue', label, note, mention: [...mention] });
       if (!r.ok || !r.data.token) { setBusy(''); toast({ text: `発行できませんでした：${errText(r)}` }); return; }
       setIssued({ label, url: urlOf(r.data.token) }); lk.reload();
@@ -59,12 +55,9 @@ export function ClientLinks({ origin }: { origin: string }) {
     setBusy(''); hit(); setLabel(''); setNote(''); setMention(new Set());
   };
   const doConfirm = async () => {
-    if (!confirm) return;
+    if (!confirm || !live) return;
     const { id, op } = confirm; setConfirm(null); setBusy(id + op);
-    if (!live) {
-      setLocal((l) => l.map((x) => (x.id !== id ? x : op === 'revoke' ? { ...x, revoked_at: new Date().toISOString() } : { ...x, token: 'SAMPLE' + Math.random().toString(36).slice(2, 12) })));
-      toast({ text: op === 'revoke' ? 'リンクを停止しました（見本）' : 'URL を作り直しました（見本）' });
-    } else {
+    {
       const r = await horyuPost<{ token?: string }>('client-links', { op, id });
       if (!r.ok) toast({ text: `できませんでした：${errText(r)}` });
       else { hit(); toast({ text: op === 'revoke' ? 'リンクを停止しました（このURLはすぐ開けなくなります）' : 'URL を作り直しました（前のURLは使えません）' }); lk.reload(); }
@@ -73,7 +66,7 @@ export function ClientLinks({ origin }: { origin: string }) {
   };
   const setMentionFor = async (l: ClientLink, uid: string) => {
     const next = [...tog(new Set((l.mention ?? []).map((m) => m.uid)), uid)];
-    if (!live) { setLocal((ls) => ls.map((x) => (x.id === l.id ? { ...x, mention: cands.filter((c) => next.includes(c.uid)) } : x))); return; }
+    if (!live) return;
     setBusy(l.id + 'm');
     const r = await horyuPost('client-links', { op: 'setMention', id: l.id, mention: next });
     setBusy('');
@@ -93,7 +86,7 @@ export function ClientLinks({ origin }: { origin: string }) {
         <div className="grid gap-2.5 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
           <label className="flex flex-col gap-1 text-[12px] text-muted">客先名（客先の画面に「○○ 様」と出ます）<input className={inp} maxLength={60} value={label} onChange={(e) => setLabel(e.target.value)} placeholder="例）株式会社○○ 情シス部" /></label>
           <label className="flex flex-col gap-1 text-[12px] text-muted">社内メモ（任意・客先には出ません）<input className={inp} maxLength={200} value={note} onChange={(e) => setNote(e.target.value)} placeholder="例）訪問時に案内" /></label>
-          <button className="btn-primary inline-flex min-h-9 items-center gap-1 rounded-[10px] px-4 text-[13px] font-semibold disabled:opacity-40" disabled={!can || busy === 'issue'} title={can ? undefined : needText('edit')} onClick={issue}><Link2 size={14} />リンクを発行</button>
+          <button className="btn-primary inline-flex min-h-9 items-center gap-1 rounded-[10px] px-4 text-[13px] font-semibold disabled:opacity-40" disabled={!live || !can || busy === 'issue'} title={can ? undefined : needText('edit')} onClick={issue}><Link2 size={14} />リンクを発行</button>
         </div>
         <div className="flex flex-col gap-1 text-[12px] text-muted">この客先から依頼が来たら「よろずや」でメンションする人（任意）<Chips cands={cands} sel={mention} onToggle={(u) => setMention((s) => tog(s, u))} /></div>
         {issued && (
@@ -116,7 +109,7 @@ export function ClientLinks({ origin }: { origin: string }) {
           </tr></thead>
           <tbody>
             {lk.state === 'loading' && <tr><td colSpan={8} className="p-5 text-faint">読み込み中…</td></tr>}
-            {lk.state !== 'loading' && !sorted.length && <tr><td colSpan={8} className="p-5 text-faint">まだリンクがありません</td></tr>}
+            {live && !sorted.length && <tr><td colSpan={8} className="p-5 text-faint">まだリンクがありません</td></tr>}
             {sorted.map((l) => { const off = !!l.revoked_at, url = urlOf(l.token), isOpen = open === l.id; return (<Fragment key={l.id}>
               <tr className="border-b border-line-soft align-top" style={off ? { opacity: 0.55 } : undefined}>
                 <td className="p-2"><b>{l.label}</b>{l.note && <div className="text-[11.5px] text-faint">{l.note}</div>}</td>

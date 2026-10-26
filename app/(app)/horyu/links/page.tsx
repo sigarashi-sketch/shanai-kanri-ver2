@@ -4,8 +4,7 @@ import { useState } from 'react';
 import { LiveBanner } from '@/components/Live';
 import { PageTitle } from '@/components/ui';
 import { PersonName } from '@/components/Person';
-import { HoldButton, HoryuNote, Panel, fmtDateTime, postHoryu, useHoryu } from '@/components/Horyu';
-import { LINKS_SAMPLE } from '@/lib/horyu-sample';
+import { HoldButton, HoryuNote, Panel, fmtDateTime, postHoryu, useHoryu, HoryuLoading } from '@/components/Horyu';
 import type { LinksRes } from '@/lib/horyu';
 
 // LINE の紐付け管理（今の links.html を写したもの・保留）。公式LINEの友だち（連絡先）を、プロパーリストの人に紐付ける。
@@ -17,7 +16,7 @@ type F = 'all' | 'linked' | 'unmatched';
 type B = 'all' | 'yes' | 'no';
 
 export default function LinksPage() {
-  const h = useHoryu<LinksRes>('links', LINKS_SAMPLE);
+  const h = useHoryu<LinksRes>('links');
   const d = h.d;
   const [f, setF] = useState<F>('unmatched');
   const [b, setB] = useState<B>('no');
@@ -39,15 +38,16 @@ export default function LinksPage() {
   const un = (d?.rows || []).filter((r) => !nameOf(r) && !r.blocked).length;
 
   const save = async (userId: string, name: string) => {
+    if (!h.live) return;
     setBusy(userId); setMsg(null);
-    const r = h.live ? await postHoryu({ kind: 'link', userId, name }) : { ok: true };
+    const r = await postHoryu({ kind: 'link', userId, name });
     setBusy('');
     if (r.ok) { setLocal((x) => ({ ...x, [userId]: name })); setMsg({ ok: true, text: name ? `「${name}」に紐付けました` : '紐付けを外しました' }); }
     else setMsg({ ok: false, text: r.error || '保存できませんでした' });
   };
   const sync = async () => {
     setMsg(null);
-    if (!h.live) { setMsg({ ok: true, text: '見本なので何もしていません' }); return; }
+    if (!h.live) return;
     const r = await postHoryu({ kind: 'link-sync' }) as { ok: boolean; error?: string; skipped?: string; dry?: boolean; targetCount?: number; linked?: number; unlinked?: number; failed?: number; link?: unknown[]; unlink?: unknown[] };
     if (!r.ok) { setMsg({ ok: false, text: r.error || '同期できませんでした' }); return; }
     if (r.skipped === 'disabled') setMsg({ ok: false, text: 'RICHMENU_SYNC が off なので何もしませんでした' });
@@ -60,10 +60,11 @@ export default function LinksPage() {
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="LINEの紐付け管理" sub={d ? `全 ${d.rows.length}件・未紐付け ${un}件` : ''}>
-        <HoldButton label="いま同期する" onDone={sync} title="稼働中メニューの同期を今すぐ（押したままにする）" />
+        <HoldButton label="いま同期する" onDone={sync} disabled={!h.live} title="稼働中メニューの同期を今すぐ（押したままにする）" />
       </PageTitle>
       <HoryuNote>紐付ける人はプロパーリストの名前から選ぶだけです。</HoryuNote>
       <LiveBanner state={h.state} error={h.error} onReload={h.reload} note="本物のデータです。紐付けの変更と同期は、ここから今の社内システムに保存されます" />
+      <HoryuLoading state={h.state} />
       {d?.note && <div className="text-sm text-muted">{d.note}</div>}
       {d && !d.menuKnown && <div className="text-xs text-faint">メニューの列は「?」になります（いま貼られているメニューの記録は、同期が有効になってから埋まります）。</div>}
       {msg && <div className="rounded-xl border px-4 py-2 text-sm" style={{ background: `var(--tone-${msg.ok ? 'ok' : 'bad'}-bg)`, color: `var(--tone-${msg.ok ? 'ok' : 'bad'}-fg)`, borderColor: `var(--tone-${msg.ok ? 'ok' : 'bad'}-bar)` }}>{msg.text}</div>}

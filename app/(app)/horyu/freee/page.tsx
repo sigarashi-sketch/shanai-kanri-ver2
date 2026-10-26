@@ -17,20 +17,6 @@ type Partner = { company_id: string; partner_id: number | null; partner_label: s
 const thisYm = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 7);
 const shiftYm = (ym: string, n: number) => { const [y, m] = ym.split('-').map(Number); const d = new Date(Date.UTC(y, m - 1 + n, 1)); return d.toISOString().slice(0, 7); };
 
-const S_COMPANIES: Company[] = [{ company_id: '1000001', parent: true }, { company_id: '1000002', parent: false }];
-const S_GROUPS: Group[] = [
-  { company_id: '1000001', joi: '見本システムズ', mapped: true, label: '見本システムズ', count: 6, total_including_tax: 2970000, sent: 5, unsent: 1, canceled: 0 },
-  { company_id: '1000001', joi: '', mapped: false, label: '見本テック', count: 2, total_including_tax: 880000, sent: 2, unsent: 0, canceled: 0 },
-  { company_id: '1000002', joi: 'サンプル商事', mapped: true, label: 'サンプル商事', count: 3, total_including_tax: 1155000, sent: 3, unsent: 0, canceled: 1 },
-];
-const S_INVOICES: Invoice[] = [
-  { company_id: '1000001', invoice_id: 1, invoice_number: 'INV-0001', subject: '10月分 SES業務委託', partner_label: '見本システムズ', joi: '見本システムズ', billing_date: '2026-10-31', payment_date: '2026-11-30', sending_status: 'sent', deal_status: 'registered', amount_including_tax: 495000, canceled: false },
-  { company_id: '1000001', invoice_id: 2, invoice_number: 'INV-0002', subject: '10月分 SES業務委託', partner_label: '見本テック', joi: '', billing_date: '2026-10-31', payment_date: '2026-11-30', sending_status: 'unsent', deal_status: 'unregistered', amount_including_tax: 440000, canceled: false },
-];
-const S_PARTNERS: Partner[] = [
-  { company_id: '1000001', partner_id: 501, partner_label: '見本システムズ', invoice_count: 18, last_billing_date: '2026-10-31', mapped: true, joi: [{ joi_name: '見本システムズ', label: '見本システムズ' }] },
-  { company_id: '1000001', partner_id: 502, partner_label: '見本テック', invoice_count: 4, last_billing_date: '2026-10-31', mapped: false, joi: [] },
-];
 
 type TabKey = 'summary' | 'list' | 'partners';
 
@@ -40,15 +26,15 @@ export default function FreeeInvoicesPage() {
   const [tab, setTab] = useState<TabKey>('summary');
   const sum = useHoryu<{ groups: Group[] }>('freee-summary', { ym, company_id: company });
   const list = useHoryu<{ invoices: Invoice[]; companies: Company[] }>(tab === 'list' || tab === 'summary' ? 'freee-list' : null, { ym, company_id: company });
-  const live = sum.state !== 'sample';
-  const companies = (live ? list.data?.companies : S_COMPANIES) ?? [];
+  const live = sum.state === 'live';
+  const companies = (live ? list.data?.companies : []) ?? [];
   const cLabel = (id: string) => { const i = companies.findIndex((c) => c.company_id === id); return i < 0 ? `事業所 ${id}` : i === 0 ? '親会社' : `事業所${i + 1}`; };
-  const groups = live ? sum.data?.groups ?? [] : S_GROUPS;
+  const groups = live ? sum.data?.groups ?? [] : [];
   const total = groups.reduce((s, g) => s + g.total_including_tax, 0);
 
   return (
     <HoryuFrame title="freee 請求書" sub="freee に出した請求書を、月・事業所・上位会社ごとに見る（取り込みずみの分）" state={sum.state} error={sum.error} onReload={sum.reload}
-      actions={<FreeeSyncButton sample={sum.state === 'sample'} onDone={() => void sum.reload()} />}>
+      actions={<FreeeSyncButton sample={!live} onDone={() => void sum.reload()} />}>
       <div className="mo-fade-up flex flex-wrap items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <button className={btnCls} onClick={() => setYm(shiftYm(ym, -1))}>前の月</button>
         <input type="month" value={ym} onChange={(e) => e.target.value && setYm(e.target.value)} aria-label="請求月" className={inputCls} />
@@ -63,7 +49,7 @@ export default function FreeeInvoicesPage() {
       </div>
       <Tabs<TabKey> value={tab} onChange={setTab} tabs={[{ key: 'summary', label: '上位会社ごと' }, { key: 'list', label: '請求書の一覧' }, { key: 'partners', label: '取引先の紐づけ' }]} />
       {tab === 'summary' && <SummaryTab groups={groups} cLabel={cLabel} />}
-      {tab === 'list' && <ListTab live={live} invoices={live ? list.data?.invoices ?? [] : S_INVOICES} loading={live && list.state === 'loading'} cLabel={cLabel} />}
+      {tab === 'list' && <ListTab live={live} invoices={live ? list.data?.invoices ?? [] : []} loading={live && list.state === 'loading'} cLabel={cLabel} />}
       {tab === 'partners' && <PartnersTab live={live} company={company} cLabel={cLabel} />}
     </HoryuFrame>
   );
@@ -129,7 +115,7 @@ function ListTab({ live, invoices, loading, cLabel }: { live: boolean; invoices:
 
 function Lines({ live, companyId, invoiceId }: { live: boolean; companyId: string; invoiceId: number }) {
   const r = useHoryu<{ lines: Line[] }>(live ? 'freee-lines' : null, { company_id: companyId, invoice_id: invoiceId });
-  const lines: Line[] = live ? r.data?.lines ?? [] : [{ position: 0, description: '10月分 業務委託（見本）', quantity: 1, unit: '式', unit_price: 450000, amount_excluding_tax: 450000 }];
+  const lines: Line[] = live ? r.data?.lines ?? [] : [];
   if (live && r.state === 'loading') return <span className="text-sm text-muted">読んでいます…</span>;
   if (!lines.length) return <span className="text-sm text-muted">明細はまだ取り込まれていません</span>;
   return (
@@ -144,10 +130,10 @@ function PartnersTab({ live, company, cLabel }: { live: boolean; company: string
   const r = useHoryu<{ partners: Partner[]; joiOptions: string[] }>(live ? 'freee-partners' : null, { company_id: company });
   const [msg, setMsg] = useState<{ text: string; bad?: boolean }>({ text: '' });
   const [busy, setBusy] = useState('');
-  const partners = live ? r.data?.partners ?? [] : S_PARTNERS;
-  const options = live ? r.data?.joiOptions ?? [] : ['見本システムズ', '見本テック', 'サンプル商事'];
+  const partners = live ? r.data?.partners ?? [] : [];
+  const options = live ? r.data?.joiOptions ?? [] : [];
   const save = async (p: Partner, joi: string) => {
-    if (!live) { setMsg({ text: `見本なので保存はしていません（${p.partner_label} → ${joi || '外す'}）` }); return; }
+    if (!live) return;
     const key = `${p.company_id}:${p.partner_id}`;
     setBusy(key);
     const res = await horyuPost('freee-map', { company_id: p.company_id, partner_id: p.partner_id, joi_name: joi, partner_display_name: p.partner_label });

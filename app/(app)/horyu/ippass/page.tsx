@@ -10,31 +10,27 @@ import { Card, HoryuFrame, Msg, btnCls, fmtAt, horyuPost, inputCls, tdCls, thCls
 //   ・ver2 は鍵を持たない・中身を控えない。開いた中身は30秒で隠す
 type Item = { id: string; category: string; title: string; updated_at: string; updated_by: string; deleted_at: string | null };
 type Secret = { login_id: string; password: string; url: string; memo: string };
-const S_ROWS: Item[] = [
-  { id: 's1', category: '求人媒体', title: '見本の求人サイト', updated_at: new Date().toISOString(), updated_by: 'kanri@example.com', deleted_at: null },
-  { id: 's2', category: '社内ツール', title: '見本の勤怠ツール', updated_at: new Date(Date.now() - 86400000 * 3).toISOString(), updated_by: 'kanri@example.com', deleted_at: null },
-];
 const FIELDS: Array<[keyof Secret, string]> = [['login_id', 'ID'], ['password', 'パスワード'], ['url', 'URL'], ['memo', '備考']];
 
 export default function IppassPage() {
   const [deleted, setDeleted] = useState(false);
   const r = useHoryu<{ rows: Item[]; keyReady: boolean }>('ippass', { deleted: deleted ? 1 : undefined });
-  const sample = r.state === 'sample';
-  const rows = sample ? S_ROWS : r.data?.rows ?? [];
+  const sample = !r.live; // 本物が読めていないときは書かない
+  const rows = r.data?.rows ?? [];
   const [shown, setShown] = useState<{ id: string; s: Secret } | null>(null);
   const [edit, setEdit] = useState<{ id: string; f: Record<string, string> } | null>(null);
   const [msg, setMsg] = useState<{ text: string; bad?: boolean }>({ text: '' });
   useEffect(() => { if (!shown) return; const t = setTimeout(() => setShown(null), 30000); return () => clearTimeout(t); }, [shown]);
 
   const post = async (body: Record<string, unknown>, done: string) => {
-    if (sample) { setMsg({ text: `見本なので保存はしていません（${done}）` }); return null; }
+    if (sample) return null;
     const res = await horyuPost<{ secret?: Secret }>('ippass', body);
     setMsg(res.ok ? { text: done } : { text: res.error, bad: true });
     return res.ok ? res.data : null;
   };
   const reveal = async (it: Item) => {
     if (shown?.id === it.id) { setShown(null); return; }
-    if (sample) { setShown({ id: it.id, s: { login_id: 'sample-id', password: '********（見本）', url: 'https://example.com', memo: '見本' } }); return; }
+    if (sample) return;
     const d = await post({ action: 'reveal', id: it.id }, `${it.title} を開きました（操作ログに残ります・30秒で隠します）`);
     if (d?.secret) setShown({ id: it.id, s: d.secret });
   };
@@ -44,7 +40,7 @@ export default function IppassPage() {
     const body = edit.id === 'new' ? { action: 'add', ...f } : { action: 'update', id: edit.id, ...f };
     if (!String(edit.f.title ?? 'x').trim()) { setMsg({ text: '名前を入れてください', bad: true }); return; }
     const d = await post(body, edit.id === 'new' ? `${edit.f.title} を足しました` : '直しました');
-    if (d || sample) { setEdit(null); setShown(null); void r.reload(); }
+    if (d) { setEdit(null); setShown(null); void r.reload(); }
   };
 
   return (
