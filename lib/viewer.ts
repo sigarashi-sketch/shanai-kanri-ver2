@@ -1,11 +1,15 @@
 import 'server-only';
-import { cookies } from 'next/headers';
-import { VIEWER_COOKIE, type Member } from './access';
-import { loadMembers } from './members-store';
+import type { Member } from './access';
+import { loadMe } from './members-store';
 
-/** いまの人。ログインをつなぐまでは上のバーの「見え方」で切り替え（cookie・既定は全体管理者）。 */
+/** ログインしていない・確かめられなかったときの人（何も見られない・営業共有リストの扱い） */
+export const GUEST: Member = { id: '', email: '', name: 'ログインしていません', division: 'その他', kind: 'その他', role: 'none', own: {} };
+
+/**
+ * いまの人＝ログインした本人（lib/members-store.ts loadMe・10-26）。
+ *   前の「見え方」（cookie で架空の人に切り替え）はやめた。cookie が残っていても読まない＝本人以外の権限にはならない
+ */
 export async function getViewer(): Promise<Member> {
-  const id = (await cookies()).get(VIEWER_COOKIE)?.value;
-  const ms = await loadMembers();
-  return ms.find((m) => m.id === id) ?? ms[0];
+  const got = await loadMe();
+  return got.ok ? got.me : GUEST;
 }

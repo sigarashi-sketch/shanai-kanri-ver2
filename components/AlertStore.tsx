@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { DEFAULT_RULES, type Rule, type Who } from '@/lib/alert-rules';
-import type { Level } from '@/lib/roumu-sample';
+import type { Level } from '@/lib/types/base';
 
 // アラート設定を全画面で1つにする置き場（アラート設定・残業・有給・現場契約・当日の出勤状況が同じものを読む）。
 //   本番前の手元版はこの端末に覚えるだけ。本物につなぐときは DB の設定テーブル1つに置き換える。

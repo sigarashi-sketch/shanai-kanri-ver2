@@ -9,21 +9,11 @@ import { legacyRoleLabel } from '@/lib/org';
 
 // 閲覧ログ（設定の中・全体管理者だけ・10-25）。だれが、だれのチャット・基本情報・面談メモ・要約を開いたか。新しい順。
 //   本物＝今の社内システムの GET /api/assistant?action=v2-views（/api/live/view-logs が読む・super_admin だけ）。
-//   ログインしていなければ見本の行。見るだけ（消したり直したりはしない）。
+//   ログインが切れていたら行は出さない（LiveBanner がログインの案内・10-26 見本の行はやめた）。見るだけ（消したり直したりはしない）。
 type Row = { at: string; email: string; role: string; kind: string; target: string; page: string };
 const KIND_LABEL: Record<string, string> = { chat: 'チャット', basic: '基本情報', memo: '面談メモ', summary: '要約', other: 'そのほか' };
 const KIND_TONE: Record<string, string> = { chat: 'info', basic: 'ok', memo: 'caution', summary: 'purple', other: 'mute' };
 const DAYS = [{ v: 1, label: '今日（24時間）' }, { v: 7, label: '7日' }, { v: 30, label: '30日' }, { v: 90, label: '90日' }, { v: 0, label: 'すべて' }];
-
-const h = (n: number) => new Date(Date.now() - n * 3600000).toISOString();
-const SAMPLE: Row[] = [
-  { at: h(0.3), email: 'nakamura@example.com', role: 'staff', kind: 'chat', target: '佐藤 健太', page: '/jinji/staff/r0000001' },
-  { at: h(1.2), email: 'kobayashi@example.com', role: 'sales_admin', kind: 'summary', target: '伊藤 誠', page: '/eigyo/proper' },
-  { at: h(3.5), email: 'tanaka@example.com', role: 'admin', kind: 'basic', target: '林 さくら', page: '/jinji/staff/r0000002' },
-  { at: h(26), email: 'nakamura@example.com', role: 'staff', kind: 'memo', target: '高橋 健', page: '/jinji/saiyou' },
-  { at: h(50), email: 'fujikawa@example.com', role: 'staff', kind: 'basic', target: '渡辺 涼', page: '/jinji/staff/r0000003' },
-  { at: h(200), email: 'kobayashi@example.com', role: 'sales_admin', kind: 'chat', target: '加藤 葵', page: '/eigyo/proper' },
-];
 
 const fmtAt = (iso: string) => {
   const d = new Date(iso);
@@ -71,11 +61,7 @@ export default function ViewLogPage() {
     </main>
   );
 
-  // 見本のときも同じ絞りをかける
-  const since = days ? Date.now() - days * 86400000 : 0;
-  const shown = state === 'sample'
-    ? SAMPLE.filter((r) => (!kind || r.kind === kind) && (!since || Date.parse(r.at) >= since) && (!qq || r.target.includes(qq) || r.email.includes(qq))).sort((a, b) => b.at.localeCompare(a.at))
-    : rows;
+  const shown = state === 'live' ? rows : [];
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
@@ -98,7 +84,7 @@ export default function ViewLogPage() {
           <Search size={14} className="shrink-0 text-faint" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="見られた人・見た人で探す" aria-label="見られた人・見た人で探す" className="min-w-0 flex-1 bg-transparent outline-none" />
         </label>
-        <span className="ml-auto text-sm text-faint">{state === 'loading' ? '読んでいます…' : `${shown.length}件`}</span>
+        <span className="ml-auto text-sm text-faint">{state === 'loading' ? '読んでいます…' : state === 'live' ? `${shown.length}件` : ''}</span>
       </section>
 
       <section className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
@@ -120,12 +106,12 @@ export default function ViewLogPage() {
                   </tr>
                 );
               })}
-              {state !== 'loading' && shown.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-body text-muted">この条件の記録はありません</td></tr>}
+              {state === 'live' && shown.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-body text-muted">この条件の記録はありません</td></tr>}
             </tbody>
           </table>
         </div>
       </section>
-      <p className="text-xs text-faint">新しい順に最大200件。もっと前は期間を広げてください。{state === 'sample' && '（見本）'}</p>
+      <p className="text-xs text-faint">新しい順に最大200件。もっと前は期間を広げてください。</p>
     </main>
   );
 }

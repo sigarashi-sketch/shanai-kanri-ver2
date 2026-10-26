@@ -1,4 +1,4 @@
-import type { FeedType } from '@/lib/home-jinji-sample';
+import type { FeedType } from '@/lib/types/base';
 
 // ホーム人事のフィードのイラスト（要員の動きを1枚の絵にする）。丸と四角だけの簡単な人形。絵文字・写真は使わない。
 //   色は役割の色（var(--tone-*) / var(--color-*) / 分類の色）だけ＝着せ替えで一緒に変わる。服の色は名前から決める（誰の投稿かが絵でも分かる）

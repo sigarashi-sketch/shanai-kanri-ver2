@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePoll, type LiveState } from '@/components/Live';
 
 // useIke（components/Live.tsx）と同じ動きで、/api/live/<画面> を読む（今の API を複数まとめた口・GET だけ）。
-//   ・401 + not_logged_in なら state='sample'（画面は見本のまま）
+//   ・401 + not_logged_in なら state='sample'（ログインが切れた。画面は何も出さず LiveBanner がログインの案内）
 //   ・pollMs を渡すと読み直す（見えていない・15分さわっていないあいだは止める＝usePoll・10-25）
 export function useLiveRoute<T>(url: string | null, opts?: { pollMs?: number }) {
   const [data, setData] = useState<T | null>(null);

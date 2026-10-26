@@ -5,7 +5,7 @@ import { isInnaiEmail, tokenEmail } from './innai';
 
 // 今の社内システム（IKEIKE_ORIGIN）を、ログインした人のトークンで呼ぶ（本物のデータの出どころはここだけ）。
 //   ・DB の鍵は ver2 に置かない。見られる範囲・権限の判定は全部今の社内システムがやる
-//   ・トークンが無い（ログインしていない）ときは呼ばない＝画面は見本データ
+//   ・トークンが無い（ログインしていない）ときは呼ばない＝画面は出さず「ログインしてください」（app/(app)/layout.tsx）
 export const IKE_TOKEN_COOKIE = 'v2_ike_token';
 export const IKE_ORIGIN = process.env.IKEIKE_ORIGIN || 'https://ikeike-app.vercel.app';
 

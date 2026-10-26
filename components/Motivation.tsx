@@ -9,18 +9,29 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 //   ・弾み（mo-celebrate）は 参画決定・承認・提出完了 だけ
 //   比べるのは先週の自分とだけ。ランキング・ポイントはやらない。
 type Toast = { id: number; text: string; sub?: string; undo?: () => void };
-type Ctx = { today: number; weekAvg: number; hit: (n?: number) => void; toast: (t: Omit<Toast, 'id'>) => void };
+type Ctx = { today: number | null; weekAvg: number | null; hit: (n?: number) => void; toast: (t: Omit<Toast, 'id'>) => void };
 const MotivationCtx = createContext<Ctx | null>(null);
 
 export function MotivationProvider({ children }: { children: React.ReactNode }) {
-  // 今日の処理はこの端末に日付ごとに覚える（ページを開き直しても戻らない）。見本は12件から。
-  const dayKey = `v2_today_${new Date().toISOString().slice(0, 10)}`;
-  const [today, setToday] = useState(12);
-  useEffect(() => { try { const v = Number(localStorage.getItem(dayKey)); if (v) setToday(v); } catch { /* noop */ } }, [dayKey]);
-  const weekAvg = 9;
+  // 今日の処理と先週の1日平均は、今の社内システムの my-activity?action=today（本人の操作の記録 op_audit_log を数えたもの・10-26 見本の 12件／9件 をやめた）。
+  //   この画面で処理した分は、次に読み直すまでここで +1 して見せる（読み直すと今のシステムの数に戻る＝二重に数えない）
+  const [today, setToday] = useState<number | null>(null);
+  const [weekAvg, setWeekAvg] = useState<number | null>(null);
+  useEffect(() => {
+    let on = true;
+    void fetch('/api/ike/my-activity?action=today', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { ok?: boolean; today?: unknown; weekAvg?: unknown } | null) => {
+        if (!on || !j || j.ok === false) return;
+        if (Number.isFinite(Number(j.today))) setToday(Number(j.today));
+        if (j.weekAvg != null && Number.isFinite(Number(j.weekAvg))) setWeekAvg(Number(j.weekAvg));
+      })
+      .catch(() => { /* 読めなければ出さない */ });
+    return () => { on = false; };
+  }, []);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const seq = useRef(0);
-  const hit = useCallback((n = 1) => setToday((v) => { const nv = v + n; try { localStorage.setItem(dayKey, String(nv)); } catch { /* noop */ } return nv; }), [dayKey]);
+  const hit = useCallback((n = 1) => setToday((v) => (v == null ? v : v + n)), []);
   const toast = useCallback((t: Omit<Toast, 'id'>) => {
     const id = ++seq.current;
     setToasts((xs) => [...xs, { ...t, id }]);
@@ -54,15 +65,16 @@ export function TodayPill() {
   const [bump, setBump] = useState(0);
   const first = useRef(true);
   useEffect(() => { if (first.current) { first.current = false; return; } setBump((b) => b + 1); }, [today]);
-  const ratio = Math.min(1, today / Math.max(weekAvg * 1.5, 1));
-  const diff = today - weekAvg;
+  if (today == null) return null;
+  const ratio = Math.min(1, today / Math.max((weekAvg ?? today) * 1.5, 1));
+  const diff = weekAvg == null ? null : Math.round((today - weekAvg) * 10) / 10;
   return (
     <div className="flex items-center gap-2 rounded-full border border-line py-1 pl-1 pr-3 text-sm" title="比べるのは先週のあなたの平均だけ">
       <svg aria-hidden width="28" height="28" viewBox="0 0 36 36">
         <circle cx="18" cy="18" r="14" fill="none" stroke="var(--color-track)" strokeWidth="5" />
         <circle cx="18" cy="18" r="14" fill="none" stroke="var(--color-ok)" strokeWidth="5" strokeLinecap="round" strokeDasharray={`${88 * ratio} 88`} transform="rotate(-90 18 18)" style={{ transition: 'stroke-dasharray 600ms cubic-bezier(.22,1,.36,1)' }} />
       </svg>
-      <span>今日の処理 <b key={bump} className={`num text-body ${bump ? 'mo-spring-in inline-block' : ''}`}>{today}</b>件 <span className={diff >= 0 ? 'text-ok' : 'text-muted'}>先週平均 {diff >= 0 ? '+' : ''}{diff}</span></span>
+      <span>今日の処理 <b key={bump} className={`num text-body ${bump ? 'mo-spring-in inline-block' : ''}`}>{today}</b>件{diff != null && <> <span className={diff >= 0 ? 'text-ok' : 'text-muted'}>先週平均 {diff >= 0 ? '+' : ''}{diff}</span></>}</span>
     </div>
   );
 }

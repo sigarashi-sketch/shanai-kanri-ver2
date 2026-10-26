@@ -9,21 +9,10 @@ import { logView } from '@/lib/live/person';
 // チャットの「要約」ボタン（10-25 shoya）。押した人だけ・押したときだけ要約する（使い回しはサーバー側）。
 //   ・直近3日が基本、7日も選べる。結果は小窓（ポップ）で出す
 //   ・中身は決まった形（ひとこと・起きたこと〔主語つき〕・待っていること・気をつけること）。主語は LINE の相手＝緑の LINE の印、自社＝スタッフの印（10-25 shoya「要約見ずらい」「主語は LINE アイコンとか」）
-//   ・ログインしていない（見本）ときは見本の文を出すだけで、要約の API は呼ばない
+//   ・本物でない（ログインが切れた）ときは要約の API を呼ばず「ログインしてください」（10-26 見本の文はやめた）
 //   ・窓は Dialog（Escape はこの窓だけを閉じる＝後ろの名前の小窓は閉じない・z は lib/layers.ts）。作れたら「見た」を残す（10-25）
 type Ev = { date: string; actor: 'self' | 'them' | 'member'; who: string; text: string };
 type Data = { headline: string; events: Ev[]; waiting: string[]; cautions: string[] };
-const SAMPLE: Data = {
-  headline: '現場の入場日と持ち物の確認が中心（見本）',
-  events: [
-    { date: '10/24', actor: 'them', who: '相手', text: '「了解です、スーツで行きます」と返信' },
-    { date: '10/24', actor: 'self', who: '自社（見本）', text: '入場日の案内と持ち物を送った' },
-    { date: '10/23', actor: 'self', who: '自社', text: '案件の案内を2件送った' },
-  ],
-  waiting: [],
-  cautions: [],
-};
-
 type Res = { ok?: boolean; text?: string; data?: Data | null; count?: number; cached?: boolean; error?: string };
 
 export function ChatSummary({ kind, id, name, live }: { kind: 'user' | 'group'; id: string; name: string; live: boolean }) {
@@ -34,7 +23,7 @@ export function ChatSummary({ kind, id, name, live }: { kind: 'user' | 'group'; 
 
   const run = async (d: 3 | 7) => {
     setDays(d); setOpen(true); setBusy(true); setRes(null);
-    if (!live) { await new Promise((r) => setTimeout(r, 700)); setRes({ ok: true, data: SAMPLE, count: 6 }); setBusy(false); return; }
+    if (!live) { setRes({ error: 'ログインが切れました。ログインしてください' }); setBusy(false); return; }
     try {
       const r = await fetch('/api/live/summary', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind, id, days: d }) });
       const j = (await r.json().catch(() => ({ error: `読めませんでした（${r.status}）` }))) as Res;
@@ -57,7 +46,7 @@ export function ChatSummary({ kind, id, name, live }: { kind: 'user' | 'group'; 
           className="mo-scale-in fixed left-1/2 top-[12vh] flex max-h-[76vh] w-[min(560px,92vw)] -translate-x-1/2 flex-col panel">
             <div className="flex items-center gap-2 border-b border-line px-5 py-3">
               <Sparkles size={16} style={{ color: 'var(--a)' }} />
-              <div className="min-w-0 flex-1"><div className="truncate text-md font-bold">{name} の要約</div><div className="text-xs text-faint">直近{days}日{res?.count ? `・${res.count}件` : ''}{res?.cached ? '・前の要約（新しい書き込みなし）' : ''}{!live ? '・見本' : ''}</div></div>
+              <div className="min-w-0 flex-1"><div className="truncate text-md font-bold">{name} の要約</div><div className="text-xs text-faint">直近{days}日{res?.count ? `・${res.count}件` : ''}{res?.cached ? '・前の要約（新しい書き込みなし）' : ''}</div></div>
               {([3, 7] as const).map((d) => (
                 <button key={d} onClick={() => run(d)} disabled={busy} className="rounded-lg border px-2 py-1 text-sm font-semibold disabled:opacity-40" style={d === days ? { borderColor: 'var(--a)', color: 'var(--ad)' } : { borderColor: 'var(--color-field)', color: 'var(--color-muted)' }}>{d}日</button>
               ))}

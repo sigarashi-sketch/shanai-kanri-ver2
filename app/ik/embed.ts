@@ -52,7 +52,7 @@ export function embedHtml(html: string, opts?: { pane?: 'make' | 'store' }): str
   return out;
 }
 
-/** ログインしていない・開けない画面のときの短い案内（見本は作らない） */
+/** ログインしていない・開けない画面のときの短い案内（架空のデータは出さない） */
 export function noticeHtml(title: string, body: string): string {
   return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title>
 <style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#fff;color:#333;font:14px/1.8 system-ui,-apple-system,"Hiragino Kaku Gothic ProN",sans-serif;text-align:center;padding:24px}
