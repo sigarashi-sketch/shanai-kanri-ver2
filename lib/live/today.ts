@@ -2,7 +2,7 @@
 //   読むのは GET /api/kintai-today?date=&stale=1（1段目・キャッシュだけ・すぐ返る）と、続けて ?date=（2段目・freee から取り直す・遅いと40秒台）。
 //   欠勤・遅刻の連絡は GET /api/attendance-board?action=absence&date=（LINE の発言を AI で 欠勤/遅刻/早退/… に分けたもの）。
 //   ★「何を異常とみなすか」は今のシステムの issues 配列だけで決める（ここで条件を書き足さない）
-import type { TodayRow } from '@/lib/kintai-sample';
+import type { TodayRow } from '@/lib/types/roumu';
 
 export type IkeTodayStatus = 'working' | 'nightEnd' | 'punched' | 'unpunched' | 'beforeStart' | 'off' | 'nodata' | 'pending' | 'error' | 'unlinked';
 export type IkeTodayRow = {

@@ -3,7 +3,7 @@
 //   既定の月は今のシステムと同じ＝先月（勤務表は翌月の頭に届く）。
 //   ★届いたか＝ファイルが1つ以上あるか だけ（今のシステムと同じ）。「読めない」と freee との差はこの口には無い（勤怠の締めの画面にある）
 //   ★流れが「提出不要」の契約は届かなくてよいので一覧から外し、件数だけ出す
-import type { TsRow } from '@/lib/timesheet-sample';
+import type { TsRow } from '@/lib/types/roumu';
 
 export type IkeTsGroup = 'none' | 'upper' | 'shozoku' | 'self' | 'unknown';
 export type IkeTsItem = {

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Check } from 'lucide-react';
+import { Check, ExternalLink } from 'lucide-react';
 import { useIke } from '@/components/Live';
 import type { Mikeiken } from '@/components/Mikeiken';
 import { PersonName } from '@/components/Person';
@@ -21,6 +21,8 @@ type Src = { key: string; label: string; href?: string; where: string; state: st
 type RingiList = { ok?: boolean; ringi?: { id: string; linked_name?: string | null; title: string; amount_yen: number; created_at: string }[] };
 type Avail = { ok?: boolean; candidates?: { normalizedName: string; name: string; status: 'new' | 'updated' | 'same'; items: { date: string }[] }[] };
 type Bikkura = { ok?: boolean; pending?: { id: string; name: string; kind: string; minutes: number; at: string }[] };
+// freee 人事労務（申請の承認は freee の中で）
+const FREEE_HR_URL = 'https://p.secure.freee.co.jp/';
 const yen = (n: number) => `¥${(Number(n) || 0).toLocaleString('ja-JP')}`;
 const md = (iso?: string | null) => { const t = Date.parse(String(iso || '')); if (!Number.isFinite(t)) return ''; const d = new Date(t + 9 * 3600e3); return `${d.getUTCMonth() + 1}/${d.getUTCDate()}`; };
 const errOf = (x: { state: string; error: string; data: unknown }) => (x.state === 'error' ? x.error : (x.data as { ok?: boolean; error?: unknown } | null)?.ok === false ? String((x.data as { error?: unknown }).error || '読めませんでした') : '');
@@ -55,7 +57,10 @@ export function ApprovalLive({ mk }: { mk: Mikeiken }) {
           <div className="text-sm text-muted">{srcs.filter((s) => s.items.length).map((s) => `${s.label} ${s.items.length}`).join('・') || '今の時点で承認待ちはありません'}</div>
         </div>
       </div>
-      <div className="rounded-xl border border-line bg-soft px-4 py-2.5 text-sm text-muted">打刻修正・残業・有給・欠勤・遅刻早退の申請は、今の社内システムに一覧が無いので freee の画面で承認してください。</div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-line bg-soft px-4 py-2.5 text-sm text-muted">
+        <span>打刻修正・残業・有給・欠勤・遅刻早退の申請は <b className="text-ink">freee の中で承認してください</b>（今の freee 連携の権限では申請を読めないので、ここには出ません）。</span>
+        <a href={FREEE_HR_URL} target="_blank" rel="noopener noreferrer" className="btn-secondary btn-sm ml-auto inline-flex items-center gap-1"><ExternalLink size={13} />freee 人事労務を開く</a>
+      </div>
       {!loading && total === 0 && (
         <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-8 text-center"><Check className="mx-auto text-ok" size={26} /><div className="mt-2 text-md font-bold">承認待ちはぜんぶ片づいています</div></div>
       )}

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Bell, Check, ChevronDown, Clock } from 'lucide-react';
-import { NOW, TODAY_ROWS, TODAY_TOTAL, type TodayRow } from '@/lib/kintai-sample';
+import type { TodayRow } from '@/lib/types/roumu';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
@@ -29,8 +29,6 @@ const jstToday = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0
 export default function TodayPage() {
   const canEdit = usePerms().can('roumu', 'edit');
   const { hit, toast } = useMotivation();
-  const [done, setDone] = useState<Record<string, string>>({});
-  const [nudged, setNudged] = useState<Record<string, boolean>>({});
   const [sales, setSales] = useState('すべて');
   const [showOthers, setShowOthers] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
@@ -60,12 +58,12 @@ export default function TodayPage() {
     if (r.state === '始業前' || r.state === '取得できていない') return { ...r, state: '出発コール未着' as const, contact: tail };
     if (r.state === '未打刻') return { ...r, memo: [tail, r.memo].filter(Boolean).join(' ／ ') };
     return r;
-  }) : TODAY_ROWS;
-  // 本物は「済んだ」を印から読む（見本は画面の中だけ）
-  const doneOf = (id: string) => (live ? marks.get('today-result', mkey(id))?.value || (marks.get('today-site', mkey(id)) ? '現場に伝えた' : '') : done[id]);
-  const nudgedOf = (id: string, st: TodayRow['state']) => (live ? !!marks.get(st === '未打刻' ? 'nudge-punch' : 'nudge-depcall', mkey(id)) : !!nudged[id]);
-  const TOTAL = L ? { planned: L.planned, done: L.done } : TODAY_TOTAL;
-  const AT = L ? { date: L.date, time: L.time } : NOW;
+  }) : [];
+  // 「済んだ」は印から読む
+  const doneOf = (id: string) => marks.get('today-result', mkey(id))?.value || (marks.get('today-site', mkey(id)) ? '現場に伝えた' : '');
+  const nudgedOf = (id: string, st: TodayRow['state']) => !!marks.get(st === '未打刻' ? 'nudge-punch' : 'nudge-depcall', mkey(id));
+  const TOTAL = L ? { planned: L.planned, done: L.done } : { planned: 0, done: 0 };
+  const AT = L ? { date: L.date, time: L.time } : { date: '', time: '' };
   const rawOf = (key: string) => best?.rows?.find((x) => x.key === key);
   const saved = (text: string) => { hit(); toast({ text, sub: '→ 今の社内システムに保存しました' }); };
   const loadErr = live && best && !best.ok ? (typeof best.error === 'string' ? best.error : best.error?.message) : '';
@@ -75,44 +73,32 @@ export default function TodayPage() {
   const need = mine.filter((r) => NEED.includes(r.state)).sort((a, b) => NEED.indexOf(a.state) - NEED.indexOf(b.state) || (b.late ?? 0) - (a.late ?? 0));
   const open = need.filter((r) => !doneOf(r.personId));
   const others = mine.filter((r) => !NEED.includes(r.state));
-  // 上の数は「担当営業で絞る」に合わせる（出勤予定・出勤済みの全体数は見本の総数から）
+  // 上の数は「担当営業で絞る」に合わせる（出勤予定・出勤済みの全体数は未経験の人で数え直した総数から）
   const noPunch = mine.filter((r) => r.state === '未打刻' && !doneOf(r.personId)).length;
 
   const pulse = (id: string) => { setFlash(id); setTimeout(() => setFlash(null), 1300); };
-  const settle = (r: TodayRow, what: string, sub: string) => {
-    if (live && date) {
-      const kind = what === '現場に伝えた' ? 'today-site' : 'today-result';
-      const val = what === '現場に伝えた' ? '伝えた' : what;
-      setWerr('');
-      setMark(kind, mkey(r.personId), val, { nn: r.personId, ym: date.slice(0, 7) })
-        .then(() => { pulse(r.personId); hit(); marks.reload(); toast({ text: `${r.person}：${what}`, sub: '→ 今の社内システムに残しました', undo: () => { setMark(kind, mkey(r.personId), '').then(() => marks.reload()).catch((e) => setWerr((e as Error).message)); } }); })
-        .catch((e) => setWerr(`${r.person}：${(e as Error).message}`));
-      return;
-    }
-    setDone((d) => ({ ...d, [r.personId]: what }));
-    pulse(r.personId); hit();
-    // 取り消しはこの人の分だけ戻す（続けて処理した別の人は戻さない）
-    toast({ text: `${r.person}：${what}`, sub, undo: () => setDone((d) => { const n = { ...d }; delete n[r.personId]; return n; }) });
+  const settle = (r: TodayRow, what: string) => {
+    if (!live || !date) return;
+    const kind = what === '現場に伝えた' ? 'today-site' : 'today-result';
+    const val = what === '現場に伝えた' ? '伝えた' : what;
+    setWerr('');
+    setMark(kind, mkey(r.personId), val, { nn: r.personId, ym: date.slice(0, 7) })
+      .then(() => { pulse(r.personId); hit(); marks.reload(); toast({ text: `${r.person}：${what}`, sub: '→ 今の社内システムに残しました', undo: () => { setMark(kind, mkey(r.personId), '').then(() => marks.reload()).catch((e) => setWerr((e as Error).message)); } }); })
+      .catch((e) => setWerr(`${r.person}：${(e as Error).message}`));
   };
   const askNudge = (r: TodayRow) => {
-    if (live && date) {
-      const kind = r.state === '未打刻' ? 'punch' : 'depcall';
-      setConfirm({
-        title: `${r.person} に${kind === 'punch' ? '打刻' : '出発の連絡'}を促す`, okLabel: '促す',
-        lines: ['本人の公式LINE（1:1）に決まった文を1通送ります', 'いまは送信を止めている設定なら、送らずに「促した」の印だけ残します'],
-        run: async () => { const j = await nudge(kind, date, [{ nn: r.personId }]); pulse(r.personId); hit(); marks.reload(); toast({ text: `${r.person} に${kind === 'punch' ? '打刻' : '出発の連絡'}を促しました`, sub: nudgeSub(j) }); },
-      });
-      return;
-    }
-    setNudged((n) => ({ ...n, [r.personId]: true }));
-    pulse(r.personId); hit();
-    toast({ text: `${r.person} に${r.state === '未打刻' ? '打刻' : '出発コール'}を促しました`, sub: '→ あおいから本人の LINE に送りました。返事はチャットに届きます', undo: () => setNudged((n) => ({ ...n, [r.personId]: false })) });
+    if (!live || !date) return;
+    const kind = r.state === '未打刻' ? 'punch' : 'depcall';
+    setConfirm({
+      title: `${r.person} に${kind === 'punch' ? '打刻' : '出発の連絡'}を促す`, okLabel: '促す',
+      lines: ['本人の公式LINE（1:1）に決まった文を1通送ります', 'いまは送信を止めている設定なら、送らずに「促した」の印だけ残します'],
+      run: async () => { const j = await nudge(kind, date, [{ nn: r.personId }]); pulse(r.personId); hit(); marks.reload(); toast({ text: `${r.person} に${kind === 'punch' ? '打刻' : '出発の連絡'}を促しました`, sub: nudgeSub(j) }); },
+    });
   };
-  const resultSub = (x: string) => x.startsWith('打ち忘れ') ? '→ 打刻修正の申請を本人に頼みました（申請の承認に届きます）' : x.startsWith('遅刻') ? '→ 遅刻として記録し、担当営業に知らせました' : x.startsWith('欠勤') ? '→ 欠勤管理と、離職リスクの材料に載りました' : '→ 担当営業のやることに載りました';
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="当日の出勤状況" sub={`${AT.date} ${AT.time} 時点。freee の打刻・提出済みシフト・勤怠連絡${live ? '' : '・出発コール'}から出しています${live ? (full.live ? '' : '・いまは前に取った打刻（freee から取り直し中）') : '・見本データ'}`}>
+      <PageTitle title="当日の出勤状況" sub={`${AT.date ? `${AT.date} ${AT.time} 時点。` : ''}freee の打刻・提出済みシフト・勤怠連絡から出しています${live ? (full.live ? '' : '・いまは前に取った打刻（freee から取り直し中）') : ''}`}>
         <select aria-label="担当営業で絞る" value={sales} onChange={(e) => setSales(e.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-body">
           {reps.map((x) => <option key={x} value={x}>{x === 'すべて' ? '担当営業：すべて' : `担当営業：${x}`}</option>)}
         </select>
@@ -126,7 +112,7 @@ export default function TodayPage() {
       <div className="mo-fade-up grid grid-cols-2 gap-3 md:grid-cols-4" style={{ ['--i' as string]: 1 }}>
         {[
           ['出勤予定', TOTAL.planned, '人', 'var(--color-ink)'],
-          ['出勤済み', TOTAL.done + (live ? need.filter((r) => doneOf(r.personId).startsWith('打ち忘れ')).length : Object.values(done).filter((x) => x.startsWith('打ち忘れ')).length), '人', 'var(--color-ok)'],
+          ['出勤済み', TOTAL.done + need.filter((r) => doneOf(r.personId).startsWith('打ち忘れ')).length, '人', 'var(--color-ok)'],
           ['未打刻', noPunch, '人', noPunch ? 'var(--color-bad)' : 'var(--color-ok)'],
           ['対応が要る', open.length, '件', open.length ? 'var(--color-warn)' : 'var(--color-ok)'],
         ].map(([l, n, u, c]) => (
@@ -143,7 +129,8 @@ export default function TodayPage() {
         <Link href="/roumu/approval" className="ml-auto shrink-0 text-sm font-semibold" style={{ color: 'var(--ad)' }}>申請の承認へ</Link>
       </div>
 
-      {open.length === 0 && (
+      {!live && <div className="rounded-xl border border-line bg-surface px-4 py-8 text-center text-body text-muted">{quick.state === 'loading' ? '読み込み中…' : '読めませんでした'}</div>}
+      {live && open.length === 0 && (
         <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-10 text-center">
           <Check className="mx-auto text-ok" size={26} />
           <div className="mt-2 text-md font-bold">今の時点で対応が要る人はいません</div>
@@ -170,7 +157,7 @@ export default function TodayPage() {
                         <span className="chip" style={{ background: `var(--tone-${tone}-bg)`, color: `var(--tone-${tone}-fg)` }}>{r.state}</span>
                         {r.late != null && <div className={`num mt-1 flex items-center gap-1 text-xs ${r.late >= 30 ? 'font-semibold text-bad' : 'text-muted'}`}><Clock size={12} />始業から {r.late}分</div>}
                       </td>
-                      <td className="px-2 py-2.5 text-sm">{r.contact ?? <span className="text-faint">連絡なし</span>}{!live && r.memo && <div className="text-xs text-faint">{r.memo}</div>}
+                      <td className="px-2 py-2.5 text-sm">{r.contact ?? <span className="text-faint">連絡なし</span>}
                         {live && date && rawOf(r.personId) && <LiveEdit raw={rawOf(r.personId)!} date={date} canEdit={canEdit} onSaved={saved} />}</td>
                       <td className="px-4 py-2.5">
                         {d ? <span className="inline-flex items-center gap-1 text-sm font-semibold text-ok"><Check size={14} />{d}</span>
@@ -178,13 +165,13 @@ export default function TodayPage() {
                             <div className="flex flex-wrap items-center gap-2">
                               {nudgedOf(r.personId, r.state) ? <span className="text-sm text-faint">促しました・返事待ち</span>
                                 : <button onClick={() => askNudge(r)} disabled={!okEdit} title={block} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-sm font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><Bell size={14} />あおいで促す</button>}
-                              <select aria-label={`${r.person} の結果`} value="" disabled={!okEdit} title={block} onChange={(e) => e.target.value && settle(r, e.target.value, resultSub(e.target.value))} className="min-h-8 rounded-lg border border-field bg-surface px-2 text-sm disabled:opacity-50">
+                              <select aria-label={`${r.person} の結果`} value="" disabled={!okEdit} title={block} onChange={(e) => e.target.value && settle(r, e.target.value)} className="min-h-8 rounded-lg border border-field bg-surface px-2 text-sm disabled:opacity-50">
                                 <option value="">結果を選ぶ…</option>
                                 {RESULTS.map((x) => <option key={x} value={x}>{x}</option>)}
                               </select>
                             </div>
                           ) : (
-                            <button onClick={() => settle(r, '現場に伝えた', `→ ${r.sales}（担当営業）から現場に伝えた記録を残しました`)} disabled={!okEdit} title={block} className="btn-primary btn-sm">現場に伝えた</button>
+                            <button onClick={() => settle(r, '現場に伝えた')} disabled={!okEdit} title={block} className="btn-primary btn-sm">現場に伝えた</button>
                           )}
                       </td>
                     </tr>
@@ -199,7 +186,7 @@ export default function TodayPage() {
       <div className="rounded-xl border border-line bg-surface">
         <button onClick={() => setShowOthers((v) => !v)} className="flex w-full items-center gap-2 px-4 py-3 text-left text-body">
           <ChevronDown size={16} className={`transition-transform ${showOthers ? '' : '-rotate-90'}`} />
-          <b>出勤済み・休みの人</b><span className="text-muted">{live ? `（${others.length}人）` : `（見本は ${others.length}人だけ・全体は出勤予定 ${TODAY_TOTAL.planned}人）`}</span>
+          <b>出勤済み・休みの人</b><span className="text-muted">（{others.length}人）</span>
         </button>
         {showOthers && (
           <ul className="mo-fade-in border-t border-line-soft px-4 py-2 text-sm">
