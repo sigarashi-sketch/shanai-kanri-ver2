@@ -125,6 +125,8 @@ export function orgPerms(s: OrgState, a?: Assign): KPerms {
 }
 /** 組織表でその人に何か付いているか（ロール・個別・所属のどれか）。付いていなければ組織表では決めない */
 export const orgAssigned = (s: OrgState, a?: Assign) => !!a && (!!(a.role && a.role !== NO_ROLE) || !!(a.unit && s.units.some((u) => u.id === a.unit)) || Object.values(a.own ?? {}).some((l) => l && l !== 'none'));
+/** 組織表でこのシステムに入れる人か＝ロール・個別・所属（部署とチーム）のどれかで、どこかの区分に「見る」以上か権限管理が付いている（10-26 shoya「組織表でロールを割り振った内勤だけ」） */
+export const orgGrants = (s: OrgState, a?: Assign) => orgAssigned(s, a) && (Object.values(orgPerms(s, a)).some((l) => l && l !== 'none') || orgManage(s, a));
 export { KUBUN };
 /** 権限管理ができるか＝本人のロールか、所属の組織のロールで持っている */
 /** 初めのロールの名前の小窓（全体管理者・管理者・全体を見る＝全部／ロールなし・作ったロール＝なし） */

@@ -1,7 +1,7 @@
 import 'server-only';
 import { isListOnlyIkeRole, isRoleKey, roleFromIke, type Member } from './access';
 import { kAll, toKPerms } from './kubun';
-import { orgAssigned, orgManage, orgPerms, parseOrg, type OrgState } from './org';
+import { orgAssigned, orgGrants, orgManage, orgPerms, parseOrg, type OrgState } from './org';
 import { ikeFetchCached, ikeToken } from './ike';
 import { isInnaiEmail, tokenEmail } from './innai';
 
@@ -20,7 +20,7 @@ import { isInnaiEmail, tokenEmail } from './innai';
 type IkeMe = { authenticated?: boolean; email?: string; role?: string; listOnly?: boolean; ippass?: boolean; error?: string };
 type AdminRow = { email?: string; name?: string; role?: string; mikeiken?: boolean; inDomain?: boolean };
 
-export type MeLoad = { ok: true; me: Member; ikeRole: string } | { ok: false; reason: 'not_logged_in' | 'error'; error?: string };
+export type MeLoad = { ok: true; me: Member; ikeRole: string } | { ok: false; reason: 'not_logged_in' | 'error' | 'no_role'; error?: string };
 
 const norm = (e: unknown) => String(e || '').trim().toLowerCase();
 
@@ -104,6 +104,9 @@ export async function loadMe(): Promise<MeLoad> {
     if (!r.ok) return { ok: false, reason: 'error', error: `今の社内システムに入れるか聞けませんでした（${r.status}）` };
     if (norm(r.data.email) !== email) return { ok: false, reason: 'not_logged_in' };
     const ikeRole = String(r.data.role || '');
+    // 入れるのは、組織表でロール（部署・チームの段階を含む）を割り振った内勤だけ（10-26 shoya）。super_admin は締め出さないため常に入れる。
+    //   組織表を読めないときも入れない（開いて確かめられない人を入れない）
+    if (ikeRole !== 'super_admin' && !(org && orgGrants(org, org.people[tokenSub(t)]))) return { ok: false, reason: 'no_role' };
     // 未経験事業部か＝今のシステムの ippass（#未経験-クローズ の参加者・super_admin は常に true）。営業共有リストだけのロールは入れない
     const inside = (r.data.ippass === true || ikeRole === 'super_admin') && !(r.data.listOnly ?? isListOnlyIkeRole(ikeRole));
     const me = withOrg(withRole({ id: email, email, name: tokenName(t) || shared.get(email)?.name || email.split('@')[0], division: inside ? '未経験事業部' : 'その他', kind: '内勤' }, ikeRole, shared), tokenSub(t), ikeRole, org);

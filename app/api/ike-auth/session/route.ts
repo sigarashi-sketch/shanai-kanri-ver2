@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
 import { IKE_TOKEN_COOKIE } from '@/lib/skillsheet-source';
 import { isInnaiEmail, tokenEmail } from '@/lib/innai';
+import { orgGrants, parseOrg } from '@/lib/org';
+import { tokenSub } from '@/lib/members-store';
 
 // ログインで受け取ったトークンを、今の社内システムに「この人は入れるか」を聞いてから覚える。
 //   会社のアドレスか・退社していないか、の判定は今の社内システム（/api/auth?action=me）に任せる＝決まりは今と同じ
 const ORIGIN = process.env.IKEIKE_ORIGIN || 'https://ikeike-app.vercel.app';
-// 10-26 解放：今の社内システムに入れる内勤なら誰でも入れる（前は shoya だけ＝V2_ALLOWED_EMAILS）。見られる画面は組織表・ロールの区分で決まる
+// 10-26 shoya「要員はぜったいだめ・内勤だけ・内勤でも決められたロール割り振った人だけ」→ 組織表でロール（部署・チームの段階を含む）が付いた内勤だけ。super_admin は常に入れる
+//   （画面を開くたびに app/(app)/layout.tsx でも同じ判定をする＝組織表から外すと次に開いたときから入れない）
 
 export async function POST(req: Request) {
   const b = (await req.json().catch(() => ({}))) as { access_token?: string; expires_in?: number };
@@ -18,6 +21,13 @@ export async function POST(req: Request) {
   const me = (await r.json().catch(() => ({}))) as { authenticated?: boolean; allowed?: boolean; email?: string; error?: string };
   if (!r.ok || !me.authenticated || me.allowed === false) return NextResponse.json({ ok: false, error: me.error || '会社のアカウントでないか、入れない人です' }, { status: 403 });
   if (!isInnaiEmail(me.email)) return NextResponse.json({ ok: false, error: NO_YOIN }, { status: 403 });
+  const meRole = String((me as { role?: string }).role || '');
+  if (meRole !== 'super_admin') {
+    const sr = await fetch(`${ORIGIN}/api/assistant?action=v2-settings`, { headers: { Authorization: `Bearer ${t}`, Cookie: `sb_access=${t}` }, cache: 'no-store' }).catch(() => null);
+    const sv = (await sr?.json().catch(() => null)) as { value?: { org?: unknown } } | null;
+    const org = sv?.value?.org ? parseOrg(sv.value.org) : null;
+    if (!org || !orgGrants(org, org.people[tokenSub(t)])) return NextResponse.json({ ok: false, error: '組織表でロールが割り振られていないので入れません。全体管理者に組織表への追加を頼んでください' }, { status: 403 });
+  }
   const res = NextResponse.json({ ok: true });
   res.cookies.set(IKE_TOKEN_COOKIE, t, { path: '/', httpOnly: true, secure: true, sameSite: 'lax', maxAge: Math.max(60, Math.min(3600, Number(b.expires_in) || 3600) - 60) });
   return res;
