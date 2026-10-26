@@ -62,3 +62,29 @@ export const SHIME_REASONS: Partial<Record<IkeShimeStatus, readonly string[]>> =
 };
 export const reasonsFor = (s: IkeShimeStatus): readonly string[] => (SHIME_AUTO.includes(s) ? [] : SHIME_REASONS[s] || SHIME_REASONS.diff!);
 export const ALL_SHIME_REASONS: readonly string[] = Object.values(SHIME_REASONS).flat() as string[];
+
+// ---- 勤怠の照合（経理管理 /keiri/kintai-shogo・10-26）：1人1月の日ごと ----
+//   今の GET /api/roster?op=shime&action=detail&ym=&key=（SELECT だけ）。名前を画面の URL に出さないよう POST /api/live/shime {action:'detail'} から読む
+export type IkeShimeDay = { date: string; sheet: number | null; freee: number; leave: number; diff: number; ok: boolean; note: string };
+export type IkeShimeDetail = {
+  ok: boolean; error?: string; ym: string; key: string; name: string; cell: IkeShimeCell;
+  compare: { from: string; to: string; sheetMins: number; freeeMins: number; diffMins: number; diffDays: number; days: IkeShimeDay[]; dailyKnown: boolean } | null;
+  freeeDays: { date: string; mins: number; leave: number }[] | null;
+  freeeMonthMins: number;
+  sheet: { file: string; updatedAt: string; hours: number | null; fmt: string } | null;
+  freeeSyncedAt: string | null;
+  mnm: { company?: string } | null;
+  closed: { closed_at?: string; closed_by?: string; reason?: string; diff_mins?: number | null } | null;
+  unread?: { why: string; files: { file: string; receivedAt: string | null; state: string; note: string }[] };
+};
+// 勤務表が比べられない月の説明（今の kintai-shime.html の言い方）
+export const SHIME_WHY: Partial<Record<IkeShimeStatus, string>> = {
+  unread: '勤務表は届いていますが、時間がまだ読まれていません（取り込んだ勤務表は毎晩 0〜4時にまとめて読みます）。',
+  missing: 'この月の勤務表はまだ届いていません（ミンミカの勤務表の届き具合）。',
+  freee_only: 'この契約は勤務表の流れが「不要」です。freee の打刻だけです。',
+  no_contract: 'この月はミンミカの稼働契約がありません（待機・内勤など）。freee の打刻だけです。',
+  no_record: '勤務表の届き具合を記録し始める前の月です。freee の打刻だけです。',
+  current: '月の途中です。',
+};
+/** 差（±つき） */
+export const hhmmSigned = (m: number | null) => (m == null ? '—' : m === 0 ? '0:00' : `${m > 0 ? '+' : '−'}${hhmm(m)}`);

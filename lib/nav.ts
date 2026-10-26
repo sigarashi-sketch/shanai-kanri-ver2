@@ -58,6 +58,7 @@ export const NAV: NavGroup[] = [
     module: 'keiri', label: '経理管理', items: [
       { href: '/keiri/keihi', label: '交通費・経費', built: true },
       { href: '/keiri/check', label: '交通費チェック', built: true },
+      { href: '/keiri/kintai-shogo', label: '勤怠の照合', built: true }, // 上位から届いた勤務表 × freee を要員ごと・日ごとに（読むだけ・締めは労務の勤怠の締め・10-26）
       { href: '/keiri/seikyu', label: '請求書', built: true },
       { href: '/keiri/seikyu-zukuri', label: '請求書づくり', built: true }, // 今の画面をそのまま（app/ik・データは今のシステム）
       { href: '/keiri/seikyu-make', label: '請求書作成', built: true },

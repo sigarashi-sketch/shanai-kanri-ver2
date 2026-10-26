@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ikeWrite, sameSite } from '@/lib/ike-write';
-import { ikeFetch } from '@/lib/ike';
+import { ikeFetch, ikeToken } from '@/lib/ike';
 import { loadMikeikenSet } from '@/lib/live/mikeiken-server';
 import { isMikeiken, type MikeikenSet } from '@/lib/live/mikeiken';
 import { ALL_SHIME_REASONS, SHIME_AUTO, SHIME_BULK_MAX, type IkeShimeBoard } from '@/lib/live/shime';
@@ -20,6 +20,7 @@ export async function POST(req: Request) {
   const ym = String(b.ym || '');
   if (!YM.test(ym)) return NextResponse.json({ error: '月の指定が違います' }, { status: 400 });
   const key = String(b.key || '').slice(0, 80);
+  if (action === 'detail') return detail(ym, key);
   if (action === 'close') {
     if (!key) return NextResponse.json({ error: '人の指定がありません' }, { status: 400 });
     const reason = String(b.reason || '');
@@ -32,6 +33,22 @@ export async function POST(req: Request) {
   }
   if (action === 'close-mine') return closeMine(req, ym, b.keys);
   return NextResponse.json({ error: 'この操作はできません' }, { status: 400 });
+}
+
+// 読むだけ：1人1月の日ごと（勤怠の照合 /keiri/kintai-shogo）。今の GET roster?op=shime&action=detail は SELECT だけ。
+//   名前（key）を画面の URL に出さないよう POST で受けて、サーバーから読む
+async function detail(ym: string, key: string): Promise<NextResponse> {
+  if (!key) return NextResponse.json({ error: '人の指定がありません' }, { status: 400 });
+  if (!(await ikeToken())) return NextResponse.json({ error: 'not_logged_in' }, { status: 401 });
+  try {
+    const r = await ikeFetch(`/api/roster?${new URLSearchParams({ op: 'shime', action: 'detail', ym, key })}`, undefined, 30000);
+    if (r.status === 401) return NextResponse.json({ error: 'ログインが切れました。もう一度ログインしてください' }, { status: 401 });
+    const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+    if (!r.ok || !j.ok) return NextResponse.json({ error: j.error || `読めませんでした（${r.status}）` }, { status: r.status === 403 ? 403 : 502 });
+    return NextResponse.json(j);
+  } catch (e) {
+    return NextResponse.json({ error: `今の社内システムから読めませんでした（${(e as Error).message}）` }, { status: 502 });
+  }
 }
 
 type One = { key: string; ok: boolean; error?: string };

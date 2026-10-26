@@ -203,7 +203,7 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
         <Link href="/keiri/seikyu" className="btn-secondary">請求書へ</Link>
       </PageTitle>
       {tabs}
-      <LiveBanner state={state} error={error} onReload={reload} note="請求書締め：先方に出した押印ずみの請求書 PDF（格納したもの）の額で売上を出します。今の「請求書ベースの粗利」の計算そのままです。給与は freee の勤怠から（額面＋残業代−控除・想定賃金と同じ計算）。給与・交通費は欄に入れて離れると保存（空にすると元に戻る・今の画面と同じ値）" />
+      <LiveBanner state={state} error={error} onReload={reload} note="請求書締め：先方に出した押印ずみの請求書 PDF（格納したもの）の額で売上を出します。今の「請求書ベースの粗利」の計算そのままです。給与は額面（勤怠締めができるまで）。freee の打刻から出した残業・控除は給与の下に参考で出します。給与・交通費は欄に入れて離れると保存（空にすると元に戻る・今の画面と同じ値）" />
       <MikeikenNote mk={mk} live={true} />
       {d.kintaiNote && <div className="rounded-xl border px-4 py-2.5 text-sm" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)', borderColor: 'var(--tone-warn-bar)' }}>{d.kintaiNote}</div>}
 
@@ -248,7 +248,7 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
                     <td className="px-2 py-2.5">{r.company}<div className="text-xs text-faint">{r.shozoku}</div></td>
                     <td className="num px-2 py-2.5 text-right"><KintaiCell k={r.kintai} /></td>
                     <td className="num px-2 py-2.5 text-right">{yen(r.sales)}</td>
-                    <td className="num px-2 py-2.5 text-right"><EditYen r={r} kind="salary" ym={d.ym} canEdit={canEdit} onSaved={reload} /><div className="text-xs text-faint">{r.salaryLabel}</div>{!r.salaryManual && r.kintai && <div className="whitespace-nowrap text-xs text-faint">{wageParts(r.kintai)}</div>}</td>
+                    <td className="num px-2 py-2.5 text-right"><EditYen r={r} kind="salary" ym={d.ym} canEdit={canEdit} onSaved={reload} /><div className="text-xs text-faint">{r.salaryLabel}</div>{!r.salaryManual && r.kintai && <div className="whitespace-nowrap text-xs text-faint" title="freee の打刻から出した見込み（勤怠締めができるまで給与には入れていません）">{r.salaryFromKintai ? '' : '勤怠の見込み：'}{wageParts(r.kintai)}</div>}</td>
                     <td className="num px-2 py-2.5 text-right"><EditYen r={r} kind="fare" ym={d.ym} canEdit={canEdit} onSaved={reload} /><div className="text-xs text-faint">{r.fareLabel}</div></td>
                     <td className="num px-2 py-2.5 text-right text-muted">{yen(r.welfare)}</td>
                     <td className="num px-2 py-2.5 text-right font-bold">{yen(r.gross)}</td>
