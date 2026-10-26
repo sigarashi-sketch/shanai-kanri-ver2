@@ -41,7 +41,7 @@ export default function SalesListPage() {
     && (!q || `${r.name} ${r.eki} ${r.kadou.join(' ')} ${r.zokusei.join(' ')} ${r.kibou.join(' ')} ${r.summary} ${r.experience}`.toLowerCase().includes(q.toLowerCase())));
   return (
     <main className="flex flex-col gap-3.5 px-4 pb-12 pt-[22px] sm:px-6">
-      <PageTitle title="営業リスト一覧" sub="送る相手（営業中の要員の LINE グループ）ごとに、最寄駅・稼働・希望・並行数・面談できる日程。サマリ・前職は行を押すと右に出ます。読むだけ" />
+      <PageTitle title="営業リスト一覧" sub="送る相手（営業中の要員の LINE グループ）ごとに、最寄駅・稼働・希望・並行数・面談できる日程。サマリ・前職は行を押すと画面の上に出ます。読むだけ" />
       <LiveBanner state={d.state} error={d.error} onReload={d.reload} note={`今の営業リスト一覧 ${all.length}件`} />
       <MikeikenNote mk={mk} live={live} />
       <div className="flex flex-wrap items-center gap-2">
@@ -49,7 +49,7 @@ export default function SalesListPage() {
         <label className="flex min-h-9 items-center gap-2 text-body"><input type="checkbox" checked={availOnly} onChange={(e) => setAvailOnly(e.target.checked)} style={{ accentColor: 'var(--a)' }} />面談できる日程ありのみ（{all.filter((r) => r.availability.length).length}）</label>
         <span className="ml-auto text-sm text-muted"><span className="num">{shown.length}</span>件</span>
       </div>
-      {/* 表は1行ずつ細く（サマリ・前職は載せない＝行が大きくなるため・10-26 shoya）。中身は行を押すと右に出る */}
+      {/* 表は1行ずつ細く（サマリ・前職は載せない＝行が大きくなるため・10-26 shoya）。中身は行を押すと画面の上に出る */}
       <div className="overflow-x-auto rounded-xl border border-line bg-surface">
         <table className="w-full border-collapse text-body">
           <thead><tr className="th-row text-left">
