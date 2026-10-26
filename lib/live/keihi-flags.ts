@@ -87,8 +87,8 @@ export function buildKeihiFlags(
       for (const [key, kubun] of need) {
         if (!keep(key)) continue;
         const h = have.get(key);
-        if (!h) push(out, key, ym, { kind: 'shift', tone: 'bad', label: 'シフト表 未提出', lines: [`${mOf(ym)}のシフトを1日も入れていません（勤務区分 ${kubun}）`] });
-        else if (!h.submittedAt) push(out, key, ym, { kind: 'shift', tone: 'warn', label: 'シフト表 下書きのまま', lines: [`${mOf(ym)}のシフトは入れかけで、提出していません（勤務区分 ${kubun}）`] });
+        if (!h) push(out, key, ym, { kind: 'shift', tone: 'bad', label: `${mOf(ym)}分 シフト表 未提出`, lines: [`${mOf(ym)}のシフトを1日も入れていません（勤務区分 ${kubun}）`] });
+        else if (!h.submittedAt) push(out, key, ym, { kind: 'shift', tone: 'warn', label: `${mOf(ym)}分 シフト表 下書きのまま`, lines: [`${mOf(ym)}のシフトは入れかけで、提出していません（勤務区分 ${kubun}）`] });
       }
     }
   }
