@@ -22,6 +22,8 @@ const SEIKYU_GET = new Set([
   'list', 'docs', 'mails', 'mails-summary',
   // seikyu-make.html
   'make', 'genba-inputs', 'month-summary', 'saved-list', 'saved-get', 'saved-pdf', 'saved-pdf-check', 'stamped-list', 'stamped-pdf', 'gk-list', 'gk-file', 'issuers',
+  // 格納ページ（?v2pane=store）は下書きを計算せずにこれだけ読む（10-26）
+  'store-base',
   // seikyu-sheets.js
   'mnm-sheets', 'mnm-sheet-file',
 ]);
