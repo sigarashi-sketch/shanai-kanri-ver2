@@ -20,6 +20,8 @@ import { KeihiCheckLive } from './live';
 //   申請の承認そのものは /keiri/keihi（ここは月末の見回り）
 //   本物（ログイン中・10-25 shoya「いけドンにあったのは全部いれて」）：今の交通費チェックと同じく、MF経費のCSVを選んで
 //     1人ずつ POST /api/live/keihi-check → 今の freee-kintai?action=keihi_check|keihi_month（読むだけ・何も保存しない）。中身は ./live.tsx
+//   差し戻し・本人への知らせ（10-26 確認）：今の交通費チェック（/keihi-check.html）は何も送らない（MF経費で差し戻す文面を出すだけ）ので、ここも送らない。
+//     LINE の経費申請（keihi_claims）の差し戻しと本人への LINE は /keiri/keihi の経理の確認（POST /api/keihi?action=decide）でつないである
 const yen = (n: number) => `¥${n.toLocaleString('ja-JP')}`;
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 const LEGEND: DayKind[] = ['noPunch', 'half', 'outside', 'taiki', 'leak', 'ok', 'none'];
@@ -74,7 +76,7 @@ export default function KeihiCheckPage() {
       <PageTitle title="交通費チェック" sub="MF経費の明細と freee の出勤の打刻を、人ごと・1日ずつ照らします">
         <Link href="/keiri/keihi" className="btn-secondary">交通費・経費の承認へ</Link>
       </PageTitle>
-      <LiveBanner state="live" note="照らすだけです（何も保存しません）。差し戻しは MF経費で、ここに出る文面をコピーして使ってください" />
+      <LiveBanner state="live" note="照らすだけです（何も保存しません）。MF経費の分の差し戻しは MF経費で、ここに出る文面をコピーして使ってください（今の交通費チェックも送りません）。LINE の経費申請の分は「交通費・経費」の経理の確認で差し戻すと、本人の LINE に届きます" />
       <MikeikenNote mk={mk} live />
       <KeihiCheckLive mk={mk} />
       <p className="text-xs text-faint">出勤＝出勤か退勤の打刻がある日。在籍期間は名簿の入社日・退社日、待機中は退場日〜次の入場日の前。判定は今の社内システムの交通費チェックと同じです。</p>

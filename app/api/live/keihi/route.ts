@@ -4,12 +4,18 @@ import { ikeWrite } from '@/lib/ike-write';
 // 交通費・経費（/keiri/keihi）の書く口（10-25）。今の POST /api/keihi にだけ書く（ページ権限 keihi-admin は今のシステムが見る）。
 //   decide      {id, decision:'approve'|'return', comment} … 申請の承認・差し戻し（差し戻しは理由が要る）
 //   ringiDecide {id, decision:'approve'|'reject', comment} … 稟議の承認・見送り（見送りは理由が要る）
-//   ★どちらも本人の LINE に結果が届く（今のシステムが送る）。画面は押す前に確認の窓でそれを出す
+//   markPaid    {ym}                                      … その月の承認済み（全員分）を支払済にする（10-26・人には届かない。定期の打刻の確認が済んでいなければ今のシステムが 409 で止める）
+//   ★decide / ringiDecide は本人の LINE に結果が届く（今のシステムが送る）。画面は押す前に確認の窓でそれを出す
 //   ★定期つきの申請は、月が終わっていれば今のシステムが承認の前に打刻を確かめ、漏れがあれば承認せず差し戻す
 const UUID = /^[0-9a-f-]{36}$/i;
 
 export async function POST(req: Request) {
   const b = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  if (b.action === 'markPaid') {
+    const ym = String(b.ym || '');
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(ym)) return NextResponse.json({ error: '月の指定が違います' }, { status: 400 });
+    return ikeWrite(req, '/api/keihi?action=markPaid', { ym });
+  }
   const id = String(b.id || '');
   if (!UUID.test(id)) return NextResponse.json({ error: '申請の指定が違います' }, { status: 400 });
   const decision = String(b.decision || '');

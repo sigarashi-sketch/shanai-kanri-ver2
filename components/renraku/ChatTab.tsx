@@ -11,11 +11,14 @@ import { groupBubbles, threadBubbles, type Bubble, type GroupThreadRes, type Thr
 import { SEG_LABEL, contactRows, filterChat, groupRows, segCounts, type ChatRow, type ChatSeg, type LiveContactsRes, type LiveGroupsRes } from '@/lib/live/renraku';
 import { SAMPLE_CHAT, sampleBubbles } from '@/lib/live/renraku-sample';
 import { HoldButton, Pills } from './parts';
+import { useMikeiken } from '../Mikeiken';
 
 // チャット：営業中／稼働中／その他 × 1:1／グループ（今の chat.html と同じ2軸）。
 //   ・振り分けは今の API の segment（api/_chat_segment.ts の答え）をそのまま使う。その他も消さずに残す（誰も消さない）
 //   ・「要対応のみ」（相手ボール）と検索はタブをまたぐ（今と同じ）
 //   ・送るのは長押し。送る口は /api/live/chat（今の POST /api/chat の send / groupSend だけ）。グループへ送れる人かは今の API が決める
+//   ・インフォメーション（10-26）：GET chat?action=infoContacts / infoThread を読むだけ。未経験の人だけ。振り分け（営業中/稼働中）は無い。
+//     送る欄は出すが押せない（このアカウントの送る鍵は それゆけ未経験 にしか無い）
 const QUICK = ['確認します', 'ありがとうございます！', '承知しました', '少々お待ちください'];
 
 export function ChatTab({ live, canSend, contacts, info }: { live: boolean; canSend: boolean; contacts: ReturnType<typeof useIke<LiveContactsRes>>; info: boolean }) {
@@ -24,18 +27,19 @@ export function ChatTab({ live, canSend, contacts, info }: { live: boolean; canS
   const [ballOnly, setBallOnly] = useState(false);
   const [q, setQ] = useState('');
   const [open, setOpen] = useState<ChatRow | null>(null);
-  const groups = useIke<LiveGroupsRes>(live && axis === 'group' ? 'chat?action=groups' : null, { pollMs: 30000 });
+  const groups = useIke<LiveGroupsRes>(live && !info && axis === 'group' ? 'chat?action=groups' : null, { pollMs: 30000 });
+  const mk = useMikeiken();
 
   const segAvailable = info ? false : live ? (axis === 'one' ? contacts.data?.segmentAvailable !== false : groups.data?.segmentAvailable !== false) : true;
   const rows: ChatRow[] = useMemo(() => {
-    if (info) return axis === 'one' ? SAMPLE_CHAT.info : [];
+    if (info) return axis === 'one' ? (live ? mk.keep(contactRows(contacts.data), 'name') : SAMPLE_CHAT.info) : [];
     if (!live) return axis === 'one' ? SAMPLE_CHAT.aoi : SAMPLE_CHAT.aoiGroups;
     return axis === 'one' ? contactRows(contacts.data) : groupRows(groups.data);
-  }, [info, live, axis, contacts.data, groups.data]);
+  }, [info, live, axis, contacts.data, groups.data, mk]);
   const shown = filterChat(rows, { seg, segAvailable, ballOnly, q });
   const counts = segCounts(rows);
-  const loading = live && (axis === 'one' ? contacts.state === 'loading' : groups.state === 'loading');
-  const err = live ? (axis === 'one' ? contacts.data?.error || contacts.error : groups.data?.error || groups.error) : '';
+  const loading = live && (axis === 'one' ? contacts.state === 'loading' || (info && mk.state === 'loading') : !info && groups.state === 'loading');
+  const err = live ? (axis === 'one' ? contacts.data?.error || contacts.error || (info && mk.state === 'error' ? mk.error : '') : info ? '' : groups.data?.error || groups.error) : '';
 
   if (open) return <Thread row={open} live={live} canSend={canSend} info={info} onBack={() => setOpen(null)} />;
   return (
@@ -55,7 +59,7 @@ export function ChatTab({ live, canSend, contacts, info }: { live: boolean; canS
       <div className="min-h-0 flex-1 overflow-y-auto">
         {loading && !rows.length && <p className="px-4 py-3 text-body text-muted">読み込み中…</p>}
         {err && <p className="px-4 py-3 text-body text-bad">{err}</p>}
-        {info && axis === 'group' && <p className="px-4 py-3 text-sm text-muted">この公式アカウントにグループのトークはありません（見本）。</p>}
+        {info && axis === 'group' && <p className="px-4 py-3 text-sm text-muted">この公式アカウントにグループのトークはありません。</p>}
         {!loading && !err && !shown.length && !(info && axis === 'group') && (
           <p className="px-4 py-6 text-center text-sm text-muted">{ballOnly ? '要対応のトークはありません。全部返せています' : q ? '見つかりませんでした' : 'このタブのトークはありません'}</p>
         )}
@@ -84,21 +88,23 @@ export function ChatTab({ live, canSend, contacts, info }: { live: boolean; canS
 function Thread({ row, live, canSend, info, onBack }: { row: ChatRow; live: boolean; canSend: boolean; info: boolean; onBack: () => void }) {
   const { hit, toast } = useMotivation();
   const one = row.kind === 'one';
-  const th = useIke<ThreadRes>(live && one ? `chat?action=thread&userId=${encodeURIComponent(row.id)}` : null, { pollMs: 15000 });
-  const gt = useIke<GroupThreadRes>(live && !one ? `chat?action=groupThread&groupId=${encodeURIComponent(row.id)}` : null, { pollMs: 15000 });
+  const th = useIke<ThreadRes>(live && one ? `chat?action=${info ? 'infoThread' : 'thread'}&userId=${encodeURIComponent(row.id)}` : null, { pollMs: 15000 });
+  const gt = useIke<GroupThreadRes>(live && !one && !info ? `chat?action=groupThread&groupId=${encodeURIComponent(row.id)}` : null, { pollMs: 15000 });
   const [mine, setMine] = useState<Bubble[]>([]);
   const bubbles = live ? (one ? threadBubbles(th.data) : groupBubbles(gt.data)) : [...sampleBubbles(row.id, row.name), ...mine];
   const st = one ? th : gt;
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
-  const canTalk = canSend && !row.blocked;
+  // インフォメーションは今の社内システムから送れない（読むだけ）
+  const infoLive = info && live;
+  const canTalk = canSend && !row.blocked && !infoLive;
 
   const send = async () => {
     if (!text.trim()) return;
     if (!live) {
       setMine((m) => [...m, { key: String(Date.now()), out: true, who: 'あなた', text, at: '今' }]);
       setText(''); hit();
-      toast({ text: '見本なので送っていません', sub: info ? 'この公式アカウントは今の社内システムにつながっていません' : 'ログインすると、本物の LINE に送れます' });
+      toast({ text: '見本なので送っていません', sub: info ? 'インフォメーションからは送れません（それゆけ未経験 の画面から）' : 'ログインすると、本物の LINE に送れます' });
       return;
     }
     setBusy(true);
@@ -115,19 +121,19 @@ function Thread({ row, live, canSend, info, onBack }: { row: ChatRow; live: bool
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-2 border-b border-line-soft px-4 py-1.5">
         <button onClick={onBack} className="min-w-0 flex-1 truncate py-0.5 text-left text-sm text-muted">← トーク一覧 ／ <b className="text-ink">{row.name}</b>{row.kind === 'group' && <span className="ml-1 text-faint">（グループ）</span>}</button>
-        <ChatSummary kind={one ? 'user' : 'group'} id={row.id} name={row.name} live={live} />
+        {!info && <ChatSummary kind={one ? 'user' : 'group'} id={row.id} name={row.name} live={live} />}
       </div>
       <ChatLog bubbles={bubbles.slice(-200)} className="min-h-0 flex-1" resetKey={row.id}>
         {!live && <p className="text-center text-xs text-faint">見本のトークです</p>}
         {live && st.state === 'loading' && !bubbles.length && <p className="text-body text-muted">読み込み中…</p>}
         {live && st.error && <p className="text-body text-bad">{st.error}</p>}
       </ChatLog>
-      <div className="flex flex-wrap gap-1.5 px-4 pt-2">{QUICK.map((x) => <button key={x} type="button" onClick={() => setText((t) => (t ? t + x : x))} className="rounded-full border border-line px-2.5 py-1 text-sm">{x}</button>)}</div>
+      {!infoLive && <div className="flex flex-wrap gap-1.5 px-4 pt-2">{QUICK.map((x) => <button key={x} type="button" onClick={() => setText((t) => (t ? t + x : x))} className="rounded-full border border-line px-2.5 py-1 text-sm">{x}</button>)}</div>}
       <div className="flex items-end gap-2 px-4 py-3">
         <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} maxLength={5000} disabled={!canTalk}
-          placeholder={!canSend ? needText('edit') : row.blocked ? 'ブロックされているので送れません' : one ? 'あおいから本人へ送る文' : 'グループへ送る文（送ってよい人かは今のシステムが決めます）'}
+          placeholder={infoLive ? 'インフォメーションからの返信は それゆけ未経験 の画面から（ここは読むだけ）' : !canSend ? needText('edit') : row.blocked ? 'ブロックされているので送れません' : info ? 'インフォメーションから本人へ送る文（見本）' : one ? 'あおいから本人へ送る文' : 'グループへ送る文（送ってよい人かは今のシステムが決めます）'}
           className="min-w-0 flex-1 resize-none rounded-[10px] border border-field bg-surface px-3 py-2 text-body outline-none disabled:bg-soft" />
-        <HoldButton label={busy ? '送っています…' : '長押しで送る'} disabled={!canTalk || busy || !text.trim()} title={!canSend ? needText('edit') : undefined} onDone={send} />
+        <HoldButton label={busy ? '送っています…' : '長押しで送る'} disabled={!canTalk || busy || !text.trim()} title={infoLive ? 'このアカウントの送る鍵は それゆけ未経験 にしか無いので、ここからは送れません' : !canSend ? needText('edit') : undefined} onDone={send} />
       </div>
     </div>
   );

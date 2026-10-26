@@ -7,9 +7,10 @@ import { arari, FARE_LABEL, ROWS, SALARY_LABEL, WELFARE_RATE, type ArariRow, typ
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { CountUp, RemainRing, useMotivation } from '@/components/Motivation';
-import { LIVE_WRITE_BLOCKED, LiveBanner, useIke, type LiveState } from '@/components/Live';
+import { LiveBanner, useIke, type LiveState } from '@/components/Live';
+import { postLive } from '@/lib/live/post';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
-import { toArari, type ArariLive } from '@/lib/live/chingin';
+import { toArari, type ArariLive, type LiveArariRow } from '@/lib/live/chingin';
 import { PersonName } from '@/components/Person';
 import { ChinginPl } from './pl';
 
@@ -18,8 +19,9 @@ import { ChinginPl } from './pl';
 //   ・交通費は 経費の申請の実額 ＞ 定期代の見積もり ＞ 仮25,000円
 //   ・「仮」の値が残っている人を、選ぶだけで本当の値に置きかえて片づける
 //   ・粗利率の低い人を上に。取引先・営業で絞る
-//   本物（ログイン中）：今の GET /api/seikyu?action=arari（請求書ベースの粗利）を読むだけ。金額は今の API の答えのまま。
-//     給与・交通費を手で直す（arari-fare / arari-salary）は押せない（今の「請求書ベースの粗利」の画面から）
+//   本物（ログイン中）：今の GET /api/seikyu?action=arari（請求書ベースの粗利）を読む。金額は今の API の答えのまま。
+//     給与・交通費を手で直す（10-26）：欄に入れて離れたら保存（/api/live/arari → 今の POST arari-salary / arari-fare）。
+//     空にすると元（額面／経費の申請か 仮 25,000円）に戻す。保存したら読み直し・取り消しは toast から（前の値に戻す）
 const yen = (n: number) => `${n < 0 ? '−' : ''}¥${Math.abs(n).toLocaleString('ja-JP')}`;
 const pct = (r: number) => `${(r * 100).toFixed(1)}%`;
 const rateTone = (r: number) => (r < 0.15 ? 'bad' : r < 0.25 ? 'warn' : 'ok');
@@ -165,6 +167,7 @@ const ymJa = (ym: string) => `${ym.slice(0, 4)}年${Number(ym.slice(5, 7))}月�
 function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym: string; setYm: (v: string) => void; state: LiveState; error: string; reload: () => void }) {
   // 未経験の人だけ（今のプロパーリストに入っている人）。売上・原価・粗利の合計も絞った人で出す（計算そのものは今の答えのまま）
   const mk = useMikeiken();
+  const canEdit = usePerms().can('keiri', 'edit');
   const rows = mk.keep(toArari(d), 'name');
   const [client, setClient] = useState('すべて');
   const [shozoku, setShozoku] = useState('すべて');
@@ -195,7 +198,7 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
         <Link href="/keiri/seikyu" className="btn-secondary">請求書へ</Link>
       </PageTitle>
       {tabs}
-      <LiveBanner state={state} error={error} onReload={reload} note="請求書締め：先方に出した押印ずみの請求書 PDF（格納したもの）の額で売上を出します。今の「請求書ベースの粗利」の計算そのままです。給与・交通費を手で直すのは今の画面から" />
+      <LiveBanner state={state} error={error} onReload={reload} note="請求書締め：先方に出した押印ずみの請求書 PDF（格納したもの）の額で売上を出します。今の「請求書ベースの粗利」の計算そのままです。給与・交通費は欄に入れて離れると保存（空にすると元に戻る・今の画面と同じ値）" />
       <MikeikenNote mk={mk} live={true} />
 
       <div className="mo-fade-up grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]" style={{ ['--i' as string]: 1 }}>
@@ -208,7 +211,7 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
         ))}
         <div className="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
           <RemainRing remain={temp.length} total={rows.length} />
-          <div className="text-sm"><b>仮の値が残る {temp.length}人</b><div className="text-muted">直すのは今の画面から</div></div>
+          <div className="text-sm"><b>仮の値が残る {temp.length}人</b><div className="text-muted">給与・交通費の欄に本当の値を入れると片づきます</div></div>
         </div>
       </div>
       {d.unknown?.length > 0 && <div className="rounded-xl border px-4 py-2.5 text-sm" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)', borderColor: 'var(--tone-warn-bar)' }}>誰の分か決まらない請求書が {d.unknown.length}件あります（粗利に入っていません）。今の請求書作成の「格納」で人を選んでください。</div>}
@@ -234,11 +237,11 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
                 const t = rateTone(r.rate);
                 return (
                   <tr key={r.key} className="row mo-fade-in border-t border-line-soft align-top" style={{ ['--i' as string]: i }}>
-                    <td className="px-4 py-2.5"><PersonName name={r.name} className="font-semibold underline-offset-2 hover:underline" />{r.temp && <div><span className="chip" title={LIVE_WRITE_BLOCKED} style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>仮の値あり</span></div>}{r.warn.map((w) => <div key={w} className="text-xs text-bad">{w}</div>)}</td>
+                    <td className="px-4 py-2.5"><PersonName name={r.name} className="font-semibold underline-offset-2 hover:underline" />{r.temp && <div><span className="chip" title="給与・交通費の欄に本当の値を入れると片づきます" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>仮の値あり</span></div>}{r.warn.map((w) => <div key={w} className="text-xs text-bad">{w}</div>)}</td>
                     <td className="px-2 py-2.5">{r.company}<div className="text-xs text-faint">{r.shozoku}</div></td>
                     <td className="num px-2 py-2.5 text-right">{yen(r.sales)}</td>
-                    <td className="num px-2 py-2.5 text-right">{yen(r.salary)}<div className="text-xs text-faint">{r.salaryLabel}</div></td>
-                    <td className="num px-2 py-2.5 text-right">{yen(r.fare)}<div className="text-xs text-faint">{r.fareLabel}</div></td>
+                    <td className="num px-2 py-2.5 text-right"><EditYen r={r} kind="salary" ym={d.ym} canEdit={canEdit} onSaved={reload} /><div className="text-xs text-faint">{r.salaryLabel}</div></td>
+                    <td className="num px-2 py-2.5 text-right"><EditYen r={r} kind="fare" ym={d.ym} canEdit={canEdit} onSaved={reload} /><div className="text-xs text-faint">{r.fareLabel}</div></td>
                     <td className="num px-2 py-2.5 text-right text-muted">{yen(r.welfare)}</td>
                     <td className="num px-2 py-2.5 text-right font-bold">{yen(r.gross)}</td>
                     <td className="px-4 py-2.5 text-right">
@@ -255,6 +258,44 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
       <p className="text-xs text-faint">売上は格納した請求書（税抜）。法定福利は給与の19%で見積もった概算です。給与・社会保険料・税の扱いの最終判断は社労士・税理士に確認してください。</p>
       <ChinginPl live />
     </main>
+  );
+}
+
+// 給与・交通費の欄（10-26）：入れて離れたら（Enter でも）保存。空にすると元に戻す。取り消しは前の値（手で直していなければ元）に戻す
+function EditYen({ r, kind, ym, canEdit, onSaved }: { r: LiveArariRow; kind: 'salary' | 'fare'; ym: string; canEdit: boolean; onSaved: () => void }) {
+  const { hit, toast } = useMotivation();
+  const cur = kind === 'salary' ? r.salary : r.fare;
+  const manual = kind === 'salary' ? r.salaryManual : r.fareManual;
+  const label = kind === 'salary' ? '給与' : '交通費';
+  const fmt = (n: number) => n.toLocaleString('ja-JP');
+  const [v, setV] = useState(fmt(cur));
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { setV(fmt(cur)); }, [cur]);
+  const put = (value: number | null) => postLive('/api/live/arari', { kind, ym, key: r.key, value });
+  const save = async () => {
+    const t = v.replace(/[,，円¥\s]/g, '');
+    if (t === '' ? !manual : t === String(cur)) { setV(fmt(cur)); return; }   // 変わっていない（空は手で直した値があるときだけ「元に戻す」）
+    if (t !== '' && !/^\d+$/.test(t)) { toast({ text: `${label}は数字で入れてください` }); setV(fmt(cur)); return; }
+    const value = t === '' ? null : Number(t);
+    const prev = manual ? cur : null;
+    setBusy(true);
+    try {
+      await put(value);
+      hit();
+      toast({
+        text: value == null ? `${r.name} の${label}を元に戻しました` : `${r.name} の${label}を ${yen(value)} にしました`,
+        sub: '→ 粗利を計算し直しました（今の請求書ベースの粗利にも同じ値が入ります）',
+        undo: () => { put(prev).then(onSaved).catch((e) => toast({ text: '取り消せませんでした', sub: (e as Error).message })); },
+      });
+      onSaved();
+    } catch (e) { toast({ text: '保存できませんでした', sub: (e as Error).message }); setV(fmt(cur)); }
+    finally { setBusy(false); }
+  };
+  return (
+    <input aria-label={`${r.name} の${label}`} inputMode="numeric" value={v} disabled={!canEdit || busy} title={canEdit ? `${label}を直すと保存します（空にすると元に戻ります）` : needText('edit')}
+      onChange={(e) => setV(e.target.value)} onBlur={save} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+      className="num w-28 rounded-md border bg-surface px-1.5 py-0.5 text-right disabled:border-transparent disabled:bg-transparent"
+      style={{ borderColor: manual ? 'var(--a)' : 'var(--color-field)' }} />
   );
 }
 

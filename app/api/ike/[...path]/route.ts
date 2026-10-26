@@ -30,7 +30,7 @@ const ALLOW: Record<string, readonly string[]> = {
   'attendance-board': ['absence'],
   admin: ['list', 'googleLinks'],
   'progress-stats': [''],
-  chat: ['contacts', 'groups', 'thread', 'groupThread'],
+  chat: ['contacts', 'groups', 'thread', 'groupThread', 'infoContacts', 'infoThread', 'infoBroadcasts'],
   'ikou-requests': ['history', 'pending'],
   // 10-25 プロパーリストの列（フォーム回答＝回答済みの氏名だけ／通勤エリア＝一覧と1人ぶん）。どちらも GET は SELECT だけ
   'basic-info': ['names'],

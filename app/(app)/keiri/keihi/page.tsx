@@ -8,7 +8,7 @@ import type { Check as Chk } from '@/lib/kintai-sample';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
-import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { LiveBanner, useIke } from '@/components/Live';
 import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
 import { postLive } from '@/lib/live/post';
 import { KeihiMonthlyTab, KeihiRingiTab } from './tabs';
@@ -23,7 +23,10 @@ import { FLAG_NAME, KEIHI_FLAGS_SAMPLE, flagsForClaim, type FlagKind, type Keihi
 //   ・本人の申請画面（見本）：ICカードの利用履歴から選ぶだけ。よく使う経路は★で登録して次から一発で選ぶ
 //     出勤の打刻が無い日・交通でない利用（買い物）は選べない（今のシステムと同じ「不備があると申請できない」）
 //   本人の画面は LINE から開くスマホの画面の想定。ここでは内勤が中身を確かめるための見本
-//   本物（ログイン中）：今の GET /api/keihi?action=adminList&status=申請中 を読むだけ。承認・差し戻しは押せない（今の keihi-admin.html から）
+//   本物（ログイン中・10-26）：本人の申請は今の公式LINE「経費申請」（/m/seisan・LINE で本人確認）が本物。内勤のログインでは本人として申請できないので、
+//     ここは本物の画面の入口と決まりを出す（見本のスマホは出さない）。★よく使う経路は今のシステムに足した（0372）。
+//     ICカードの利用履歴から選ぶのは作れない（LINE の中のウェブ画面からは交通系 IC の履歴を読めない・モバイルSuica の履歴を外から取る口も無い）
+//   本物（ログイン中）：今の GET /api/keihi?action=adminList&status=申請中 を読む。承認・差し戻しは /api/live/keihi → 今の POST decide（本人の LINE に届く・確認の窓つき）
 //   勤怠の印（10-25 shoya「打刻漏れ シフト表未提出 欠勤報告などあれば示して欲しい」）：申請の人 × 申請の月に
 //     打刻漏れ・シフト表の未提出/下書き・欠勤の報告・勤務表とのずれ があれば印で出す。押すと日付が開く
 //     本物は /api/live/keihi-flags（読むだけの GET をまとめる・freee は呼ばない）。見本は架空の印
@@ -70,12 +73,12 @@ export default function KeihiPage() {
       <LiveBanner state={state} error={error} onReload={reload} note="今の社内システムの「申請中」をそのまま出しています。承認・差し戻しは本物に書き、本人の LINE に結果が届きます（押すと確認の窓が出ます）" />
       <MikeikenNote mk={mk} live={live} />
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 1 }}>
-        {([['check', '経理の確認'], ['monthly', '月次（給与に載せる額）'], ['ringi', '稟議'], ['apply', '本人の申請画面（見本）']] as const).map(([k, l]) => (
+        {([['check', '経理の確認'], ['monthly', '月次（給与に載せる額）'], ['ringi', '稟議'], ['apply', live ? '本人の申請画面' : '本人の申請画面（見本）']] as const).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="tab">{l}</button>
         ))}
       </div>
       <div key={tab} className="mo-axis">
-        {tab === 'monthly' ? <KeihiMonthlyTab live={live} mk={mk} /> : tab === 'ringi' ? <KeihiRingiTab live={live} mk={mk} /> : tab === 'check' ? <CheckTab claims={list} done={done} setDone={setDone} live={live} flags={flags} reload={reload} /> : <ApplyTab live={live} onSubmit={(c) => { setClaims((cs) => [c, ...cs.filter((x) => x.id !== 'c2')]); go('check'); }} />}
+        {tab === 'monthly' ? <KeihiMonthlyTab live={live} mk={mk} /> : tab === 'ringi' ? <KeihiRingiTab live={live} mk={mk} /> : tab === 'check' ? <CheckTab claims={list} done={done} setDone={setDone} live={live} flags={flags} reload={reload} /> : live ? <LiveApply /> : <ApplyTab live={live} onSubmit={(c) => { setClaims((cs) => [c, ...cs.filter((x) => x.id !== 'c2')]); go('check'); }} />}
       </div>
     </main>
   );
@@ -242,6 +245,32 @@ function CheckTab({ claims, done, setDone, live, flags, reload }: { claims: Clai
   );
 }
 
+// ---------------- 本人の申請画面（本物＝今の公式LINE「経費申請」の入口と決まり） ----------------
+const SEISAN_LIFF = 'https://liff.line.me/2010698759-3Bw2R3c7?b=seisan';
+function LiveApply() {
+  return (
+    <div className="flex flex-wrap items-start gap-4">
+      <div className="flex w-full max-w-[460px] flex-col gap-3 rounded-xl border border-line bg-surface px-4 py-4">
+        <div className="flex items-center gap-2 text-md font-bold"><Smartphone size={18} />本人の申請は 公式LINE の「経費申請」から</div>
+        <p className="text-sm text-muted">本人が LINE のメニューから開き、LINE で本人を確かめてから申請します。内勤のログインでは本人として申請できないので、ここからは開くだけです（自分の交通費を申請するときに使えます）。</p>
+        <a href={SEISAN_LIFF} target="_blank" rel="noopener noreferrer" className="btn-primary min-h-11 w-full justify-center">経費申請を開く（LINE）</a>
+        <ul className="flex list-disc flex-col gap-1 pl-4 text-sm">
+          <li>電車は駅を2つ（経由駅も）入れると、駅すぱあとで運賃と経路が出る（運賃を手で打たない）</li>
+          <li><Star size={11} className="mr-0.5 inline text-warn" fill="currentColor" />よく使う区間は「☆ この区間をよく使う経路にする」で残し、次から★を押すだけで区間が入る（1人10件・名前は区間そのもの）。過去に申請した区間も「前回」に並ぶ</li>
+          <li>日付はカレンダーで何日でもまとめて選べる。通勤の日に freee の出勤の打刻が無いと申請できない（打刻の漏れがある日を出す）</li>
+          <li>バスは路線名と1日あたりの金額を本人が入れる。定期は期間と領収書が必須で、月が終わったら打刻を確かめる</li>
+          <li>承認・差し戻しの結果は本人の LINE に届く（承認・差し戻しは「経理の確認」から）</li>
+        </ul>
+      </div>
+      <div className="flex min-w-[260px] flex-1 flex-col gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-sm text-muted">
+        <b className="inline-flex items-center gap-1.5 text-ink"><CreditCard size={15} />ICカードの利用履歴から選ぶ</b>
+        <p>今の LINE の画面（ウェブ）からは、交通系 IC カードの利用履歴を読めないので作れていません。スマホのブラウザがかざして読めるのは別の形式のカードだけで、モバイルSuica の履歴を外から取り込む口もありません。</p>
+        <p>そのかわり、駅を入れるだけで運賃が出る・★よく使う経路・前回の区間で、運賃を手で打たずに済むようにしています。</p>
+      </div>
+    </div>
+  );
+}
+
 // ---------------- 本人の申請画面（見本） ----------------
 function ApplyTab({ onSubmit, live }: { onSubmit: (c: Claim) => void; live: boolean }) {
   const { hit, toast } = useMotivation();
@@ -282,7 +311,6 @@ function ApplyTab({ onSubmit, live }: { onSubmit: (c: Claim) => void; live: bool
 
   return (
     <div className="flex flex-wrap items-start gap-6">
-      {live && <div className="w-full"><NotInLegacy what="ICカードの利用履歴から選ぶ申請画面" /></div>}
       <div className="w-full max-w-[390px] overflow-hidden rounded-[28px] border-[6px] border-ink/80 bg-surface shadow-[0_18px_40px_rgba(20,20,40,.18)]">
         <div className="px-4 pb-3 pt-4" style={{ background: 'var(--al)' }}>
           <div className="text-xs text-muted">{ME.name} さん・{ME.site}</div>
@@ -346,7 +374,7 @@ function ApplyTab({ onSubmit, live }: { onSubmit: (c: Claim) => void; live: bool
         <div className="border-t border-line px-4 py-3">
           <div className="flex items-baseline justify-between"><span className="text-sm text-muted">{picked.length}件を選択</span><span className="num text-xl font-bold">{yen(total)}</span></div>
           {missing.length > 0 && <div className="mt-1 text-xs text-bad">「何のための移動？」を {missing.length}件 選んでください</div>}
-          <button onClick={submit} disabled={live || picked.length === 0 || missing.length > 0} title={live ? LIVE_WRITE_BLOCKED : undefined} className="btn-primary mt-2 min-h-11 w-full">申請する</button>
+          <button onClick={submit} disabled={live || picked.length === 0 || missing.length > 0} className="btn-primary mt-2 min-h-11 w-full">申請する</button>
         </div>
       </div>
 
