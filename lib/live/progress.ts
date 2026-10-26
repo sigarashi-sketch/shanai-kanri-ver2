@@ -51,3 +51,36 @@ export function liveProgress(d: ProgressData | null, replies: ProgressReply[] | 
   }
   return { rows: rows.slice(0, 400), threads, cases };
 }
+
+// ---- グループに直接書いた案件の回収（今の /api/roster?op=eigyo&action=direct・10-26） ----
+//   candidates … 内勤のグループ発言のうち案件らしいもの（まだ決めていない）。match＝案件ストックで一番近い案件（近さ 0〜100）
+//   confirmed  … 「案件進捗に載せる」にした発言。送った案件に「グループ直接」で並べる（返信・📮判断はあおいの送信と同じ扱い）
+export type DirectCand = { id: string; ts: number; groupId: string; group: string; poster: string; text: string; words: number; match: { caseNo: string; score: number } | null };
+export type DirectConfirmed = { id: string; ts: number; groupId: string; group: string; poster: string; caseNo: string; caseTitle: string; by: string; at: string };
+export type DirectData = { ok: boolean; error?: string; days: number; candidates: DirectCand[]; confirmed: DirectConfirmed[]; notCase: number };
+
+/** 載せた発言 → 送った案件の行（返信＝その発言から2分あと〜次にそのグループへ別の案件を送るまでの最初の発言） */
+export function liveDirectRows(dd: DirectData | null, d: ProgressData | null, replies: ProgressReply[] | null, nowMs = Date.now()): { rows: ProgressRow[]; threads: Record<string, ChatMsg[]>; extraCases: Case[] } {
+  const rows: ProgressRow[] = [], threads: Record<string, ChatMsg[]> = {}, extraCases: Case[] = [];
+  if (!dd?.confirmed) return { rows, threads, extraCases };
+  const fwd = d?.slackForwarded ?? {};
+  const since = nowMs - DAYS * 86400000;
+  for (const c of dd.confirmed) {
+    if (c.ts < since) continue;
+    const nextSend = (d?.sends ?? []).filter((s) => s.groupIds.includes(c.groupId) && s.timestamp > c.ts && s.caseNo !== c.caseNo).map((s) => s.timestamp).sort((a, b) => a - b)[0] ?? Infinity;
+    const mine = (replies ?? []).filter((r) => r.groupId === c.groupId && r.ts > c.ts + BUFFER && r.ts < nextSend).sort((a, b) => a.ts - b.ts);
+    const st = fwd[c.caseNo + FWD_SEP + c.groupId] || '';
+    const id = `${c.caseNo}:${c.groupId}:${c.ts}`;
+    rows.push({
+      id, caseNo: c.caseNo, person: c.group || '（名前なし）', personId: '', group: c.group, via: 'グループ直接', sentAt: mdhm(c.ts), sender: c.poster || '内勤',
+      reply: mine[0]?.text ?? '', replyAt: mine[0] ? mdhm(mine[0].ts) : undefined,
+      decision: st === 'OK' ? 'OK' : st === 'NG' ? 'NG' : st === 'OTHER' ? 'その他' : '未判断', slack: st === 'OK',
+    });
+    threads[id] = mine.slice(0, 12).map((r, j) => ({ id: `r${j}`, at: mdhm(r.ts), who: 'person' as const, name: r.name || c.group, text: r.text }));
+    if (c.caseTitle && !(d?.cases ?? []).some((x) => x.kNo === c.caseNo)) extraCases.push({ no: c.caseNo, name: c.caseTitle, place: '', price: '' });
+  }
+  return { rows, threads, extraCases };
+}
+
+/** 送った案件の行の id（案件No:送り先ID:時刻）から送り先ID を取り出す */
+export const gidOfRow = (id: string) => { const p = id.split(':'); return p.length >= 3 ? p[p.length - 2] : ''; };

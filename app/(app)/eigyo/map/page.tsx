@@ -11,7 +11,10 @@ import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
 import { DrawerPortal } from '@/components/DrawerPortal';
-import { LIVE_WRITE_BLOCKED, LiveBanner, useIke } from '@/components/Live';
+import { LiveBanner, useIke } from '@/components/Live';
+import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
+import { useCaseSend } from '@/components/CaseSendDialog';
+import { postLive } from '@/lib/live/post';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { estimateAt, liveJobs, liveYouin, type CasesMapList, type MapData } from '@/lib/live/map';
 import { PersonName } from '@/components/Person';
@@ -20,8 +23,10 @@ import { PersonName } from '@/components/Person';
 //   案件マップ：マップ／案件入力（案件文を貼る → AI が欄を埋める）／充足・終了。出発駅を選ぶと通勤の目安で並ぶ（実経路は出さない）
 //   要員マップ：営業中の要員を最寄駅の丸、Slack の案件をオレンジの丸で出す。案件1件＋要員を選んで「転記＆配信先設定」
 //   地図は見本の簡易な地図（SVG）。地図タイルは本物につなぐときに入れる。
-//   本物（ログイン中）：案件マップ＝今の /api/cases-map?action=list、要員マップ＝/api/proxy?action=getMapData を読むだけ。
-//     ピンは行の座標（lat/lng）で置く。登録・充足・同期・転記は今の画面から
+//   本物（ログイン中）：案件マップ＝今の /api/cases-map?action=list、要員マップ＝/api/proxy?action=getMapData。
+//     ピンは行の座標（lat/lng）で置く。登録（読み取り→確認→#未経験-案件共有にも流れる）・充足・予約・終了・再掲載・同期は今の /api/cases-map と同じ口
+//     要員マップの「案件を更新」＝今の syncSlackCache、「転記＆配信先設定」＝確認の窓のあと選んだ要員の LINE グループに案件を送る（今の配信画面と同じ口）
+const ymdPlus = (ymd: string, n: number) => { const d = new Date(`${ymd}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const pct = (lat: number, lng: number) => { const p = xy(lat, lng); return { left: `${(p.x / MAP_W) * 100}%`, top: `${(p.y / MAP_H) * 100}%` }; };
 const fmt = (s?: string) => { const m = s?.match(/\d{4}-(\d{2})-(\d{2})/); return m ? `${+m[1]}/${+m[2]}` : s ?? ''; };
 const addDays = (n: number) => { const d = new Date(`${TODAY}T00:00:00`); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -62,14 +67,14 @@ export default function MapPage() {
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-24 pt-[22px]">
       <PageTitle title="案件・要員マップ" sub={`今の社内システムの「案件マップ」と「要員マップ」です。通勤時間は目安${cm.live ? '' : '・見本データ'}`} />
-      <LiveBanner state={cm.state} error={cm.error} onReload={cm.reload} note="今の案件マップ・要員マップの中身です。地図は簡易な地図のまま（枠の外の駅は一覧だけ）。登録・充足・同期・転記は今の画面から" />
+      <LiveBanner state={cm.state} error={cm.error} onReload={cm.reload} note="今の案件マップ・要員マップの中身です。地図は簡易な地図のまま（枠の外の駅は一覧だけ）。登録・充足・同期・送るは今の画面と同じ口に書きます" />
       <MikeikenNote mk={mk} live={cm.live && tab === 'youin'} />
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 1 }}>
         {([['cases', '案件マップ'], ['youin', '要員マップ']] as const).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="tab">{l}</button>
         ))}
       </div>
-      <div key={tab} className="mo-axis">{tab === 'cases' ? <CasesMap from={from} setFrom={setFrom} data={cm.live ? cm.data : null} /> : <YouinMap live={cm.live} />}</div>
+      <div key={tab} className="mo-axis">{tab === 'cases' ? <CasesMap from={from} setFrom={setFrom} data={cm.live ? cm.data : null} reload={cm.reload} /> : <YouinMap live={cm.live} />}</div>
     </main>
   );
 }
@@ -77,10 +82,11 @@ export default function MapPage() {
 // ========================= 案件マップ =========================
 type Fill = { job: Job; kind: 'now' | 'reserve' | 'close'; days: number; note: string };
 
-function CasesMap({ from, setFrom, data }: { from: string; setFrom: (s: string) => void; data: CasesMapList | null }) {
+function CasesMap({ from, setFrom, data, reload }: { from: string; setFrom: (s: string) => void; data: CasesMapList | null; reload: () => void }) {
   const live = !!data;
-  const canEdit = usePerms().can('eigyo', 'edit') && !live;
-  const noEdit = live ? LIVE_WRITE_BLOCKED : needText('edit');
+  const canEdit = usePerms().can('eigyo', 'edit') && (!live || data.can_edit !== false);
+  const noEdit = live && data.can_edit === false ? '今のシステムで、この案件マップは見るだけの権限です' : needText('edit');
+  const today = live && data.today ? data.today : TODAY;
   const lj = useMemo(() => liveJobs(data), [data]);
   const at = (n?: string) => (n ? (live ? lj.pos.get(n) ?? stationOf(n) : stationOf(n)) : undefined);
   const owners = live ? lj.owners : OWNERS;
@@ -105,8 +111,24 @@ function CasesMap({ from, setFrom, data }: { from: string; setFrom: (s: string) 
   const fromS = from ? stationOf(from) : undefined;
 
   const touch = (no: number) => { setFlash(no); setTimeout(() => setFlash(null), 1300); };
+  // 本物：今の /api/cases-map に書く（action と中身）→ 読み直す。取り消しは逆の操作を書く
+  const write = (job: Job, w: Record<string, unknown>, text: string, subText: string, undo?: Record<string, unknown>) => {
+    postLive('/api/live/eigyo', { ...w, id: job.id })
+      .then(() => {
+        touch(job.case_no); hit();
+        toast({ text, sub: subText, undo: undo ? () => { postLive('/api/live/eigyo', { ...undo, id: job.id }).then(reload).catch((e) => toast({ text: '取り消せませんでした', sub: (e as Error).message })); } : undefined });
+        reload();
+      })
+      .catch((e) => toast({ text: '保存できませんでした', sub: (e as Error).message }));
+  };
   const update = (id: string, patch: Partial<Job>, text: string, subText: string) => {
     const prev = jobs.find((j) => j.id === id)!;
+    if (live) {
+      // 本物で変えられるのは 予約を外す／再掲載（充足・予約・終了は confirmFill から）
+      if (patch.status === 'open') write(prev, { action: 'mapReopen' }, text, subText);
+      else if ('reserve' in patch && !patch.reserve) write(prev, { action: 'mapUnreserve' }, text, subText, prev.reserve ? { action: 'mapFill', kind: 'reserve', date: prev.reserve, note: prev.reserveNote ?? '' } : undefined);
+      return;
+    }
     setJobs((js) => js.map((j) => (j.id === id ? { ...j, ...patch } : j)));
     touch(prev.case_no); hit();
     toast({ text, sub: subText, undo: () => setJobs((js) => js.map((j) => (j.id === id ? prev : j))) });
@@ -114,6 +136,13 @@ function CasesMap({ from, setFrom, data }: { from: string; setFrom: (s: string) 
   const confirmFill = () => {
     if (!fill) return;
     const { job, kind, days, note } = fill;
+    if (live) {
+      const d = ymdPlus(today, days);
+      if (kind === 'reserve') write(job, { action: 'mapFill', kind: 'reserve', date: d, note }, `No.${job.case_no} の充足を ${fmt(d)} に予約しました`, '→ その日まで「充足予定」の札つきでマップに出します・シートの「充足」列にも反映', { action: 'mapUnreserve' });
+      else write(job, kind === 'now' ? { action: 'mapFill', kind: 'now', note } : { action: 'mapClose', note }, `No.${job.case_no} を${kind === 'now' ? '充足' : '終了'}にしました`, '→ マップから外して「充足・終了」に移しました（記録は残ります）', { action: 'mapReopen' });
+      setFill(null); if (focus === job.case_no && kind !== 'reserve') setFocus(null);
+      return;
+    }
     if (kind === 'reserve') update(job.id, { reserve: addDays(days), reserveNote: note }, `No.${job.case_no} の充足を ${fmt(addDays(days))} に予約しました`, '→ その日まで「充足予定」の札つきでマップに出します・シートの「充足」列にも反映');
     else update(job.id, { status: kind === 'now' ? 'filled' : 'closed', doneOn: TODAY, doneNote: note }, `No.${job.case_no} を${kind === 'now' ? '充足' : '終了'}にしました`, '→ マップから外して「充足・終了」に移しました（記録は残ります）');
     setFill(null); if (focus === job.case_no && kind !== 'reserve') setFocus(null);
@@ -139,7 +168,7 @@ function CasesMap({ from, setFrom, data }: { from: string; setFrom: (s: string) 
         <div className="mt-1 text-sm text-muted">{j.summary}</div>
         {j.reserve && (
           <div className="mt-1.5 flex items-center gap-1.5 rounded-md px-2 py-1 text-sm font-semibold" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>
-            <CalendarDays size={13} />充足予定 {fmt(j.reserve)}（あと{daysLeft(j.reserve)}日）{j.reserveNote && <span className="font-normal">— {j.reserveNote}</span>}
+            <CalendarDays size={13} />充足予定 {fmt(j.reserve)}（あと{live ? Math.round((Date.parse(`${j.reserve}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000) : daysLeft(j.reserve)}日）{j.reserveNote && <span className="font-normal">— {j.reserveNote}</span>}
             <button disabled={!canEdit} title={canEdit ? undefined : noEdit} onClick={(ev) => { ev.stopPropagation(); update(j.id, { reserve: undefined, reserveNote: undefined }, `No.${j.case_no} の充足予約を外しました`, '→ ふつうの案件としてマップに出します'); }} className="ml-auto underline disabled:opacity-40">予約を外す</button>
           </div>
         )}
@@ -176,7 +205,7 @@ function CasesMap({ from, setFrom, data }: { from: string; setFrom: (s: string) 
         <div className="flex flex-wrap items-center gap-3 rounded-lg bg-sunken px-3 py-2 text-sm text-muted">
           {(['sheet', 'ike', 'juchu'] as const).map((s) => <span key={s}>{s === 'sheet' ? 'スプレッドシートから' : s === 'ike' ? '社内ツールで入力' : '案件受注から'} <b className="text-ink">{openJobs.filter((j) => j.source === s).length}</b> 件</span>)}
           <span>10分ごとに自動同期</span>
-          <button className={`${ghost} ml-auto`} disabled={!canEdit} title={canEdit ? undefined : noEdit} onClick={() => { hit(); toast({ text: '今すぐ同期しました（見本）', sub: '→ シートと案件受注の新しい行をマップに取り込みます' }); }}><RefreshCw size={12} />今すぐ同期</button>
+          <button className={`${ghost} ml-auto`} disabled={!canEdit} title={canEdit ? undefined : noEdit} onClick={() => { if (!live) { hit(); toast({ text: '今すぐ同期しました（見本）', sub: '→ シートと案件受注の新しい行をマップに取り込みます' }); return; } postLive('/api/live/eigyo', { action: 'mapSync' }).then(() => { hit(); toast({ text: '今すぐ同期しました', sub: '→ シートと案件受注の新しい行をマップに取り込みました' }); reload(); }).catch((e) => toast({ text: '同期できませんでした', sub: (e as Error).message })); }}><RefreshCw size={12} />今すぐ同期</button>
         </div>
         <div className="flex flex-wrap items-end gap-3 rounded-xl border border-line bg-surface px-4 py-3">
           <label className="flex flex-col gap-1 text-sm text-muted"><span className="flex items-center gap-1"><Train size={12} />要員の出発駅（お住まい）</span>
@@ -254,7 +283,8 @@ function CasesMap({ from, setFrom, data }: { from: string; setFrom: (s: string) 
         )}
       </>}
 
-      {sub === 'input' && <CaseInput onSave={(j) => {
+      {sub === 'input' && live && <LiveCaseInput today={today} onSaved={(no) => { setSub('map'); reload(); setFocus(no); touch(no); }} />}
+      {sub === 'input' && !live && <CaseInput onSave={(j) => {
         const no = Math.max(...jobs.map((x) => x.case_no)) + 1, job = { ...j, id: `new${no}`, case_no: no };
         setJobs((js) => [...js, job]); setSub('map'); setFocus(no); setPop(job.station ?? null); touch(no); hit();
         toast({ text: `No.${no}「${job.title}」を登録しました`, sub: '→ 案件マップに出しました・スプレッドシートにも同じ案件Noで書き戻します', undo: () => setJobs((js) => js.filter((x) => x.id !== job.id)) });
@@ -290,7 +320,7 @@ function CasesMap({ from, setFrom, data }: { from: string; setFrom: (s: string) 
                   <label key={k} className="flex cursor-pointer gap-2 rounded-lg border p-2.5 text-body" style={{ borderColor: fill.kind === k ? 'var(--a)' : 'var(--color-line)' }}>
                     <input type="radio" name="fillKind" checked={fill.kind === k} onChange={() => setFill({ ...fill, kind: k })} /><span><b>{t}</b><span className="block text-sm text-muted">{d}</span></span></label>))}
               </div>
-              {fill.kind === 'reserve' && <div className="mt-3 flex flex-wrap items-center gap-1.5 text-sm">充足予定日 <b>{fmt(addDays(fill.days))}</b>
+              {fill.kind === 'reserve' && <div className="mt-3 flex flex-wrap items-center gap-1.5 text-sm">充足予定日 <b>{fmt(live ? ymdPlus(today, fill.days) : addDays(fill.days))}</b>
                 {[[3, '3日後'], [7, '1週間後'], [14, '2週間後'], [30, '1ヶ月後']].map(([d, l]) => <button key={d} onClick={() => setFill({ ...fill, days: +d })} className="chip" style={fill.days === d ? { background: 'var(--as)', color: 'var(--ad)' } : { background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>{l}</button>)}</div>}
               <label className="mt-3 flex flex-col gap-1 text-sm text-muted">メモ（短く）
                 <input value={fill.note} maxLength={40} onChange={(e) => setFill({ ...fill, note: e.target.value })} placeholder="例：面談 10/28、内定見込み" className={`${sel} min-h-9`} /></label>
@@ -367,6 +397,75 @@ function CaseInput({ onSave }: { onSave: (j: Omit<Job, 'id' | 'case_no'>) => voi
   );
 }
 
+/** 本物の案件入力：案件文を貼る → 今の読み取り（/api/cases-map extract）で欄を埋める → 手で直せる → 確認の窓 → 登録（#未経験-案件共有にも流れる） */
+type Ext = { title: string; company: string; category: string; station: string; access: string; address: string; area: string; pay: string; hours: string; holiday: string; start_text: string; require_text: string; summary: string; commute_modes: string[] };
+const EMPTY_EXT: Ext = { title: '', company: '', category: '', station: '', access: '', address: '', area: '', pay: '', hours: '', holiday: '', start_text: '', require_text: '', summary: '', commute_modes: ['公共交通機関'] };
+function LiveCaseInput({ today, onSaved }: { today: string; onSaved: (caseNo: number) => void }) {
+  const { me } = usePerms();
+  const { hit, toast } = useMotivation();
+  const [text, setText] = useState(''), [step, setStep] = useState<'empty' | 'reading' | 'done'>('empty');
+  const [f, setF] = useState<Ext>(EMPTY_EXT), [stOk, setStOk] = useState<boolean | null>(null), [rsv, setRsv] = useState(0);
+  const [spec, setSpec] = useState<ConfirmSpec | null>(null);
+  const set = (k: keyof Ext, v: string) => setF((x) => ({ ...x, [k]: v }));
+  const read = () => {
+    if (text.trim().length < 10) { toast({ text: '案件文が短すぎます' }); return; }
+    setStep('reading');
+    postLive<{ fields: Partial<Ext>; station: { station: string; ok: boolean } | null }>('/api/live/eigyo', { action: 'mapExtract', text })
+      .then((r) => {
+        const x = r.fields || {};
+        setF({ ...EMPTY_EXT, ...Object.fromEntries(Object.entries(x).filter(([, v]) => v != null)), category: CATS.includes(x.category as Cat) ? String(x.category) : '', station: r.station?.station || x.station || '', commute_modes: Array.isArray(x.commute_modes) && x.commute_modes.length ? x.commute_modes : ['公共交通機関'] } as Ext);
+        setStOk(r.station ? r.station.ok : null); setStep('done');
+      })
+      .catch((e) => { setStep('empty'); toast({ text: '読み取れませんでした', sub: (e as Error).message }); });
+  };
+  const ok = step === 'done' && !!f.title.trim() && !!f.category;
+  const save = () => setSpec({
+    title: `案件「${f.title}」を登録します`, okLabel: '登録してマップに出す',
+    lines: [`カテゴリ：${f.category}`, `最寄駅：${f.station ? `${f.station}駅` : '—（ピンなし）'}`, ...(rsv ? [`充足予約：${fmt(ymdPlus(today, rsv))}`] : [])],
+    sends: 'Slack の #未経験-案件共有 に新しい案件として流れます（今の案件マップの登録と同じ）',
+    run: async () => {
+      const r = await postLive<{ row: { case_no: number } }>('/api/live/eigyo', { action: 'mapCreate', fields: { ...f, case_text: text, pinnable: !!f.station, ...(rsv ? { reserve_date: ymdPlus(today, rsv) } : {}) } });
+      hit(); toast({ text: `No.${r.row?.case_no ?? ''} を登録しました`, sub: '→ マップに出しました・#未経験-案件共有にも流しました（取り消すときは「終了」に）' });
+      setText(''); setStep('empty'); setF(EMPTY_EXT); setRsv(0);
+      onSaved(r.row?.case_no ?? 0);
+    },
+  });
+  // 入力欄は関数で呼ぶ（中で部品として定義すると打つたびに作り直されて入力が外れる）
+  const E = ({ l, k, wide }: { l: string; k: keyof Ext; wide?: boolean }) => (
+    <label key={k} className={`flex flex-col gap-0.5 text-xs text-faint ${wide ? 'sm:col-span-2' : ''}`}>{l}
+      <input value={String(f[k] ?? '')} onChange={(e) => set(k, e.target.value)} disabled={step !== 'done'} className="min-h-9 rounded-[10px] border border-field bg-surface px-2.5 py-1.5 text-body text-ink" /></label>);
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
+      <h2 className="flex items-center gap-1.5 text-md font-bold"><Plus size={16} />案件を登録</h2>
+      <p className="text-sm text-muted">今の案件マップと同じ口で登録します。登録した案件はすぐマップに出て、Slack の #未経験-案件共有 にも流れます。</p>
+      <div className="flex items-center gap-2.5 rounded-lg bg-soft px-3 py-2 text-sm"><span className="grid size-8 place-items-center rounded-full font-bold" style={{ background: 'var(--al)', color: 'var(--ad)' }}>{me.name[0]}</span>
+        <span><span className="block text-xs text-faint">担当営業（ログインから自動）</span><b>{me.name}</b></span><span className="ml-auto flex items-center gap-1 text-faint"><Lock size={12} />手で変えない</span></div>
+      <label className="flex flex-col gap-1 text-sm font-semibold">案件文を貼る（Slack・メールの文面そのまま）
+        <textarea value={text} onChange={(e) => setText(e.target.value)} rows={7} maxLength={8000} className="rounded-[10px] border border-field bg-sunken p-2.5 text-sm font-normal" placeholder="ここに案件文を貼ってください" /></label>
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <button className={ghost} onClick={read} disabled={step === 'reading' || text.trim().length < 10}><Sparkles size={12} className={step === 'reading' ? 'mo-pulse' : ''} />{step === 'reading' ? '読み取り中…' : '欄を読み取る'}</button>
+        {step === 'done' && <span style={{ color: stOk === false ? 'var(--tone-warn-fg)' : 'var(--tone-ok-fg)' }}>{f.station ? (stOk === false ? `最寄駅「${f.station}」の場所が分かりません（駅名を直してください）` : `最寄駅「${f.station}駅」を見つけました`) : '最寄駅が見つかりません（手で入れてください）'}</span>}
+      </div>
+      <p className="border-t border-line-soft pt-2 text-sm font-bold text-muted">基本（読み取った欄は手で直せます）</p>
+      <div className="grid gap-2 sm:grid-cols-2">{E({ l: "案件名 *", k: "title" })}{E({ l: "会社名", k: "company" })}</div>
+      <div className="grid gap-2 sm:grid-cols-3">
+        <label className="flex flex-col gap-0.5 text-xs text-faint">カテゴリ *<select value={f.category} onChange={(e) => set('category', e.target.value)} disabled={step !== 'done'} className={sel}><option value="">選ぶ</option>{CATS.map((c) => <option key={c}>{c}</option>)}</select></label>
+        {E({ l: "単価", k: "pay" })}{E({ l: "開始時期", k: "start_text" })}</div>
+      <div className="grid gap-2 sm:grid-cols-3">{E({ l: "勤務時間", k: "hours" })}{E({ l: "休日", k: "holiday" })}{E({ l: "求めているもの", k: "require_text" })}</div>
+      <div className="grid gap-2 sm:grid-cols-2">{E({ l: "最寄駅（駅名）", k: "station" })}{E({ l: "アクセス", k: "access" })}{E({ l: "住所", k: "address", wide: true })}{E({ l: "概要", k: "summary", wide: true })}</div>
+      <div className="flex flex-wrap gap-3 text-body"><span className="text-sm text-muted">通勤手段</span>{MODES.map((m) => (
+        <label key={m.v} className="flex items-center gap-1"><input type="checkbox" disabled={step !== 'done'} checked={f.commute_modes.includes(m.v)} onChange={() => setF((x) => ({ ...x, commute_modes: x.commute_modes.includes(m.v) ? x.commute_modes.filter((y) => y !== m.v) : [...x.commute_modes, m.v] }))} />{m.l}</label>))}</div>
+      <label className="flex items-center gap-2 border-t border-line-soft pt-2 text-sm text-muted">充足予約（任意）<select value={rsv} onChange={(e) => setRsv(+e.target.value)} className={sel}><option value={0}>しない</option>{[[7, '1週間後'], [14, '2週間後'], [30, '1ヶ月後']].map(([d, l]) => <option key={d} value={d}>{l}（{fmt(ymdPlus(today, +d))}）</option>)}</select></label>
+      <div className="flex flex-wrap items-center gap-2 border-t border-line-soft pt-3">
+        <span className="flex-1 text-xs text-faint">案件No は自動採番（スプレッドシートと共通）。</span>
+        <button className={ghost} onClick={() => { setText(''); setStep('empty'); setF(EMPTY_EXT); setRsv(0); }}>クリア</button>
+        <button className="btn-primary" disabled={!ok} title={ok ? undefined : '案件文を読み取って、案件名とカテゴリを入れてください'} onClick={save}><Check size={14} />登録してマップに出す</button>
+      </div>
+      {spec && <ConfirmWrite spec={spec} onClose={() => setSpec(null)} />}
+    </div>
+  );
+}
+
 // ========================= 要員マップ =========================
 function YouinMap({ live }: { live: boolean }) {
   const md = useIke<MapData>(live ? 'proxy?action=getMapData' : null);
@@ -374,8 +473,9 @@ function YouinMap({ live }: { live: boolean }) {
   const mk = useMikeiken();   // 要員マップの人は未経験の人だけ（今のプロパーリストに入っている人）
   const YOUIN_ = live ? mk.keep(ly.youin, 'name') : YOUIN, CASES_ = live ? ly.cases : SLACK_CASES;
   const at = (n?: string) => (n ? (live ? ly.pos.get(n) ?? stationOf(n) : stationOf(n)) : undefined);
-  const canEdit = usePerms().can('eigyo', 'edit') && !live;
+  const canEdit = usePerms().can('eigyo', 'edit');
   const { hit, toast } = useMotivation();
+  const cs = useCaseSend();
   const [q, setQ] = useState(''), [hidden, setHidden] = useState<Record<string, boolean>>({});
   const [selCase, setSelCase] = useState<string | null>(null), [members, setMembers] = useState<string[]>([]);
   const [pop, setPop] = useState<string | null>(null), [detail, setDetail] = useState<Youin | null>(null);
@@ -386,18 +486,35 @@ function YouinMap({ live }: { live: boolean }) {
   const noStation = YOUIN_.filter((y) => !y.station);
   const toggle = (id: string) => setMembers((m) => (m.includes(id) ? m.filter((x) => x !== id) : [...m, id]));
   const apply = () => {
+    if (live) {
+      // 本物：選んだ案件の本文を、選んだ要員の LINE グループに送る（確認の窓のあと・今の配信画面の「送信」と同じ口）
+      if (!selCase) { toast({ text: '案件を選んでください' }); return; }
+      const names = YOUIN_.filter((y) => members.includes(y.id)).map((y) => y.name);
+      if (!names.length) { toast({ text: '要員を選んでください' }); return; }
+      cs.open(selCase, names, (n) => { if (n) { setSelCase(null); setMembers([]); } });
+      return;
+    }
     const prev = { selCase, members };
     hit();
     toast({ text: `${selCase ? `案件 ${selCase} の本文を転記し、` : ''}宛先に要員 ${members.length}名を設定しました`, sub: '→ 配信ページの本文と宛先に反映しました（見本）', undo: () => { setSelCase(prev.selCase); setMembers(prev.members); } });
     setSelCase(null); setMembers([]);
   };
-  const refresh = () => { setLoading(true); setTimeout(() => { setLoading(false); toast({ text: '案件を更新しました（見本）', sub: '→ Slack から案件を取り直して地図を描き直しました' }); }, 800); };
+  const refresh = () => {
+    if (live) {
+      setLoading(true);
+      postLive('/api/live/eigyo', { action: 'slackSync' })
+        .then(() => { toast({ text: '案件を更新しました', sub: '→ Slack から案件を取り直して地図を描き直しました' }); md.reload(); })
+        .catch((e) => toast({ text: '更新できませんでした', sub: (e as Error).message }))
+        .finally(() => setLoading(false));
+      return;
+    }
+    setLoading(true); setTimeout(() => { setLoading(false); toast({ text: '案件を更新しました（見本）', sub: '→ Slack から案件を取り直して地図を描き直しました' }); }, 800); };
 
   return (
     <div className="grid gap-3.5 lg:grid-cols-[340px_1fr]">
       <aside className="flex flex-col gap-2.5 self-start rounded-xl border border-line bg-surface p-3">
         <div className="flex items-center gap-2">
-          <button className={ghost} onClick={refresh} disabled={loading || live} title={live ? LIVE_WRITE_BLOCKED : undefined}><RefreshCw size={12} className={loading ? 'animate-spin' : ''} />{loading ? '案件取得中…' : '案件を更新'}</button>
+          <button className={ghost} onClick={refresh} disabled={loading || !canEdit} title={canEdit ? undefined : needText('edit')}><RefreshCw size={12} className={loading ? 'animate-spin' : ''} />{loading ? '案件取得中…' : '案件を更新'}</button>
           <span className="text-sm text-muted">地図表示 <b className="text-ink">{shown.length}</b>名 / 案件 <b className="text-ink">{CASES_.length}</b>件</span>
         </div>
         <div className="rounded-lg bg-soft px-2.5 py-2 text-xs leading-relaxed text-muted">
@@ -462,10 +579,11 @@ function YouinMap({ live }: { live: boolean }) {
         <div className="mo-fade-up fixed bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 rounded-xl border border-line bg-surface px-4 py-2.5 text-body shadow-lg">
           <span>{selCase ? <>案件 <b>{selCase}</b></> : <span className="text-warn">案件 未選択</span>}　／　要員 <b>{members.length}</b> 名</span>
           <button className={ghost} onClick={() => { setSelCase(null); setMembers([]); }}>選択解除</button>
-          <button className="btn-primary" disabled={!canEdit} title={canEdit ? undefined : live ? LIVE_WRITE_BLOCKED : needText('edit')} onClick={apply}>転記＆配信先設定</button>
+          <button className="btn-primary" disabled={!canEdit || cs.busy || (live && (!selCase || !members.length))} title={canEdit ? (live ? '選んだ要員の LINE グループに、選んだ案件を送ります（送る前に確認が出ます）' : undefined) : needText('edit')} onClick={apply}>{live ? '案件を送る' : '転記＆配信先設定'}</button>
         </div>
       )}
 
+      {cs.node}
       {detail && (
         <DrawerPortal>
           <div className="fixed inset-0 z-40 bg-sumi/30" onClick={() => setDetail(null)} />

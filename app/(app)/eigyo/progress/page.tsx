@@ -7,10 +7,13 @@ import { PageTitle, PrimaryButton } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
 import { DrawerPortal } from '@/components/DrawerPortal';
-import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { LiveBanner, useIke } from '@/components/Live';
+import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
+import { postLive } from '@/lib/live/post';
+import { groupBubbles, type GroupThreadRes } from '@/lib/live/person';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
-import { liveProgress } from '@/lib/live/progress';
-import { matchGroupName, type ProgressData, type ProgressReply } from '@/lib/live/eigyo-common';
+import { gidOfRow, liveDirectRows, liveProgress, type DirectData } from '@/lib/live/progress';
+import { matchGroupName, mdhm, type ProgressData, type ProgressReply } from '@/lib/live/eigyo-common';
 import { PersonName } from '@/components/Person';
 
 // 案件進捗（単独の画面・2026-10-23 shoya）。
@@ -18,8 +21,9 @@ import { PersonName } from '@/components/Person';
 //   ・回収候補 … 内勤がグループに直接書いた「案件らしい発言」。一番近い案件を当てて、内勤が✓で確定したものだけ載せる
 //     どの案件か迷うものは「チャットで前後を見る」でグループのやりとりを確かめてから決める
 //   列・並び・タブを自分で変える「カスタム」はあとで決める（10-23 shoya）
-//   本物（ログイン中）：今の /api/proxy?action=getProgressData と getProgressReplies を読むだけ（直近7日の送信）。
-//     OK/NG の判断は今の画面から（ここでは押せない）。回収候補は今のシステムに無いので出さない
+//   本物（ログイン中）：今の /api/proxy?action=getProgressData と getProgressReplies（直近7日の送信）。
+//     OK/NG は今の📮判断と同じ口（/api/live/eigyo judge → markSlackForwarded。OK は確認のうえ Slack の案件スレッドへ・NG は取り消せる）
+//     回収候補＝/api/roster?op=eigyo&action=direct（内勤のグループ発言から拾う・10-26 足した）。✓で載せた分は「グループ直接」で送った案件に並ぶ
 const VIA_STYLE: Record<Via, { bg: string; fg: string }> = {
   あおい: { bg: 'var(--tone-info-bg)', fg: 'var(--tone-info-fg)' },
   グループ直接: { bg: 'var(--tone-warn-bg)', fg: 'var(--tone-warn-fg)' },
@@ -34,7 +38,7 @@ const Chip = ({ s, children }: { s: { bg: string; fg: string }; children: React.
 const scoreTone = (n: number) => (n >= 85 ? 'var(--color-ok)' : n >= 70 ? 'var(--color-warn)' : 'var(--color-bad)');
 
 type TabKey = 'sent' | 'collect';
-type ChatOpen = { group: string; thread: ChatMsg[]; focus?: string; cand?: Candidate };
+type ChatOpen = { group: string; thread: ChatMsg[]; focus?: string; cand?: Candidate; gid?: string };
 
 export default function ProgressPage() {
   const perm = usePerms().can('eigyo', 'edit');
@@ -45,21 +49,38 @@ export default function ProgressPage() {
   // 本物は未経験の人だけ：送り先のグループ名に、今のプロパーリストの人の名前が入っている行だけ（今の matchRosterName と同じ当て方）
   const mk = useMikeiken();
   const lp0 = useMemo(() => liveProgress(pd.data, Array.isArray(pr.data) ? pr.data : null), [pd.data, pr.data]);
+  const dd = useIke<DirectData>(live ? 'roster?op=eigyo&action=direct' : null);
+  const ddata = dd.data?.ok ? dd.data : null;
+  // 判断を押した直後の値（読み直しが返るまで画面だけ先に変える）
+  const [judged, setJudged] = useState<Record<string, ProgressRow['decision']>>({});
   const lp = useMemo(() => {
     const norms = mk.set ? [...mk.set] : null;
-    return { ...lp0, rows: mk.state === 'none' ? lp0.rows : norms ? lp0.rows.filter((r) => matchGroupName(r.group, norms)) : [] };
-  }, [lp0, mk]);
-  const canEdit = perm && !live;
-  const noEdit = live ? LIVE_WRITE_BLOCKED : needText('edit');
+    const keep = (g: string) => mk.state === 'none' || (!!norms && !!matchGroupName(g, norms));
+    const ld = liveDirectRows(ddata, pd.data, Array.isArray(pr.data) ? pr.data : null);
+    const tsOf = (id: string) => Number(id.split(':').pop()) || 0;
+    const rows = [...lp0.rows, ...ld.rows].filter((r) => keep(r.group)).sort((a, b) => tsOf(b.id) - tsOf(a.id))
+      .map((r) => (judged[r.id] ? { ...r, decision: judged[r.id], slack: judged[r.id] === 'OK' } : r));
+    const cands: Candidate[] = (ddata?.candidates ?? []).filter((c) => keep(c.group)).map((c) => ({
+      id: c.id, personId: '', person: c.group || '（名前なし）', group: c.group, msgId: c.id, poster: c.poster, postedAt: mdhm(c.ts), match: c.match,
+      hint: `案件の紹介に出る言葉が ${c.words}個`, thread: [{ id: c.id, at: mdhm(c.ts), who: 'staff' as const, name: c.poster || '内勤', text: c.text }],
+    }));
+    const gidOf = Object.fromEntries((ddata?.candidates ?? []).map((c) => [c.id, c.groupId]));
+    return { ...lp0, rows, threads: { ...lp0.threads, ...ld.threads }, cases: [...lp0.cases, ...ld.extraCases], cands, gidOf };
+  }, [lp0, mk, ddata, pd.data, pr.data, judged]);
+  const canEdit = perm;
+  const noEdit = needText('edit');
   const caseOf = (no: string) => (live ? lp.cases : CASES).find((c) => c.no === no);
+  const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
+  const [gone, setGone] = useState<Record<string, boolean>>({});   // 本物：決めた直後に候補から消す（読み直しを待たない）
   const [rowsS, setRows] = useState<ProgressRow[]>(PROGRESS);
   const rows = live ? lp.rows : rowsS;
-  const [cands, setCands] = useState<Candidate[]>(CANDIDATES);
+  const [candsS, setCands] = useState<Candidate[]>(CANDIDATES);
+  const cands = live ? lp.cands.filter((c) => !gone[c.id]) : candsS;
   const [pick, setPick] = useState<Record<string, string>>({}); // 候補ごとに内勤が選び直した案件No
   const [flash, setFlash] = useState<string | null>(null);
   const [chat, setChat] = useState<ChatOpen | null>(null);
   const [via, setVia] = useState<Via | 'すべて'>('すべて');
-  const total = CANDIDATES.length;
+  const total = live ? lp.cands.length : CANDIDATES.length;
 
   const [tab, setTab] = useState<TabKey>('sent');
   const [rowFlash, setRowFlash] = useState<string | null>(null);
@@ -72,6 +93,26 @@ export default function ProgressPage() {
   const settle = (c: Candidate, asCase: boolean) => {
     if (!canEdit || flash === c.id) return; // 消える前に2回押しても二重に載せない
     const no = caseFor(c);
+    if (live) {
+      // 本物：今のシステムの回収の表に「載せた（どの案件か）／案件ではない」を書く。取り消すと候補に戻る
+      setFlash(c.id);
+      postLive('/api/live/eigyo', { action: 'directDecide', id: c.id, decision: asCase ? 'case' : 'not_case', caseNo: asCase ? no : '' })
+        .then((j) => {
+          setChat((o) => (o?.cand?.id === c.id ? null : o));
+          setGone((g) => ({ ...g, [c.id]: true }));
+          hit();
+          const label = no ? caseOf(no)?.name ?? no : `新しい案件（${String((j as { caseNo?: string }).caseNo || '')}）`;
+          toast({
+            text: asCase ? `${c.person} への ${label} を載せました` : '案件ではない、にしました',
+            sub: asCase ? '→ 送った案件に「グループ直接」で載り、返信待ちに入りました' : '→ 同じ発言はもう候補に出ません',
+            undo: () => { postLive('/api/live/eigyo', { action: 'directUndo', id: c.id }).then(() => { setGone((g) => { const n = { ...g }; delete n[c.id]; return n; }); dd.reload(); }).catch((e) => toast({ text: '取り消せませんでした', sub: (e as Error).message })); },
+          });
+          dd.reload();
+        })
+        .catch((e) => toast({ text: '載せられませんでした', sub: (e as Error).message }))
+        .finally(() => setFlash(null));
+      return;
+    }
     setFlash(c.id);
     setChat((o) => (o?.cand?.id === c.id ? null : o));
     setTimeout(() => {
@@ -93,6 +134,26 @@ export default function ProgressPage() {
   // 返信があった行の OK / NG を選ぶ（未判断を片づける）
   const decide = (r: ProgressRow, d: 'OK' | 'NG') => {
     if (!canEdit) return;
+    if (live) {
+      // 本物：今の📮判断（markSlackForwarded）。押した時に見えていた値（未判断）のままのときだけ書く＝同時に押されたら今の値を出す
+      const body = { action: 'judge', caseNo: r.caseNo, gid: gidOfRow(r.id), name: r.group };
+      const name = caseOf(r.caseNo)?.name ?? r.caseNo;
+      const done = () => {
+        setJudged((j) => ({ ...j, [r.id]: d }));
+        setRowFlash(r.id); setTimeout(() => setRowFlash(null), 1300);
+        hit();
+        toast({
+          text: `${r.person} の ${name} を「${d}」にしました`,
+          sub: d === 'OK' ? '→ Slack の案件スレッドに流しました（📮営業へ）' : '→ この案件はこの人の候補から外しました',
+          undo: d === 'NG' ? () => { postLive('/api/live/eigyo', { ...body, status: '', prev: 'NG' }).then(() => { setJudged((j) => ({ ...j, [r.id]: '未判断' })); pd.reload(); }).catch((e) => toast({ text: '取り消せませんでした', sub: (e as Error).message })); } : undefined,
+        });
+        pd.reload();
+      };
+      const run = async () => { try { await postLive('/api/live/eigyo', { ...body, status: d, prev: '' }); } catch (e) { pd.reload(); throw e; } done(); };
+      if (d === 'OK') setConfirm({ title: '「OK」にして営業へ回します', lines: [`${r.person}`, `案件：${name}`, `返信：${r.reply.slice(0, 60)}`], sends: 'Slack の案件スレッドに流れます（今の📮OK と同じ）', okLabel: 'OK にする', run });
+      else run().catch((e) => toast({ text: '保存できませんでした', sub: (e as Error).message }));
+      return;
+    }
     const prev = { decision: r.decision, slack: r.slack };
     setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, decision: d, slack: d === 'OK' ? true : x.slack } : x)));
     setRowFlash(r.id); setTimeout(() => setRowFlash(null), 1300);
@@ -115,7 +176,7 @@ export default function ProgressPage() {
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="案件進捗" sub="あおい・グループ直接・手動配信で送った案件を1本で。グループに直接書いた案件も回収して載せる" />
-      <LiveBanner state={pd.state} error={pd.error} onReload={() => { pd.reload(); pr.reload(); }} note={`直近7日の送信 ${rows.length}件（今の案件進捗と同じ材料）。OK・NG は今の画面で押してください${pr.state === 'error' ? '・返信が読めませんでした' : ''}`} />
+      <LiveBanner state={pd.state} error={pd.error} onReload={() => { pd.reload(); pr.reload(); dd.reload(); }} note={`直近7日の送信 ${rows.length}件（今の案件進捗と同じ材料）。OK・NG は今の📮判断と同じに保存します${pr.state === 'error' ? '・返信が読めませんでした' : ''}${dd.state === 'error' || (dd.data && !dd.data.ok) ? '・回収候補が読めませんでした' : ''}`} />
       <MikeikenNote mk={mk} live={live} />
 
       <div className="mo-fade-up grid grid-cols-2 gap-3 lg:grid-cols-4" style={{ ['--i' as string]: 1 }}>
@@ -131,7 +192,7 @@ export default function ProgressPage() {
       <div role="tablist" className="mo-fade-up flex flex-wrap gap-1 border-b border-line" style={{ ['--i' as string]: 2 }}>
         {([['sent', '送った案件'], ['collect', '回収候補']] as [TabKey, string][]).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="tab">
-            {l}{k === 'collect' && !live && cands.length > 0 && <span className="num ml-1.5 rounded-full bg-bad px-1.5 text-xs font-bold text-white">{cands.length}</span>}
+            {l}{k === 'collect' && cands.length > 0 && <span className="num ml-1.5 rounded-full bg-bad px-1.5 text-xs font-bold text-white">{cands.length}</span>}
           </button>
         ))}
         <span className="ml-auto self-center text-xs text-faint">列・並び・タブを自分で変えるのは、あとで決めます</span>
@@ -185,13 +246,11 @@ export default function ProgressPage() {
               </div>
             </div>
           </div>
-        ) : live ? (
-          <NotInLegacy what="グループに直接書いた案件の回収" />
         ) : (
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
               <RemainRing remain={cands.length} total={total} />
-              <div className="text-body"><b>グループに直接書いた案件の回収</b><div className="text-sm text-muted">内勤の発言から案件らしいものを拾い、一番近い案件を当てています。✓で確定したものだけ「送った案件」に載ります。8月6日より前の発言は本文が無いので拾いません。</div></div>
+              <div className="text-body"><b>グループに直接書いた案件の回収</b><div className="text-sm text-muted">内勤の発言から案件らしいものを拾い、一番近い案件を当てています。✓で確定したものだけ「送った案件」に載ります。{live ? `直近${ddata?.days ?? 14}日の発言から拾っています。` : '8月6日より前の発言は本文が無いので拾いません。'}</div></div>
             </div>
 
             {cands.length === 0 && (
@@ -217,18 +276,18 @@ export default function ProgressPage() {
                       <label className="text-xs text-faint">どの案件か
                         <select aria-label="どの案件か" value={no} onChange={(e) => setPick((p) => ({ ...p, [c.id]: e.target.value }))} className="mt-1 block min-h-9 w-full rounded-[10px] border border-field bg-surface px-2 text-body text-ink">
                           <option value="">新しい案件として登録</option>
-                          {CASES.map((x) => <option key={x.no} value={x.no}>{x.no} {x.name}</option>)}
+                          {(live ? lp.cases : CASES).map((x) => <option key={x.no} value={x.no}>{x.no} {x.name}</option>)}
                         </select>
                       </label>
                       <div className="text-xs">
                         {c.match && !pick[c.id] ? <span style={{ color: scoreTone(c.match.score) }}>本文の近さ <b className="num">{c.match.score}%</b>{c.match.score < 70 && '・案件の紹介かどうか確かめてください'}</span>
-                          : !no ? <span className="text-warn">近い案件がありません。確定すると案件ストックに新しく登録します</span>
+                          : !no ? <span className="text-warn">{live ? '近い案件がありません。確定すると「新しい案件」（G＋日時の番号）として載せます' : '近い案件がありません。確定すると案件ストックに新しく登録します'}</span>
                           : <span className="text-muted">選び直しました</span>}
                       </div>
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line-soft px-4 py-2.5">
-                    <button onClick={() => setChat({ group: c.group, thread: c.thread, focus: c.msgId, cand: c })} className="mr-auto inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border px-3 text-body font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><MessageSquareText size={15} />チャットで前後を見る</button>
+                    <button onClick={() => setChat({ group: c.group, thread: c.thread, focus: c.msgId, cand: c, gid: live ? lp.gidOf[c.id] : undefined })} className="mr-auto inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border px-3 text-body font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><MessageSquareText size={15} />チャットで前後を見る</button>
                     <button onClick={() => settle(c, false)} disabled={!canEdit} title={!canEdit ? noEdit : undefined} className="btn-secondary">案件ではない</button>
                     <PrimaryButton onClick={() => settle(c, true)} disabled={!canEdit} title={!canEdit ? noEdit : undefined}>
                       <span className="inline-flex items-center gap-1.5">{no ? <Check size={15} /> : <Plus size={15} />}{no ? '案件進捗に載せる' : '登録して載せる'}</span>
@@ -249,7 +308,8 @@ export default function ProgressPage() {
               <button aria-label="閉じる" onClick={() => setChat(null)} className="flex size-[34px] items-center justify-center rounded-[10px] border border-line"><X size={16} /></button>
             </div>
             <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto bg-soft px-4 py-4">
-              {chat.thread.map((m, i) => {
+              {chat.gid && <LiveGroupThread gid={chat.gid} focusText={chat.thread[0]?.text ?? ''} />}
+              {!chat.gid && chat.thread.map((m, i) => {
                 const mine = m.who !== 'person';
                 const focus = m.id === chat.focus;
                 return (
@@ -273,8 +333,28 @@ export default function ProgressPage() {
           </aside>
         </DrawerPortal>
       )}
+      {confirm && <ConfirmWrite spec={confirm} onClose={() => setConfirm(null)} />}
     </main>
   );
+}
+
+// 回収候補の「チャットで前後を見る」（本物）：今のチャット画面と同じ口でグループのやりとりを読み、拾った発言を光らせる
+function LiveGroupThread({ gid, focusText }: { gid: string; focusText: string }) {
+  const gt = useIke<GroupThreadRes>(`chat?action=groupThread&groupId=${encodeURIComponent(gid)}&bc=1`);
+  if (gt.state === 'loading') return <p className="text-body text-muted">読み込み中…</p>;
+  if (gt.state === 'error') return <p className="text-body text-bad">{gt.error}</p>;
+  const key = focusText.slice(0, 40);
+  return (<>{groupBubbles(gt.data).map((m, i) => {
+    const focus = !!key && m.text.startsWith(key);
+    return (
+      <div key={m.key} className={`mo-fade-up flex flex-col ${m.out ? 'items-end' : 'items-start'}`} style={{ ['--i' as string]: Math.min(i, 12) }}>
+        <div className="mb-0.5 text-xs text-faint">{m.who}{m.who && '・'}{m.at}</div>
+        <div className={`max-w-[85%] whitespace-pre-line rounded-2xl px-3 py-2 text-body leading-relaxed ${focus ? 'mo-scale-in shadow-[0_0_0_3px_var(--al)]' : ''}`}
+          style={m.out ? { background: focus ? 'var(--a)' : 'var(--color-surface)', color: focus ? 'var(--ao)' : 'var(--color-ink)', border: '1px solid var(--color-line)' } : { background: 'var(--tone-ok-bg)', color: 'var(--color-ink)' }}>{m.text}</div>
+        {focus && <div className="mt-1 text-xs font-semibold" style={{ color: 'var(--ad)' }}>↑ 案件として拾った発言</div>}
+      </div>
+    );
+  })}</>);
 }
 
 // 送った案件の行から、そのグループのやりとりを組み立てる（見本）。実データではグループの発言を時刻で引く。

@@ -8,7 +8,8 @@ import { TAIKI } from '@/lib/taiki-sample';
 import { PageTitle, SkeletonRows } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
-import { LIVE_WRITE_BLOCKED, LiveBanner, useIke } from '@/components/Live';
+import { LiveBanner, useIke } from '@/components/Live';
+import { useCaseSend } from '@/components/CaseSendDialog';
 import { liveCandidates, liveStock, type LiveCase } from '@/lib/live/cases';
 import type { EngineerRows, ProgressData } from '@/lib/live/eigyo-common';
 import { PersonName } from '@/components/Person';
@@ -17,7 +18,7 @@ import { PersonName } from '@/components/Person';
 //   ・選んだ要員に送る → 案件進捗の「送った案件」に載る（返信待ち）
 //   ・アダルト・店舗運営系は送れない（ボタンが押せず理由を出す）。今のシステムの送信の共通関数と同じ考え
 //   本物（ログイン中）：案件＝今の /api/proxy?action=getProgressData の cases（直近14日＋送ったことのある案件）、
-//     要員＝/api/roster?action=getEngineerRows の営業中の人。読むだけ（送るのは今の社内システムの画面から）
+//     要員＝/api/roster?action=getEngineerRows の営業中の人。送る＝確認の窓のあと今の配信画面の「送信」と同じ口（components/CaseSendDialog）
 const SHOURYU_STYLE: Record<string, { bg: string; fg: string }> = {
   エンド直: { bg: 'var(--tone-ok-bg)', fg: 'var(--tone-ok-fg)' },
   元請けから: { bg: 'var(--tone-info-bg)', fg: 'var(--tone-info-fg)' },
@@ -36,9 +37,10 @@ export default function CasesPage() {
   const lpeople = useMemo(() => liveCandidates(er.data), [er.data]);
   const STOCKS: (StockCase & Partial<LiveCase>)[] = live ? lstock : STOCK;
   const PEOPLE_ = live ? lpeople : TAIKI;
-  const canEdit = perm && !live;
+  const canEdit = perm;
+  const cs = useCaseSend();
   const ngOf = (x: StockCase & Partial<LiveCase>) => (live ? x.ng ?? null : ngReason(x));
-  const sentN = (x: StockCase & Partial<LiveCase>) => (live ? x.sentTo ?? 0 : sent[x.no]?.length ?? 0);
+  const sentN = (x: StockCase & Partial<LiveCase>) => (live ? (x.sentTo ?? 0) + (sent[x.no]?.length ?? 0) : sent[x.no]?.length ?? 0);
   const [q, setQ] = useState('');
   const [cur, setCur] = useState<string>(STOCK[0].no);
   const [pick, setPick] = useState<Record<string, boolean>>({});
@@ -58,6 +60,11 @@ export default function CasesPage() {
   const choose = (no: string) => { setCur(no); setPick({}); window.history.replaceState(null, '', `?case=${no}`); };
   const send = () => {
     if (!canEdit || !c || ng || !picked.length) return;
+    if (live) {
+      const no = c.no, ids = picked.map((m) => m.p.id);
+      cs.open(no, picked.map((m) => m.p.name), () => { setSent((s) => ({ ...s, [no]: [...(s[no] ?? []), ...ids] })); setPick({}); setFlash(no); setTimeout(() => setFlash(null), 1300); pd.reload(); });
+      return;
+    }
     // 取り消しは「この回に送った人」だけを外す（あとから別の回を送っていても巻き込まない）
     const no = c.no, ids = picked.map((m) => m.p.id);
     setSent((s) => ({ ...s, [no]: [...(s[no] ?? []), ...ids] }));
@@ -71,12 +78,12 @@ export default function CasesPage() {
       <PageTitle title="案件" sub={`案件ストックと、合いそうな要員。選んで送ると案件進捗に載ります${live ? '' : '・見本データ'}`}>
         <Link href="/eigyo/progress" className="btn-secondary">案件進捗を開く</Link>
       </PageTitle>
-      <LiveBanner state={pd.state} error={pd.error} onReload={pd.reload} note={`今の案件ストック（直近14日＋送ったことのある案件）${lstock.length}件。単価・駅・スキルは本文から読める分だけ。送るのは今の画面から`} />
+      <LiveBanner state={pd.state} error={pd.error} onReload={pd.reload} note={`今の案件ストック（直近14日＋送ったことのある案件）${lstock.length}件。単価・駅・スキルは本文から読める分だけ。送るときは送り先と本文を確かめてから送ります`} />
 
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <RemainRing remain={remain} total={sendable.length} />
         <div className="text-body"><b>まだ誰にも送っていない案件 {remain}件</b><span className="ml-2 text-muted">{live ? '' : `締切が2日以内 ${sendable.filter((x) => !sent[x.no] && x.daysLeft <= 2).length}件・`}送れない案件 {STOCKS.length - sendable.length}件</span>
-          {!canEdit && <div className="text-sm text-bad">{live ? LIVE_WRITE_BLOCKED : needText('edit')}</div>}
+          {!canEdit && <div className="text-sm text-bad">{needText('edit')}</div>}
         </div>
         <label className="ml-auto flex min-h-9 items-center gap-1.5 rounded-[10px] border border-field bg-surface px-2.5 text-body">
           <Search size={14} className="text-faint" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="案件名・場所・スキルで探す" className="w-52 min-w-0 bg-transparent outline-none" />
@@ -147,13 +154,14 @@ export default function CasesPage() {
             </ul>
           </div>
           <div className="flex flex-wrap items-center gap-2 border-t border-line-soft px-5 py-3">
-            <button onClick={send} disabled={!canEdit || !!ng || !picked.length} title={!canEdit ? (live ? LIVE_WRITE_BLOCKED : needText('edit')) : ng ?? (!picked.length ? '送る人を選んでください' : undefined)} className="btn-primary"><Send size={15} />選んだ {picked.length}人に送って案件進捗に載せる</button>
+            <button onClick={send} disabled={!canEdit || !!ng || !picked.length || cs.busy} title={!canEdit ? needText('edit') : ng ?? (!picked.length ? '送る人を選んでください' : undefined)} className="btn-primary"><Send size={15} />{cs.busy ? '送り先を確かめています…' : `選んだ ${picked.length}人に送って案件進捗に載せる`}</button>
             {sentN(c) > 0 && <Link href="/eigyo/progress" className="text-sm font-semibold" style={{ color: 'var(--ad)' }}>案件進捗で返信を見る</Link>}
           </div>
         </article>
         )}
       </div>
-      <p className="text-xs text-faint">{live ? '点数は スキル（本文とサマリから拾った資格名）・通勤時間の目安 から出した目安です（駅の場所が分からない人は通勤90分として数えます）。送るのは今の社内システムの画面から。' : '点数は スキル・通勤時間の目安・希望単価 から出した見本です。送るのは本物につなぐまで見本の中だけで動きます。'}</p>
+      <p className="text-xs text-faint">{live ? '点数は スキル（本文とサマリから拾った資格名）・通勤時間の目安 から出した目安です（駅の場所が分からない人は通勤90分として数えます）。送るのは本人の LINE グループ（今の配信画面と同じ口）。' : '点数は スキル・通勤時間の目安・希望単価 から出した見本です。送るのは本物につなぐまで見本の中だけで動きます。'}</p>
+      {cs.node}
     </main>
   );
 }
