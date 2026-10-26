@@ -13,9 +13,9 @@ const NOT_ALLOWED = 'この読み口は通していません';
 // '' は action（op）なし。roster のように op で分かれる口は 'op:action'
 const ALLOW: Record<string, readonly string[]> = {
   proxy: ['getProgressData', 'getProgressReplies', 'getMapData', 'getRosterStatus', 'getReplies', 'getGroupNames', 'getSalesTableData', 'getInterviews'],
-  roster: ['getEngineerRows', 'jimu:list', 'kekkin:list', 'shime:board', 'timesheet:list'],
+  roster: ['getEngineerRows', 'jimu:list', 'kekkin:list', 'shime:board', 'timesheet:list', 'eigyo:taiki', 'eigyo:direct'],   // eigyo:* は待機の状態・グループ直接の回収候補（10-26・SELECT だけ）
   'cases-map': ['list'],
-  nippo: ['', 'pl-reps'],
+  nippo: ['', 'pl-reps', 'masters'],   // masters＝成約日報の会社・現場マスタ（10-26・SELECT だけ）
   'partner-list': ['list', 'station'],
   livers: [''],
   teams: ['list'],
@@ -23,7 +23,7 @@ const ALLOW: Record<string, readonly string[]> = {
   'shikaku-apply': ['list'],
   tenseki: ['list'],
   seikyu: ['arari'],
-  keihi: ['adminList', 'monthly', 'ringiList'],
+  keihi: ['adminList', 'monthly', 'ringiList', 'stations'],   // stations＝駅名の候補（成約日報の現場の最寄り駅・10-26 eigyo）
   kb: ['list', 'get', 'testSearch'],
   'shift-calendar': ['month', 'list', 'detail'],
   'kintai-today': ['', 'month'],

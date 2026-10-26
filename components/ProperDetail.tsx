@@ -5,6 +5,7 @@
 //   ・ログインしていれば今の社内システムの値（読むだけ）。していなければ見本
 //   ・チャットだけは送れる（長押し）。送る口は /api/live/chat（今の POST /api/chat の send / groupSend だけ通す）
 //     グループに送ってよいかは今の API が決める。断られたら理由をそのまま出す。見本のときは送らない
+//   ・ライバーは「スキシ・サマリ」にライバーリストの値（メモ＝サマリ）、「送った案件」に案件を送る口（今の配信の送信と同じ・確認の窓のあと・10-26）
 //   ・それ以外の書き込み（スキシを作る・メモを直す 等）はここには置かない
 //   ・名前の小窓（embedded）では送れない（送る欄を出さない・10-25）。小窓が読んだ分（initial）を使い、プロパーリストを読み直さない
 //     読めなかったときも 404 にしない（後ろの画面まで「見つからない」にしない）。リンクは別タブで開く
@@ -19,7 +20,11 @@ import { ScoreLine } from '@/components/ProperScore';
 import { PersonBasic } from '@/components/PersonBasic';
 import { PersonMemo } from '@/components/PersonMemo';
 import { useMotivation } from '@/components/Motivation';
-import { LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { LiveBanner, useIke } from '@/components/Live';
+import { useCaseSend } from '@/components/CaseSendDialog';
+import { usePerms } from '@/components/Perms';
+import { liveStock } from '@/lib/live/cases';
+import { blockReason, type ProgressData } from '@/lib/live/eigyo-common';
 import type { EngineerRows } from '@/lib/live/eigyo-common';
 import type { LiverList, PartnerList } from '@/lib/live/proper';
 import {
@@ -149,7 +154,7 @@ export function ProperDetail({ id, liver = false, embedded = false, initial }: {
             {t === '希望条件' && <Facts facts={p.facts.filter(([k]) => k !== 'メモ')} />}
             {t === '面談メモ' && <section className="w-full rounded-xl border border-line bg-surface px-5 py-4 text-body"><PersonMemo name={p.name} live={live} id={p.id} initial={live ? memoOf(p as LivePersonView) : { memo: p.facts.find(([k]) => k === 'メモ')?.[1] ?? '', summary: p.summary }} /></section>}
             {t === 'スキシ・サマリ' && <Sukishi p={p} liver={liver} ext={ext} />}
-            {t === '送った案件' && <SentCases name={p.name} live={live} liver={liver} />}
+            {t === '送った案件' && <SentCases name={p.name} live={live} liver={liver} embedded={embedded} />}
             {t === 'チャット' && <Chat name={p.name} live={live} everyone={everyone} embedded={embedded} canSummary={can.summary} />}
           </div>
         ))}
@@ -178,7 +183,19 @@ function Facts({ facts }: { facts: Fact[] }) {
 }
 
 function Sukishi({ p, liver, ext }: { p: View; liver: boolean; ext: { target?: string; rel?: string } }) {
-  if (liver) return <NotInLegacy what="ライバーのスキルシート" />;
+  if (liver) return (
+    <>
+      <Card title="ライバーのプロフィール" sub="今のライバーリストの値。ライバーは営業リストに入れないので、スキルシートの自動作成（営業リストの行に保存する）は使えません">
+        <dl className="grid grid-cols-[96px_1fr] gap-y-2 text-body">{p.facts.map(([k, val]) => <div key={k} className="contents"><dt className="text-faint">{k}</dt><dd className="break-words">{val}</dd></div>)}</dl>
+      </Card>
+      <Card title="サマリ（ライバーリストのメモ）" sub="直すときはライバーリストのメモ欄から">
+        {p.summary ? <pre className="whitespace-pre-wrap break-words font-sans text-body leading-relaxed">{p.summary}</pre> : <p className="text-body text-muted">メモはまだありません</p>}
+      </Card>
+      <div className="flex flex-wrap gap-2">
+        <Link href={`/eigyo/skillsheet?q=${encodeURIComponent(p.name)}`} {...ext} className="btn-secondary btn">基本情報フォームの回答を見る</Link>
+      </div>
+    </>
+  );
   return (
     <>
       <Card title="サマリ" sub="スキルシートのもとになる要約（今のプロパーリストのサマリ列）">
@@ -195,9 +212,44 @@ function Sukishi({ p, liver, ext }: { p: View; liver: boolean; ext: { target?: s
   );
 }
 
-function SentCases({ name, live, liver }: { name: string; live: boolean; liver: boolean }) {
-  const ms = useIke<MembersRes>(live && !liver ? 'progress-stats?view=members' : null);
-  if (liver) return <NotInLegacy what="ライバーへの案件の送付" />;
+// ライバーに案件を送る：最近の案件（送れない案件＝アダルト・店舗運営系は出さない）から1件選ぶ → 確認の窓 → この人の LINE グループに送る
+function LiverSend({ name }: { name: string }) {
+  const pd = useIke<ProgressData>('proxy?action=getProgressData');
+  const cs = useCaseSend();
+  const canEdit = usePerms().can('eigyo', 'edit');
+  const stock = useMemo(() => liveStock(pd.data).filter((c) => !blockReason(c.content)), [pd.data]);
+  const [k, setK] = useState('');
+  return (
+    <Card title="案件を送る" sub="選んだ案件を、この人の LINE グループに送ります（今の配信画面の「送信」と同じ。送る前に宛先と本文を確かめる窓が出ます）">
+      {pd.state === 'loading' ? <p className="text-body text-muted">案件を読み込み中…</p> : pd.state === 'error' ? <p className="text-body text-bad">{pd.error}</p> : (
+        <div className="flex flex-wrap items-center gap-2 text-body">
+          <select value={k} onChange={(e) => setK(e.target.value)} className="min-h-9 max-w-full rounded-[10px] border border-field bg-surface px-2 text-body" aria-label="送る案件">
+            <option value="">案件を選ぶ（{stock.length}件）</option>
+            {stock.map((c) => <option key={c.no} value={c.no}>{c.no}　{c.name}{c.sentTo ? `（送った ${c.sentTo}）` : ''}</option>)}
+          </select>
+          <button className="btn-primary" disabled={!k || !canEdit || cs.busy} title={canEdit ? undefined : '営業の編集権限が必要です'} onClick={() => cs.open(k, [name], (n) => { if (n) { setK(''); pd.reload(); } })}>送る前に確かめる</button>
+        </div>
+      )}
+      {cs.node}
+    </Card>
+  );
+}
+
+function SentCases({ name, live, liver, embedded }: { name: string; live: boolean; liver: boolean; embedded: boolean }) {
+  const ms = useIke<MembersRes>(live ? 'progress-stats?view=members' : null);
+  if (liver) {
+    if (!live) return <Card title="送った案件"><p className="text-body text-muted">見本ではライバーに案件を送れません。ログインすると今の案件から選んで送れます。</p></Card>;
+    const m = memberOf(ms.data, name);
+    return (
+      <>
+        {!embedded && <LiverSend name={name} />}
+        <Card title="送った案件" sub="案件進捗の「要員別」と同じ数え方">
+          {ms.state === 'loading' ? <p className="text-body text-muted">読み込み中…</p> : !m ? <p className="text-body text-muted">まだ案件を送っていません（送ると案件進捗の「送った案件」に載ります）</p>
+            : <p className="text-body">送った {m.sent}件・OK {m.ok.length}・NG {m.ng.length}・その他 {m.other.length}・まだ {m.undecided}</p>}
+        </Card>
+      </>
+    );
+  }
   if (live && ms.state === 'loading') return <p className="text-body text-muted">読み込み中…</p>;
   if (live && (ms.state === 'error' || ms.data?.ok === false)) return <p className="text-body text-bad">{ms.error || ms.data?.error}</p>;
   const m = live ? memberOf(ms.data, name) : SAMPLE_MEMBER;

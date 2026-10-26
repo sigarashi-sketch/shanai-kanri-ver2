@@ -6,7 +6,7 @@ import { MONTHS, PL, REPS, monthLabel, type RepMonth } from '@/lib/pl-sample';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { CountUp, useMotivation } from '@/components/Motivation';
-import { LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { LiveBanner, useIke } from '@/components/Live';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { PlLive } from './live';
 import type { IkePlReps } from '@/lib/live/home-eigyo';
@@ -67,7 +67,7 @@ export default function PlPage() {
       <PageTitle title="売上・粗利" sub="営業別（担当営業＝成約者）。未経験の要員の成約だけを数えています・見本データ">
         <button onClick={close} disabled={!canApprove || closed[month]} title={!canApprove ? needText('approve') : closed[month] ? 'この月は締めてあります' : undefined} className="btn-primary"><Lock size={15} />{closed[month] ? `${monthLabel(month)}は締めました` : `${monthLabel(month)}を締める`}</button>
       </PageTitle>
-      <NotInLegacy what="営業別の売上・粗利の画面（今は損益シミュレーションのスプレッドシートの「営業別」タブだけ）" />
+      <p className="text-sm text-muted">ログインすると、今のシステムの営業別の売上・粗利（スプレッドシートの「営業別」タブと同じ計算）が出ます。</p>
 
       <div className="mo-fade-up flex flex-wrap items-center gap-1.5" style={{ ['--i' as string]: 1 }}>
         {MONTHS.map((m) => (
