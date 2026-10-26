@@ -10,7 +10,7 @@ import { CountUp, RemainRing, useMotivation } from '@/components/Motivation';
 import { LiveBanner, useIke, type LiveState } from '@/components/Live';
 import { postLive } from '@/lib/live/post';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
-import { toArari, type ArariLive, type LiveArariRow } from '@/lib/live/chingin';
+import { toArari, wageParts, type ArariLive, type KintaiParts, type LiveArariRow } from '@/lib/live/chingin';
 import { PersonName } from '@/components/Person';
 import { ChinginPl } from './pl';
 
@@ -198,8 +198,9 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
         <Link href="/keiri/seikyu" className="btn-secondary">請求書へ</Link>
       </PageTitle>
       {tabs}
-      <LiveBanner state={state} error={error} onReload={reload} note="請求書締め：先方に出した押印ずみの請求書 PDF（格納したもの）の額で売上を出します。今の「請求書ベースの粗利」の計算そのままです。給与・交通費は欄に入れて離れると保存（空にすると元に戻る・今の画面と同じ値）" />
+      <LiveBanner state={state} error={error} onReload={reload} note="請求書締め：先方に出した押印ずみの請求書 PDF（格納したもの）の額で売上を出します。今の「請求書ベースの粗利」の計算そのままです。給与は freee の勤怠から（額面＋残業代−控除・想定賃金と同じ計算）。給与・交通費は欄に入れて離れると保存（空にすると元に戻る・今の画面と同じ値）" />
       <MikeikenNote mk={mk} live={true} />
+      {d.kintaiNote && <div className="rounded-xl border px-4 py-2.5 text-sm" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)', borderColor: 'var(--tone-warn-bar)' }}>{d.kintaiNote}</div>}
 
       <div className="mo-fade-up grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]" style={{ ['--i' as string]: 1 }}>
         {([['売上（請求）', sum.billed], ['原価（給与＋交通費＋法定福利）', sum.cost], ['粗利', sum.gross]] as const).map(([l, v]) => (
@@ -227,20 +228,21 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
           <span className="ml-auto text-faint">{shown.length}人・粗利率の低い順</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[920px] border-collapse text-body">
+          <table className="w-full min-w-[1040px] border-collapse text-body">
             <thead><tr className="th-row text-left">
-              <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">取引先・所属</th><th className="px-2 py-2.5 text-right font-semibold">売上（請求）</th><th className="px-2 py-2.5 text-right font-semibold">給与（額面）</th><th className="px-2 py-2.5 text-right font-semibold">交通費</th><th className="px-2 py-2.5 text-right font-semibold">法定福利</th><th className="px-2 py-2.5 text-right font-semibold">粗利</th><th className="px-4 py-2.5 text-right font-semibold">粗利率</th>
+              <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">取引先・所属</th><th className="px-2 py-2.5 text-right font-semibold">勤怠（freee）</th><th className="px-2 py-2.5 text-right font-semibold">売上（請求）</th><th className="px-2 py-2.5 text-right font-semibold">給与</th><th className="px-2 py-2.5 text-right font-semibold">交通費</th><th className="px-2 py-2.5 text-right font-semibold">法定福利</th><th className="px-2 py-2.5 text-right font-semibold">粗利</th><th className="px-4 py-2.5 text-right font-semibold">粗利率</th>
             </tr></thead>
             <tbody>
-              {shown.length === 0 && <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-muted">この月に格納した請求書がまだありません（または絞り込みに当たる人がいません）。</td></tr>}
+              {shown.length === 0 && <tr><td colSpan={9} className="px-4 py-8 text-center text-sm text-muted">この月に格納した請求書がまだありません（または絞り込みに当たる人がいません）。</td></tr>}
               {shown.map((r, i) => {
                 const t = rateTone(r.rate);
                 return (
                   <tr key={r.key} className="row mo-fade-in border-t border-line-soft align-top" style={{ ['--i' as string]: i }}>
                     <td className="px-4 py-2.5"><PersonName name={r.name} className="font-semibold underline-offset-2 hover:underline" />{r.temp && <div><span className="chip" title="給与・交通費の欄に本当の値を入れると片づきます" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>仮の値あり</span></div>}{r.warn.map((w) => <div key={w} className="text-xs text-bad">{w}</div>)}</td>
                     <td className="px-2 py-2.5">{r.company}<div className="text-xs text-faint">{r.shozoku}</div></td>
+                    <td className="num px-2 py-2.5 text-right"><KintaiCell k={r.kintai} /></td>
                     <td className="num px-2 py-2.5 text-right">{yen(r.sales)}</td>
-                    <td className="num px-2 py-2.5 text-right"><EditYen r={r} kind="salary" ym={d.ym} canEdit={canEdit} onSaved={reload} /><div className="text-xs text-faint">{r.salaryLabel}</div></td>
+                    <td className="num px-2 py-2.5 text-right"><EditYen r={r} kind="salary" ym={d.ym} canEdit={canEdit} onSaved={reload} /><div className="text-xs text-faint">{r.salaryLabel}</div>{!r.salaryManual && r.kintai && <div className="whitespace-nowrap text-xs text-faint">{wageParts(r.kintai)}</div>}</td>
                     <td className="num px-2 py-2.5 text-right"><EditYen r={r} kind="fare" ym={d.ym} canEdit={canEdit} onSaved={reload} /><div className="text-xs text-faint">{r.fareLabel}</div></td>
                     <td className="num px-2 py-2.5 text-right text-muted">{yen(r.welfare)}</td>
                     <td className="num px-2 py-2.5 text-right font-bold">{yen(r.gross)}</td>
@@ -300,7 +302,7 @@ function EditYen({ r, kind, ym, canEdit, onSaved }: { r: LiveArariRow; kind: 'sa
 }
 
 // ---------------- freee 勤怠の仮締め（今の GET /api/chingin?action=month-summary&rows=1 をそのまま・見るだけ） ----------------
-type KariRow = { key: string; name: string; eligible: boolean; shozoku?: string; hours?: number; sales: number; salesEst?: number; wage: number; shaho: number; fare: number; grossNet: number; issues?: string[] };
+type KariRow = KintaiParts & { key: string; name: string; eligible: boolean; shozoku?: string; sales: number; salesEst?: number; wage: number; shaho: number; fare: number; grossNet: number; issues?: string[] };
 type KariSum = { ok?: boolean; summary?: { ym: string; label: string; provisional: boolean; through: string }; rows?: KariRow[]; error?: { kind?: string; message?: string } | string };
 const kariYm = (back: number) => { const j = new Date(Date.now() + 9 * 3600e3); const d = new Date(Date.UTC(j.getUTCFullYear(), j.getUTCMonth() - back, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`; };
 function KariShime({ tabs }: { tabs: React.ReactNode }) {
@@ -346,9 +348,9 @@ function KariShime({ tabs }: { tabs: React.ReactNode }) {
           <span className="ml-auto text-faint">{shown.length}人・粗利率の低い順</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[920px] border-collapse text-body">
+          <table className="w-full min-w-[1000px] border-collapse text-body">
             <thead><tr className="th-row text-left">
-              <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 text-right font-semibold">勤怠</th><th className="px-2 py-2.5 text-right font-semibold">売上</th><th className="px-2 py-2.5 text-right font-semibold">給与</th><th className="px-2 py-2.5 text-right font-semibold">交通費</th><th className="px-2 py-2.5 text-right font-semibold">社保</th><th className="px-2 py-2.5 text-right font-semibold">粗利</th><th className="px-4 py-2.5 text-right font-semibold">粗利率</th>
+              <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 text-right font-semibold">勤怠（freee）</th><th className="px-2 py-2.5 text-right font-semibold">売上</th><th className="px-2 py-2.5 text-right font-semibold">給与</th><th className="px-2 py-2.5 text-right font-semibold">交通費</th><th className="px-2 py-2.5 text-right font-semibold">社保</th><th className="px-2 py-2.5 text-right font-semibold">粗利</th><th className="px-4 py-2.5 text-right font-semibold">粗利率</th>
             </tr></thead>
             <tbody>
               {r.state === 'loading' && <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-muted">読み込み中…</td></tr>}
@@ -358,9 +360,9 @@ function KariShime({ tabs }: { tabs: React.ReactNode }) {
                 return (
                   <tr key={x.key} className="row border-t border-line-soft align-top">
                     <td className="px-4 py-2.5"><PersonName name={x.name} className="font-semibold underline-offset-2 hover:underline" /><div className="text-xs text-faint">{x.shozoku || ''}</div>{(x.issues || []).slice(0, 2).map((w) => <div key={w} className="text-xs text-bad">{w}</div>)}</td>
-                    <td className="num px-2 py-2.5 text-right">{x.hours != null ? `${Math.round(x.hours * 10) / 10}h` : '—'}</td>
+                    <td className="num px-2 py-2.5 text-right"><KintaiCell k={x} /></td>
                     <td className="num px-2 py-2.5 text-right">{yen(x.sales)}<div className="text-xs text-faint">{billed ? `freee 請求書（見込み ${yen(x.salesEst!)}）` : '勤怠×単価'}</div></td>
-                    <td className="num px-2 py-2.5 text-right">{yen(x.wage)}</td>
+                    <td className="num px-2 py-2.5 text-right">{yen(x.wage)}<div className="whitespace-nowrap text-xs text-faint">{wageParts(x)}</div></td>
                     <td className="num px-2 py-2.5 text-right">{yen(x.fare)}</td>
                     <td className="num px-2 py-2.5 text-right text-muted">{yen(x.shaho)}</td>
                     <td className="num px-2 py-2.5 text-right font-bold">{yen(x.grossNet)}</td>
@@ -375,5 +377,18 @@ function KariShime({ tabs }: { tabs: React.ReactNode }) {
       <p className="text-xs text-faint">仮締めは勤怠からの見込みです。売上の確定は「請求書締め」（先方に出した押印ずみの請求書）で見てください。給与・社会保険料・税の扱いの最終判断は社労士・税理士に確認してください。</p>
       <ChinginPl live />
     </main>
+  );
+}
+
+// 勤怠の欄：総労働（有給のみなし込み）と残業・欠勤（今の想定賃金の計算の値をそのまま）
+function KintaiCell({ k }: { k: KintaiParts | null | undefined }) {
+  if (!k || k.hours == null) return <span className="text-faint">—</span>;
+  const r1 = (n: number) => Math.round(n * 10) / 10;
+  return (
+    <>
+      {r1(k.hours)}h
+      <div className={`whitespace-nowrap text-xs ${(k.otHours || 0) >= 45 ? 'text-bad' : (k.otHours || 0) > 0 ? 'text-warn' : 'text-faint'}`}>残業 {r1(k.otHours || 0)}h</div>
+      {((k.utHours || 0) > 0 || (k.absentDays || 0) > 0) && <div className="whitespace-nowrap text-xs text-faint">{(k.utHours || 0) > 0 ? `不足 ${r1(k.utHours || 0)}h` : ''}{k.absentDays ? ` 欠勤${k.absentDays}日` : ''}</div>}
+    </>
   );
 }
