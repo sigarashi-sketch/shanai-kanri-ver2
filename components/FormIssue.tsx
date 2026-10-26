@@ -30,7 +30,7 @@ function FormIssueDialog({ onClose }: { onClose: () => void }) {
     try {
       const r = await fetch('/api/live/form-issue', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
       const j = (await r.json().catch(() => ({}))) as Partial<Res> & { error?: string };
-      if (r.status === 401 && j.error === 'not_logged_in') setRes({ url: 'https://example.com/form?t=SAMPLE', status: 'pending', reused: false });
+      if (r.status === 401 && j.error === 'not_logged_in') setErr('ログインしてください（ログインしていないと発行できません）');
       else if (!r.ok || j.error) setErr(j.error || `発行できませんでした（${r.status}）`);
       else setRes({ url: String(j.url || ''), status: String(j.status || ''), reused: !!j.reused });
     } catch (e) { setErr((e as Error).message); }

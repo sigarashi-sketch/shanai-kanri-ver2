@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLiveRoute } from '@/lib/live/use-live-route';
 import { BAND_STYLE, scoreBand, scoreText, scoreValue, type ScoreKind, type ScoreMeta, type ScoreRes, type ScoreRow } from '@/lib/live/proper-cols';
-import { SAMPLE_SCORES } from '@/lib/proper-sample';
 import { Z } from '@/lib/layers';
 import { DrawerPortal } from './DrawerPortal';
 
@@ -11,7 +10,7 @@ import { DrawerPortal } from './DrawerPortal';
 //   ・読む口は /api/live/proper-score（今の GET /api/roster?op=score・10分控える・学習し直しは起こさない）
 //   ・色は今と同じ3段（良い＝緑・並み＝黄・悪い＝赤／材料不足＝灰）。押すと内訳（送った案件・OK/NG・発言・48時間の返信率・効いている要素）
 //   ・対象は決着していない人（＋再アサイン）だけ。参画・辞退・営業止めが付いた人は「—」
-//   ・ログインしていないときは見本の数字（画面に「見本」と出す）
+//   ・読めるまでは「読み込み中」（数字は出さない）
 
 export const SCORE_LABEL: Record<ScoreKind, string> = { skill: 'スキル', join: '参画見込', decline: '辞退リスク', poa: '営業止め見込' };
 export const SCORE_HINT: Record<ScoreKind, string> = {
@@ -22,16 +21,16 @@ export const SCORE_HINT: Record<ScoreKind, string> = {
 };
 
 type At = { x: number; top?: number; bottom?: number };
-export type Scores = { map: Map<string, ScoreRow>; meta: ScoreMeta | null; state: 'loading' | 'live' | 'sample' | 'error' | 'off'; error: string; sample: boolean };
+export type Scores = { map: Map<string, ScoreRow>; meta: ScoreMeta | null; state: 'loading' | 'live' | 'error' | 'off'; error: string };
 
-/** live=false なら見本。403（見られない人）なら state='off'＝列ごと出さない */
+/** live=false の間は読み込み中。403（見られない人）なら state='off'＝列ごと出さない */
 export function useProperScores(live: boolean): Scores {
   const r = useLiveRoute<ScoreRes>(live ? '/api/live/proper-score' : null);
   return useMemo(() => {
-    const d = live ? r.data : SAMPLE_SCORES;
+    const d = live ? r.data : null;
     const map = new Map<string, ScoreRow>((d?.rows ?? []).map((x) => [x.id, x]));
     const off = live && r.state === 'error' && /403|見られ|権限/.test(r.error);
-    return { map, meta: d?.meta ?? null, state: !live ? 'sample' : off ? 'off' : r.state === 'loading' ? 'loading' : r.state === 'error' ? 'error' : 'live', error: r.error, sample: !live };
+    return { map, meta: d?.meta ?? null, state: !live ? 'loading' : off ? 'off' : r.state === 'loading' ? 'loading' : r.state === 'error' ? 'error' : 'live', error: r.error };
   }, [live, r.data, r.state, r.error]);
 }
 
@@ -47,7 +46,6 @@ export function ScoreNote({ scores }: { scores: Scores }) {
   const a = m.cvAuc;
   return (
     <p className="text-sm leading-relaxed text-muted">
-      {scores.sample && <span className="mr-1 rounded bg-sunken px-1.5 text-xs">見本</span>}
       <b>スコアの精度</b>：参画見込・辞退リスクは {m.trainFrom} 以降に承諾して決着した {m.trained}名（参画 {m.counts.join}・辞退 {m.counts.decline}・営業止め {m.counts.poa}）から学習。
       見分ける力（AUC・0.5＝当てずっぽう／1.0＝完璧）は承諾7日目以降で 参画 <b>{f2(a.joinLate)}</b>・辞退 <b>{f2(a.declineLate)}</b>。
       確率としては概ね当たりますが、1人ずつの断定には使わないでください。数字を押すと内訳。
@@ -143,7 +141,6 @@ export function ScoreLine({ id, name, live, compact }: { id: string; name: strin
   if (sc.state === 'off' || sc.state === 'error' || !s) return null;
   return (
     <div className={`${compact ? '' : 'mt-2 '}flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted`}>
-      {sc.sample && <span className="rounded bg-sunken px-1.5 text-xs">見本</span>}
       {(['skill', 'join', 'decline', 'poa'] as ScoreKind[]).map((k) => <span key={k} className="inline-flex items-center gap-1">{SCORE_LABEL[k]} <ScoreBadge s={s} kind={k} meta={sc.meta} name={name} /></span>)}
     </div>
   );

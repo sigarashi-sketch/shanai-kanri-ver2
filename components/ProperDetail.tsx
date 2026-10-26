@@ -2,9 +2,9 @@
 
 // 要員ページ（営業）：プロパー・営業共有リスト・ライバーの名前から開く1人ぶんのページ。形は人事の社員ページと同じ。
 //   タブ＝基本・希望条件／スキシ・サマリ／送った案件（OK・NG）／チャット（個人・グループ）
-//   ・ログインしていれば今の社内システムの値（読むだけ）。していなければ見本
+//   ・今の社内システムの値（読むだけ）
 //   ・チャットだけは送れる（長押し）。送る口は /api/live/chat（今の POST /api/chat の send / groupSend だけ通す）
-//     グループに送ってよいかは今の API が決める。断られたら理由をそのまま出す。見本のときは送らない
+//     グループに送ってよいかは今の API が決める。断られたら理由をそのまま出す
 //   ・ライバーは「スキシ・サマリ」にライバーリストの値（メモ＝サマリ）、「送った案件」に案件を送る口（今の配信の送信と同じ・確認の窓のあと・10-26）
 //   ・それ以外の書き込み（スキシを作る・メモを直す 等）はここには置かない
 //   ・名前の小窓（embedded）では送れない（送る欄を出さない・10-25）。小窓が読んだ分（initial）を使い、プロパーリストを読み直さない
@@ -12,9 +12,7 @@
 import { ChatSummary } from '@/components/ChatSummary';
 import { ChatLog } from '@/components/ChatLog';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { useMemo, useRef, useState } from 'react';
-import { LIVERS, PEOPLE, PROPERS } from '@/lib/sample';
 import { Pill, SkeletonRows } from '@/components/ui';
 import { ScoreLine } from '@/components/ProperScore';
 import { PersonBasic } from '@/components/PersonBasic';
@@ -29,44 +27,13 @@ import type { EngineerRows } from '@/lib/live/eigyo-common';
 import type { LiverList, PartnerList } from '@/lib/live/proper';
 import {
   CAN_ALL, memoOf, contactsOf, groupBubbles, groupsOf, livePerson, logView, memberOf, threadBubbles,
-  type Bubble, type ContactsRes, type Fact, type GroupsRes, type GroupThreadRes, type LivePersonView, type MemberRow, type MembersRes, type PersonCan, type ThreadRes,
+  type ContactsRes, type Fact, type GroupsRes, type GroupThreadRes, type LivePersonView, type MembersRes, type PersonCan, type ThreadRes,
 } from '@/lib/live/person';
 
 // 社員ページ（StaffDetail）と同じ型のタブ（10-25 shoya「写真で出したやつにして」）。チャットは一番右
 const TABS = ['基本情報', '希望条件', 'スキシ・サマリ', '送った案件', '面談メモ', 'チャット'] as const;
 type Tab = (typeof TABS)[number];
 type View = { id: string; name: string; status: string; facts: Fact[]; summary: string; career: string; sukishiUrl: string; source: string };
-
-// ---- 見本 ----
-function samplePerson(id: string, liver: boolean): View | null {
-  if (liver) {
-    const l = LIVERS.find((x) => x.id === id);
-    return l ? { id, name: l.name, status: l.status, source: 'ライバー', summary: l.memo, career: '', sukishiUrl: '', facts: [['配信', l.platform], ['フォロワー', l.followers]] } : null;
-  }
-  const p = PROPERS.find((x) => x.id === id);
-  if (p) return {
-    id, name: p.name, status: p.status, source: 'プロパー', sukishiUrl: '', career: p.sukishi.history.map((h) => `${h.period} ${h.text}`).join('\n'),
-    summary: `イニシャル：${p.sukishi.initial || '（未設定）'}\n年齢：${p.sukishi.age}\n資格：${p.sukishi.skills}\n稼働：${p.sukishi.start}`,
-    facts: [['最寄駅', p.station], ['希望職種', p.want], ['担当営業', p.sales], ['額面', p.price], ['稼働できる日', p.sukishi.start]],
-  };
-  const q = PEOPLE.find((x) => x.id === id);
-  return q ? { id, name: q.name, status: q.status, source: '営業共有リスト', summary: '', career: '', sukishiUrl: '', facts: [['最寄駅', q.station], ['現場', q.site], ['担当営業', q.sales], ['採用担当', q.recruiter]] } : null;
-}
-const SAMPLE_MEMBER: MemberRow = {
-  name: '', undecided: 1, sent: 4, okRate: 0.5, lastSentAt: '2026-10-21T10:00:00+09:00',
-  ok: [{ caseNo: 'K-1021', label: 'サーバー監視（夜勤あり）', sentAt: '2026-10-21T10:00:00+09:00', place: '品川', kind: '監視' }],
-  ng: [{ caseNo: 'K-1015', label: 'ヘルプデスク（英語）', sentAt: '2026-10-15T11:00:00+09:00', place: '大手町', kind: 'ヘルプデスク' }],
-  other: [{ caseNo: 'K-1010', label: 'キッティング（短期）', sentAt: '2026-10-10T15:00:00+09:00', place: '川崎', kind: 'キッティング' }],
-};
-const SAMPLE_1on1: Bubble[] = [
-  { key: 'a', out: true, who: 'あおい', text: 'お疲れさまです！明日の面談は 10:00 からで大丈夫そうですか？', at: '10/22 18:02' },
-  { key: 'b', out: false, who: '', text: 'はい、大丈夫です。よろしくお願いします', at: '10/22 18:40' },
-];
-const SAMPLE_GROUPS = [{ groupId: 'Csample', name: '（見本）本人＋営業のグループ', lastAt: null }];
-const SAMPLE_GROUP_MSGS: Bubble[] = [
-  { key: 'g1', out: true, who: '営業', text: '案件を1件お送りします。ご確認ください', at: '10/21 10:00' },
-  { key: 'g2', out: false, who: '本人', text: 'ありがとうございます、ぜひ進めたいです', at: '10/21 12:15' },
-];
 
 /** 名前の小窓が /api/live/person で読んだ分 */
 export type ProperInitial = { view: LivePersonView; everyone: string[]; can: PersonCan };
@@ -84,7 +51,7 @@ export function ProperDetail({ id, liver = false, embedded = false, initial }: {
   const lv = useIke<LiverList>(!initial && live && liver ? 'livers' : null);
 
   const lp = initial ? initial.view : live ? livePerson(id, er.data, pl.data, lv.data, liver) : null;
-  const p: View | null = live ? lp : samplePerson(id, liver);
+  const p: View | null = lp;
   const erRows = er.data?.rows;
   const everyone = useMemo(() => initial?.everyone ?? (erRows ?? []).map((r) => r.name), [initial, erRows]);
   const can = initial?.can ?? CAN_ALL;
@@ -109,8 +76,7 @@ export function ProperDetail({ id, liver = false, embedded = false, initial }: {
           : <button type="button" onClick={er.reload} className="btn-secondary btn-sm">もう一度読む</button>}
       </div>
     );
-    if (!live && !embedded) notFound();
-    if (!live) return <div className="px-6 py-10 text-body text-muted">見本のリストにこの人はいません。ログインすると本物が見られます。</div>;
+    if (!live) return <div className="px-6 py-10 text-body text-muted">読み込み中…</div>;
     return (
       <div className="px-6 py-10 text-body">
         <p>この人は今のリストに見つかりませんでした（営業止め・辞退になったか、ほかのエリアの人かもしれません）。</p>
@@ -152,7 +118,7 @@ export function ProperDetail({ id, liver = false, embedded = false, initial }: {
           <div key={t} hidden={t !== tab} className="flex flex-col gap-4">
             {t === '基本情報' && <section className="w-full rounded-xl border border-line bg-surface px-5 py-4 text-body"><PersonBasic name={p.name} live={live} /></section>}
             {t === '希望条件' && <Facts facts={p.facts.filter(([k]) => k !== 'メモ')} />}
-            {t === '面談メモ' && <section className="w-full rounded-xl border border-line bg-surface px-5 py-4 text-body"><PersonMemo name={p.name} live={live} id={p.id} initial={live ? memoOf(p as LivePersonView) : { memo: p.facts.find(([k]) => k === 'メモ')?.[1] ?? '', summary: p.summary }} /></section>}
+            {t === '面談メモ' && <section className="w-full rounded-xl border border-line bg-surface px-5 py-4 text-body"><PersonMemo name={p.name} live={live} id={p.id} initial={memoOf(p as LivePersonView)} /></section>}
             {t === 'スキシ・サマリ' && <Sukishi p={p} liver={liver} ext={ext} />}
             {t === '送った案件' && <SentCases name={p.name} live={live} liver={liver} embedded={embedded} />}
             {t === 'チャット' && <Chat name={p.name} live={live} everyone={everyone} embedded={embedded} canSummary={can.summary} />}
@@ -238,7 +204,7 @@ function LiverSend({ name }: { name: string }) {
 function SentCases({ name, live, liver, embedded }: { name: string; live: boolean; liver: boolean; embedded: boolean }) {
   const ms = useIke<MembersRes>(live ? 'progress-stats?view=members' : null);
   if (liver) {
-    if (!live) return <Card title="送った案件"><p className="text-body text-muted">見本ではライバーに案件を送れません。ログインすると今の案件から選んで送れます。</p></Card>;
+    if (!live) return <Card title="送った案件"><p className="text-body text-muted">読み込み中…</p></Card>;
     const m = memberOf(ms.data, name);
     return (
       <>
@@ -250,9 +216,9 @@ function SentCases({ name, live, liver, embedded }: { name: string; live: boolea
       </>
     );
   }
-  if (live && ms.state === 'loading') return <p className="text-body text-muted">読み込み中…</p>;
+  if (!live || ms.state === 'loading') return <p className="text-body text-muted">読み込み中…</p>;
   if (live && (ms.state === 'error' || ms.data?.ok === false)) return <p className="text-body text-bad">{ms.error || ms.data?.error}</p>;
-  const m = live ? memberOf(ms.data, name) : SAMPLE_MEMBER;
+  const m = memberOf(ms.data, name);
   if (!m) return <Card title="送った案件"><p className="text-body text-muted">案件進捗の「要員別」にこの人はいません（まだ案件を送っていないか、営業中ではありません）</p></Card>;
   const rows = [...m.ok.map((c) => ({ ...c, d: 'OK' })), ...m.ng.map((c) => ({ ...c, d: 'NG' })), ...m.other.map((c) => ({ ...c, d: 'その他' }))].sort((a, b) => b.sentAt.localeCompare(a.sentAt));
   const tone: Record<string, React.CSSProperties> = { OK: { background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }, NG: { background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }, その他: { background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' } };
@@ -307,7 +273,7 @@ function Chat({ name, live, everyone, embedded, canSummary }: { name: string; li
   const contacts = useIke<ContactsRes>(live && sub === '個人' ? 'chat?action=contacts' : null);
   const groups = useIke<GroupsRes>(live && sub === 'グループ' ? 'chat?action=groups' : null);
   const mine = live ? contactsOf(contacts.data, name) : [];
-  const myGroups = live ? groupsOf(groups.data, name, everyone) : SAMPLE_GROUPS;
+  const myGroups = live ? groupsOf(groups.data, name, everyone) : [];
   const [uid, setUid] = useState('');
   const [gid, setGid] = useState('');
   // 同じ名前の LINE の相手が2人以上なら勝手に選ばない（送り先を間違えないように・10-25）
@@ -318,7 +284,7 @@ function Chat({ name, live, everyone, embedded, canSummary }: { name: string; li
   const gt = useIke<GroupThreadRes>(live && sub === 'グループ' && groupId ? `chat?action=groupThread&groupId=${encodeURIComponent(groupId)}` : null);
 
   const list = sub === '個人' ? contacts : groups;
-  const bubbles = !live ? (sub === '個人' ? SAMPLE_1on1 : SAMPLE_GROUP_MSGS) : sub === '個人' ? threadBubbles(th.data) : groupBubbles(gt.data);
+  const bubbles = !live ? [] : sub === '個人' ? threadBubbles(th.data) : groupBubbles(gt.data);
   const loading = live && (list.state === 'loading' || (sub === '個人' ? !!userId && th.state === 'loading' : !!groupId && gt.state === 'loading'));
   const err = live ? list.error || (sub === '個人' ? th.error : gt.error) : '';
   const target = sub === '個人' ? userId : groupId;
@@ -347,10 +313,9 @@ function Chat({ name, live, everyone, embedded, canSummary }: { name: string; li
           </select>
         )}
         {sub === 'グループ' && myGroups.length === 1 && <span className="ml-auto text-sm text-muted">{myGroups[0].name}</span>}
-        {(!live || target) && canSummary && <span className={(sub === '個人' ? mine.length > 1 : myGroups.length >= 1) ? '' : 'ml-auto'}><ChatSummary kind={sub === '個人' ? 'user' : 'group'} id={target || 'sample0'} name={sub === '個人' ? name : myGroups.find((g) => g.groupId === groupId)?.name || name} live={live} /></span>}
+        {live && target && canSummary && <span className={(sub === '個人' ? mine.length > 1 : myGroups.length >= 1) ? '' : 'ml-auto'}><ChatSummary kind={sub === '個人' ? 'user' : 'group'} id={target} name={sub === '個人' ? name : myGroups.find((g) => g.groupId === groupId)?.name || name} live={live} /></span>}
       </div>
       <ChatLog bubbles={loading ? [] : bubbles} className="max-h-[520px] min-h-[260px]" resetKey={`${sub}:${target}`}>
-        {!live && <p className="text-center text-sm text-faint">見本のトークです</p>}
         {loading && <p className="text-body text-muted">読み込み中…</p>}
         {err && <p className="text-body text-bad">{err}</p>}
         {mustPick && <p className="text-body text-muted">同じ名前の LINE の相手が{mine.length}人います。表示名を見て、上で選んでください</p>}
@@ -358,7 +323,7 @@ function Chat({ name, live, everyone, embedded, canSummary }: { name: string; li
       </ChatLog>
       {embedded
         ? <p className="border-t border-line-soft px-[18px] py-3 text-sm text-faint">見るだけです。送るのは要員ページのチャットから。パスワードらしい文字は伏せています</p>
-        : <Composer kind={sub === '個人' ? 'person' : 'group'} target={target} live={live} disabled={live && !target}
+        : <Composer kind={sub === '個人' ? 'person' : 'group'} target={target} live={live} disabled={!live || !target}
           onSent={() => (sub === '個人' ? th.reload() : gt.reload())} />}
     </section>
   );
@@ -370,13 +335,13 @@ function Composer({ kind, target, live, disabled, onSent }: { kind: 'person' | '
   const [busy, setBusy] = useState(false);
   const send = async () => {
     if (!text.trim()) return;
-    if (!live) { toast({ text: '見本なので送っていません', sub: 'ログインすると、本物の LINE に送れます' }); return; }
+    if (!live) return;
     setBusy(true);
     try {
       const r = await fetch('/api/live/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(kind === 'person' ? { kind, userId: target, text } : { kind, groupId: target, text }) });
-      const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string; warning?: string; sample?: boolean };
+      const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string; warning?: string };
       if (j.ok) { hit(); toast({ text: '送りました', sub: j.warning || (kind === 'person' ? '→ あおいのトークに残りました' : '→ グループのトークに残りました') }); setText(''); onSent(); }
-      else toast({ text: j.sample ? '見本なので送っていません' : '送れませんでした', sub: j.error || '' });
+      else toast({ text: '送れませんでした', sub: j.error || '' });
     } catch (e) { toast({ text: '送れませんでした', sub: (e as Error).message }); }
     finally { setBusy(false); }
   };

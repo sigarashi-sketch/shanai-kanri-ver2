@@ -43,3 +43,16 @@ export type Candidate = {
   hint?: string;                 // 拾った理由（画面に小さく出す）
   thread: ChatMsg[];
 };
+
+// ---- 要員（プロパー）・スキシ ----
+export type Sukishi = {
+  state: '作成済み' | '未作成' | '要確認';
+  initial: string;
+  age: string;
+  skills: string;
+  start: string;
+  history: { period: string; text: string }[];
+  warn?: string;
+  updated?: string;
+};
+export type Proper = { id: string; name: string; station: string; status: '営業中' | '参画決定' | '待機' | '稼働中'; sales: string; want: string; price: string; sukishi: Sukishi };

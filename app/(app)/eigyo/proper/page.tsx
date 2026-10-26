@@ -3,17 +3,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, Search, X } from 'lucide-react';
-import { LIVERS, PEOPLE, PROPERS, type Proper } from '@/lib/sample';
+import type { Proper } from '@/lib/types/eigyo';
 import { StaffList } from '@/components/lists/StaffList';
 import { LiverLive } from '@/components/lists/LiverLive';
-import { PageTitle, Pill, PrimaryButton, SkeletonRows } from '@/components/ui';
-import { needText, usePerms } from '@/components/Perms';
-import { useMotivation } from '@/components/Motivation';
+import { PageTitle, SkeletonRows } from '@/components/ui';
+import { usePerms } from '@/components/Perms';
 import { DrawerPortal } from '@/components/DrawerPortal';
 import { LiveBanner, useIke } from '@/components/Live';
 import { liveProperRows, type LiverList, type LiveProper, type PartnerList } from '@/lib/live/proper';
 import { ProperList } from '@/components/ProperList';
-import { sampleEngineerRows } from '@/lib/proper-sample';
 import type { EngineerRows } from '@/lib/live/eigyo-common';
 import { PersonName } from '@/components/Person';
 
@@ -26,29 +24,14 @@ import { PersonName } from '@/components/Person';
 // rows は親（タブの外）で持つ。タブを行き来しても、作ったスキシの状態が消えないように
 //   表は components/ProperList.tsx（今のプロパーリストの列を全部・スコア・チェックの保存）。ここはスキシの引き出しだけ持つ
 type DrawerP = (Omit<Proper, 'status'> & { status: string }) & Partial<LiveProper>;
-function ProperTab({ data, reload, sampleRows, setRows, live }: { data: EngineerRows | null; reload: () => unknown; sampleRows: Proper[]; setRows: React.Dispatch<React.SetStateAction<Proper[]>>; live: boolean }) {
-  const canEdit = usePerms().can('eigyo', 'edit') && !live;
-  const { hit, toast } = useMotivation();
+function ProperTab({ data, reload, live }: { data: EngineerRows | null; reload: () => unknown; live: boolean }) {
   const lrows = useMemo(() => liveProperRows(data), [data]);
-  const byId = useMemo(() => new Map<string, DrawerP>((live ? lrows : sampleRows).map((p) => [p.id, p as DrawerP])), [live, lrows, sampleRows]);
-  const done = useMemo(() => new Set(live ? [] : sampleRows.filter((p) => p.sukishi.state === '作成済み').map((p) => p.id)), [live, sampleRows]);
-  // ?sukishi=<id> でそのスキシを開いた状態から始める（画面の見本を撮るとき用）
+  const byId = useMemo(() => new Map<string, DrawerP>(lrows.map((p) => [p.id, p as DrawerP])), [lrows]);
+  const done = useMemo(() => new Set<string>(), []);
+  // ?sukishi=<id> でそのスキシを開いた状態から始める
   const [openId, setOpenId] = useState<string | null>(null);
   const open = openId ? byId.get(openId) ?? null : null;
   useEffect(() => { const id = new URLSearchParams(window.location.search).get('sukishi'); if (id) setOpenId(id); }, []);
-  const [busy, setBusy] = useState(false);
-
-  const make = (p: DrawerP) => {
-    setBusy(true);
-    setTimeout(() => {
-      setBusy(false);
-      const prev = sampleRows.find((r) => r.id === p.id)?.sukishi ?? p.sukishi;
-      setRows((rs) => rs.map((r) => (r.id === p.id ? { ...r, sukishi: { ...r.sukishi, state: '作成済み', updated: '今日' } } : r)));
-      setOpenId(null);
-      hit();
-      toast({ text: `${p.sukishi.initial || p.name} のスキシを作りました`, sub: '→ 案件の提案と、営業共有リストから開けます', undo: () => setRows((rs) => rs.map((r) => (r.id === p.id ? { ...r, sukishi: prev } : r))) });
-    }, 900);
-  };
 
   return (
     <div className="flex min-h-full">
@@ -72,10 +55,10 @@ function ProperTab({ data, reload, sampleRows, setRows, live }: { data: Engineer
               <div><dt className="text-xs text-faint">稼働開始</dt><dd>{open.sukishi.start}</dd></div>
               <div className="col-span-2"><dt className="text-xs text-faint">資格</dt><dd>{open.sukishi.skills}</dd></div>
             </dl>
-            {live && open.summary && <div><div className="mb-1.5 text-sm font-semibold text-muted">サマリ（客先に貼る紹介文）</div><p className="whitespace-pre-line rounded-[10px] border border-line px-3 py-2 text-sm">{open.summary}</p></div>}
+            {open.summary && <div><div className="mb-1.5 text-sm font-semibold text-muted">サマリ（客先に貼る紹介文）</div><p className="whitespace-pre-line rounded-[10px] border border-line px-3 py-2 text-sm">{open.summary}</p></div>}
             <div>
               <div className="mb-1.5 text-sm font-semibold text-muted">経歴（古い順）</div>
-              {open.sukishi.history.length === 0 && <div className="rounded-[10px] bg-soft px-3 py-2 text-sm text-muted">{live ? '経歴は スキルシート作成 の画面（基本情報フォームの回答）で見られます' : 'まだありません'}</div>}
+              {open.sukishi.history.length === 0 && <div className="rounded-[10px] bg-soft px-3 py-2 text-sm text-muted">経歴は スキルシート作成 の画面（基本情報フォームの回答）で見られます</div>}
               <ol className="flex flex-col gap-2">
                 {open.sukishi.history.map((h, i) => (
                   <li key={h.period} className="mo-fade-up rounded-[10px] border border-line px-3 py-2" style={{ ['--i' as string]: i + 1 }}><div className="text-xs text-faint">{h.period}</div>{h.text}</li>
@@ -85,15 +68,8 @@ function ProperTab({ data, reload, sampleRows, setRows, live }: { data: Engineer
             <p className="text-xs text-faint">出どころ：基本情報（氏名・年齢・最寄駅・資格）／経歴フォーム／プロパーの稼働開始。本名・健康に関する内容は載せません。</p>
           </div>
           <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
-            {live ? (<>
-              {open.sukishiUrl && <a href={open.sukishiUrl} target="_blank" rel="noreferrer" className="btn-secondary">スプレッドシートを開く</a>}
-              <Link href={`/eigyo/skillsheet?q=${encodeURIComponent(open.name)}`} className="btn-primary">スキルシート作成で作る</Link>
-            </>) : (<>
-            {open.sukishi.state === '作成済み' && <button onClick={() => toast({ text: `${open.sukishi.initial} のスキシを開きます（見本）`, sub: '→ 本物ではスプレッドシートが新しいタブで開きます' })} className="btn-secondary">スプレッドシートを開く</button>}
-            <PrimaryButton onClick={() => make(open)} disabled={!canEdit || busy || !!open.sukishi.warn} title={!canEdit ? needText('edit') : open.sukishi.warn ? '先に要確認を直してください' : undefined}>
-              {busy ? <span className="inline-flex items-center gap-2"><span className="mo-pulse">作成中</span></span> : open.sukishi.state === '作成済み' ? '作り直す' : 'スキシを作る'}
-            </PrimaryButton>
-            </>)}
+            {open.sukishiUrl && <a href={open.sukishiUrl} target="_blank" rel="noreferrer" className="btn-secondary">スプレッドシートを開く</a>}
+            <Link href={`/eigyo/skillsheet?q=${encodeURIComponent(open.name)}`} className="btn-primary">スキルシート作成で作る</Link>
           </div>
         </aside>
         </DrawerPortal>
@@ -111,11 +87,9 @@ type TabKey = 'proper' | 'shared' | 'meibo' | 'liver';
 
 export default function YoinPage() {
   const { can, manageAccess } = usePerms();
-  const [rowsS, setRows] = useState<Proper[]>(PROPERS);
   const er = useIke<EngineerRows>('roster?action=getEngineerRows&area=main');
   const live = er.live;
-  const sample = useMemo(() => sampleEngineerRows(), []);
-  const data = live ? er.data : sample;
+  const data = live ? er.data : null;
   const activeN = (er.data?.rows ?? []).filter((r) => r.active).length;
   const [want, setWant] = useState<TabKey>('proper');
   // クエリは useEffect で読む（hydration ずれ防止）
@@ -141,7 +115,7 @@ export default function YoinPage() {
         ))}
       </div>
       <div key={tab} className="mo-axis">
-        {tab === 'proper' && <ProperTab data={data} reload={er.reload} sampleRows={rowsS} setRows={setRows} live={live} />}
+        {tab === 'proper' && <ProperTab data={data} reload={er.reload} live={live} />}
         {tab === 'shared' && <SharedTab live={live} />}
         {tab === 'meibo' && <StaffList embedded />}
         {tab === 'liver' && <LiverTab live={live} />}
@@ -151,7 +125,6 @@ export default function YoinPage() {
 }
 
 function SharedTab({ live }: { live: boolean }) {
-  const rows = PEOPLE.filter((p) => p.status === '待機' || p.status === '入場予定' || p.contractEnd);
   const pl = useIke<PartnerList>(live ? 'partner-list?action=list' : null);
   const [q, setQ] = useState('');
   if (live) {
@@ -184,53 +157,10 @@ function SharedTab({ live }: { live: boolean }) {
       </div>
     );
   }
-  return (
-    <div className="flex flex-col gap-2">
-      <p className="text-sm text-muted">内勤以外の人（営業など）が見られるのはこの中身だけです。</p>
-      <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-        <table className="w-full min-w-[640px] border-collapse text-body">
-          <thead><tr className="th-row text-left">
-            <th className="px-4 py-2.5 font-semibold">要員</th><th className="px-2 py-2.5 font-semibold">状態</th><th className="px-2 py-2.5 font-semibold">最寄駅</th><th className="px-2 py-2.5 font-semibold">稼働できる日</th><th className="px-4 py-2.5 font-semibold">担当営業</th>
-          </tr></thead>
-          <tbody>
-            {rows.map((p, i) => (
-              <tr key={p.id} className="row mo-fade-in border-t border-line-soft" style={{ ['--i' as string]: i }}>
-                <td className="px-4 py-2.5 font-semibold"><PersonName name={p.name} className="hover:underline underline-offset-2" /></td>
-                <td className="px-2 py-2.5"><Pill>{p.status}</Pill>{p.contractEnd && <span className="ml-1.5 text-xs text-warn">{p.contractEnd}</span>}</td>
-                <td className="px-2 py-2.5">{p.station}</td>
-                <td className="px-2 py-2.5">{p.status === '待機' ? '即日' : p.contractEnd ? '12/1〜' : '—'}</td>
-                <td className="px-4 py-2.5">{p.sales}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+  return <div className="rounded-xl border border-line bg-surface px-4 py-8 text-center text-body text-muted">読み込み中…</div>;
 }
 
 function LiverTab({ live }: { live: boolean }) {
-  const tone: Record<string, { bg: string; fg: string }> = { 連絡中: { bg: 'var(--tone-info-bg)', fg: 'var(--tone-info-fg)' }, 面談予定: { bg: 'var(--tone-warn-bg)', fg: 'var(--tone-warn-fg)' }, 見送り: { bg: 'var(--tone-mute-bg)', fg: 'var(--tone-mute-fg)' } };
   if (live) return <LiverLive />; // 本物＝足す・直す・消す（10-25・components/lists/LiverLive.tsx）
-  return (
-    <div className="flex flex-col gap-2">
-      <p className="text-sm text-muted">プロパーには入れない別のリストです（全体管理者だけ）。</p>
-      <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-        <table className="w-full min-w-[640px] border-collapse text-body">
-          <thead><tr className="th-row text-left">
-            <th className="px-4 py-2.5 font-semibold">名前</th><th className="px-2 py-2.5 font-semibold">配信先</th><th className="px-2 py-2.5 text-right font-semibold">フォロワー</th><th className="px-2 py-2.5 font-semibold">状態</th><th className="px-4 py-2.5 font-semibold">メモ</th>
-          </tr></thead>
-          <tbody>
-            {LIVERS.map((l, i) => (
-              <tr key={l.id} className="row mo-fade-in border-t border-line-soft" style={{ ['--i' as string]: i }}>
-                <td className="px-4 py-2.5 font-semibold"><Link href={`/eigyo/proper/${l.id}?list=liver`} className="hover:underline">{l.name}</Link></td><td className="px-2 py-2.5">{l.platform}</td><td className="num px-2 py-2.5 text-right">{l.followers}</td>
-                <td className="px-2 py-2.5"><span className="chip" style={{ background: tone[l.status].bg, color: tone[l.status].fg }}>{l.status}</span></td>
-                <td className="px-4 py-2.5 text-muted">{l.memo}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+  return <div className="rounded-xl border border-line bg-surface px-4 py-8 text-center text-body text-muted">読み込み中…</div>;
 }

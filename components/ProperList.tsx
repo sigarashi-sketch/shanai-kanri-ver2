@@ -18,7 +18,7 @@ import {
 } from '@/lib/live/proper-cols';
 
 // プロパーリストの表（今の proper.html の列を全部・10-25 shoya「いけドンにあったのは全部いれて」「参画とか辞退ボタンとかもね」）。
-//   ・行＝今の getEngineerRows（area=main）。見本のときは lib/proper-sample.ts の同じ形
+//   ・行＝今の getEngineerRows（area=main）
 //   ・列：スコア（スキル／参画見込／辞退リスク／営業止め見込）・最終返信・フォーム回答・LINE・通勤エリア・PDF・dropout・
 //         今の全部の文字列とチェック列。どの列を出すか・並び（ドラッグ）はその人の端末に残す（localStorage）
 //   ・絞り込み：「営業中のみ」が最初（切り替えで 全員／営業止め／営業停止／辞退／参画決定／dropout／かな西／要確認）＋列ごとの絞り込み
@@ -71,18 +71,10 @@ const SK_TONE: Record<string, React.CSSProperties> = {
   作成済み: { background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }, 未作成: { background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }, 要確認: { background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' },
 };
 
-// 見本の連絡まわり（最終返信・フォーム回答・LINE・通勤エリア）
-const SAMPLE_AUX = {
-  replies: [{ ts: Date.now() - 2 * 3600e3, groupName: '中村優 案件G' }, { ts: Date.now() - 30 * 3600e3, groupName: '松本結衣 案件G' }],
-  forms: ['中村優', '加藤葵', '伊藤誠'],
-  groups: ['中村優 案件G', '松本結衣 案件G', '加藤葵 案件G', '伊藤誠 案件G'],
-  commute: [{ key: '中村優', any: false, source: 'form', short: '城北・県南', full: '東京23区・城北、埼玉 県南' }, { key: '加藤葵', any: true, source: 'sales', short: '1都3県OK', full: '1都3県どこでも' }] as CommuteListRow[],
-};
-
 export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
   data: EngineerRows | null; live: boolean; reload: () => unknown; onSukishi: (id: string) => void; sukishiDone?: ReadonlySet<string>;
 }) {
-  const canEdit = usePerms().can('eigyo', 'edit');
+  const canEdit = usePerms().can('eigyo', 'edit') && live;
   const { hit, toast } = useMotivation();
   const scores = useProperScores(live);
   const replies = useIke<{ ts: number; groupName: string }[]>(live ? 'proxy?action=getReplies' : null);
@@ -90,7 +82,7 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
   const groups = useIke<{ id: string; name: string }[]>(live ? 'proxy?action=getGroupNames' : null);
   const commute = useIke<{ ok: boolean; rows: CommuteListRow[] }>(live ? 'commute-area?action=list' : null);
 
-  // ---- 手元で直した値（保存の結果を待たずに出す）。見本はここだけで持つ ----
+  // ---- 手元で直した値（保存の結果を待たずに出す） ----
   const [over, setOver] = useState<Record<string, V>>({});
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [commuteOver, setCommuteOver] = useState<Record<string, CommuteListRow | null>>({});
@@ -106,10 +98,10 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
 
   // ---- 連絡まわりの当て方（今の proper.html と同じ：グループ名（畳む）に氏名（畳む・2文字以上）が入っているか） ----
   const aux = useMemo(() => {
-    const rep = live ? (Array.isArray(replies.data) ? replies.data : null) : SAMPLE_AUX.replies;
-    const fm = live ? (Array.isArray(forms.data?.names) ? forms.data!.names : null) : SAMPLE_AUX.forms;
-    const gp = live ? (Array.isArray(groups.data) ? groups.data.map((g) => g.name) : null) : SAMPLE_AUX.groups;
-    const cm = live ? (commute.data?.ok ? commute.data.rows : null) : SAMPLE_AUX.commute;
+    const rep = live && Array.isArray(replies.data) ? replies.data : null;
+    const fm = live && Array.isArray(forms.data?.names) ? forms.data!.names : null;
+    const gp = live && Array.isArray(groups.data) ? groups.data.map((g) => g.name) : null;
+    const cm = live && commute.data?.ok ? commute.data.rows : null;
     const repN = rep?.map((x) => ({ n: normName(x.groupName), ts: Number(x.ts) || 0 })) ?? null;
     const gpN = gp?.map(normName) ?? null;
     const fmSet = fm ? new Set(fm.map(normName)) : null;
@@ -136,11 +128,7 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
     const one = Object.entries(patch)[0];
     const what = typeof one?.[1] === 'boolean' ? `${label} を ${one[1] ? 'ON' : 'OFF'}` : `${label} を保存`;
     const done = () => setBusy((b) => { const n = new Set(b); keys.forEach((k) => n.delete(k)); return n; });
-    if (!live) {
-      done(); hit();
-      toast({ text: opts?.undo ? `${p.r.name}：元に戻しました（見本）` : `${p.r.name}：${what}（見本なので保存していません）`, undo: opts?.undo ? undefined : () => { void save({ ...p, v: { ...p.v, ...patch } }, prev, { undo: true }); } });
-      return;
-    }
+    if (!live) { done(); setOver((o) => ({ ...o, [id]: { ...o[id], ...prev } })); return; }
     try {
       const res = await fetch('/api/live/proper-save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ row: id, cells: patch }) });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; autoSet?: Record<string, string>; saiAssignOff?: boolean; poaOff?: boolean; taikiOff?: boolean };
@@ -205,7 +193,7 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
     const changed = Object.fromEntries(Object.entries(prevV).filter(([k]) => k in sales && sales[k] !== prevV[k as keyof typeof prevV]));
     hit();
     toast({
-      text: undo ? `${p.r.name}：dropout を元に戻しました` : on ? `${p.r.name}：dropout（飛び）にしました${live ? '' : '（見本）'}` : `${p.r.name}：dropout の印を外しました${live ? '' : '（見本）'}`,
+      text: undo ? `${p.r.name}：dropout を元に戻しました` : on ? `${p.r.name}：dropout（飛び）にしました` : `${p.r.name}：dropout の印を外しました`,
       sub: undo ? undefined : on ? (m.length ? `→ ${m.join('・')}${st.taisha || st.taiki ? '（退社・待機は取り消しでは戻りません。従業員名簿で直してください）' : ''}` : '→ 印だけ付けました') : '→ 辞退・参画決定・退社・待機はそのままです',
       undo: undo ? undefined : async () => {
         await setDrop({ ...p, drop: now }, !on, prevDrop.phase || 'eigyo', 'mark', true);
@@ -219,7 +207,7 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
   // ---- スキシの PDF を作り直す（取り消しはない＝作り直すだけ。URL は変わらない） ----
   const [pdfBusy, setPdfBusy] = useState<Set<string>>(new Set());
   const remakePdf = async (p: PRow) => {
-    if (!live) { toast({ text: `${p.r.name}：PDF を作り直しました（見本）`, sub: 'ログインすると、本物のスキシから PDF を作ります' }); return; }
+    if (!live) return;
     setPdfBusy((b) => new Set([...b, p.r.row]));
     try {
       const r = await fetch('/api/live/proper-pdf', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ row: p.r.row }) });
@@ -376,7 +364,7 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
   // ---- ミンミカ取り込み ----
   const [pulling, setPulling] = useState(false);
   const pull = async () => {
-    if (!live) { toast({ text: '見本なので取り込んでいません', sub: 'ログインすると、ミンミカの営業開始前の人をいま取り込めます' }); return; }
+    if (!live) return;
     setPulling(true);
     try {
       const r = await fetch('/api/live/proper-mnmpull', { method: 'POST' });
@@ -487,7 +475,7 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
       </div>
       </div>
       {picker && <ColPicker cols={ordered} isShown={shownCol} onToggle={toggleCol} onOrder={(order) => setPrefsSave({ ...(prefs ?? { hidden: [], shown: [] }), order })} onReset={() => { setPrefsSave({ order: [], hidden: [], shown: [] }); }} onClose={() => setPicker(false)} />}
-      {statusFor && <StatusDialog p={statusFor.p} start={statusFor.tab} hasCol={(k) => !live || !!data?.columns.some((c) => c.col === k)} onClose={() => setStatusFor(null)} onGo={(patch) => { const p = statusFor.p; setStatusFor(null); void save(p, patch); }} />}
+      {statusFor && <StatusDialog p={statusFor.p} start={statusFor.tab} hasCol={(k) => !!data?.columns.some((c) => c.col === k)} onClose={() => setStatusFor(null)} onGo={(patch) => { const p = statusFor.p; setStatusFor(null); void save(p, patch); }} />}
       {dropFor && <DropoutDialog p={dropFor} onClose={() => setDropFor(null)} onGo={(on, phase, after) => { setDropFor(null); void setDrop(dropFor, on, phase, after); }} />}
       {commuteFor && <CommuteEditor p={commuteFor} live={live} canEdit={canEdit} onClose={() => setCommuteFor(null)}
         onSaved={(row) => { setCommuteOver((o) => ({ ...o, [commuteKey(commuteFor.r.name)]: row })); }} />}
@@ -591,7 +579,7 @@ function ColPicker({ cols, isShown, onToggle, onOrder, onReset, onClose }: {
 function CommuteEditor({ p, live, canEdit, onClose, onSaved }: { p: PRow; live: boolean; canEdit: boolean; onClose: () => void; onSaved: (row: CommuteListRow | null) => void }) {
   const { hit, toast } = useMotivation();
   const d = useIke<CommuteDetail>(live ? `commute-area?name=${encodeURIComponent(p.r.name)}` : null);
-  const det: CommuteDetail | null = live ? d.data : { status: 'ok', any: false, blocks: [{ id: 'b3' }, { id: 'b16' }], legacyLabel: null, sales: null, canEdit: true };
+  const det: CommuteDetail | null = live ? d.data : null;
   const [cur, setCur] = useState<{ any: boolean; blocks: string[]; sales: boolean } | null>(null);
   useEffect(() => {
     if (!det || cur) return;
@@ -609,7 +597,7 @@ function CommuteEditor({ p, live, canEdit, onClose, onSaved }: { p: PRow; live: 
         const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string; hint?: string; short?: string; full?: string };
         ok = r.ok && !!j.ok; err = j.hint || j.error || `（${r.status}）`; short = j.short || ''; full = j.full || '';
       } catch (e) { ok = false; err = (e as Error).message; }
-    } else { short = next ? (next.any ? '1都3県OK' : `${next.blocks.length}エリア`) : ''; full = short; }
+    } else { ok = false; err = '読み込めていません'; }
     setBusy(false);
     if (!ok) { toast({ text: `${p.r.name}：通勤エリアを保存できませんでした`, sub: err }); return; }
     const after = next ? { ...next, sales: true } : null;
@@ -617,7 +605,7 @@ function CommuteEditor({ p, live, canEdit, onClose, onSaved }: { p: PRow; live: 
     onSaved(next ? { key: commuteKey(p.r.name), any: next.any, source: 'sales', short, full } : null);
     hit();
     toast({
-      text: undo ? `${p.r.name}：通勤エリアを元に戻しました` : next ? `${p.r.name}：通勤エリアを保存${live ? '' : '（見本）'}` : `${p.r.name}：本人の回答に戻しました`,
+      text: undo ? `${p.r.name}：通勤エリアを元に戻しました` : next ? `${p.r.name}：通勤エリアを保存` : `${p.r.name}：本人の回答に戻しました`,
       undo: undo ? undefined : () => { void send(prev.sales ? { any: prev.any, blocks: prev.blocks } : null, after ?? prev, true); },
     });
   };
@@ -626,7 +614,7 @@ function CommuteEditor({ p, live, canEdit, onClose, onSaved }: { p: PRow; live: 
   return (
     <Dialog label={`${p.r.name} の通勤エリア`} onClose={onClose} z={Z_MODAL} className="fixed inset-x-3 top-[6vh] mx-auto flex max-h-[88vh] max-w-[560px] flex-col panel">
       <div className="flex items-start justify-between border-b border-line px-5 py-3">
-        <div><div className="text-sm text-faint">通勤エリア{!live && '（見本）'}</div><div className="text-md font-bold">{p.r.name}</div></div>
+        <div><div className="text-sm text-faint">通勤エリア</div><div className="text-md font-bold">{p.r.name}</div></div>
         <button aria-label="閉じる" data-dialog-close onClick={onClose} className="flex size-8 items-center justify-center rounded-lg border border-line"><X size={15} /></button>
       </div>
       <div className="flex-1 overflow-y-auto px-4 py-3 text-body">

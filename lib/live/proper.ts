@@ -3,7 +3,7 @@
 //   ・営業共有リスト … /api/partner-list?action=list（今の partner-list.html と同じ。営業中の人だけ・出す列は今の API が決める）
 //   ・ライバーリスト … /api/livers（今の livers.html と同じ。全体管理者だけ＝見られるかどうかは今の API が決める）
 //   ・「担当」は営業リストの担当＝採用担当（担当営業ではない）。額面は今のプロパーリストに出ている値
-import type { Proper } from '../sample';
+import type { Proper } from '../types/eigyo';
 import { cellsOf, properStatus, type EngineerRows } from './eigyo-common';
 
 export type LiveProper = Omit<Proper, 'status'> & { status: string; recruiter: string; gakumen: string; sukishiUrl: string; pdfUrl: string; summary: string; flag: string };
