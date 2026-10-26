@@ -77,7 +77,7 @@ export function PersonHost() {
     // 小窓（重ねる窓）ではなく、同じページの右に並べて出す（10-26 shoya「名前を押したら小窓でなく同じページで出して」）。
     // 後ろの画面はそのまま触れる。Esc か × で閉じる
     <aside aria-label={`${got.name} さんの情報`} onKeyDown={(e) => { if (e.key === 'Escape') close(); }}
-      className="sticky top-0 flex h-screen w-[520px] shrink-0 flex-col border-l border-line bg-base">
+      className="sticky top-0 flex h-screen w-[min(520px,45vw)] shrink-0 flex-col border-l border-line bg-base">
       <div className="flex flex-wrap items-center gap-2 border-b border-line bg-surface px-4 py-2 text-sm">
         {many && c && <button type="button" onClick={() => setGot({ ...got, pick: undefined })} className="inline-flex min-h-8 items-center gap-0.5 rounded-lg border border-field px-2 font-semibold text-muted"><ChevronLeft size={13} />選び直す</button>}
         <span className="text-faint">{c?.staff ? '社員ページ' : c?.proper ? '要員ページ' : ''}</span>
