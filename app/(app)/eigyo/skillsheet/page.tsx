@@ -57,7 +57,7 @@ export default function SkillsheetPage() {
     const one = async (limit: number, offset: number) => {
       const p = new URLSearchParams({ limit: String(limit), offset: String(offset), sort: ff.sort });
       for (const k of ['q', 'gender', 'pref', 'tantou', 'sukishi', 'roster'] as const) if (ff[k]) p.set(k, ff[k]);
-      const r = await fetch(`/api/skillsheet?${p}`, { cache: 'no-store' });
+      const r = await fetch(`/api/live/skillsheet?${p}`, { cache: 'no-store' });
       return (await r.json()) as SsList;
     };
     try {
@@ -116,7 +116,7 @@ export default function SkillsheetPage() {
   };
 
   const post = async (body: object): Promise<SsResult> => {
-    try { return (await (await fetch('/api/skillsheet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json()) as SsResult; }
+    try { return (await (await fetch('/api/live/skillsheet', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json()) as SsResult; }
     catch (e) { return { ok: false, error: (e as Error).message }; }
   };
   const lines = (j: SsResult, kind: 'pdf' | 'xlsx'): [string, string][] => {
@@ -155,7 +155,7 @@ export default function SkillsheetPage() {
 
   const openDetail = async (name: string) => {
     setDetail({ name });
-    try { const d = (await (await fetch(`/api/skillsheet?action=detail&name=${encodeURIComponent(name)}`)).json()) as SsDetail; setDetail((x) => (x?.name === name ? { name, d } : x)); }
+    try { const d = (await (await fetch(`/api/live/skillsheet?action=detail&name=${encodeURIComponent(name)}`)).json()) as SsDetail; setDetail((x) => (x?.name === name ? { name, d } : x)); }
     catch (e) { setDetail((x) => (x?.name === name ? { name, d: { ok: false, error: (e as Error).message } } : x)); }
   };
   useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') { setDetail(null); setAsk(null); } }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, []);

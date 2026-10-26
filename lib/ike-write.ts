@@ -11,12 +11,15 @@ import { ikeFetch, ikeToken } from './ike';
 //   ・書いたら、その人の読み取りの控え（lib/cache.ts）を捨てる＝次に開いた画面は新しい答え
 //   ・ログに個人の情報を出さない
 
+// URL 切替後は今の社内システムの URL（ikeike-app）から中継されて来る＝そこからの保存も同じ画面とみなす
+const ALSO_HOSTS = ['ikeike-app.vercel.app'];
+
 export function sameSite(req: Request): boolean {
   const site = req.headers.get('sec-fetch-site');
   if (site && site !== 'same-origin') return false;
   const origin = req.headers.get('origin');
   if (!origin) return site === 'same-origin';
-  try { return new URL(origin).host === new URL(req.url).host; } catch { return false; }
+  try { const h = new URL(origin).host; return h === new URL(req.url).host || ALSO_HOSTS.includes(h); } catch { return false; }
 }
 
 /** 今の社内システムに書いて、その答えを画面にそのまま返す。target は決め打ちのパス（例 '/api/roster?action=saveEngineerRow'） */
