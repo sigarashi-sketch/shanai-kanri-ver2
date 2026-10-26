@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, ArrowRight, Lock, RotateCcw } from 'lucide-react';
 import { HOW, MODES, WHO, numOf, type How, type Mode, type Rule, type Stage, type Who } from '@/lib/alert-rules';
-import { LEVEL_STYLE } from '@/lib/roumu-sample';
+import { LEVEL_STYLE } from '@/lib/types/roumu';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
@@ -123,7 +123,7 @@ export default function AlertsPage() {
             {order && <div className="mo-shake mx-5 mb-2 flex items-center gap-1.5 text-sm font-semibold text-bad"><AlertTriangle size={14} />段階の日数の順番が逆です（注意 ＞ 警告 ＞ 上限間近 の順に近づくように）</div>}
 
             <div className="flex flex-wrap items-start gap-3 border-t border-line-soft px-5 py-2.5 text-sm">
-              <div className="min-w-0 flex-1"><span className="text-faint">知らせの見本　</span><span className="text-ink">{rule.sample}</span><span className="ml-2 text-faint">→ {off ? 'いまは送りません' : `${last.to.join('・')}（${last.how.join('・')}）`}</span></div>
+              <div className="min-w-0 flex-1"><span className="text-faint">知らせる先　</span><span className="text-ink">{off ? 'いまは送りません' : `${last.to.join('・')}（${last.how.join('・')}）`}</span></div>
               <span className="text-faint">{rule.changedBy ? `${rule.changedAt} ${rule.changedBy} が変更` : 'はじめの決まりのまま'}</span>
             </div>
           </section>

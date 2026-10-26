@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { LiveBanner, useIke } from '@/components/Live';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { PersonName } from '@/components/Person';
-import { KYOTEI, LEVEL_STYLE, type Level } from '@/lib/roumu-sample';
+import { KYOTEI, LEVEL_STYLE, type Level } from '@/lib/types/roumu';
 import type { IkeToday } from '@/lib/live/today';
 import type { IkeOvertime } from '@/lib/live/roumu';
 import { NotifyButton, Spark, type Notify } from './parts';

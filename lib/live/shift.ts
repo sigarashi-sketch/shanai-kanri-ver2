@@ -4,7 +4,7 @@
 //   ?action=detail&month=&user=（1人1月の日ごと：kind=work（時間つき）／off）。
 //   ★今のシステムのシフトは「出勤（時間つき）」か「休み」の2つだけ。早番・遅番などの名前は無いので「出」と時間で出す
 //   ★提出済みの月の空欄は休みとみなす（今のシステムと同じ）。1日も入れていない人（未提出）はこの口には出てこない
-import type { ShiftKind, ShiftPerson } from '@/lib/shift-sample';
+import type { ShiftKind, ShiftPerson } from '@/lib/types/roumu';
 
 export type IkeShiftMonth = { ok: boolean; month: string; choices: string[] };
 export type IkeShiftList = {

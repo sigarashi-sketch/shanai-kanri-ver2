@@ -2,7 +2,7 @@
 
 import { Bell, Check } from 'lucide-react';
 import { needText } from '@/components/Perms';
-import { KYOTEI } from '@/lib/roumu-sample';
+import { KYOTEI } from '@/lib/types/roumu';
 
 // 残業・36協定・有給の画面の部品（page.tsx と live.tsx の両方で使う）
 export type Notify = { canEdit: boolean; sent: Record<string, string>; flash: string | null; send: (key: string, who: string, to: string[], what: string) => void; err: string; live: boolean };

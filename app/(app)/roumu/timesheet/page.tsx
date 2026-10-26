@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Check, RefreshCw, Send } from 'lucide-react';
-import { READ_FIX, TS_MONTH, TS_ROWS, type TsRow, type TsState } from '@/lib/timesheet-sample';
+import type { TsRow, TsState } from '@/lib/types/roumu';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
@@ -28,17 +28,12 @@ const ST: Record<TsState | 'お願い済み', { bg: string; fg: string }> = {
   お願い済み: { bg: 'var(--tone-info-bg)', fg: 'var(--tone-info-fg)' },
 };
 const isOpen = (r: TsRow, asked: (r: TsRow) => boolean) => (r.state === '未着' && !asked(r)) || r.state === '読めない';
-// 並びは、はじめの「手を打つ」ものが多い順で固定（片づけるたびに取引先の枠や行が動かないように）
-const FIRST_OPEN = Object.fromEntries(TS_ROWS.map((r) => [r.id, r.state !== '届いた']));
-const partnerOpen = (name: string) => TS_ROWS.filter((r) => r.partner === name && FIRST_OPEN[r.id]).length;
 const REASK = '取引先に読める形で出し直しをお願いした';
 
 export default function TimesheetPage() {
   const canEdit = usePerms().can('roumu', 'edit');
   const { hit, toast } = useMotivation();
   const [view, setView] = useState<View>('partner');
-  const [rows, setRows] = useState<TsRow[]>(TS_ROWS);
-  const [asked, setAsked] = useState<Record<string, boolean>>({});
   const [flash, setFlash] = useState<string | null>(null);
   useEffect(() => { if (new URLSearchParams(window.location.search).get('view') === 'person') setView('person'); }, []);
   const [ym, setYm] = useState('');
@@ -63,8 +58,8 @@ export default function TimesheetPage() {
     if (c && c.sheetMins != null) x = { ...x, sheetH: Math.round(c.sheetMins / 6) / 10, freeeH: Math.round(c.freeeMins / 6) / 10, offDays: c.diffDays };
     if (c?.status === 'unread' && r.state === '届いた') x = fix ? { ...x, unreadable: fix, state: fix === REASK ? '未着' : '届いた' } : { ...x, state: '読めない', unreadable: whyOf.get(nnOf(r.name)) || '読み取り待ち' };
     return x;
-  }) : rows;
-  const askedOf = (r: TsRow) => (live ? !!tm.get('ts-ask', mkey(r)) || tm.get('ts-read', mkey(r))?.value === REASK : !!asked[r.id]);
+  }) : [];
+  const askedOf = (r: TsRow) => !!tm.get('ts-ask', mkey(r)) || tm.get('ts-read', mkey(r))?.value === REASK;
   const [werr, setWerr] = useState('');
   const okEdit = canEdit;
   // 本物で「お願い（あおい）」を送る口は今の社内システムに無い（勤務表の口は 一覧・元メールを読む・取り直す だけ）＝押せない
@@ -79,45 +74,25 @@ export default function TimesheetPage() {
   const missingOf = (name: string) => all.filter((r) => r.partner === name && r.state !== '届いた').length;
 
   const open = all.filter((r) => isOpen(r, askedOf));
-  const initial = L ? open.length : TS_ROWS.filter((r) => r.state !== '届いた').length;
+  const initial = open.length;
   const partners = [...new Set(all.map((r) => r.partner))].map((name) => ({ name, rs: all.filter((r) => r.partner === name) }))
-    .sort((a, b) => (L ? missingOf(b.name) - missingOf(a.name) || a.name.localeCompare(b.name, 'ja') : partnerOpen(b.name) - partnerOpen(a.name)));
+    .sort((a, b) => missingOf(b.name) - missingOf(a.name) || a.name.localeCompare(b.name, 'ja'));
   const pulse = (id: string) => { setFlash(id); setTimeout(() => setFlash(null), 1300); };
 
   const ask = (rs: TsRow[]) => {
-    if (live) {
-      // 本物は「お願いした」の印だけ（勤務表のお願いを送る口は今のシステムに無い＝連絡はチャット・電話で）
-      setWerr('');
-      Promise.all(rs.map((r) => setMark('ts-ask', mkey(r), 'お願いした', { nn: nnOf(r.name), ym: tym })))
-        .then(() => { hit(rs.length); tm.reload(); toast({ text: rs.length > 1 ? `${rs.length}人ぶんに「お願いした」の印を付けました` : `${rs[0].name} に「お願いした」の印を付けました`, sub: '→ 連絡そのものはチャット・電話で（ここからは送りません）', undo: () => { Promise.all(rs.map((r) => setMark('ts-ask', mkey(r), ''))).then(() => tm.reload()).catch((e) => setWerr((e as Error).message)); } }); })
-        .catch((e) => setWerr((e as Error).message));
-      return;
-    }
-    const ids = rs.map((r) => r.id);
-    setAsked((a) => ({ ...a, ...Object.fromEntries(ids.map((id) => [id, true])) }));
-    if (rs.length === 1) pulse(rs[0].id);
-    hit(rs.length);
-    toast({ text: rs.length > 1 ? `${rs.length}人ぶんの勤務表をお願いしました` : `${rs[0].name} の勤務表をお願いしました`, sub: `→ あおいから本人に、担当営業から取引先に「${TS_MONTH.label}を ${TS_MONTH.due} までに」と送りました`, undo: () => setAsked((a) => { const n = { ...a }; ids.forEach((id) => delete n[id]); return n; }) });
+    if (!live) return;
+    // 本物は「お願いした」の印だけ（勤務表のお願いを送る口は今のシステムに無い＝連絡はチャット・電話で）
+    setWerr('');
+    Promise.all(rs.map((r) => setMark('ts-ask', mkey(r), 'お願いした', { nn: nnOf(r.name), ym: tym })))
+      .then(() => { hit(rs.length); tm.reload(); toast({ text: rs.length > 1 ? `${rs.length}人ぶんに「お願いした」の印を付けました` : `${rs[0].name} に「お願いした」の印を付けました`, sub: '→ 連絡そのものはチャット・電話で（ここからは送りません）', undo: () => { Promise.all(rs.map((r) => setMark('ts-ask', mkey(r), ''))).then(() => tm.reload()).catch((e) => setWerr((e as Error).message)); } }); })
+      .catch((e) => setWerr((e as Error).message));
   };
   const resolve = (r: TsRow, how: string) => {
-    if (live) {
-      setWerr('');
-      setMark('ts-read', mkey(r), how, { nn: nnOf(r.name), ym: tym })
-        .then(() => { pulse(r.id); hit(); tm.reload(); toast({ text: `${r.name} の勤務表を「${how}」にしました`, sub: '→ 今の社内システムに残しました（締めるのは勤怠の締めの画面で）', undo: () => { setMark('ts-read', mkey(r), '').then(() => tm.reload()).catch((e) => setWerr((e as Error).message)); } }); })
-        .catch((e) => setWerr(`${r.name}：${(e as Error).message}`));
-      return;
-    }
-    // 出し直しをお願いしたものは「届いた」にせず、未着（お願い済み）に戻して届くのを待つ
-    const reask = how === REASK;
-    const prev = { state: r.state, unreadable: r.unreadable };
-    setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, state: reask ? '未着' : '届いた', unreadable: how } : x)));
-    if (reask) setAsked((a) => ({ ...a, [r.id]: true }));
-    pulse(r.id); hit();
-    toast({
-      text: `${r.name} の勤務表を「${how}」にしました`,
-      sub: reask ? '→ 担当営業から取引先に出し直しをお願いしました・届いたら毎晩の読み取りで時間が出ます' : '→ 勤怠の締めと請求書づくりに反映しました',
-      undo: () => { setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, ...prev } : x))); if (reask) setAsked((a) => { const n = { ...a }; delete n[r.id]; return n; }); },
-    });
+    if (!live) return;
+    setWerr('');
+    setMark('ts-read', mkey(r), how, { nn: nnOf(r.name), ym: tym })
+      .then(() => { pulse(r.id); hit(); tm.reload(); toast({ text: `${r.name} の勤務表を「${how}」にしました`, sub: '→ 今の社内システムに残しました（締めるのは勤怠の締めの画面で）', undo: () => { setMark('ts-read', mkey(r), '').then(() => tm.reload()).catch((e) => setWerr((e as Error).message)); } }); })
+      .catch((e) => setWerr(`${r.name}：${(e as Error).message}`));
   };
 
   const diff = (r: TsRow) => {
@@ -130,8 +105,8 @@ export default function TimesheetPage() {
   };
   const action = (r: TsRow) => {
     if (r.state === '未着') return askedOf(r) ? <span className="chip" style={{ background: ST['お願い済み'].bg, color: ST['お願い済み'].fg }}>お願い済み</span>
-      : <button onClick={() => ask([r])} disabled={!okEdit} title={block} className="btn-secondary btn-sm">{live ? 'お願いした' : 'お願いする（あおい）'}</button>;
-    if (r.state === '読めない') return <select aria-label="どうしたか" value="" disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} onChange={(e) => e.target.value && resolve(r, e.target.value)} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-sm disabled:opacity-40"><option value="">どうしたか選ぶ</option>{(live ? MARK_CHOICES['ts-read'] : READ_FIX).map((x) => <option key={x}>{x}</option>)}</select>;
+      : <button onClick={() => ask([r])} disabled={!okEdit} title={block} className="btn-secondary btn-sm">お願いした</button>;
+    if (r.state === '読めない') return <select aria-label="どうしたか" value="" disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} onChange={(e) => e.target.value && resolve(r, e.target.value)} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-sm disabled:opacity-40"><option value="">どうしたか選ぶ</option>{MARK_CHOICES['ts-read'].map((x) => <option key={x}>{x}</option>)}</select>;
     return <span className="text-sm text-faint">{r.arrivedAt} 着</span>;
   };
   // 部品にせず関数で描く（描くたびに行が作り直されて選択中の欄が閉じないように）
@@ -150,7 +125,7 @@ export default function TimesheetPage() {
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="勤務表の届き具合" sub={L ? `現場の勤務表（客先の様式）の${L.label}・ミンミカの稼働契約ごと（提出不要の ${L.na}件は外しています）${L.synced ? `・${L.synced} にミンミカから取り込み` : ''}` : `現場の勤務表（客先の様式）の${TS_MONTH.label}・届く目安は ${TS_MONTH.due}・見本データ`}>
+      <PageTitle title="勤務表の届き具合" sub={L ? `現場の勤務表（客先の様式）の${L.label}・ミンミカの稼働契約ごと（提出不要の ${L.na}件は外しています）${L.synced ? `・${L.synced} にミンミカから取り込み` : ''}` : '現場の勤務表（客先の様式）・ミンミカの稼働契約ごと'}>
         {live && (
           <select aria-label="月" value={ike.data?.ym || ''} onChange={(e) => setYm(e.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-body">
             {(ike.data?.months || []).map((m) => <option key={m} value={m}>{Number(m.slice(5))}月分</option>)}
@@ -171,12 +146,13 @@ export default function TimesheetPage() {
           <span className="ml-2 text-muted">届いた {all.filter((r) => r.state === '届いた').length}・未着 {all.filter((r) => r.state === '未着').length}（お願い済み {all.filter((r) => r.state === '未着' && askedOf(r)).length}）・読めない {all.filter((r) => r.state === '読めない').length}</span>
           {!canEdit && <div className="text-sm text-bad">{needText('edit')}</div>}
         </div>
-        <button onClick={() => waitingAsk.length && ask(waitingAsk)} disabled={!okEdit || waitingAsk.length === 0} title={block} className="btn-primary ml-auto"><Send size={15} />未着 {waitingAsk.length}人に{live ? '「お願いした」の印' : 'まとめてお願い'}</button>
+        <button onClick={() => waitingAsk.length && ask(waitingAsk)} disabled={!okEdit || !live || waitingAsk.length === 0} title={block} className="btn-primary ml-auto"><Send size={15} />未着 {waitingAsk.length}人に「お願いした」の印</button>
         {live && <button onClick={askRefresh} disabled={!canEdit} title={!canEdit ? needText('edit') : undefined} className="btn-secondary"><RefreshCw size={14} />ミンミカから取り直す</button>}
         <Link href="/roumu/shime" className="text-sm font-semibold" style={{ color: 'var(--ad)' }}>勤怠の締めへ</Link>
       </div>
 
-      {open.length === 0 && (
+      {!live && <div className="rounded-xl border border-line bg-surface px-4 py-8 text-center text-body text-muted">{ike.state === 'loading' ? '読み込み中…' : '読めませんでした'}</div>}
+      {live && open.length === 0 && (
         <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-8 text-center">
           <Check className="mx-auto text-ok" size={26} />
           <div className="mt-2 text-md font-bold">今月の勤務表は、手を打つものがなくなりました</div>
@@ -191,7 +167,7 @@ export default function TimesheetPage() {
         </section>
       )) : (
         <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
-          <div className="overflow-x-auto"><table className="w-full min-w-[860px] border-collapse text-body">{head(true)}<tbody>{[...all].sort((a, b) => (live ? Number(b.state !== '届いた') - Number(a.state !== '届いた') : Number(FIRST_OPEN[b.id]) - Number(FIRST_OPEN[a.id]))).map((r) => row(r, true))}</tbody></table></div>
+          <div className="overflow-x-auto"><table className="w-full min-w-[860px] border-collapse text-body">{head(true)}<tbody>{[...all].sort((a, b) => Number(b.state !== '届いた') - Number(a.state !== '届いた')).map((r) => row(r, true))}</tbody></table></div>
         </div>
       )}
       {confirm && <ConfirmWrite spec={confirm} onClose={() => setConfirm(null)} />}

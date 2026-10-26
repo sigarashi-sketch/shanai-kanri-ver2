@@ -2,7 +2,7 @@
 //   読むのは GET /api/roster?op=kekkin&action=list&month=YYYY-MM（その月の欠勤＝LINE の欠勤連絡＋手で足した行・1人1日1行）。
 //   ★今のシステムの欠勤管理は「欠勤の日」だけを並べる（遅刻・後日の相談などは載らない）。連絡の本文・現場への連絡の印は持っていない
 //   ★氏名が引けなかった連絡は誰の欠勤か決められないので載らない（件数 unresolved だけ）
-import type { Absence } from '@/lib/kekkin-sample';
+import type { Absence } from '@/lib/types/roumu';
 
 export type IkeKekkinRow = {
   date: string; nn: string; name: string; tantou: string; contact: boolean; manual: boolean; id: string;
