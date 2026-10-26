@@ -8,6 +8,7 @@ export type ArariPersonLive = {
   salarySrc?: 'manual' | 'kintai' | 'gakumen' | 'default'; kintai?: KintaiParts | null;
   fare: number; fareManual: boolean; fareSrc: 'manual' | 'keihi' | 'default'; fareNote: string; welfare: number; gross: number;
   files: unknown[]; warn: string[];
+  salesSrc?: 'ikedon' | 'stamp'; stampSales?: number;
 };
 export type ArariLive = {
   ok?: boolean; ym: string; months: string[]; people: ArariPersonLive[];
@@ -37,6 +38,8 @@ export type LiveArariRow = {
   key: string; name: string; company: string; shozoku: string; sales: number; salary: number; salaryLabel: string;
   fare: number; fareLabel: string; welfare: number; gross: number; rate: number; temp: boolean; warn: string[];
   salaryManual: boolean; fareManual: boolean; kintai: KintaiParts | null; salaryFromKintai: boolean;
+  salesSrc: 'ikedon' | 'stamp' | '';   // 売上の出どころ：請求書づくりの下書き／格納した押印PDF
+  files: Array<{ id: string; label: string; amount: number; fromYm?: string }>;   // 格納した請求書（売上の右にリンクで出す・10-26 shoya）
   fromYms: string[];   // 後の月の請求書に載っていた分（「8月稼働分」などを締めの月で振り分けた）の請求書の月
 };
 
@@ -48,6 +51,8 @@ export function toArari(j: ArariLive | null): LiveArariRow[] {
     welfare: p.welfare, gross: p.gross, rate: p.sales ? p.gross / p.sales : 0,
     temp: (p.salaryDefault && !p.salaryManual) || p.fareSrc === 'default', warn: p.warn || [],
     salaryManual: !!p.salaryManual, fareManual: p.fareSrc === 'manual', kintai: p.kintai || null, salaryFromKintai: p.salarySrc === 'kintai',
+    salesSrc: p.salesSrc || '',
+    files: (p.files as Array<{ id: string; number?: string; fileName?: string; amount?: number; fromYm?: string }>).map((f) => ({ id: f.id, label: f.number || f.fileName || '請求書', amount: Number(f.amount) || 0, ...(f.fromYm ? { fromYm: f.fromYm } : {}) })),
     fromYms: [...new Set((p.files as Array<{ fromYm?: string }>).map((f) => f.fromYm).filter((x): x is string => !!x))],
   }));
 }

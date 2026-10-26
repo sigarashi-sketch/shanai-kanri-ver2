@@ -10,6 +10,7 @@ import { postLive } from '@/lib/live/post';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { toArari, wageParts, type ArariLive, type KintaiParts, type LiveArariRow } from '@/lib/live/chingin';
 import { PersonName } from '@/components/Person';
+import { stampedPdfUrl } from '@/lib/live/seikyu-store';
 import { ChinginPl } from './pl';
 import { useLiveRoute } from '@/lib/live/use-live-route';
 import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
@@ -117,12 +118,12 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
           <span className="ml-auto text-faint">{shown.length}人・粗利率の低い順</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1040px] border-collapse text-body">
+          <table className="w-full min-w-[1200px] border-collapse text-body">
             <thead><tr className="th-row text-left">
-              <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">取引先・所属</th><th className="px-2 py-2.5 text-right font-semibold">勤怠（freee）</th><th className="px-2 py-2.5 text-right font-semibold">売上（請求）</th><th className="px-2 py-2.5 text-right font-semibold">給与</th><th className="px-2 py-2.5 text-right font-semibold">交通費</th><th className="px-2 py-2.5 text-right font-semibold">法定福利</th><th className="px-2 py-2.5 text-right font-semibold">粗利</th><th className="px-4 py-2.5 text-right font-semibold">粗利率</th>
+              <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">取引先・所属</th><th className="px-2 py-2.5 text-right font-semibold">勤怠（freee）</th><th className="px-2 py-2.5 text-right font-semibold">売上（請求）</th><th className="px-2 py-2.5 font-semibold">格納した請求書</th><th className="px-2 py-2.5 text-right font-semibold">給与</th><th className="px-2 py-2.5 text-right font-semibold">交通費</th><th className="px-2 py-2.5 text-right font-semibold">法定福利</th><th className="px-2 py-2.5 text-right font-semibold">粗利</th><th className="px-4 py-2.5 text-right font-semibold">粗利率</th>
             </tr></thead>
             <tbody>
-              {shown.length === 0 && <tr><td colSpan={9} className="px-4 py-8 text-center text-sm text-muted">この月に格納した請求書がまだありません（または絞り込みに当たる人がいません）。</td></tr>}
+              {shown.length === 0 && <tr><td colSpan={10} className="px-4 py-8 text-center text-sm text-muted">この月に格納した請求書がまだありません（または絞り込みに当たる人がいません）。</td></tr>}
               {shown.map((r, i) => {
                 const t = rateTone(r.rate);
                 return (
@@ -130,7 +131,8 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
                     <td className="px-4 py-2.5"><PersonName name={r.name} className="font-semibold underline-offset-2 hover:underline" />{r.temp && <div><span className="chip" title="給与・交通費の欄に本当の値を入れると片づきます" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>仮の値あり</span></div>}{r.warn.map((w) => <div key={w} className="text-xs text-bad">{w}</div>)}</td>
                     <td className="px-2 py-2.5">{r.company}<div className="text-xs text-faint">{r.shozoku}</div></td>
                     <td className="num px-2 py-2.5 text-right"><KintaiCell k={r.kintai} /></td>
-                    <td className="num px-2 py-2.5 text-right">{yen(r.sales)}{r.fromYms.length > 0 && <div className="whitespace-nowrap text-xs text-faint" title="後の月の請求書に「◯月稼働分」として載っていた分を、締めの月で入れています">{r.fromYms.map((m) => `${Number(m.slice(5))}月`).join('・')}の請求書から</div>}</td>
+                    <td className="num px-2 py-2.5 text-right">{yen(r.sales)}{r.fromYms.length > 0 && <div className="whitespace-nowrap text-xs text-faint" title="後の月の請求書に「◯月稼働分」として載っていた分を、締めの月で入れています">{r.fromYms.map((m) => `${Number(m.slice(5))}月`).join('・')}の請求書から</div>}{r.salesSrc && <div className="whitespace-nowrap text-xs text-faint">{r.salesSrc === 'ikedon' ? '請求書づくりの下書き' : '格納した請求書'}</div>}</td>
+                    <td className="px-2 py-2.5 text-xs">{r.files.length === 0 ? <span className="text-faint">なし</span> : r.files.map((f) => <div key={f.id} className="whitespace-nowrap"><a href={stampedPdfUrl(f.id)} target="_blank" rel="noreferrer" className="underline underline-offset-2" style={{ color: 'var(--ad)' }}>{f.label}</a> <span className="num text-faint">{yen(f.amount)}{f.fromYm ? `（${Number(f.fromYm.slice(5))}月）` : ''}</span></div>)}</td>
                     <td className="num px-2 py-2.5 text-right"><EditYen r={r} kind="salary" ym={d.ym} canEdit={canEdit} onSaved={reload} /><div className="text-xs text-faint">{r.salaryLabel}</div>{!r.salaryManual && r.kintai && <div className="whitespace-nowrap text-xs text-faint" title={r.salaryFromKintai ? 'freee の勤怠から出した給与の内訳' : 'freee の打刻から出した見込み（打刻が無い・少ないので給与には入れていません）'}>{r.salaryFromKintai ? '' : '勤怠の見込み：'}{wageParts(r.kintai)}</div>}</td>
                     <td className="num px-2 py-2.5 text-right"><EditYen r={r} kind="fare" ym={d.ym} canEdit={canEdit} onSaved={reload} /><div className="text-xs text-faint">{r.fareLabel}</div></td>
                     <td className="num px-2 py-2.5 text-right text-muted">{yen(r.welfare)}</td>
