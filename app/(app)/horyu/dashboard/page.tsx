@@ -7,11 +7,13 @@ import { PersonName } from '@/components/Person';
 import { Bars, HoldButton, HoryuNote, Kpi, Panel, Seg, Spark, fmtDate, fmtDateTime, pct, postHoryu, useHoryu } from '@/components/Horyu';
 import { DASH_SAMPLE } from '@/lib/horyu-sample';
 import { LEFT_RESULT, type DashRes } from '@/lib/horyu';
+import { MnmSyncButton, opsPost } from '@/components/horyu/Ops';
+import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
 
 // ダッシュボード（今の dashboard.html を写したもの・保留）。
 //   参画決定（今月/先月/今年）・月次推移（成約ベース）・退会/ブロック検知（辞退にチェック・対応済み・自動モード）・
 //   稼働・案件・送信・案件ごとの反応・面談。読むのは /api/live/horyu?view=dash（未経験の人だけ・単価は見られるロールだけ）
-//   ★今の画面にあった「決定日の手入力」「MNM同期」は写していない（決定日はプロパーリスト側・同期は管理の操作のため）
+//   ・「決定日の手入力」（今の POST /api/joined）と「MNM同期」（全体管理者だけ）も今の画面と同じくここから（10-26）
 type JK = 'm' | 'l' | 'y';
 
 export default function HoryuDashboard() {
@@ -50,6 +52,7 @@ export default function HoryuDashboard() {
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="ダッシュボード" sub={`参画決定・月次推移・退会検知・稼働・案件・送信・面談${d?.generatedAt ? `（集計 ${d.generatedAt}）` : ''}`}>
+        <MnmSyncButton sample={h.state === 'sample'} onDone={() => h.reload()} />
         <button onClick={h.reload} className="btn-secondary">読み直す</button>
       </PageTitle>
       <HoryuNote>人は未経験の人だけ（今のプロパーリストに入っている人）。</HoryuNote>
@@ -63,7 +66,8 @@ export default function HoryuDashboard() {
             {j ? <>
               <div className="flex items-end gap-3"><span className="num text-3xl font-bold">{j.count}</span><span className="pb-2 text-body">名</span><span className="pb-2 text-sm text-muted">{j.diff}</span></div>
               <div className="mt-2 flex flex-wrap gap-1.5">{j.names.map((x) => <span key={x.name + x.decidedOn} className="chip" style={{ background: 'var(--as)', color: 'var(--ad)' }}><PersonName name={x.name} className="font-bold" /><span className="font-normal text-faint">{fmtDate(x.decidedOn)}</span></span>)}</div>
-              {!!d.joined?.undated.length && <div className="mt-2 text-sm text-muted">決定日が分からない人 {d.joined.undated.length}名：{d.joined.undated.map((n, i) => <span key={n}>{i ? '、' : ''}<PersonName name={n} /></span>)}（決定日はプロパーリストで入れます）</div>}
+              {!!d.joined?.undated.length && <div className="mt-2 text-sm text-muted">決定日が分からない人 {d.joined.undated.length}名：{d.joined.undated.map((n, i) => <span key={n}>{i ? '、' : ''}<PersonName name={n} /></span>)}</div>}
+              <JoinedDateEdit names={[...new Set([...(d.joined?.undated || []), ...j.names.map((x) => x.name)])]} sample={h.state === 'sample'} onDone={h.reload} />
             </> : <div className="text-sm text-faint">読めませんでした</div>}
           </Panel>
 
@@ -169,5 +173,34 @@ export default function HoryuDashboard() {
         </Panel>}
       </>}
     </main>
+  );
+}
+
+/** 参画決定日の手入力（今のダッシュボードと同じ・POST /api/joined）。空で保存すると手入力を消して自動の日付に戻る */
+function JoinedDateEdit({ names, sample, onDone }: { names: string[]; sample: boolean; onDone: () => void }) {
+  const [name, setName] = useState('');
+  const [date, setDate] = useState('');
+  const [msg, setMsg] = useState('');
+  const [spec, setSpec] = useState<ConfirmSpec | null>(null);
+  if (!names.length) return null;
+  const go = (clear: boolean) => {
+    if (!name || (!clear && !date)) return;
+    if (sample) { setMsg('見本なので保存はしていません'); return; }
+    setSpec({
+      title: clear ? '決定日の手入力を消す' : '参画決定日を入れる', okLabel: clear ? '消す' : '保存する', danger: clear,
+      lines: [clear ? `${name} さんの手で入れた決定日を消します（自動で記録した日付に戻ります）` : `${name} さんの参画決定日を ${date.replaceAll('-', '/')} にします`, 'ダッシュボードの月の数・月次推移に効きます'],
+      run: async () => { const r = await opsPost('joined-date', { name, decidedOn: clear ? '' : date }); if (!r.ok) throw new Error(String(r.data.error || '保存できませんでした')); setMsg(clear ? '消しました' : '保存しました'); onDone(); },
+    });
+  };
+  return (
+    <div className="mt-3 flex flex-wrap items-end gap-2 border-t border-line-soft pt-2.5 text-sm text-muted">
+      <b className="w-full text-ink">決定日を直す</b>
+      <select value={name} onChange={(e) => setName(e.target.value)} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-sm" aria-label="人を選ぶ"><option value="">人を選ぶ</option>{names.map((n) => <option key={n}>{n}</option>)}</select>
+      <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-sm" aria-label="決定日" />
+      <button className="btn-secondary btn-sm" disabled={!name || !date} onClick={() => go(false)}>保存</button>
+      <button className="btn-secondary btn-sm" disabled={!name} onClick={() => go(true)}>手入力を消す</button>
+      {msg && <span>{msg}</span>}
+      {spec && <ConfirmWrite spec={spec} onClose={() => setSpec(null)} />}
+    </div>
   );
 }

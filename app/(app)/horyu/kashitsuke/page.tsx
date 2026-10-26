@@ -1,13 +1,16 @@
 'use client';
 
 import { Fragment, useState } from 'react';
-import { ChevronDown, ChevronRight, Plus } from 'lucide-react';
+import { ChevronDown, ChevronRight, Copy, FileInput, Plus } from 'lucide-react';
+import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
 import { PersonName } from '@/components/Person';
 import { Card, HoryuFrame, Msg, btnCls, horyuPost, inputCls, tdCls, thCls, useHoryu, yen } from '@/components/horyu/kit';
 
 // 貸付管理（保留・10-25）。今の /kashitsuke.html と同じ中身。
 //   ・開けるのは今のシステムが許した人だけ（requireKashitsuke：個別に許した人と全体管理者）。それ以外は 403＝何も出さない
-//   ・書く口は今の /api/kashitsuke の決まった操作だけ（足す・直す・回収の確認・返済予定 など）。貼り付けの取り込みは今の画面から
+//   ・書く口は今の /api/kashitsuke の決まった操作だけ（足す・直す・回収の確認・返済予定・貼り付けの取り込み）
+//   ・取り込みは「読んでみる」（dry・書かない）→ 中身を見て → 確認の窓 → 取り込む（今の画面と同じ順・10-26）
+//   ・催促は今と同じ「催促文をコピー」だけ（送るのは手で。ver2 からメール・LINE は送らない）
 type Rep = { id: string; loan_id: string; due_on: string; amount: number; method: string; paid_on: string | null; paid_amount: number | null; memo: string };
 type Sum = { planned: number; paid: number; remaining: number; overdue: number; overdueCount: number; overdueDays: number; nextDue: string; nextAmount: number; noSchedule: boolean; unplanned: number };
 type Loan = { id: string; kind: string; company: string; name: string; amount: number; contract: string; lent_on: string | null; due_on: string | null; transfer: string; uriage_memo: string; status: string; memo: string; reps: Rep[]; sum: Sum; flag: string };
@@ -35,6 +38,7 @@ export default function KashitsukePage() {
   const sample = r.state === 'sample';
   const [open, setOpen] = useState('');
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [msg, setMsg] = useState<{ text: string; bad?: boolean }>({ text: '' });
   const all = sample ? S_ROWS : r.data?.rows ?? [];
   const rows = view === 'open' ? all.filter((l) => l.status === 'open') : all;
@@ -51,7 +55,10 @@ export default function KashitsukePage() {
 
   return (
     <HoryuFrame title="貸付管理" sub="前払い・金銭貸付と、その回収（天引き・振込・手渡し）" state={r.state} error={r.error} onReload={r.reload}
-      actions={<button onClick={() => setAdding(!adding)} className="btn-primary"><Plus size={15} />貸付を足す</button>}>
+      actions={<>
+        <button onClick={() => { setImporting(!importing); setAdding(false); }} className="btn-secondary"><FileInput size={15} />シートから取り込む</button>
+        <button onClick={() => { setAdding(!adding); setImporting(false); }} className="btn-primary"><Plus size={15} />貸付を足す</button>
+      </>}>
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
         <div className="rounded-xl border border-line bg-surface px-4 py-3"><div className="text-sm text-muted">回収の残り</div><div className="num text-xl font-bold">{yen(totalRemain)}</div></div>
         <div className="rounded-xl border border-line bg-surface px-4 py-3"><div className="text-sm text-muted">期日を過ぎた分</div><div className="num text-xl font-bold" style={{ color: totalOver ? 'var(--tone-bad-fg)' : undefined }}>{yen(totalOver)}</div></div>
@@ -60,6 +67,7 @@ export default function KashitsukePage() {
         </label>
       </div>
       <Msg text={msg.text} bad={msg.bad} />
+      {importing && <ImportForm sample={sample} today={r.data?.today || today()} onDone={(text) => { setMsg({ text }); setImporting(false); void r.reload(); }} />}
       {adding && <AddForm onSave={async (b) => { const ok = await act({ action: 'add', ...b }, `${b.name} の貸付を足しました`); if (ok || sample) setAdding(false); }} />}
       <Card>
         <div className="overflow-x-auto">
@@ -133,6 +141,7 @@ function LoanDetail({ loan, deleted, act }: { loan: Loan; deleted: boolean; act:
                   ? <button className={btnCls} onClick={() => act({ action: 'unpay', repId: p.id }, '回収の確認を取り消しました')}>取り消す</button>
                   : <>
                     <button className={btnCls} onClick={() => act({ action: 'pay', repId: p.id, paid_on: today() }, `${p.due_on} の分を回収ずみにしました`)}>回収した</button>
+                    {p.due_on < today() && <button className={`${btnCls} ml-1`} onClick={() => void copyDun(loan, p)} title="送るのは手で（ここからは送りません）"><Copy size={12} className="mr-1 inline" />催促文をコピー</button>}
                     <button className={`${btnCls} ml-1`} onClick={() => act({ action: 'rep-delete', repId: p.id }, '返済の行を外しました')}>外す</button>
                   </>)}
               </td>
@@ -165,5 +174,79 @@ function LoanDetail({ loan, deleted, act }: { loan: Loan; deleted: boolean; act:
           : <button className={btnCls} onClick={() => { if (window.confirm(`${loan.name} の貸付に削除の印をつけます（あとで戻せます）`)) void act({ action: 'delete', id: loan.id }, `${loan.name} の貸付に削除の印をつけました`); }}>削除の印をつける</button>}
       </div>
     </div>
+  );
+}
+
+const yenText = (n: number) => `${Math.round(n || 0).toLocaleString('ja-JP')}円`;
+const md = (d: string) => { const m = d.match(/^\d{4}-(\d{2})-(\d{2})$/); return m ? `${+m[1]}/${+m[2]}` : d; };
+/** 催促の文（今の kashitsuke.html と同じ文）をコピーする。送るのは人の手で */
+async function copyDun(loan: Loan, rep: Rep) {
+  const txt = `${loan.name.replace(/\s+/g, '')}さん\nお疲れさまです。\n${md(rep.due_on)} がお支払い期日のご返済 ${yenText(rep.amount)} について、`
+    + (rep.method === 'tenbiki' ? '給与からの控除ができておりません。' : 'ご入金の確認が取れておりません。') + '\nお手数ですが、状況とお支払いの予定日をご返信ください。';
+  try { await navigator.clipboard.writeText(txt); window.alert('催促文をコピーしました（送るのは手で）'); } catch { window.prompt('コピーしてください', txt); }
+}
+
+type Preview = { rows: { lent_on: string | null; due_on: string | null; kind: string; name: string; company: string; amount: number; contract: string; transfer: string; uriage_memo: string; memo: string }[]; dup: number; skipped: { line: number; why: string }[] };
+
+/** スプレッドシート「金銭貸付一覧」の行を貼り付けて取り込む（今の「シートから取り込む」タブと同じ） */
+function ImportForm({ sample, today: t, onDone }: { sample: boolean; today: string; onDone: (msg: string) => void }) {
+  const [text, setText] = useState('');
+  const [year, setYear] = useState(t.slice(0, 4));
+  const [roll, setRoll] = useState(true);
+  const [past, setPast] = useState(true);
+  const [pv, setPv] = useState<Preview | null>(null);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
+  const body = (dry: boolean) => ({ action: 'import', text, year: Number(year), rollYear: roll, pastPaid: past, dry });
+  const check = async () => {
+    setErr(''); setPv(null);
+    if (sample) { setErr('見本なので読み込みはしていません（ログインすると今のシステムで読みます）'); return; }
+    setBusy(true);
+    const res = await horyuPost<Preview>('kashitsuke', body(true));
+    setBusy(false);
+    if (res.ok) setPv(res.data); else setErr(res.error);
+  };
+  const go = () => pv && setConfirm({
+    title: `${pv.rows.length}件を取り込む`, okLabel: '取り込む',
+    lines: [`新しく入るのは ${pv.rows.length}件${pv.dup ? `（すでに入っている ${pv.dup}件は飛ばします）` : ''}`, past ? '期日が過ぎた前払いは回収ずみとして入れます' : '期日が過ぎた前払いも回収中として入れます', '取り込んだ行は、あとから1件ずつ削除の印をつけられます'],
+    run: async () => {
+      const res = await horyuPost<{ added: number }>('kashitsuke', body(false));
+      if (!res.ok) throw new Error(res.error);
+      onDone(`${res.data.added ?? pv.rows.length}件を取り込みました`);
+    },
+  });
+  return (
+    <Card title="シートから取り込む" note="「金銭貸付一覧」の上の表（社名〜備考の列）を行ごとコピーして貼り付け">
+      <div className="flex flex-col gap-2 px-4 pb-4 text-sm text-muted">
+        <textarea value={text} onChange={(e) => { setText(e.target.value); setPv(null); }} rows={7} className={`${inputCls} font-mono text-xs`} placeholder={'社名\t氏名\t金額\t金消契約\t本来の支給日\t前倒し支給日\t振込\t売上表メモ\t備考'} />
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-1.5">いちばん上の行の年<select value={year} onChange={(e) => { setYear(e.target.value); setPv(null); }} className={inputCls}>{Array.from({ length: 6 }, (_, i) => String(Number(t.slice(0, 4)) - 4 + i)).map((y) => <option key={y}>{y}</option>)}</select></label>
+          <label className="flex items-center gap-1.5"><input type="checkbox" checked={roll} onChange={(e) => { setRoll(e.target.checked); setPv(null); }} />月が大きく戻ったら翌年にする</label>
+          <label className="flex items-center gap-1.5"><input type="checkbox" checked={past} onChange={(e) => { setPast(e.target.checked); setPv(null); }} />期日が過ぎた前払いは回収ずみとして入れる</label>
+          <button className={btnCls} disabled={!text.trim() || busy} onClick={check}>{busy ? '読んでいます…' : '読んでみる'}</button>
+        </div>
+        <p className="text-xs text-faint">シートの日付には年が無いので、年はここで決めます。読んだ結果の日付が違っていたら、年ごとに分けて貼り直してください。同じ人・同じ日・同じ金額の行は二重に入りません。</p>
+        <Msg text={err} bad />
+        {pv && (
+          <div className="flex flex-col gap-2 text-ink">
+            <b>{pv.rows.length}件を取り込みます{pv.dup ? `（すでに入っている ${pv.dup}件は飛ばします）` : ''}{pv.skipped.length ? `・読めなかった行 ${pv.skipped.length}件` : ''}</b>
+            {pv.skipped.length > 0 && <div className="rounded-lg px-3 py-2 text-sm" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>{pv.skipped.map((x) => `${x.line}行目: ${x.why}`).join(' ／ ')}</div>}
+            {pv.rows.length > 0 && <>
+              <div className="max-h-[360px] overflow-auto rounded-lg border border-line-soft">
+                <table className="w-full min-w-[760px] border-collapse text-sm">
+                  <thead><tr className="th-row"><th className={thCls}>貸した日</th><th className={thCls}>本来の支給日</th><th className={thCls}>種別</th><th className={thCls}>氏名</th><th className={thCls}>社名</th><th className={`${thCls} text-right`}>金額</th><th className={thCls}>金消</th><th className={thCls}>振込</th><th className={thCls}>備考</th></tr></thead>
+                  <tbody>{pv.rows.map((x, i) => (
+                    <tr key={i} className="border-t border-line-soft"><td className={`${tdCls} num`}>{x.lent_on || '—'}</td><td className={`${tdCls} num`}>{x.due_on || '—'}</td><td className={tdCls}>{KIND[x.kind] ?? x.kind}</td><td className={tdCls}>{x.name}</td><td className={tdCls}>{x.company}</td><td className={`${tdCls} num text-right`}>{yen(x.amount)}</td><td className={tdCls}>{x.contract}</td><td className={tdCls}>{x.transfer}</td><td className={tdCls}>{x.memo}</td></tr>
+                  ))}</tbody>
+                </table>
+              </div>
+              <div><button className="btn-primary" onClick={go}>この内容で取り込む</button></div>
+            </>}
+          </div>
+        )}
+      </div>
+      {confirm && <ConfirmWrite spec={confirm} onClose={() => setConfirm(null)} />}
+    </Card>
   );
 }
