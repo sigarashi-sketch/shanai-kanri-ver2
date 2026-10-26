@@ -8,8 +8,9 @@ import { MODULES } from './theme';
 
 export type OrgRole = { id: string; label: string; perms: Perms; manageAccess: boolean };
 /** 部署（parent=null）とチーム（parent=部署の id）。並びは配列の順。headId は長。
- *  role・own＝その組織に付けた権限（10-26 shoya「組織ごとに権限付与したい」）。中の人全員に付く（部署に付けた分はチームの人にも付く） */
-export type Unit = { id: string; name: string; parent: string | null; headId?: string; role?: string; own?: Partial<Perms> };
+ *  own・manageAccess＝その組織に付けた権限（10-26 shoya「組織ごとに権限付与したい」・「ロールと役職」の画面で付ける）。
+ *  中の人全員に付く（部署に付けた分はチームの人にも付く） */
+export type Unit = { id: string; name: string; parent: string | null; headId?: string; own?: Partial<Perms>; manageAccess?: boolean };
 export type Title = { id: string; label: string };
 /** 人ごとに持つのはこれだけ（キーは今のシステムの userId） */
 export type Assign = { unit?: string; title?: string; role?: string; own?: Partial<Perms> };
@@ -104,14 +105,13 @@ export function unitChain(s: OrgState, unitId?: string): Unit[] {
   const p = u.parent ? s.units.find((x) => x.id === u.parent) : undefined;
   return p ? [p, u] : [u];
 }
-/** 組織そのものに付けた段階（ロール＋個別の高いほう） */
-export function unitOwnPerms(s: OrgState, u: Unit): Perms {
-  const r = (s.roles.find((x) => x.id === (u.role ?? NO_ROLE)) ?? roleOf(s)).perms;
-  return Object.fromEntries(MODULES.map((m) => [m.key, hi(r[m.key], u.own?.[m.key] ?? 'none')])) as Perms;
+/** 組織そのものに付けた段階 */
+export function unitOwnPerms(u: Unit): Perms {
+  return Object.fromEntries(MODULES.map((m) => [m.key, u.own?.[m.key] ?? 'none'])) as Perms;
 }
 /** 所属から付く段階（部署とチームの高いほう） */
 export function unitPerms(s: OrgState, unitId?: string): Perms {
-  const ps = unitChain(s, unitId).map((u) => unitOwnPerms(s, u));
+  const ps = unitChain(s, unitId).map(unitOwnPerms);
   return Object.fromEntries(MODULES.map((m) => [m.key, ps.reduce<Level>((acc, p) => hi(acc, p[m.key]), 'none')])) as Perms;
 }
 
@@ -124,7 +124,7 @@ export function orgPerms(s: OrgState, a?: Assign): Perms {
 }
 /** 権限管理ができるか＝本人のロールか、所属の組織のロールで持っている */
 export function orgManage(s: OrgState, a?: Assign): boolean {
-  return roleOf(s, a).manageAccess || unitChain(s, a?.unit).some((u) => !!s.roles.find((r) => r.id === u.role)?.manageAccess);
+  return roleOf(s, a).manageAccess || unitChain(s, a?.unit).some((u) => !!u.manageAccess);
 }
 
 /** 部署の中のチーム id もふくめた集合（部署で絞るとき用） */

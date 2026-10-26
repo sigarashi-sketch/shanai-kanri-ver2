@@ -1,13 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { GripVertical, KeyRound, Trash2 } from 'lucide-react';
-import { LEVELS, type Level } from '@/lib/access';
+import { GripVertical, KeyRound, Network, Trash2 } from 'lucide-react';
+import { LEVELS, atLeast, type Level } from '@/lib/access';
 import { MODULES } from '@/lib/theme';
-import { moveBefore, newId, NO_ROLE, type OrgRole, type Title } from '@/lib/org';
+import { moveBefore, newId, NO_ROLE, unitAndChildren, unitOwnPerms, type OrgRole, type Title, type Unit } from '@/lib/org';
 import { AddName, DND_ROLE, DND_TITLE, hasType, NameEdit, type Ctl } from './shared';
 
 // ロールの定義（4分類 × 見ない/見る/直す/承認 ＋ 権限管理ができる）と、役職の選択肢。どちらもドラッグで並び替え。
+// 組織ごとの権限（10-26 shoya）：部署・チームにもロールと同じ形で段階を付ける＝中の人全員に付く（部署の分はチームの人にも）
 export function RolesEditor({ ctl }: { ctl: Ctl }) {
   const { org, commit, flash } = ctl;
   const used = (id: string) => ctl.people.filter((p) => (org.people[p.userId]?.role ?? NO_ROLE) === id).length;
@@ -22,6 +23,15 @@ export function RolesEditor({ ctl }: { ctl: Ctl }) {
         <div className="flex items-center gap-2 rounded-xl border border-dashed border-field p-4 text-sm text-muted">ロールを作る
           <AddName placeholder="ロールの名前" onAdd={(v) => { const id = newId('r'); commit((s) => ({ ...s, roles: [...s.roles, { id, label: v, perms: { jinji: 'none', roumu: 'none', eigyo: 'none', keiri: 'none' }, manageAccess: false }] }), `ロール「${v}」を作りました`, { sub: '→ 段階を選んで、一覧で人に付けられます', flash: id }); }} />
         </div>
+      </section>
+
+      <div>
+        <h2 className="flex items-center gap-1.5 text-md font-bold"><Network size={16} />組織ごとの権限</h2>
+        <p className="text-sm text-muted">部署・チームに付けると、中の人全員に付きます（部署に付けた分はチームの人にも）。その人の結果は ロール・個別・所属 の一番高いもの。組織は「組織図」で作ります。</p>
+      </div>
+      <section className="grid gap-3 lg:grid-cols-2">
+        {org.units.filter((u) => !u.parent).flatMap((d) => [d, ...org.units.filter((t) => t.parent === d.id)]).map((u) => <UnitCard key={u.id} u={u} ctl={ctl} />)}
+        {!org.units.length && <p className="text-sm text-faint">部署・チームがまだありません（「組織図」で作れます）</p>}
       </section>
 
       <section className="rounded-xl border border-line bg-surface p-4">
@@ -96,5 +106,55 @@ function TitleChip({ t, n, ctl }: { t: Title; n: number; ctl: Ctl }) {
         <Trash2 size={12} />
       </button>
     </span>
+  );
+}
+
+/** 部署・チームの権限（ロールのカードと同じ形）。チームは部署で持っている段階より下は選べない */
+function UnitCard({ u, ctl }: { u: Unit; ctl: Ctl }) {
+  const { org, commit, flash } = ctl;
+  const parent = u.parent ? org.units.find((x) => x.id === u.parent) : undefined;
+  const floor = parent ? unitOwnPerms(parent) : null;
+  const ids = unitAndChildren(org, u.id);
+  const n = ctl.people.filter((p) => ids.has(org.people[p.userId]?.unit ?? '')).length;
+  const mine = unitOwnPerms(u);
+  const patch = (pt: Partial<Unit>, text: string) =>
+    commit((s) => ({ ...s, units: s.units.map((x) => (x.id === u.id ? { ...x, ...pt } : x)) }), text, { sub: `→ 「${u.name}」の${n}人の結果の段階に反映`, flash: u.id });
+  return (
+    <div className={`rounded-xl border border-line bg-surface p-4 ${flash === u.id ? 'mo-flash' : ''}`} style={parent ? { background: 'var(--color-soft)' } : undefined}>
+      <div className="flex items-center gap-2">
+        {parent && <span className="text-sm text-muted">{parent.name} /</span>}
+        <b className="text-md">{u.name}</b>
+        <span className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>{parent ? 'チーム' : '部署'}</span>
+        <span className="text-xs text-faint">{n}人</span>
+      </div>
+      <div className="mt-3 flex flex-col gap-2">
+        {MODULES.map((m) => {
+          const lo: Level = floor?.[m.key] ?? 'none';
+          const cur: Level = atLeast(mine[m.key], lo) ? mine[m.key] : lo;
+          return (
+            <div key={m.key} className="flex items-center gap-3 text-sm">
+              <span className="w-[72px] font-semibold"><span style={{ color: `var(--c-${m.key})` }}>●</span> {m.short}</span>
+              <div role="radiogroup" aria-label={`${u.name}の${m.short}`} className="inline-flex overflow-hidden rounded-lg border border-field">
+                {LEVELS.map((lv) => {
+                  const on = cur === lv.key;
+                  const ng = !atLeast(lv.key, lo);
+                  return (
+                    <button key={lv.key} role="radio" aria-checked={on} disabled={ng} title={ng ? `部署「${parent?.name}」で${LEVELS.find((x) => x.key === lo)!.label}まで持っています` : lv.hint}
+                      onClick={() => { if (!on) patch({ own: { ...u.own, [m.key]: lv.key as Level } }, `「${u.name}」の${m.short}を「${lv.label}」にしました`); }}
+                      className="px-2.5 py-1 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+                      style={on ? { background: `var(--c-${m.key})`, color: `var(--o-${m.key})`, fontWeight: 700 } : { background: 'var(--color-surface)' }}>{lv.label}</button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+        <label className="mt-1 flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={!!u.manageAccess || !!parent?.manageAccess} disabled={!!parent?.manageAccess}
+            onChange={(e) => patch({ manageAccess: e.target.checked }, `「${u.name}」の権限管理を${e.target.checked ? '付けました' : '外しました'}`)} />
+          <KeyRound size={13} />権限管理ができる（組織表・ロール・権限を変えられる）{parent?.manageAccess && <span className="text-xs text-faint">（部署で付いています）</span>}
+        </label>
+      </div>
+    </div>
   );
 }

@@ -88,7 +88,7 @@ export default function OrgPage() {
 
   if (!manageAccess) return <NoAccess label="組織表" />;
   if (!org) return null;
-  const ctl: Ctl = { org, people, commit, flash };
+  const ctl: Ctl = { org, people, commit, flash, openRoles: () => setTab('roles') };
   const known = new Set(org.units.map((u) => u.id));
   const allActive = people.filter((p) => !p.retired && personKind(p) === '内勤');
   const unassigned = allActive.filter((p) => !known.has(org.people[p.userId]?.unit ?? '')).length;

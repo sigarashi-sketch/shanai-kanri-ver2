@@ -1,10 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowDownToLine, ChevronRight, GripVertical, KeyRound, Trash2, Users, X } from 'lucide-react';
-import { LEVELS, atLeast, type Level } from '@/lib/access';
+import { ArrowDownToLine, GripVertical, KeyRound, Trash2, Users, X } from 'lucide-react';
 import { MODULES } from '@/lib/theme';
-import { levelLabel, moveBefore, newId, unitOwnPerms, unitPath, type OrgPerson, type Unit } from '@/lib/org';
+import { levelLabel, moveBefore, newId, unitOwnPerms, type OrgPerson, type Unit } from '@/lib/org';
 import { AddName, DND_PERSON, DND_UNIT, droppedPeople, hasType, NameEdit, PersonChip, type Ctl } from './shared';
 
 type Ops = {
@@ -16,7 +15,7 @@ type Ops = {
 // 組織図（木）。部署→チーム。部署・チームもドラッグで並び替え（チームはほかの部署へも移せる）。
 // 人を動かす（10-26 shoya「選択移動しづらい」）：札を押して何人でも選ぶ → 行き先の「ここへ移す」を押す（または上の帯で行き先を選ぶ）。
 //   ドラッグも残す。選んでいる札をつかむと選んだ全員が動く。Esc で選ぶのをやめる
-// 組織の権限（10-26 shoya「組織ごとに権限付与したい」）：部署・チームにロールと分類ごとの段階を付けると、中の人全員に付く（部署の分はチームの人にも）
+// 組織の権限（10-26 shoya）：箱には札だけ出す。付けるのは「ロールと役職」の「組織ごとの権限」（ロールと同じ形）
 export function OrgChart({ ctl, list }: { ctl: Ctl; list: OrgPerson[] }) {
   const { org, commit, flash } = ctl;
   const depts = org.units.filter((u) => !u.parent);
@@ -117,50 +116,17 @@ function Pick({ ids, ops }: { ids: string[]; ops: Ops }) {
   return <button onClick={() => ops.selectAll(ids)} className="text-xs font-normal text-muted underline">全員選ぶ</button>;
 }
 
-/** 組織に付ける権限（ロール＋分類ごとの段階）。中の人全員に付く */
+/** 組織に付けた権限の札（見るだけ）。変えるのは「ロールと役職」の「組織ごとの権限」 */
 function UnitPerms({ u, ctl }: { u: Unit; ctl: Ctl }) {
-  const { org, commit } = ctl;
-  const [open, setOpen] = useState(false);
-  const role = org.roles.find((r) => r.id === u.role);
-  const eff = unitOwnPerms(org, u);
-  const has = MODULES.some((m) => eff[m.key] !== 'none') || !!role?.manageAccess;
-  const set = (patch: Partial<Unit>, text: string) =>
-    commit((s) => ({ ...s, units: s.units.map((x) => (x.id === u.id ? { ...x, ...patch } : x)) }), text, { sub: `→ 「${unitPath(org, u.id)}」の人全員の結果の段階に反映`, flash: u.id });
-  const sc = 'rounded-md border border-field bg-surface px-1.5 py-0.5 text-sm';
+  const eff = unitOwnPerms(u);
+  const on = MODULES.filter((m) => eff[m.key] !== 'none');
   return (
-    <div className="mt-1.5 rounded-lg border border-line-soft px-2 py-1.5 text-sm">
-      <div className="flex flex-wrap items-center gap-1.5">
-        <button onClick={() => setOpen((v) => !v)} className="inline-flex items-center gap-0.5 font-semibold text-muted" aria-expanded={open}>
-          <ChevronRight size={13} style={{ transform: open ? 'rotate(90deg)' : undefined, transition: 'transform 200ms' }} />組織の権限
-        </button>
-        {has ? MODULES.filter((m) => eff[m.key] !== 'none').map((m) => <span key={m.key} className="chip" style={{ background: `var(--s-${m.key})`, color: `var(--d-${m.key})` }}>{m.short} {levelLabel(eff[m.key])}</span>)
-          : <span className="text-faint">なし（中の人は本人のロールだけ）</span>}
-        {role?.manageAccess && <span className="chip" style={{ background: 'var(--tone-caution-bg)', color: 'var(--tone-caution-fg)' }}><KeyRound size={11} />権限管理</span>}
-      </div>
-      {open && (
-        <div className="mo-fade-in mt-1.5 flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-1">ロール
-            <select aria-label={`${u.name}のロール`} className={sc} value={u.role ?? ''}
-              onChange={(e) => set({ role: e.target.value || undefined }, e.target.value ? `「${u.name}」に「${org.roles.find((r) => r.id === e.target.value)?.label}」を付けました` : `「${u.name}」のロールを外しました`)}>
-              <option value="">なし</option>{org.roles.filter((r) => r.id !== 'none').map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
-            </select>
-          </label>
-          {MODULES.map((m) => {
-            const floor: Level = role?.perms[m.key] ?? 'none';
-            const own = u.own?.[m.key] ?? 'none';
-            return (
-              <label key={m.key} className="flex items-center gap-1"><span style={{ color: `var(--c-${m.key})` }}>●</span>{m.short}
-                <select aria-label={`${u.name}の${m.short}の段階`} className={sc} value={atLeast(own, floor) ? own : floor}
-                  title={floor !== 'none' ? `ロールで${levelLabel(floor)}まで持っています` : '組織に付ける段階'}
-                  onChange={(e) => set({ own: { ...u.own, [m.key]: e.target.value as Level } }, `「${u.name}」の${m.short}を「${levelLabel(e.target.value as Level)}」にしました`)}>
-                  {LEVELS.map((l) => <option key={l.key} value={l.key} disabled={!atLeast(l.key, floor)}>{l.label}</option>)}
-                </select>
-              </label>
-            );
-          })}
-          {!u.parent && <span className="text-xs text-faint">部署に付けた分は、中のチームの人にも付きます</span>}
-        </div>
-      )}
+    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-sm" title="変えるのは「ロールと役職」の「組織ごとの権限」">
+      <span className="inline-flex items-center gap-0.5 font-semibold text-muted"><KeyRound size={12} />組織の権限</span>
+      {on.length ? on.map((m) => <span key={m.key} className="chip" style={{ background: `var(--s-${m.key})`, color: `var(--d-${m.key})` }}>{m.short} {levelLabel(eff[m.key])}</span>)
+        : <span className="text-faint">なし</span>}
+      {u.manageAccess && <span className="chip" style={{ background: 'var(--tone-caution-bg)', color: 'var(--tone-caution-fg)' }}>権限管理</span>}
+      <button onClick={() => ctl.openRoles?.()} className="text-xs text-muted underline">変える</button>
     </div>
   );
 }

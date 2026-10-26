@@ -7,7 +7,7 @@ import { levelLabel, orgManage, orgPerms, type OrgPerson, type OrgState } from '
 
 // 組織表の部品（人の札・結果の段階・名前の直し方・ドラッグの型）
 export type Commit = (fn: (s: OrgState) => OrgState, text: string, opts?: { sub?: string; flash?: string }) => void;
-export type Ctl = { org: OrgState; people: OrgPerson[]; commit: Commit; flash: string | null };
+export type Ctl = { org: OrgState; people: OrgPerson[]; commit: Commit; flash: string | null; openRoles?: () => void };
 
 export const DND_PERSON = 'application/x-org-person';
 export const DND_UNIT = 'application/x-org-unit';
