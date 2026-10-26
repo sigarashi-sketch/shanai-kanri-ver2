@@ -5,3 +5,6 @@ node_modules
 next-env.d.ts
 data/
 .vercel
+
+# マネフォ経費の取り込み（個人の名前と金額・git に入れない。Vercel には上げる）
+mf/

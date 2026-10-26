@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { Check } from 'lucide-react';
 import { useIke } from '@/components/Live';
+import { useLiveRoute } from '@/lib/live/use-live-route';
+import type { MfKeihi } from '@/app/api/live/keihi-mf/route';
 import type { Mikeiken } from '@/components/Mikeiken';
 import { needText, usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
@@ -15,12 +17,13 @@ import { CLAIMS } from '@/lib/keihi-sample';
 //   月次：GET /api/keihi?action=monthly&ym= … その月の承認・支払済を人ごとに合計（給与の振込みに載せる額）
 //         支払済にする（10-26）：POST /api/live/keihi {action:'markPaid'} → 今の markPaid（全員分・定期の打刻の確認が済むまでは今のシステムが止める）
 //   稟議：GET /api/keihi?action=ringiList&status=申請中 … 承認・見送りは POST /api/live/keihi（本人の LINE に届く）
+//         マネフォの月（10-26・2026年9月分）：MF の承認済みを人ごとに足して「マネフォ」の列に出す（/api/live/keihi-mf・読むだけ）。支払済にする操作は今のシステムの分だけ
 //   本物は未経験の人だけ（今のプロパーリストに入っている人）
 const yen = (n: number) => `¥${(Number(n) || 0).toLocaleString('ja-JP')}`;
 const jstYm = (back: number) => { const j = new Date(Date.now() + 9 * 3600e3); const d = new Date(Date.UTC(j.getUTCFullYear(), j.getUTCMonth() - back, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`; };
 const ymLabel = (ym: string) => `${ym.slice(0, 4)}年${Number(ym.slice(5))}月`;
 
-type MonthlyPerson = { name: string; claims: number; commute_yen: number; other_yen: number; total_yen: number; freee_employee_id?: string | null };
+type MonthlyPerson = { name: string; claims: number; commute_yen: number; other_yen: number; total_yen: number; freee_employee_id?: string | null; mf_yen?: number; mf_claims?: number };
 type Monthly = { ok?: boolean; ym: string; people: MonthlyPerson[]; pending: number; error?: string };
 
 export function KeihiMonthlyTab({ live, mk }: { live: boolean; mk: Mikeiken }) {
@@ -31,41 +34,60 @@ export function KeihiMonthlyTab({ live, mk }: { live: boolean; mk: Mikeiken }) {
   useEffect(() => setYm(jstYm(1)), []);
   const ike = useIke<Monthly>(live && ym ? `keihi?action=monthly&ym=${ym}` : null);
   const ok = ike.live && ike.data?.ok !== false;
+  const mf = useLiveRoute<MfKeihi>(live && ym ? `/api/live/keihi-mf?ym=${ym}` : null);
+  const mfRows = mf.live && mf.data?.ym === ym ? mf.data.rows : [];
+  const mfDone = mfRows.filter((r) => r.status === '承認済み');
+  const mfOpen = Object.entries(mfRows.filter((r) => r.status !== '承認済み' && r.status !== '取消し').reduce<Record<string, number>>((a, r) => ({ ...a, [r.status]: (a[r.status] || 0) + 1 }), {}));
+  const hasMf = mfRows.length > 0;
+  const withMf = (ps: MonthlyPerson[]) => {
+    if (!mfDone.length) return ps;
+    const by = new Map(ps.map((p) => [p.name.replace(/\s/g, ''), { ...p }]));
+    for (const r of mfDone) {
+      const k = r.name.replace(/\s/g, '');
+      const p = by.get(k) || { name: r.name, claims: 0, commute_yen: 0, other_yen: 0, total_yen: 0 };
+      p.mf_yen = (p.mf_yen || 0) + r.amount; p.mf_claims = (p.mf_claims || 0) + 1; p.total_yen += r.amount;
+      by.set(k, p);
+    }
+    return [...by.values()].sort((a, b) => b.total_yen - a.total_yen);
+  };
   const people: MonthlyPerson[] = live
-    ? (ok && ike.data ? mk.keep(ike.data.people || [], 'name') : [])
+    ? (ok && ike.data ? withMf(mk.keep(ike.data.people || [], 'name')) : [])
     : Object.values(CLAIMS.reduce<Record<string, MonthlyPerson>>((a, c) => {
       const p = a[c.person] || { name: c.person, claims: 0, commute_yen: 0, other_yen: 0, total_yen: 0 };
       p.claims++; p.total_yen += c.amount; if (c.kind === '出張・面談') p.other_yen += c.amount; else p.commute_yen += c.amount;
       a[c.person] = p; return a;
     }, {}));
-  const sum = people.reduce((s, p) => ({ c: s.c + p.commute_yen, o: s.o + p.other_yen, t: s.t + p.total_yen }), { c: 0, o: 0, t: 0 });
+  const sum = people.reduce((s, p) => ({ c: s.c + p.commute_yen, o: s.o + p.other_yen, m: s.m + (p.mf_yen || 0), t: s.t + p.total_yen }), { c: 0, o: 0, m: 0, t: 0 });
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3 text-body">
         <select aria-label="月" value={ym} onChange={(e) => setYm(e.target.value)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-body">
           {[0, 1, 2, 3, 4, 5].map((b) => jstYm(b)).map((m) => <option key={m} value={m}>{ymLabel(m)}分</option>)}
         </select>
-        <div><b>承認・支払済 {people.length}人</b><span className="num ml-2 text-muted">通勤 {yen(sum.c)}・その他 {yen(sum.o)}・合計 {yen(sum.t)}</span>
+        <div><b>承認・支払済 {people.length}人</b><span className="num ml-2 text-muted">通勤 {yen(sum.c)}・その他 {yen(sum.o)}{hasMf && `・マネフォ ${yen(sum.m)}`}・合計 {yen(sum.t)}</span>
           {live && ok && (ike.data?.pending || 0) > 0 && <div className="text-sm text-warn">この月の申請中・差し戻し中が {ike.data!.pending}件あります（全員分の数）</div>}
+          {hasMf && <div className="text-sm text-muted">この月はマネーフォワード経費の申請も足しています（承認済み {mfDone.length}件・10/26 書き出しの CSV。通勤とその他の内訳は MF に無いので「マネフォ」の列にまとめて出します）{mfOpen.length > 0 && <span className="text-warn">。MF でまだ承認されていない：{mfOpen.map(([k, v]) => `${k} ${v}件`).join('・')}</span>}</div>}
+          {live && mf.state === 'error' && <div className="text-sm text-bad">マネフォの分が読めませんでした（{mf.error}）</div>}
           {!live && <div className="text-sm text-faint">見本データです（ログインすると今の社内システムの月次が出ます）</div>}
         </div>
       </div>
       {live && ike.state === 'error' && <div className="rounded-xl px-4 py-2.5 text-sm" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>{ike.error}</div>}
       <div className="overflow-x-auto rounded-xl border border-line bg-surface">
         <table className="w-full min-w-[620px] border-collapse text-body">
-          <thead><tr className="th-row text-left"><th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 text-right font-semibold">申請</th><th className="px-2 py-2.5 text-right font-semibold">通勤</th><th className="px-2 py-2.5 text-right font-semibold">その他</th><th className="px-2 py-2.5 text-right font-semibold">合計</th><th className="px-4 py-2.5 font-semibold">freee</th></tr></thead>
+          <thead><tr className="th-row text-left"><th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 text-right font-semibold">申請</th><th className="px-2 py-2.5 text-right font-semibold">通勤</th><th className="px-2 py-2.5 text-right font-semibold">その他</th>{hasMf && <th className="px-2 py-2.5 text-right font-semibold">マネフォ</th>}<th className="px-2 py-2.5 text-right font-semibold">合計</th><th className="px-4 py-2.5 font-semibold">freee</th></tr></thead>
           <tbody>
             {people.map((p) => (
               <tr key={p.name} className="row border-t border-line-soft">
                 <td className="px-4 py-2.5"><PersonName name={p.name} className="font-semibold underline-offset-2 hover:underline" /></td>
-                <td className="num px-2 py-2.5 text-right">{p.claims}件</td>
+                <td className="num px-2 py-2.5 text-right">{p.claims + (p.mf_claims || 0)}件</td>
                 <td className="num px-2 py-2.5 text-right">{yen(p.commute_yen)}</td>
                 <td className="num px-2 py-2.5 text-right">{yen(p.other_yen)}</td>
+                {hasMf && <td className="num px-2 py-2.5 text-right">{p.mf_yen ? yen(p.mf_yen) : '—'}</td>}
                 <td className="num px-2 py-2.5 text-right font-semibold">{yen(p.total_yen)}</td>
-                <td className="px-4 py-2.5 text-sm">{!live ? '—' : p.freee_employee_id ? <span className="text-ok">結び付き済み</span> : <span className="text-warn">未紐付け（手で確かめる）</span>}</td>
+                <td className="px-4 py-2.5 text-sm">{!live ? '—' : p.freee_employee_id ? <span className="text-ok">結び付き済み</span> : p.mf_yen && !p.claims ? <span className="text-muted">マネフォの分だけ</span> : <span className="text-warn">未紐付け（手で確かめる）</span>}</td>
               </tr>
             ))}
-            {people.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-muted">{live && ike.state === 'loading' ? '読んでいます…' : 'この月の承認済みの申請はありません'}</td></tr>}
+            {people.length === 0 && <tr><td colSpan={hasMf ? 7 : 6} className="px-4 py-8 text-center text-sm text-muted">{live && ike.state === 'loading' ? '読んでいます…' : 'この月の承認済みの申請はありません'}</td></tr>}
           </tbody>
         </table>
       </div>
