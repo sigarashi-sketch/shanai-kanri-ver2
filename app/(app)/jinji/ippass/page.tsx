@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Eye, EyeOff, Plus } from 'lucide-react';
 import { Card, HoryuFrame, Msg, btnCls, fmtAt, horyuPost, inputCls, tdCls, thCls, useHoryu } from '@/components/horyu/kit';
 
-// アイパス管理（保留・10-25）。今の /ippass.html と同じ中身。
+// 媒体アイパス管理（10-25 保留で写す → 10-26 shoya「媒体アイパス管理て名前にして人事に」）。今の /ippass.html と同じ中身。
 //   ・開けるのは今のシステムが許した人だけ（requireIppass：未経験事業部の人と全体管理者）。それ以外は 403＝何も出さない
 //   ・一覧は名前だけ。中身（ID・パスワード等）は「見る」を押したときだけ今のシステムが復号して返す（操作ログに残る）
 //   ・ver2 は鍵を持たない・中身を控えない。開いた中身は30秒で隠す
@@ -44,7 +44,7 @@ export default function IppassPage() {
   };
 
   return (
-    <HoryuFrame title="アイパス管理" sub="社内で使うサービスの ID・パスワード（中身は押したときだけ・操作ログに残ります）" state={r.state} error={r.error} onReload={r.reload}
+    <HoryuFrame title="媒体アイパス管理" keep sub="社内で使うサービスの ID・パスワード（中身は押したときだけ・操作ログに残ります）" state={r.state} error={r.error} onReload={r.reload}
       actions={<button onClick={() => setEdit({ id: 'new', f: { category: '', title: '' } })} className="btn-primary"><Plus size={15} />足す</button>}>
       {r.data && r.data.keyReady === false && <Msg text="今のシステムに暗号化の鍵が設定されていないので、足す・直すはできません" bad />}
       <Msg text={msg.text} bad={msg.bad} />

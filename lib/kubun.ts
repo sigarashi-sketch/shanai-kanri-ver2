@@ -19,7 +19,7 @@ export const KUBUN: { key: KubunKey; label: string; mod: ModuleKey; hint: string
   { key: 'seikyu', label: '請求', mod: 'keiri', hint: '請求書・請求書づくり・作成・格納・勤務表の届き具合・勤怠の照合' },
   { key: 'bunseki', label: '分析', mod: 'keiri', hint: '売上・粗利・想定賃金・離職リスク' },
   { key: 'kanawest', label: 'かな西エリア', mod: 'eigyo', hint: '要員リスト・面談管理・案件進捗・チャットを神奈川要員だけで' },
-  { key: 'kanri', label: '管理', mod: 'roumu', hint: '労務法務ナレッジ' },
+  { key: 'kanri', label: '管理', mod: 'roumu', hint: '労務法務ナレッジ・媒体アイパス管理' },
 ];
 export const KUBUN_KEYS = KUBUN.map((k) => k.key);
 export type KPerms = Record<KubunKey, Level>;
@@ -30,7 +30,7 @@ export const KUBUN_OF_HREF: Record<string, KubunKey> = {
   // 人事管理
   '/home/jinji': 'kadou', '/jinji/staff': 'kadou', '/jinji/yoyaku': 'kadou', '/jinji/nyusha': 'mendan', '/jinji/jimu': 'kadou',
   '/jinji/shikaku': 'kadou', '/jinji/sankyu': 'kadou', '/jinji/rishoku': 'bunseki', '/jinji/community': 'kadou',
-  '/jinji/saiyou': 'mendan', '/jinji/ocr': 'mendan',
+  '/jinji/saiyou': 'mendan', '/jinji/ocr': 'mendan', '/jinji/ippass': 'kanri',
   // 労務/営業管理
   '/roumu/today': 'kintai', '/roumu/approval': 'kintai', '/roumu/overtime': 'kintai', '/roumu/shime': 'kintai', '/roumu/shift': 'kintai',
   '/roumu/kekkin': 'kintai', '/roumu/contracts': 'kadou', '/roumu/timesheet': 'seikyu', '/roumu/alerts': 'kintai', '/roumu/kb': 'kanri',

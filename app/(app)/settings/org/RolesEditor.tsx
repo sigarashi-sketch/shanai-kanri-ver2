@@ -1,14 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { GripVertical, KeyRound, Network, Trash2 } from 'lucide-react';
+import { Eye, GripVertical, KeyRound, Network, Trash2 } from 'lucide-react';
 import { LEVELS, atLeast, type Level } from '@/lib/access';
 import { K_NONE, KUBUN } from '@/lib/kubun';
-import { moveBefore, newId, NO_ROLE, unitAndChildren, unitOwnPerms, type OrgRole, type Title, type Unit } from '@/lib/org';
+import { CAN_KEYS, moveBefore, newId, NO_ROLE, unitAndChildren, unitOwnPerms, type OrgRole, type Title, type Unit } from '@/lib/org';
+import type { RoleCanRow } from '@/lib/role-can';
 import { AddName, DND_ROLE, DND_TITLE, hasType, NameEdit, type Ctl } from './shared';
 
 // ロールの定義（区分 × 見ない/見る/直す/承認 ＋ 権限管理ができる・区分は lib/kubun.ts＝今のいけどんと同じ）と、役職の選択肢。どちらもドラッグで並び替え。
 // 組織ごとの権限（10-26 shoya）：部署・チームにもロールと同じ形で段階を付ける＝中の人全員に付く（部署の分はチームの人にも）
+// 名前の小窓で見られるもの（チャット・要約・基本情報・単価額面）もロール・部署/チームに付ける（10-26 権限管理のロールごとの表をやめてここへ）
 export function RolesEditor({ ctl }: { ctl: Ctl }) {
   const { org, commit, flash } = ctl;
   const used = (id: string) => ctl.people.filter((p) => (org.people[p.userId]?.role ?? NO_ROLE) === id).length;
@@ -21,7 +23,7 @@ export function RolesEditor({ ctl }: { ctl: Ctl }) {
       <section className="grid gap-3 lg:grid-cols-2">
         {org.roles.map((r) => <RoleCard key={r.id} r={r} n={used(r.id)} flash={flash === r.id} ctl={ctl} patchRole={patchRole} />)}
         <div className="flex items-center gap-2 rounded-xl border border-dashed border-field p-4 text-sm text-muted">ロールを作る
-          <AddName placeholder="ロールの名前" onAdd={(v) => { const id = newId('r'); commit((s) => ({ ...s, roles: [...s.roles, { id, label: v, perms: { ...K_NONE }, manageAccess: false }] }), `ロール「${v}」を作りました`, { sub: '→ 段階を選んで、一覧で人に付けられます', flash: id }); }} />
+          <AddName placeholder="ロールの名前" onAdd={(v) => { const id = newId('r'); commit((s) => ({ ...s, roles: [...s.roles, { id, label: v, perms: { ...K_NONE }, manageAccess: false, can: {} }] }), `ロール「${v}」を作りました`, { sub: '→ 段階を選んで、一覧で人に付けられます', flash: id }); }} />
         </div>
       </section>
 
@@ -86,7 +88,34 @@ function RoleCard({ r, n, flash, ctl, patchRole }: { r: OrgRole; n: number; flas
           <input type="checkbox" checked={r.manageAccess} disabled={fixed} onChange={(e) => patchRole(r.id, { manageAccess: e.target.checked }, `「${r.label}」の権限管理を${e.target.checked ? '付けました' : '外しました'}`)} />
           <KeyRound size={13} />権限管理ができる（組織表・ロール・権限を変えられる）
         </label>
+        <CanBoxes name={r.label} can={r.can} disabled={fixed} onChange={(can, text) => patchRole(r.id, { can }, text)} />
       </div>
+    </div>
+  );
+}
+
+/** 名前の小窓で見られるもの。チャットを外すと要約も外れる・要約を付けるとチャットも付く。base＝部署で付いている分（外せない） */
+function CanBoxes({ name, can, base, disabled, onChange }: { name: string; can?: Partial<RoleCanRow>; base?: Partial<RoleCanRow>; disabled?: boolean; onChange: (can: Partial<RoleCanRow>, text: string) => void }) {
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+      <span className="flex items-center gap-1 font-semibold"><Eye size={13} />名前の小窓</span>
+      {CAN_KEYS.map((c) => {
+        const fromBase = !!base?.[c.key];
+        const on = fromBase || !!can?.[c.key];
+        return (
+          <label key={c.key} className="flex items-center gap-1" title={fromBase ? '部署で付いています' : c.hint}>
+            <input type="checkbox" checked={on} disabled={disabled || fromBase}
+              onChange={(e) => {
+                const v = e.target.checked;
+                const next = { ...can, [c.key]: v };
+                if (c.key === 'chat' && !v) next.summary = false;
+                if (c.key === 'summary' && v) next.chat = true;
+                onChange(next, `「${name}」の名前の小窓で${c.label}を${v ? '見られるように' : '見られないように'}しました`);
+              }} />
+            {c.label}
+          </label>
+        );
+      })}
     </div>
   );
 }
@@ -154,6 +183,7 @@ function UnitCard({ u, ctl }: { u: Unit; ctl: Ctl }) {
             onChange={(e) => patch({ manageAccess: e.target.checked }, `「${u.name}」の権限管理を${e.target.checked ? '付けました' : '外しました'}`)} />
           <KeyRound size={13} />権限管理ができる（組織表・ロール・権限を変えられる）{parent?.manageAccess && <span className="text-xs text-faint">（部署で付いています）</span>}
         </label>
+        <CanBoxes name={u.name} can={u.can} base={parent?.can} onChange={(can, text) => patch({ can }, text)} />
       </div>
     </div>
   );

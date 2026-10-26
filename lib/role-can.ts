@@ -1,8 +1,7 @@
-// 名前の小窓で、ロールごとに見られる中身・押せるボタン（10-25 shoya「押せるのはロールで決める」）。
-//   ・ロールは今の社内システムのログインのロール（api/_auth.ts・_page_access.ts と同じ名前）
-//   ・表は権限管理の画面で全体管理者が切り替える。保存先は v2-settings の roleCan（全員に効く）
-//   ・保存が無い・読めないときは下の DEFAULT_ROLE_CAN（今まで決め打ちしていた線）
-//   ・super_admin は外せない（全部見られる）。表に無いロールは何も見られない
+// 名前の小窓で見られる中身・押せるボタン（チャット・要約・基本情報・単価額面）。
+//   ・10-26 shoya「ロールごとの表は無くして 組織表ベースで」→ 組織表のロール・部署/チームに付ける（lib/org.ts orgCan）。権限管理の表はやめた
+//   ・組織表で何も付いていない人だけ、下の DEFAULT_ROLE_CAN（今の社内システムのログインのロールで決め打ち）で動く
+//   ・super_admin は常に全部見られる。チャットを見られない人は要約も押せない
 export const CAN_KEYS = [
   { key: 'chat', label: 'チャット', hint: 'LINE のやり取りを見る' },
   { key: 'summary', label: '要約', hint: '「要約」を押せる（AI が読む）' },
@@ -47,3 +46,8 @@ export function normRoleCan(v: unknown): RoleCan {
 
 export const NO_CAN: RoleCanRow = row(false, false, false, false);
 export const canRow = (table: RoleCan, role: string): RoleCanRow => table[role] ?? NO_CAN;
+export const ALL_CAN: RoleCanRow = row(true, true, true, true);
+/** 要約はチャットを見られる人だけ */
+export const fixCan = (c: RoleCanRow): RoleCanRow => ({ ...c, summary: c.summary && c.chat });
+export const orCan = (a: Partial<RoleCanRow> | undefined, b: Partial<RoleCanRow> | undefined): RoleCanRow =>
+  Object.fromEntries(CAN_KEYS.map(({ key }) => [key, !!a?.[key] || !!b?.[key]])) as RoleCanRow;

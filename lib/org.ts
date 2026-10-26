@@ -5,12 +5,14 @@
 //   ・今の社内システムのロール（staff など）は参考に出すだけ。変えない
 import { LEVELS, ROLES, type Level, type Member } from './access';
 import { K_NONE, KUBUN, kMax, toKPerms, type KPerms } from './kubun';
+import { ALL_CAN, CAN_KEYS, NO_CAN, fixCan, orCan, type RoleCanRow } from './role-can';
 
-export type OrgRole = { id: string; label: string; perms: KPerms; manageAccess: boolean };
+/** can＝名前の小窓で見られるもの（チャット・要約・基本情報・単価額面。10-26 権限管理の表をやめてここへ） */
+export type OrgRole = { id: string; label: string; perms: KPerms; manageAccess: boolean; can?: Partial<RoleCanRow> };
 /** 部署（parent=null）とチーム（parent=部署の id）。並びは配列の順。headId は長。
  *  own・manageAccess＝その組織に付けた権限（10-26 shoya「組織ごとに権限付与したい」・「ロールと役職」の画面で付ける）。
  *  中の人全員に付く（部署に付けた分はチームの人にも付く） */
-export type Unit = { id: string; name: string; parent: string | null; headId?: string; own?: Partial<KPerms>; manageAccess?: boolean };
+export type Unit = { id: string; name: string; parent: string | null; headId?: string; own?: Partial<KPerms>; manageAccess?: boolean; can?: Partial<RoleCanRow> };
 export type Title = { id: string; label: string };
 /** 人ごとに持つのはこれだけ（キーは今のシステムの userId） */
 export type Assign = { unit?: string; title?: string; role?: string; own?: Partial<KPerms> };
@@ -32,7 +34,7 @@ export function initialOrg(): OrgState {
   return {
     v: 1,
     // 初めは lib/access.ts の ROLES を写す（ロールなし は消せない）
-    roles: (Object.keys(ROLES) as (keyof typeof ROLES)[]).map((k) => ({ id: k, label: ROLES[k].label, perms: { ...ROLES[k].perms }, manageAccess: ROLES[k].manageAccess })),
+    roles: (Object.keys(ROLES) as (keyof typeof ROLES)[]).map((k) => ({ id: k, label: ROLES[k].label, perms: { ...ROLES[k].perms }, manageAccess: ROLES[k].manageAccess, can: defaultRoleCan(k) })),
     units: [
       { id: 'u_mikeiken', name: '未経験事業部', parent: null },
       { id: 'u_saiyou', name: '採用チーム', parent: 'u_mikeiken' },
@@ -53,9 +55,10 @@ export function parseOrg(raw: unknown): OrgState | null {
   const o = raw as Partial<OrgState> | null;
   if (!o || o.v !== 1 || !Array.isArray(o.units) || !Array.isArray(o.titles) || !Array.isArray(o.roles) || typeof o.people !== 'object' || !o.people) return null;
   // 段階は区分の形にそろえる（10-26 より前に保存した4分類 人事/労務/営業/経理 の値は、その分類の画面が入っている区分に開く・lib/kubun.ts toKPerms）
+  // 名前の小窓（can）が無いのは 10-26 より前に保存したロール＝初めのロールは初めの値・作ったロールは何も見ない
   const roles = o.roles.filter((r) => r && typeof r.id === 'string' && typeof r.label === 'string' && r.perms)
-    .map((r) => ({ ...r, perms: kMax(K_NONE, toKPerms(r.perms)) }));
-  if (!roles.some((r) => r.id === NO_ROLE)) roles.push({ id: NO_ROLE, label: ROLES.none.label, perms: { ...ROLES.none.perms }, manageAccess: false });
+    .map((r) => ({ ...r, perms: kMax(K_NONE, toKPerms(r.perms)), can: r.can && typeof r.can === 'object' ? r.can : defaultRoleCan(r.id) }));
+  if (!roles.some((r) => r.id === NO_ROLE)) roles.push({ id: NO_ROLE, label: ROLES.none.label, perms: { ...ROLES.none.perms }, manageAccess: false, can: {} });
   const units = o.units.filter((u) => u && typeof u.id === 'string').map((u) => (u.own ? { ...u, own: toKPerms(u.own) } : u));
   const people = Object.fromEntries(Object.entries(o.people as Record<string, Assign>).map(([k, a]) => [k, a && a.own ? { ...a, own: toKPerms(a.own) } : a]));
   return { v: 1, units, titles: o.titles.filter((t) => t && typeof t.id === 'string'), roles, people };
@@ -124,6 +127,15 @@ export function orgPerms(s: OrgState, a?: Assign): KPerms {
 export const orgAssigned = (s: OrgState, a?: Assign) => !!a && (!!(a.role && a.role !== NO_ROLE) || !!(a.unit && s.units.some((u) => u.id === a.unit)) || Object.values(a.own ?? {}).some((l) => l && l !== 'none'));
 export { KUBUN };
 /** 権限管理ができるか＝本人のロールか、所属の組織のロールで持っている */
+/** 初めのロールの名前の小窓（全体管理者・管理者・全体を見る＝全部／ロールなし・作ったロール＝なし） */
+export function defaultRoleCan(id: string): RoleCanRow {
+  return id === 'owner' || id === 'manager' || id === 'viewer_all' ? { ...ALL_CAN } : { ...NO_CAN };
+}
+/** その人が名前の小窓で見られるもの＝ロールと所属（部署・チーム）のどれかで付いていれば見られる */
+export function orgCan(s: OrgState, a?: Assign): RoleCanRow {
+  return fixCan([roleOf(s, a).can, ...unitChain(s, a?.unit).map((u) => u.can)].reduce<RoleCanRow>((acc, c) => orCan(acc, c), { ...NO_CAN }));
+}
+export { CAN_KEYS };
 export function orgManage(s: OrgState, a?: Assign): boolean {
   return roleOf(s, a).manageAccess || unitChain(s, a?.unit).some((u) => !!u.manageAccess);
 }

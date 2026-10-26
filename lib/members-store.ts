@@ -42,7 +42,7 @@ async function sharedValue(): Promise<SharedValue> {
   } catch { return null; }
 }
 /** 全員で共有している設定の組織表。読めなければ null */
-async function sharedOrg(): Promise<OrgState | null> {
+export async function sharedOrg(): Promise<OrgState | null> {
   const v = await sharedValue();
   return v?.org ? parseOrg(v.org) : null;
 }
@@ -75,7 +75,7 @@ function withRole(base: Omit<Member, 'role' | 'own'>, ikeRole: string, shared: M
 }
 
 /** トークンの sub（今のシステムの userId）。組織表の人のキー */
-function tokenSub(t: string): string {
+export function tokenSub(t: string): string {
   try {
     const part = t.split('.')[1] || '';
     return String((JSON.parse(Buffer.from(part.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8')) as { sub?: string }).sub || '');

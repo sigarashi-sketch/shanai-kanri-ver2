@@ -31,7 +31,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, rows: Array.isArray(list) ? list : [] });
     }
     if (b.what === 'tel') {
-      if (!(await roleCan('basic'))) return NextResponse.json({ error: 'あなたのロールでは電話番号を見られません（基本情報を見られるロールだけ）' }, { status: 403 });
+      if (!(await roleCan('basic'))) return NextResponse.json({ error: 'あなたは電話番号を見られません（基本情報を見られる人だけ・組織表で変えられます）' }, { status: 403 });
       const r = await ikeFetchCached<Omit<IkeRosterData, 'rows'> & { rows?: { name: string; info?: { phone?: string } }[] }>('/api/proxy?action=getRosterData', 60_000);
       if (r.status === 401) return NextResponse.json({ error: 'ログインが切れました。もう一度ログインしてください' }, { status: 401 });
       const row = (r.data.rows || []).find((x) => normName(x.name) === normName(name));

@@ -45,8 +45,9 @@ export async function horyuPost<T = Record<string, unknown>>(name: string, body:
 }
 
 /** 保留の画面の枠。本物／権限なし／読めない／読み込み中 を出し分ける。 */
-export function HoryuFrame({ title, sub, state, error, onReload, actions, children }: {
-  title: string; sub?: string; state: HState; error?: string; onReload?: () => void; actions?: React.ReactNode; children: React.ReactNode;
+/** keep＝保留から本採用にした画面（「保留中」の一言を出さない） */
+export function HoryuFrame({ title, sub, state, error, onReload, actions, keep, children }: {
+  title: string; sub?: string; state: HState; error?: string; onReload?: () => void; actions?: React.ReactNode; keep?: boolean; children: React.ReactNode;
 }) {
   if (state === 'forbidden') return (
     <main className="px-6 pb-12 pt-[22px]">
@@ -60,10 +61,12 @@ export function HoryuFrame({ title, sub, state, error, onReload, actions, childr
   return (
     <main className="flex flex-col gap-3.5 px-4 pb-12 pt-[22px] sm:px-6">
       <PageTitle title={title} sub={sub}>{actions}</PageTitle>
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-soft px-4 py-2 text-sm text-muted">
-        <PauseCircle size={14} />保留中の画面です（あとで本採用か決めます）。
-        {state === 'live' && <span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}>本物のデータ</span>}
-      </div>
+      {!keep && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-soft px-4 py-2 text-sm text-muted">
+          <PauseCircle size={14} />保留中の画面です（あとで本採用か決めます）。
+          {state === 'live' && <span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}>本物のデータ</span>}
+        </div>
+      )}
       {state === 'error' && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border px-4 py-2.5 text-sm" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)', borderColor: 'var(--tone-bad-bar)' }}>
           <TriangleAlert size={14} />{error || '読めませんでした'}

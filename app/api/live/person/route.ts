@@ -3,7 +3,7 @@ import { ikeFetch, ikeToken } from '@/lib/ike';
 import { livePerson, type LivePersonView, type PersonCandidate, type PersonRes } from '@/lib/live/person';
 import { cellsOf, normName as eNorm, type EngineerRow, type EngineerRows } from '@/lib/live/eigyo-common';
 import { MIKEIKEN_PATH, isMikeiken, mikeikenSetOf } from '@/lib/live/mikeiken';
-import { canOf, ikeRole } from '@/lib/live/role';
+import { myCan } from '@/lib/live/role';
 import { buildStaffList, isLiveStaffId, staffIdMatches, normName as sNorm, type IkePersonMap, type IkeNyushaOverlay, type IkeRosterData, type IkeRosterStatus, type IkeSalesOverlay, type LiveStaff } from '@/lib/live/staff';
 
 // 人の名前を押したときの「この人の情報」（どの画面からでも同じ）。名前は URL に出さないので POST で受ける。読むだけ。
@@ -13,7 +13,7 @@ import { buildStaffList, isLiveStaffId, staffIdMatches, normName as sNorm, type 
 //   ・社員（人事）… 社員一覧と同じ4つの材料（proxy getRosterData / getRosterStatus・roster extra salesOverlay・roster nyusha list）
 //   ・同姓同名は実在する（10-21）。名前で当たった人を全部 candidates で返し、小窓で選ぶ（採用担当・所属・最寄駅で見分ける）
 //     id（社員＝r…／要員＝プロパーリストの行の id）が来たらその人だけ
-//   ・単価・額面はロールで伏せる（lib/live/role.ts）。can で「チャット・基本情報・単価」を見てよいかを返す
+//   ・単価・額面などは組織表で伏せる（lib/live/role.ts myCan）。can で「チャット・基本情報・単価」を見てよいかを返す
 class AuthGone extends Error {}
 async function getJson<T>(path: string): Promise<T | null> {
   const r = await ikeFetch(path);
@@ -30,17 +30,16 @@ export async function POST(req: Request) {
   const id = String(b.id || '').trim().slice(0, 80);
   if ((!name && !id) || name.length > 60) return NextResponse.json({ error: '名前がありません' }, { status: 400 });
   try {
-    const [er, roster, status, sales, nyusha, persons, role] = await Promise.all([
+    const [er, roster, status, sales, nyusha, persons, can] = await Promise.all([
       soft(getJson<EngineerRows>(MIKEIKEN_PATH)),
       soft(getJson<IkeRosterData>('/api/proxy?action=getRosterData')),
       soft(getJson<IkeRosterStatus[]>('/api/proxy?action=getRosterStatus')),
       soft(getJson<{ overlay?: IkeSalesOverlay }>('/api/roster?op=extra&action=salesOverlay')),
       soft(getJson<{ overlay?: IkeNyushaOverlay }>('/api/roster?op=nyusha&action=list')),
       soft(getJson<IkePersonMap>('/api/roster?op=person&action=list')),
-      ikeRole(),
+      myCan(),
     ]);
     if (!er?.rows) return NextResponse.json({ error: 'プロパーリストが読めないので、未経験の人か確かめられませんでした' }, { status: 502 });
-    const can = await canOf(role);
     const list = roster?.success ? buildStaffList(roster, Array.isArray(status) ? status : null, sales?.overlay || null, nyusha?.overlay || null, Date.now(), persons) : null;
 
     // id から名前を決める（id が古い形なら名前のまま）

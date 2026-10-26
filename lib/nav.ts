@@ -20,6 +20,7 @@ export const NAV: NavGroup[] = [
       { href: '/jinji/community', label: 'コミュニティ', built: true },
       { href: '/jinji/saiyou', label: '採用', built: true },
       { href: '/jinji/ocr', label: '身分証の読み取り', built: true },
+      { href: '/jinji/ippass', label: '媒体アイパス管理', built: true }, // 保留から人事へ（10-26 shoya）。開ける人は今のシステムの ippass と同じ（lib/horyu-access.ts）
     ],
   },
   {
@@ -103,7 +104,6 @@ export const NAV_HORYU: NavItem[] = [
   { href: '/horyu/arari', label: '粗利試算', built: true },
   { href: '/horyu/bikkura', label: 'たまげたポン 管理', built: true },
   { href: '/horyu/kashitsuke', label: '貸付管理', built: true },
-  { href: '/horyu/ippass', label: 'アイパス管理', built: true },
   { href: '/horyu/page-access', label: 'ロール別ページ表示', built: true },
   { href: '/horyu/ops-log', label: '操作ログ', built: true },
   { href: '/horyu/access-log', label: 'アクセス元IP', built: true },

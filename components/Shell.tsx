@@ -32,7 +32,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(true);
   const module = group?.module ?? 'home';
   // 区分ごと（10-26）：見ない区分の画面はメニューに出さない。かな西エリアだけの人には要員の画面を「かな西」の印つきで出す
-  const visible = NAV.map((g) => ({ ...g, items: g.items.filter((it) => pageAccess(kperms, it.href)) })).filter((g) => g.items.length);
+  //   媒体アイパス管理のように今のシステムが特別に絞る画面は、今のページ権限でも絞る（horyuVisible・台帳に無い画面は素通り）
+  const visible = NAV.map((g) => ({ ...g, items: g.items.filter((it) => pageAccess(kperms, it.href) && horyuVisible(it.href, pa)) })).filter((g) => g.items.length);
   const blocked = !!group && !pageAccess(kperms, pathname);
   // 右から出るパネル（連絡・スキシ）が上のバーに重ならないよう、バーの実際の高さを --hdr に入れる（狭い画面では折り返して高くなる）
   const hdr = useRef<HTMLElement>(null);
