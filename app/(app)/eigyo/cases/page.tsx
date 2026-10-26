@@ -3,14 +3,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Ban, Check, Send, Search } from 'lucide-react';
-import { STOCK, matchOf, ngReason, type StockCase } from '@/lib/cases-sample';
-import { TAIKI } from '@/lib/taiki-sample';
 import { PageTitle, SkeletonRows } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
-import { RemainRing, useMotivation } from '@/components/Motivation';
+import { RemainRing } from '@/components/Motivation';
 import { LiveBanner, useIke } from '@/components/Live';
 import { useCaseSend } from '@/components/CaseSendDialog';
-import { liveCandidates, liveStock, type LiveCase } from '@/lib/live/cases';
+import { liveCandidates, liveStock, matchOf } from '@/lib/live/cases';
 import type { EngineerRows, ProgressData } from '@/lib/live/eigyo-common';
 import { PersonName } from '@/components/Person';
 
@@ -29,20 +27,17 @@ const scoreColor = (n: number) => (n >= 80 ? 'var(--color-ok)' : n >= 60 ? 'var(
 
 export default function CasesPage() {
   const perm = usePerms().can('eigyo', 'edit');
-  const { hit, toast } = useMotivation();
   const pd = useIke<ProgressData>('proxy?action=getProgressData');
   const live = pd.live;
   const er = useIke<EngineerRows>(live ? 'roster?action=getEngineerRows&area=main' : null);
-  const lstock = useMemo(() => liveStock(pd.data), [pd.data]);
-  const lpeople = useMemo(() => liveCandidates(er.data), [er.data]);
-  const STOCKS: (StockCase & Partial<LiveCase>)[] = live ? lstock : STOCK;
-  const PEOPLE_ = live ? lpeople : TAIKI;
-  const canEdit = perm;
+  const STOCKS = useMemo(() => liveStock(live ? pd.data : null), [live, pd.data]);
+  const PEOPLE_ = useMemo(() => liveCandidates(er.data), [er.data]);
+  const canEdit = perm && live;
   const cs = useCaseSend();
-  const ngOf = (x: StockCase & Partial<LiveCase>) => (live ? x.ng ?? null : ngReason(x));
-  const sentN = (x: StockCase & Partial<LiveCase>) => (live ? (x.sentTo ?? 0) + (sent[x.no]?.length ?? 0) : sent[x.no]?.length ?? 0);
+  const ngOf = (x: (typeof STOCKS)[number]) => x.ng ?? null;
+  const sentN = (x: (typeof STOCKS)[number]) => (x.sentTo ?? 0) + (sent[x.no]?.length ?? 0);
   const [q, setQ] = useState('');
-  const [cur, setCur] = useState<string>(STOCK[0].no);
+  const [cur, setCur] = useState<string>('');
   const [pick, setPick] = useState<Record<string, boolean>>({});
   const [sent, setSent] = useState<Record<string, string[]>>({});
   const [flash, setFlash] = useState<string | null>(null);
@@ -54,35 +49,26 @@ export default function CasesPage() {
   const remain = sendable.filter((c) => !sentN(c)).length;
   const c = STOCKS.find((x) => x.no === cur) ?? STOCKS[0];
   const ng = c ? ngOf(c) : null;
-  const matches = c ? PEOPLE_.map((p) => ({ p, ...matchOf(c, p) })).sort((a, b) => b.score - a.score).slice(0, live ? 20 : undefined) : [];
+  const matches = c ? PEOPLE_.map((p) => ({ p, ...matchOf(c, p) })).sort((a, b) => b.score - a.score).slice(0, 20) : [];
   const picked = c ? matches.filter((m) => pick[m.p.id] && !(sent[c.no] ?? []).includes(m.p.id)) : [];
 
   const choose = (no: string) => { setCur(no); setPick({}); window.history.replaceState(null, '', `?case=${no}`); };
   const send = () => {
     if (!canEdit || !c || ng || !picked.length) return;
-    if (live) {
-      const no = c.no, ids = picked.map((m) => m.p.id);
-      cs.open(no, picked.map((m) => m.p.name), () => { setSent((s) => ({ ...s, [no]: [...(s[no] ?? []), ...ids] })); setPick({}); setFlash(no); setTimeout(() => setFlash(null), 1300); pd.reload(); });
-      return;
-    }
-    // 取り消しは「この回に送った人」だけを外す（あとから別の回を送っていても巻き込まない）
     const no = c.no, ids = picked.map((m) => m.p.id);
-    setSent((s) => ({ ...s, [no]: [...(s[no] ?? []), ...ids] }));
-    setPick({}); setFlash(c.no); setTimeout(() => setFlash(null), 1300);
-    hit(picked.length);
-    toast({ text: `${c.name} を ${picked.map((m) => m.p.name).join('・')} に送りました`, sub: '→ 案件進捗の「送った案件」に載せました（返信待ち）', undo: () => setSent((s) => { const left = (s[no] ?? []).filter((id) => !ids.includes(id)); const n = { ...s }; if (left.length) n[no] = left; else delete n[no]; return n; }) });
+    cs.open(no, picked.map((m) => m.p.name), () => { setSent((s) => ({ ...s, [no]: [...(s[no] ?? []), ...ids] })); setPick({}); setFlash(no); setTimeout(() => setFlash(null), 1300); pd.reload(); });
   };
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="案件" sub={`案件ストックと、合いそうな要員。選んで送ると案件進捗に載ります${live ? '' : '・見本データ'}`}>
+      <PageTitle title="案件" sub="案件ストックと、合いそうな要員。選んで送ると案件進捗に載ります">
         <Link href="/eigyo/progress" className="btn-secondary">案件進捗を開く</Link>
       </PageTitle>
-      <LiveBanner state={pd.state} error={pd.error} onReload={pd.reload} note={`今の案件ストック（直近14日＋送ったことのある案件）${lstock.length}件。単価・駅・スキルは本文から読める分だけ。送るときは送り先と本文を確かめてから送ります`} />
+      <LiveBanner state={pd.state} error={pd.error} onReload={pd.reload} note={`今の案件ストック（直近14日＋送ったことのある案件）${STOCKS.length}件。単価・駅・スキルは本文から読める分だけ。送るときは送り先と本文を確かめてから送ります`} />
 
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <RemainRing remain={remain} total={sendable.length} />
-        <div className="text-body"><b>まだ誰にも送っていない案件 {remain}件</b><span className="ml-2 text-muted">{live ? '' : `締切が2日以内 ${sendable.filter((x) => !sent[x.no] && x.daysLeft <= 2).length}件・`}送れない案件 {STOCKS.length - sendable.length}件</span>
+        <div className="text-body"><b>まだ誰にも送っていない案件 {remain}件</b><span className="ml-2 text-muted">送れない案件 {STOCKS.length - sendable.length}件</span>
           {!canEdit && <div className="text-sm text-bad">{needText('edit')}</div>}
         </div>
         <label className="ml-auto flex min-h-9 items-center gap-1.5 rounded-[10px] border border-field bg-surface px-2.5 text-body">
@@ -101,7 +87,7 @@ export default function CasesPage() {
         <div className="mo-fade-up overflow-x-auto rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
           <table className="w-full min-w-[720px] border-collapse text-body">
             <thead><tr className="th-row text-left">
-              <th className="px-4 py-2.5 font-semibold">案件</th><th className="px-2 py-2.5 font-semibold">単価</th><th className="px-2 py-2.5 font-semibold">スキル</th><th className="px-2 py-2.5 font-semibold">商流</th><th className="px-2 py-2.5 font-semibold">{live ? '登録' : '締切'}</th><th className="px-4 py-2.5 font-semibold">送った</th>
+              <th className="px-4 py-2.5 font-semibold">案件</th><th className="px-2 py-2.5 font-semibold">単価</th><th className="px-2 py-2.5 font-semibold">スキル</th><th className="px-2 py-2.5 font-semibold">商流</th><th className="px-2 py-2.5 font-semibold">登録</th><th className="px-4 py-2.5 font-semibold">送った</th>
             </tr></thead>
             <tbody>
               {rows.map((r, i) => {
@@ -112,12 +98,12 @@ export default function CasesPage() {
                     <td className="num whitespace-nowrap px-2 py-2.5">{r.priceMax ? (r.priceMin === r.priceMax ? `${r.priceMax}万` : `${r.priceMin}〜${r.priceMax}万`) : <span className="text-faint">本文に</span>}</td>
                     <td className="px-2 py-2.5"><div className="flex flex-wrap gap-1">{r.skills.length ? r.skills.map((s) => <span key={s} className="chip" style={{ background: 'var(--as)', color: 'var(--ad)' }}>{s}</span>) : <span className="text-faint">—</span>}</div></td>
                     <td className="whitespace-nowrap px-2 py-2.5"><span className="chip" style={{ background: SHOURYU_STYLE[r.shouryu].bg, color: SHOURYU_STYLE[r.shouryu].fg }}>{r.shouryu}</span></td>
-                    <td className="num whitespace-nowrap px-2 py-2.5"><span className={r.daysLeft <= 2 ? 'font-bold text-bad' : ''}>{r.deadline}</span><div className="text-xs text-faint">{live ? `${r.ageDays}日前` : `あと${r.daysLeft}日`}</div></td>
+                    <td className="num whitespace-nowrap px-2 py-2.5"><span className={r.daysLeft <= 2 ? 'font-bold text-bad' : ''}>{r.deadline}</span><div className="text-xs text-faint">{`${r.ageDays}日前`}</div></td>
                     <td className="whitespace-nowrap px-4 py-2.5">{bad ? <span className="chip" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}><Ban size={11} />送れない</span> : sentN(r) ? <span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}>{sentN(r)}人</span> : <span className="text-faint">まだ</span>}</td>
                   </tr>
                 );
               })}
-              {rows.length === 0 && <tr><td colSpan={6} className="px-4 py-10 text-center text-body text-muted">「{q}」に合う案件はありません。<button onClick={() => setQ('')} className="ml-1 font-semibold underline">検索を消す</button></td></tr>}
+              {rows.length === 0 && <tr><td colSpan={6} className="px-4 py-10 text-center text-body text-muted">{q ? <>「{q}」に合う案件はありません。<button onClick={() => setQ('')} className="ml-1 font-semibold underline">検索を消す</button></> : pd.state === 'loading' ? '読み込み中…' : pd.state === 'error' ? '案件を読み込めませんでした' : '案件はまだありません'}</td></tr>}
             </tbody>
           </table>
         </div>
@@ -126,8 +112,8 @@ export default function CasesPage() {
         <article key={c.no} className="mo-spring-in self-start rounded-xl border border-line bg-surface">
           <div className="border-b border-line-soft px-5 py-3">
             <div className="text-md font-bold">{c.name}</div>
-            <div className="mt-0.5 text-sm text-muted">{live ? `${c.no}・登録 ${c.deadline}${c.station ? `・${c.station}駅` : ''}` : `${c.station}駅・${c.priceMin}〜${c.priceMax}万・${c.shouryu}・${c.start}〜・締切 ${c.deadline}`}</div>
-            <div className={`mt-2 rounded-[10px] bg-soft px-3 py-2 text-sm ${live ? 'max-h-52 overflow-y-auto whitespace-pre-line' : ''}`}>{live ? c.content : c.work}</div>
+            <div className="mt-0.5 text-sm text-muted">{`${c.no}・登録 ${c.deadline}${c.station ? `・${c.station}駅` : ''}`}</div>
+            <div className="mt-2 max-h-52 overflow-y-auto whitespace-pre-line rounded-[10px] bg-soft px-3 py-2 text-sm">{c.content}</div>
           </div>
           {ng ? (
             <div className="mo-shake m-4 flex items-start gap-2 rounded-[10px] border px-3 py-2.5 text-body" style={{ borderColor: 'var(--color-bad-line)', background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>
@@ -135,8 +121,9 @@ export default function CasesPage() {
             </div>
           ) : null}
           <div className="px-5 py-3">
-            <div className="text-sm font-semibold text-muted">{live ? '合いそうな要員（プロパーリストの営業中・上位20人）' : '合いそうな要員（待機中・もうすぐ待機）'}</div>
+            <div className="text-sm font-semibold text-muted">合いそうな要員（プロパーリストの営業中・上位20人）</div>
             <ul className="mt-2 flex flex-col gap-1.5">
+              {!matches.length && <li className="px-3 py-2 text-sm text-muted">{er.state === 'loading' ? '読み込み中…' : er.state === 'error' ? '要員を読み込めませんでした' : '営業中の要員はまだいません'}</li>}
               {matches.map(({ p, score, why }) => {
                 const done = (sent[c.no] ?? []).includes(p.id);
                 return (
@@ -144,7 +131,7 @@ export default function CasesPage() {
                     <input type="checkbox" aria-label={`${p.name} を選ぶ`} disabled={!!ng || done || !canEdit} checked={done || !!pick[p.id]} onChange={(e) => setPick((s) => ({ ...s, [p.id]: e.target.checked }))} />
                     <div className="min-w-0 flex-1">
                       <PersonName name={p.name} className="text-body font-semibold underline-offset-2 hover:underline" />
-                      <span className="ml-1.5 text-xs text-faint">{live ? '営業中' : p.kind}・{p.station || '駅なし'}・{p.want}</span>
+                      <span className="ml-1.5 text-xs text-faint">営業中・{p.station || '駅なし'}・{p.want}</span>
                       <div className="text-xs text-muted">{why.join('・')}</div>
                     </div>
                     {done ? <span className="text-sm text-ok">送りました</span> : <span className="num w-9 text-right text-body font-bold" style={{ color: scoreColor(score) }}>{score}</span>}
@@ -160,7 +147,7 @@ export default function CasesPage() {
         </article>
         )}
       </div>
-      <p className="text-xs text-faint">{live ? '点数は スキル（本文とサマリから拾った資格名）・通勤時間の目安 から出した目安です（駅の場所が分からない人は通勤90分として数えます）。送るのは本人の LINE グループ（今の配信画面と同じ口）。' : '点数は スキル・通勤時間の目安・希望単価 から出した見本です。送るのは本物につなぐまで見本の中だけで動きます。'}</p>
+      <p className="text-xs text-faint">点数は スキル（本文とサマリから拾った資格名）・通勤時間の目安 から出した目安です（駅の場所が分からない人は通勤90分として数えます）。送るのは本人の LINE グループ（今の配信画面と同じ口）。</p>
       {cs.node}
     </main>
   );

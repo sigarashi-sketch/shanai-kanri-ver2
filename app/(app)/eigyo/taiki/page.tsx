@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Check, Hourglass, MapPin } from 'lucide-react';
-import { SALES_REPS, TAIKI, TAIKI_STATES, taikiDays, type Taiki, type TaikiState } from '@/lib/taiki-sample';
-import { STOCK, matchOf, ngReason } from '@/lib/cases-sample';
+import { TAIKI_STATES, taikiDays, type StockCase, type Taiki, type TaikiState } from '@/lib/types/eigyo';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
@@ -13,7 +12,7 @@ import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
 import { postLive } from '@/lib/live/post';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { liveTaiki, type RosterStatus } from '@/lib/live/taiki';
-import { liveStock } from '@/lib/live/cases';
+import { liveStock, matchOf } from '@/lib/live/cases';
 import { normName, ymdJst, type EngineerRows, type ProgressData } from '@/lib/live/eigyo-common';
 import { PersonName } from '@/components/Person';
 
@@ -41,11 +40,10 @@ const STATE_SUB: Record<TaikiState, string> = {
   参画決定: '→ 要員リストを「参画決定」にし、待機の一覧から外しました',
   いったん保留: '→ 案件の「合いそうな要員」から外しました（待機日数は数え続けます）',
 };
-const daysTone = (t: Taiki) => { const d = taikiDays(t); return t.kind === '待機中' ? (d >= 30 ? 'bad' : d >= 14 ? 'warn' : 'ok') : (d <= 30 ? 'warn' : 'ok'); };
-const candidatesFrom = (stock: typeof STOCK, ng: (c: (typeof STOCK)[number]) => string | null) => (t: Taiki) => stock.filter((c) => !ng(c)).map((c) => ({ c, ...matchOf(c, t) })).sort((a, b) => b.score - a.score).slice(0, 3);
-const candidatesOf = candidatesFrom(STOCK, ngReason);
+const daysTone = (t: Taiki, today: string) => { const d = taikiDays(t, today); return t.kind === '待機中' ? (d >= 30 ? 'bad' : d >= 14 ? 'warn' : 'ok') : (d <= 30 ? 'warn' : 'ok'); };
+const candidatesFrom = (stock: StockCase[], ng: (c: StockCase) => string | null) => (t: Taiki) => stock.filter((c) => !ng(c)).map((c) => ({ c, ...matchOf(c, t) })).sort((a, b) => b.score - a.score).slice(0, 3);
 // 長く待機している人 → 契約終了が近い人 の順
-const sortRows = (rs: Row[], today?: string) => [...rs].sort((a, b) => (a.kind === b.kind ? (a.kind === '待機中' ? taikiDays(b, today) - taikiDays(a, today) || a.name.localeCompare(b.name, 'ja') : taikiDays(a, today) - taikiDays(b, today)) : a.kind === '待機中' ? -1 : 1));
+const sortRows = (rs: Row[], today: string) => [...rs].sort((a, b) => (a.kind === b.kind ? (a.kind === '待機中' ? taikiDays(b, today) - taikiDays(a, today) || a.name.localeCompare(b.name, 'ja') : taikiDays(a, today) - taikiDays(b, today)) : a.kind === '待機中' ? -1 : 1));
 
 export default function TaikiPage() {
   const perm = usePerms().can('eigyo', 'edit');
@@ -54,9 +52,9 @@ export default function TaikiPage() {
   const live = rs.live;
   const er = useIke<EngineerRows>(live ? 'roster?action=getEngineerRows&area=main' : null);
   const pd = useIke<ProgressData>(live ? 'proxy?action=getProgressData' : null);
-  const today = live ? ymdJst(Date.now()) : undefined;
+  const today = ymdJst(Date.now());
   const lstock = useMemo(() => liveStock(pd.data), [pd.data]);
-  const candOf = live ? candidatesFrom(lstock, (c) => (c as { ng?: string | null }).ng ?? null) : candidatesOf;
+  const candOf = candidatesFrom(lstock, (c) => (c as { ng?: string | null }).ng ?? null);
   // 本物は未経験の人だけ（今のプロパーリストに入っている人）
   const mk = useMikeiken();
   const tb = useIke<TaikiBoard>(live ? 'roster?op=eigyo&action=taiki' : null);
@@ -71,12 +69,11 @@ export default function TaikiPage() {
       return { ...row, ...over[t.id] };
     });
   }, [rs.data, er.data, lstock, mk, tb.data, over]);
-  const canEdit = perm && (!live || tb.data?.ok === true);
+  const canEdit = perm && live && tb.data?.ok === true;
   const noEdit = live && tb.data && !tb.data.ok ? tb.data.error || '状態の置き場が読めません' : needText('edit');
   const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
-  const [rowsS, setRows] = useState<Row[]>(() => TAIKI.map((t) => ({ ...t, next: candidatesOf(t)[0]?.c.no ?? '' })));
-  const rows = live ? lrows : rowsS;
-  const STOCKS = live ? lstock : STOCK;
+  const rows = live ? lrows : [];
+  const STOCKS = lstock;
   const [filter, setFilter] = useState<Filter>('すべて');
   const [flash, setFlash] = useState<string | null>(null);
 
@@ -89,7 +86,8 @@ export default function TaikiPage() {
   const change = (r: Row, patch: Partial<Row>, text: string, sub: string) => {
     // 取り消しは「この行の、この回に変えた項目」だけを戻す（ほかの行・あとの変更を巻き込まない）
     const prev = Object.fromEntries(Object.keys(patch).map((k) => [k, r[k as keyof Row]])) as Partial<Row>;
-    if (live) {
+    if (!live) return;
+    {
       const body = (p: Partial<Row>) => ({ action: 'taikiSave', name: r.name, ...(p.state !== undefined ? { state: p.state } : {}), ...(p.next !== undefined ? { nextCase: p.next } : {}) });
       const save = async () => {
         await postLive('/api/live/eigyo', body(patch));
@@ -112,24 +110,19 @@ export default function TaikiPage() {
         return;
       }
       save().catch((e) => toast({ text: '保存できませんでした', sub: (e as Error).message }));
-      return;
     }
-    setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, ...patch } : x)));
-    setFlash(r.id); setTimeout(() => setFlash(null), 1300);
-    hit();
-    toast({ text, sub, undo: () => setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, ...prev } : x))) });
   };
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="待機・再アサイン" sub={`待機中と、契約終了が近い人。次の案件・担当営業・状態を選んで進めます${live ? '' : '・見本データ'}`} />
+      <PageTitle title="待機・再アサイン" sub="待機中と、契約終了が近い人。次の案件・担当営業・状態を選んで進めます" />
       <LiveBanner state={rs.state} error={rs.error} onReload={() => { rs.reload(); tb.reload(); }} note={`今の従業員名簿の「待機」チェックと「待機の予約」。担当営業はミンミカの成約者（無ければ成約日報の人月担当）。状態・次の候補はここで保存します（待機に入った日は記録がありません）${tb.data && !tb.data.ok ? `・${tb.data.error || '状態が読めませんでした'}` : ''}`} />
       <MikeikenNote mk={mk} live={live} />
 
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <RemainRing remain={open.length} total={rows.length} />
         <div className="text-body"><b>次が決まっていない人 {open.length}人</b>
-          <span className="ml-2 text-muted">{live ? `待機中 ${open.filter((r) => r.kind === '待機中').length}人・待機の予約 ${open.filter((r) => r.kind === 'もうすぐ待機').length}人` : `待機30日以上 ${open.filter((r) => r.kind === '待機中' && taikiDays(r) >= 30).length}人・案件を探す ${open.filter((r) => r.state === '案件を探す').length}人`}</span>
+          <span className="ml-2 text-muted">{`待機中 ${open.filter((r) => r.kind === '待機中').length}人・待機の予約 ${open.filter((r) => r.kind === 'もうすぐ待機').length}人`}</span>
           {!canEdit && <div className="text-sm text-bad">{noEdit}</div>}
         </div>
         <div className="ml-auto flex flex-wrap gap-1.5">
@@ -141,12 +134,14 @@ export default function TaikiPage() {
         </div>
       </div>
 
-      {open.length === 0 && !(live && rs.state === 'loading') && (
+      {open.length === 0 && rs.state !== 'loading' && rs.state !== 'error' && (
         <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-10 text-center">
           <Check className="mx-auto text-ok" size={26} /><div className="mt-2 text-md font-bold">待機の人は、全員つぎの現場が決まりました</div>
           <div className="mt-1 text-sm text-muted">今日は {decided.length}人 が参画決定。契約終了が近づいた人が出たら、ここにまた並びます。</div>
         </div>
       )}
+
+      {open.length === 0 && rs.state === 'loading' && <div className="rounded-xl border border-line bg-surface px-6 py-8 text-center text-body text-muted">読み込み中…</div>}
 
       {open.length > 0 && shown.length === 0 && (
         <div className="rounded-xl border border-line bg-surface px-6 py-8 text-center text-body text-muted">「{filter}」の人はいま居ません。<button onClick={() => setFilter('すべて')} className="ml-1 font-semibold underline">すべてを見る</button></div>
@@ -160,16 +155,16 @@ export default function TaikiPage() {
             </tr></thead>
             <tbody>
               {shown.map((r, i) => {
-                const d = taikiDays(r, today); const tone = d < 0 ? 'mute' : daysTone(r); const cands = candOf(r);
+                const d = taikiDays(r, today); const tone = d < 0 ? 'mute' : daysTone(r, today); const cands = candOf(r);
                 return (
                   <tr key={r.id} className={`mo-fade-in border-t border-line-soft align-top ${flash === r.id ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
                     <td className="px-4 py-2.5">
-                      <Link href={live ? `/eigyo/proper/${r.id}` : `/jinji/staff/${r.id}`} className="font-semibold hover:underline">{r.name}</Link>
+                      <Link href={`/eigyo/proper/${r.id}`} className="font-semibold hover:underline">{r.name}</Link>
                       <div className="flex items-center gap-1 text-xs text-faint"><MapPin size={11} />{r.station}・{r.want}{r.price ? `・希望 ${r.price}万〜` : ''}</div>
                     </td>
                     <td className="px-2 py-2.5">
                       <span className="chip whitespace-nowrap" style={{ background: `var(--tone-${tone}-bg)`, color: `var(--tone-${tone}-fg)` }}><Hourglass size={11} />{d < 0 ? '待機中' : r.kind === '待機中' ? `待機 ${d}日目` : `あと${d}日で待機`}</span>
-                      <div className="mt-0.5 text-xs text-faint">{r.kind === '待機中' ? (r.since ? `${r.since.slice(5).replace('-', '/')} から` : '入った日は記録なし') : live ? `${r.contractEnd?.slice(5).replace('-', '/')} に待機へ（予約）` : `${r.site}・${r.contractEnd!.slice(5).replace('-', '/')} 契約終了`}</div>
+                      <div className="mt-0.5 text-xs text-faint">{r.kind === '待機中' ? (r.since ? `${r.since.slice(5).replace('-', '/')} から` : '入った日は記録なし') : `${r.contractEnd?.slice(5).replace('-', '/')} に待機へ（予約）`}</div>
                     </td>
                     <td className="px-2 py-2.5">
                       <select aria-label={`${r.name} の次の案件`} disabled={!canEdit} title={!canEdit ? noEdit : undefined} value={r.next} onChange={(e) => { const c = STOCKS.find((x) => x.no === e.target.value); change(r, { next: e.target.value }, `${r.name} の次の候補を「${c?.name}」にしました`, '→ 案件の「合いそうな要員」でこの人を上に出します'); }} className="min-h-9 max-w-[230px] rounded-[10px] border border-field bg-surface px-2 text-sm disabled:opacity-50">
@@ -180,10 +175,7 @@ export default function TaikiPage() {
                       {r.next && <Link href={`/eigyo/cases?case=${r.next}`} className="mt-0.5 block text-xs font-semibold" style={{ color: 'var(--ad)' }}>案件を開いて送る</Link>}
                     </td>
                     <td className="px-2 py-2.5">
-                      {live ? <span className={r.sales === '不明' ? 'text-faint' : ''} title={r.salesFrom === 'mnm' ? 'ミンミカの稼働契約の成約者' : r.salesFrom === 'nippo' ? '成約日報の人月担当' : 'ミンミカに成約者が無い（4月の一括移行など）'}>{r.sales}<span className="block text-xs text-faint">{r.salesFrom === 'mnm' ? 'ミンミカの成約者' : r.salesFrom === 'nippo' ? '成約日報' : ''}</span></span> :
-                      <select aria-label={`${r.name} の担当営業`} disabled={!canEdit} title={!canEdit ? noEdit : undefined} value={r.sales} onChange={(e) => change(r, { sales: e.target.value }, `${r.name} の担当営業を ${e.target.value} にしました`, '→ 要員リストの担当営業と、売上・粗利の営業別に反映しました')} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-sm disabled:opacity-50">
-                        {SALES_REPS.map((s) => <option key={s}>{s}</option>)}
-                      </select>}
+                      <span className={r.sales === '不明' ? 'text-faint' : ''} title={r.salesFrom === 'mnm' ? 'ミンミカの稼働契約の成約者' : r.salesFrom === 'nippo' ? '成約日報の人月担当' : 'ミンミカに成約者が無い（4月の一括移行など）'}>{r.sales}<span className="block text-xs text-faint">{r.salesFrom === 'mnm' ? 'ミンミカの成約者' : r.salesFrom === 'nippo' ? '成約日報' : ''}</span></span>
                     </td>
                     <td className="px-2 py-2.5 text-sm text-muted">{r.recruiter}<div className="text-xs text-faint">営業の担当ではない</div></td>
                     <td className="px-4 py-2.5">
@@ -201,7 +193,7 @@ export default function TaikiPage() {
 
       {decided.length > 0 && (
         <div className="rounded-xl border border-line bg-surface px-4 py-3">
-          <div className="text-sm font-semibold text-muted">{live ? '参画決定にした人（待機のチェックが外れるまで出ます）' : '今日 参画決定にした人'}</div>
+          <div className="text-sm font-semibold text-muted">参画決定にした人（待機のチェックが外れるまで出ます）</div>
           <ul className="mt-2 flex flex-col gap-1 text-sm">
             {decided.map((r) => (
               <li key={r.id} className="flex items-center gap-2"><span className="text-ok">参画決定</span><span><PersonName name={r.name} className="underline-offset-2 hover:underline" /> → {STOCKS.find((c) => c.no === r.next)?.name ?? '—'}（担当営業 {r.sales}）</span>

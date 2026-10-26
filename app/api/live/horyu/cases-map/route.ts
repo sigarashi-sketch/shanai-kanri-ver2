@@ -1,5 +1,5 @@
 import { ikeWrite } from '@/lib/ike-write';
-import { CATS } from '@/lib/map-sample';
+import { CATS } from '@/lib/live/map';
 import { bad, isId, isYmd, str } from '@/lib/live/horyu-guard';
 
 // 案件の抽出・修正（保留）の書き込み。今の cases-map.html と同じ /api/cases-map の POST だけ。

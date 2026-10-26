@@ -2,11 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Archive, CalendarDays, Check, Clock, FileSpreadsheet, Lock, MapPin, Plus, RefreshCw, Route, Search, Sparkles, Train, Undo2, User, X } from 'lucide-react';
-import {
-  BAY, CAT_TONE, CATS, JOBS, MAP_H, MAP_W, MODES, OWNERS, PASTE_RESULT, PASTE_SAMPLE, RAILS, SLACK_CASES, SRC_LABEL, STATIONS, TODAY, YOUIN, YOUIN_COUNTS,
-  estimate, stationOf, xy, type Cat, type Job, type Youin,
-} from '@/lib/map-sample';
+import { Archive, CalendarDays, Check, Clock, Lock, MapPin, Plus, RefreshCw, Route, Search, Sparkles, Train, Undo2, User, X } from 'lucide-react';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
@@ -16,39 +12,44 @@ import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
 import { useCaseSend } from '@/components/CaseSendDialog';
 import { postLive } from '@/lib/live/post';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
-import { estimateAt, liveJobs, liveYouin, type CasesMapList, type MapData } from '@/lib/live/map';
+import {
+  CAT_TONE, CATS, MAP_H, MAP_W, MODES, SRC_LABEL, STATIONS, TILES, estimateAt, liveJobs, liveYouin, stationOf, xy,
+  type Cat, type CasesMapList, type Job, type MapData, type Youin,
+} from '@/lib/live/map';
 import { PersonName } from '@/components/Person';
 
 // 案件・要員マップ（営業）。今の社内システムの「案件マップ」と「要員マップ」を1画面の2つのタブにしたもの。中身・操作・言葉は今の画面どおり。
 //   案件マップ：マップ／案件入力（案件文を貼る → AI が欄を埋める）／充足・終了。出発駅を選ぶと通勤の目安で並ぶ（実経路は出さない）
 //   要員マップ：営業中の要員を最寄駅の丸、Slack の案件をオレンジの丸で出す。案件1件＋要員を選んで「転記＆配信先設定」
-//   地図は見本の簡易な地図（SVG）。地図タイルは本物につなぐときに入れる。
+//   地図は国土地理院の地図タイル（淡色・鍵なし）を背景に敷き、ピンは SVG で重ねる。
 //   本物（ログイン中）：案件マップ＝今の /api/cases-map?action=list、要員マップ＝/api/proxy?action=getMapData。
 //     ピンは行の座標（lat/lng）で置く。登録（読み取り→確認→#未経験-案件共有にも流れる）・充足・予約・終了・再掲載・同期は今の /api/cases-map と同じ口
 //     要員マップの「案件を更新」＝今の syncSlackCache、「転記＆配信先設定」＝確認の窓のあと選んだ要員の LINE グループに案件を送る（今の配信画面と同じ口）
 const ymdPlus = (ymd: string, n: number) => { const d = new Date(`${ymd}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const pct = (lat: number, lng: number) => { const p = xy(lat, lng); return { left: `${(p.x / MAP_W) * 100}%`, top: `${(p.y / MAP_H) * 100}%` }; };
 const fmt = (s?: string) => { const m = s?.match(/\d{4}-(\d{2})-(\d{2})/); return m ? `${+m[1]}/${+m[2]}` : s ?? ''; };
-const addDays = (n: number) => { const d = new Date(`${TODAY}T00:00:00`); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-const daysLeft = (s: string) => Math.round((new Date(`${s}T00:00:00`).getTime() - new Date(`${TODAY}T00:00:00`).getTime()) / 86400000);
+const localToday = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const catFg = (c: Cat) => `var(--tone-${CAT_TONE[c]}-fg)`;
 const catBg = (c: Cat) => `var(--tone-${CAT_TONE[c]}-bg)`;
 const sel = 'min-h-9 rounded-[10px] border border-field bg-surface px-2 text-body text-ink';
 const ghost = 'inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border border-line bg-surface px-2.5 text-sm font-semibold disabled:opacity-40';
 
-/** 見本の簡易な地図（湾・路線・駅）。上に children でピンを重ねる */
+/** 地図（国土地理院の淡色地図タイルを敷く）。上に children でピンを重ねる。タイルは決まった枠を全部読むだけ（場所は外へ送らない） */
 function BaseMap({ children, overlay, onBg }: { children: React.ReactNode; overlay?: React.ReactNode; onBg?: () => void }) {
-  const pts = (list: [number, number][]) => list.map(([a, b]) => { const p = xy(a, b); return `${p.x},${p.y}`; }).join(' ');
   return (
-    <div className="relative overflow-hidden rounded-lg border border-line-soft">
-      <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} className="block h-auto w-full" style={{ background: 'var(--color-soft)' }} role="img" aria-label="地図" onClick={onBg}>
-        <polygon points={pts(BAY)} fill="var(--tone-info-bg)" />
-        {RAILS.map((r, i) => <polyline key={i} points={pts(r.map((n) => { const s = stationOf(n)!; return [s.lat, s.lng] as [number, number]; }))} fill="none" stroke="var(--color-line)" strokeWidth={2.2} />)}
-        {STATIONS.map((s) => { const p = xy(s.lat, s.lng); return <g key={s.name}><circle cx={p.x} cy={p.y} r={2.4} fill="var(--color-surface)" stroke="var(--color-faint)" /><text x={p.x + 5} y={p.y + 12} fontSize={9.5} fill="var(--color-faint)">{s.name}</text></g>; })}
+    <div className="relative overflow-hidden rounded-lg border border-line-soft" style={{ background: 'var(--color-soft)' }}>
+      <div className="pointer-events-none absolute inset-0" aria-hidden>
+        {TILES.map((t) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={t.src} src={t.src} alt="" referrerPolicy="no-referrer" loading="lazy" draggable={false} className="absolute max-w-none select-none"
+            style={{ left: `${t.left}%`, top: `${t.top}%`, width: `${t.w}%`, height: `${t.h}%` }} />
+        ))}
+      </div>
+      <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} className="relative block h-auto w-full" role="img" aria-label="地図" onClick={onBg}>
         {children}
       </svg>
       {overlay}
-      <span className="pointer-events-none absolute bottom-1.5 right-2 text-xs text-faint">見本の簡易な地図です（地図タイルは本物につなぐときに入れます）</span>
+      <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener noreferrer" className="absolute bottom-1 right-1.5 rounded bg-surface/80 px-1 text-xs text-faint">出典：国土地理院</a>
     </div>
   );
 }
@@ -61,20 +62,20 @@ export default function MapPage() {
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     if (q.get('tab') === 'youin') setTab('youin');
-    const f = q.get('from'); if (f && stationOf(f)) setFrom(f);
+    const f = q.get('from'); if (f) setFrom(f.replace(/駅$/, ''));
   }, []);
   const go = (t: 'cases' | 'youin') => { setTab(t); window.history.replaceState(null, '', t === 'youin' ? '?tab=youin' : window.location.pathname); };
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-24 pt-[22px]">
-      <PageTitle title="案件・要員マップ" sub={`今の社内システムの「案件マップ」と「要員マップ」です。通勤時間は目安${cm.live ? '' : '・見本データ'}`} />
-      <LiveBanner state={cm.state} error={cm.error} onReload={cm.reload} note="今の案件マップ・要員マップの中身です。地図は簡易な地図のまま（枠の外の駅は一覧だけ）。登録・充足・同期・送るは今の画面と同じ口に書きます" />
+      <PageTitle title="案件・要員マップ" sub="今の社内システムの「案件マップ」と「要員マップ」です。通勤時間は目安" />
+      <LiveBanner state={cm.state} error={cm.error} onReload={cm.reload} note="今の案件マップ・要員マップの中身です。地図の枠の外の駅は一覧だけに出します。登録・充足・同期・送るは今の画面と同じ口に書きます" />
       <MikeikenNote mk={mk} live={cm.live && tab === 'youin'} />
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 1 }}>
         {([['cases', '案件マップ'], ['youin', '要員マップ']] as const).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="tab">{l}</button>
         ))}
       </div>
-      <div key={tab} className="mo-axis">{tab === 'cases' ? <CasesMap from={from} setFrom={setFrom} data={cm.live ? cm.data : null} reload={cm.reload} /> : <YouinMap live={cm.live} />}</div>
+      <div key={tab} className="mo-axis">{tab === 'cases' ? <CasesMap from={from} setFrom={setFrom} data={cm.live ? cm.data : null} loading={cm.state === 'loading'} reload={cm.reload} /> : <YouinMap />}</div>
     </main>
   );
 }
@@ -82,24 +83,25 @@ export default function MapPage() {
 // ========================= 案件マップ =========================
 type Fill = { job: Job; kind: 'now' | 'reserve' | 'close'; days: number; note: string };
 
-function CasesMap({ from, setFrom, data, reload }: { from: string; setFrom: (s: string) => void; data: CasesMapList | null; reload: () => void }) {
+function CasesMap({ from, setFrom, data, loading, reload }: { from: string; setFrom: (s: string) => void; data: CasesMapList | null; loading: boolean; reload: () => void }) {
   const live = !!data;
-  const canEdit = usePerms().can('eigyo', 'edit') && (!live || data.can_edit !== false);
-  const noEdit = live && data.can_edit === false ? '今のシステムで、この案件マップは見るだけの権限です' : needText('edit');
-  const today = live && data.today ? data.today : TODAY;
+  const canEdit = usePerms().can('eigyo', 'edit') && live && data.can_edit !== false;
+  const noEdit = live && data.can_edit === false ? '今のシステムで、この案件マップは見るだけの権限です' : !live ? '案件マップを読み込めていません' : needText('edit');
+  const today = live && data.today ? data.today : localToday();
   const lj = useMemo(() => liveJobs(data), [data]);
-  const at = (n?: string) => (n ? (live ? lj.pos.get(n) ?? stationOf(n) : stationOf(n)) : undefined);
-  const owners = live ? lj.owners : OWNERS;
+  const at = (n?: string) => (n ? lj.pos.get(n) ?? stationOf(n) : undefined);
+  const owners = lj.owners;
+  // 出発駅の候補＝主な駅＋本物の案件の駅（座標のあるもの）
+  const fromList = useMemo(() => { const m = new Map(STATIONS.map((s) => [s.name, s])); for (const [k, v] of lj.pos) if (!m.has(k)) m.set(k, v); return [...m.values()]; }, [lj.pos]);
   const { hit, toast } = useMotivation();
   const [sub, setSub] = useState<'map' | 'input' | 'done'>('map');
-  const [jobsS, setJobs] = useState<Job[]>(JOBS);
-  const jobs = live ? lj.jobs : jobsS;
+  const jobs = lj.jobs;
   const [time, setTime] = useState(999), [owner, setOwner] = useState(''), [mode, setMode] = useState(''), [cats, setCats] = useState<Cat[]>([]);
   const [focus, setFocus] = useState<number | null>(null), [pop, setPop] = useState<string | null>(null);
   const [open, setOpen] = useState<Record<number, boolean>>({}), [flash, setFlash] = useState<number | null>(null);
   const [fill, setFill] = useState<Fill | null>(null);
 
-  const est = (j: Job) => (from && j.station ? (live ? estimateAt(stationOf(from), at(j.station), j.access) : estimate(from, j.station, j.access)) : null);
+  const est = (j: Job) => (from && j.station ? estimateAt(at(from), at(j.station), j.access) : null);
   const openJobs = jobs.filter((j) => j.status === 'open');
   const pass = (j: Job, ignoreCat = false) => j.status === 'open' && (ignoreCat || !cats.length || cats.includes(j.category)) && (!owner || j.owner === owner)
     && (!mode || j.modes.includes(mode)) && (time === 999 || (est(j)?.min ?? 0) <= time); // 出発駅が無い間は時間で絞らない
@@ -108,7 +110,7 @@ function CasesMap({ from, setFrom, data, reload }: { from: string; setFrom: (s: 
   const areaJobs = order.filter((j) => (!j.station || !at(j.station)) && pass(j));
   const groups = pinned.reduce<Record<string, Job[]>>((g, j) => ({ ...g, [j.station!]: [...(g[j.station!] ?? []), j] }), {});
   const fj = jobs.find((j) => j.case_no === focus && j.status === 'open');
-  const fromS = from ? stationOf(from) : undefined;
+  const fromS = from ? at(from) : undefined;
 
   const touch = (no: number) => { setFlash(no); setTimeout(() => setFlash(null), 1300); };
   // 本物：今の /api/cases-map に書く（action と中身）→ 読み直す。取り消しは逆の操作を書く
@@ -122,29 +124,18 @@ function CasesMap({ from, setFrom, data, reload }: { from: string; setFrom: (s: 
       .catch((e) => toast({ text: '保存できませんでした', sub: (e as Error).message }));
   };
   const update = (id: string, patch: Partial<Job>, text: string, subText: string) => {
-    const prev = jobs.find((j) => j.id === id)!;
-    if (live) {
-      // 本物で変えられるのは 予約を外す／再掲載（充足・予約・終了は confirmFill から）
-      if (patch.status === 'open') write(prev, { action: 'mapReopen' }, text, subText);
-      else if ('reserve' in patch && !patch.reserve) write(prev, { action: 'mapUnreserve' }, text, subText, prev.reserve ? { action: 'mapFill', kind: 'reserve', date: prev.reserve, note: prev.reserveNote ?? '' } : undefined);
-      return;
-    }
-    setJobs((js) => js.map((j) => (j.id === id ? { ...j, ...patch } : j)));
-    touch(prev.case_no); hit();
-    toast({ text, sub: subText, undo: () => setJobs((js) => js.map((j) => (j.id === id ? prev : j))) });
+    const prev = jobs.find((j) => j.id === id);
+    if (!live || !prev) return;
+    // 変えられるのは 予約を外す／再掲載（充足・予約・終了は confirmFill から）
+    if (patch.status === 'open') write(prev, { action: 'mapReopen' }, text, subText);
+    else if ('reserve' in patch && !patch.reserve) write(prev, { action: 'mapUnreserve' }, text, subText, prev.reserve ? { action: 'mapFill', kind: 'reserve', date: prev.reserve, note: prev.reserveNote ?? '' } : undefined);
   };
   const confirmFill = () => {
-    if (!fill) return;
+    if (!fill || !live) return;
     const { job, kind, days, note } = fill;
-    if (live) {
-      const d = ymdPlus(today, days);
-      if (kind === 'reserve') write(job, { action: 'mapFill', kind: 'reserve', date: d, note }, `No.${job.case_no} の充足を ${fmt(d)} に予約しました`, '→ その日まで「充足予定」の札つきでマップに出します・シートの「充足」列にも反映', { action: 'mapUnreserve' });
-      else write(job, kind === 'now' ? { action: 'mapFill', kind: 'now', note } : { action: 'mapClose', note }, `No.${job.case_no} を${kind === 'now' ? '充足' : '終了'}にしました`, '→ マップから外して「充足・終了」に移しました（記録は残ります）', { action: 'mapReopen' });
-      setFill(null); if (focus === job.case_no && kind !== 'reserve') setFocus(null);
-      return;
-    }
-    if (kind === 'reserve') update(job.id, { reserve: addDays(days), reserveNote: note }, `No.${job.case_no} の充足を ${fmt(addDays(days))} に予約しました`, '→ その日まで「充足予定」の札つきでマップに出します・シートの「充足」列にも反映');
-    else update(job.id, { status: kind === 'now' ? 'filled' : 'closed', doneOn: TODAY, doneNote: note }, `No.${job.case_no} を${kind === 'now' ? '充足' : '終了'}にしました`, '→ マップから外して「充足・終了」に移しました（記録は残ります）');
+    const d = ymdPlus(today, days);
+    if (kind === 'reserve') write(job, { action: 'mapFill', kind: 'reserve', date: d, note }, `No.${job.case_no} の充足を ${fmt(d)} に予約しました`, '→ その日まで「充足予定」の札つきでマップに出します・シートの「充足」列にも反映', { action: 'mapUnreserve' });
+    else write(job, kind === 'now' ? { action: 'mapFill', kind: 'now', note } : { action: 'mapClose', note }, `No.${job.case_no} を${kind === 'now' ? '充足' : '終了'}にしました`, '→ マップから外して「充足・終了」に移しました（記録は残ります）', { action: 'mapReopen' });
     setFill(null); if (focus === job.case_no && kind !== 'reserve') setFocus(null);
   };
   const pick = (j: Job) => { setFocus(j.case_no); setPop(j.station ?? null); };
@@ -168,7 +159,7 @@ function CasesMap({ from, setFrom, data, reload }: { from: string; setFrom: (s: 
         <div className="mt-1 text-sm text-muted">{j.summary}</div>
         {j.reserve && (
           <div className="mt-1.5 flex items-center gap-1.5 rounded-md px-2 py-1 text-sm font-semibold" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>
-            <CalendarDays size={13} />充足予定 {fmt(j.reserve)}（あと{live ? Math.round((Date.parse(`${j.reserve}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000) : daysLeft(j.reserve)}日）{j.reserveNote && <span className="font-normal">— {j.reserveNote}</span>}
+            <CalendarDays size={13} />充足予定 {fmt(j.reserve)}（あと{Math.round((Date.parse(`${j.reserve}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000)}日）{j.reserveNote && <span className="font-normal">— {j.reserveNote}</span>}
             <button disabled={!canEdit} title={canEdit ? undefined : noEdit} onClick={(ev) => { ev.stopPropagation(); update(j.id, { reserve: undefined, reserveNote: undefined }, `No.${j.case_no} の充足予約を外しました`, '→ ふつうの案件としてマップに出します'); }} className="ml-auto underline disabled:opacity-40">予約を外す</button>
           </div>
         )}
@@ -205,11 +196,11 @@ function CasesMap({ from, setFrom, data, reload }: { from: string; setFrom: (s: 
         <div className="flex flex-wrap items-center gap-3 rounded-lg bg-sunken px-3 py-2 text-sm text-muted">
           {(['sheet', 'ike', 'juchu'] as const).map((s) => <span key={s}>{s === 'sheet' ? 'スプレッドシートから' : s === 'ike' ? '社内ツールで入力' : '案件受注から'} <b className="text-ink">{openJobs.filter((j) => j.source === s).length}</b> 件</span>)}
           <span>10分ごとに自動同期</span>
-          <button className={`${ghost} ml-auto`} disabled={!canEdit} title={canEdit ? undefined : noEdit} onClick={() => { if (!live) { hit(); toast({ text: '今すぐ同期しました（見本）', sub: '→ シートと案件受注の新しい行をマップに取り込みます' }); return; } postLive('/api/live/eigyo', { action: 'mapSync' }).then(() => { hit(); toast({ text: '今すぐ同期しました', sub: '→ シートと案件受注の新しい行をマップに取り込みました' }); reload(); }).catch((e) => toast({ text: '同期できませんでした', sub: (e as Error).message })); }}><RefreshCw size={12} />今すぐ同期</button>
+          <button className={`${ghost} ml-auto`} disabled={!canEdit} title={canEdit ? undefined : noEdit} onClick={() => { postLive('/api/live/eigyo', { action: 'mapSync' }).then(() => { hit(); toast({ text: '今すぐ同期しました', sub: '→ シートと案件受注の新しい行をマップに取り込みました' }); reload(); }).catch((e) => toast({ text: '同期できませんでした', sub: (e as Error).message })); }}><RefreshCw size={12} />今すぐ同期</button>
         </div>
         <div className="flex flex-wrap items-end gap-3 rounded-xl border border-line bg-surface px-4 py-3">
           <label className="flex flex-col gap-1 text-sm text-muted"><span className="flex items-center gap-1"><Train size={12} />要員の出発駅（お住まい）</span>
-            <select aria-label="要員の出発駅" value={from} onChange={(e) => setFrom(e.target.value)} className={sel}><option value="">選ぶ</option>{STATIONS.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}</select></label>
+            <select aria-label="要員の出発駅" value={from} onChange={(e) => setFrom(e.target.value)} className={sel}><option value="">選ぶ</option>{fromList.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}</select></label>
           <label className="flex flex-col gap-1 text-sm text-muted"><span className="flex items-center gap-1"><Clock size={12} />通勤時間の目安</span>
             <select aria-label="通勤時間の目安" value={time} onChange={(e) => setTime(+e.target.value)} className={sel}>{[999, 30, 45, 60, 90].map((t) => <option key={t} value={t}>{t === 999 ? '指定なし' : `〜${t}分`}</option>)}</select></label>
           <label className="flex flex-col gap-1 text-sm text-muted"><span className="flex items-center gap-1"><User size={12} />担当者</span>
@@ -271,24 +262,19 @@ function CasesMap({ from, setFrom, data, reload }: { from: string; setFrom: (s: 
               <span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}>生きている案件 {openJobs.length}件</span>
               {openJobs.some((j) => j.reserve) && <span className="chip" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>充足予定 {openJobs.filter((j) => j.reserve).length}件</span>}</div>
             {pinned.map(card)}
-            {!pinned.length && <div className="rounded-lg border border-dashed border-line px-4 py-8 text-center text-body text-muted">条件に合う案件がありません。<br />通勤時間を長め・手段を「すべて」にしてお試しください。</div>}
+            {!pinned.length && <div className="rounded-lg border border-dashed border-line px-4 py-8 text-center text-body text-muted">{!live ? (loading ? '読み込み中…' : '案件を読み込めませんでした') : !openJobs.length ? '案件はまだありません' : <>条件に合う案件がありません。<br />通勤時間を長め・手段を「すべて」にしてお試しください。</>}</div>}
           </div>
         </div>
         {areaJobs.length > 0 && (
           <section className="flex flex-col gap-2">
-            <h2 className="flex items-center gap-1.5 text-md font-bold"><MapPin size={15} />{live ? '地図にピンを立てられない案件' : 'エリア指定の案件'}</h2>
-            <p className="text-sm text-faint">{live ? 'エリア指定の案件と、簡易な地図の枠の外の駅・座標がまだ無い駅の案件。' : '勤務地が複数店舗・広域のため地図にピンを立てられない案件。'}</p>
+            <h2 className="flex items-center gap-1.5 text-md font-bold"><MapPin size={15} />地図にピンを立てられない案件</h2>
+            <p className="text-sm text-faint">エリア指定の案件と、地図の枠の外の駅・座標がまだ無い駅の案件。</p>
             <div className="grid gap-2 md:grid-cols-2">{areaJobs.map(card)}</div>
           </section>
         )}
       </>}
 
       {sub === 'input' && live && <LiveCaseInput today={today} onSaved={(no) => { setSub('map'); reload(); setFocus(no); touch(no); }} />}
-      {sub === 'input' && !live && <CaseInput onSave={(j) => {
-        const no = Math.max(...jobs.map((x) => x.case_no)) + 1, job = { ...j, id: `new${no}`, case_no: no };
-        setJobs((js) => [...js, job]); setSub('map'); setFocus(no); setPop(job.station ?? null); touch(no); hit();
-        toast({ text: `No.${no}「${job.title}」を登録しました`, sub: '→ 案件マップに出しました・スプレッドシートにも同じ案件Noで書き戻します', undo: () => setJobs((js) => js.filter((x) => x.id !== job.id)) });
-      }} />}
 
       {sub === 'done' && (
         <div className="flex flex-col gap-2">
@@ -296,7 +282,7 @@ function CasesMap({ from, setFrom, data, reload }: { from: string; setFrom: (s: 
           <div className="overflow-x-auto rounded-xl border border-line bg-surface">
             <table className="w-full text-body">
               <thead><tr className="th-row">{['No', '案件', '担当', '最寄駅', '状態', '日付', 'メモ', ''].map((h) => <th key={h} className="px-3 py-2 text-left">{h}</th>)}</tr></thead>
-              <tbody>{jobs.filter((j) => j.status !== 'open').map((j) => (
+              <tbody>{!jobs.some((j) => j.status !== 'open') && <tr><td colSpan={8} className="px-3 py-6 text-center text-muted">{!live ? (loading ? '読み込み中…' : '案件を読み込めませんでした') : 'まだありません'}</td></tr>}{jobs.filter((j) => j.status !== 'open').map((j) => (
                 <tr key={j.id} className={`row border-t border-line-soft ${flash === j.case_no ? 'mo-flash' : ''}`}>
                   <td className="px-3 py-2 num">{j.case_no}</td><td className="px-3 py-2 font-semibold">{j.title}</td><td className="px-3 py-2">{j.owner}</td><td className="px-3 py-2">{j.station ?? j.area}</td>
                   <td className="px-3 py-2"><span className="chip" style={j.status === 'filled' ? { background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' } : { background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>{j.status === 'filled' ? '充足' : '終了'}</span></td>
@@ -320,7 +306,7 @@ function CasesMap({ from, setFrom, data, reload }: { from: string; setFrom: (s: 
                   <label key={k} className="flex cursor-pointer gap-2 rounded-lg border p-2.5 text-body" style={{ borderColor: fill.kind === k ? 'var(--a)' : 'var(--color-line)' }}>
                     <input type="radio" name="fillKind" checked={fill.kind === k} onChange={() => setFill({ ...fill, kind: k })} /><span><b>{t}</b><span className="block text-sm text-muted">{d}</span></span></label>))}
               </div>
-              {fill.kind === 'reserve' && <div className="mt-3 flex flex-wrap items-center gap-1.5 text-sm">充足予定日 <b>{fmt(live ? ymdPlus(today, fill.days) : addDays(fill.days))}</b>
+              {fill.kind === 'reserve' && <div className="mt-3 flex flex-wrap items-center gap-1.5 text-sm">充足予定日 <b>{fmt(ymdPlus(today, fill.days))}</b>
                 {[[3, '3日後'], [7, '1週間後'], [14, '2週間後'], [30, '1ヶ月後']].map(([d, l]) => <button key={d} onClick={() => setFill({ ...fill, days: +d })} className="chip" style={fill.days === d ? { background: 'var(--as)', color: 'var(--ad)' } : { background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>{l}</button>)}</div>}
               <label className="mt-3 flex flex-col gap-1 text-sm text-muted">メモ（短く）
                 <input value={fill.note} maxLength={40} onChange={(e) => setFill({ ...fill, note: e.target.value })} placeholder="例：面談 10/28、内定見込み" className={`${sel} min-h-9`} /></label>
@@ -329,70 +315,6 @@ function CasesMap({ from, setFrom, data, reload }: { from: string; setFrom: (s: 
           </div>
         </DrawerPortal>
       )}
-    </div>
-  );
-}
-
-/** 案件入力：案件文を貼る → AI が欄を埋める（見本は決め打ち）→ 選ぶ欄だけ選んで「登録してマップに出す」 */
-function CaseInput({ onSave }: { onSave: (j: Omit<Job, 'id' | 'case_no'>) => void }) {
-  const { me } = usePerms();
-  const [text, setText] = useState(''), [step, setStep] = useState<'empty' | 'reading' | 'done'>('empty');
-  const [cat, setCat] = useState<Cat | ''>(''), [modes, setModes] = useState<string[]>(['公共交通機関']), [rsv, setRsv] = useState(0);
-  const paste = () => { setText(PASTE_SAMPLE); setStep('reading'); setTimeout(() => { setStep('done'); setCat(PASTE_RESULT.category); setModes(PASTE_RESULT.modes); }, 900); };
-  const r = step === 'done' ? PASTE_RESULT : null, st = r?.station ? stationOf(r.station) : undefined;
-  const ok = !!r && !!cat;
-  const F = ({ l, v }: { l: string; v?: string }) => <div className="flex flex-col gap-0.5"><span className="text-xs text-faint">{l}</span><span className={`min-h-9 rounded-[10px] border border-line-soft px-2.5 py-1.5 text-body ${v ? 'mo-fade-in' : 'text-faint'}`} style={v ? { background: 'var(--as)' } : undefined}>{v || '—'}</span></div>;
-  return (
-    <div className="grid gap-3.5 lg:grid-cols-[1.4fr_1fr]">
-      <div className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4">
-        <h2 className="flex items-center gap-1.5 text-md font-bold"><Plus size={16} />案件を登録</h2>
-        <p className="text-sm text-muted">ここで登録した案件はすぐマップに出ます。スプレッドシート連携が設定されていれば同じ行が書き戻されます（どちらで入れても同じ）。</p>
-        <div className="flex items-center gap-2.5 rounded-lg bg-soft px-3 py-2 text-sm"><span className="grid size-8 place-items-center rounded-full font-bold" style={{ background: 'var(--al)', color: 'var(--ad)' }}>{me.name[0]}</span>
-          <span><span className="block text-xs text-faint">担当営業（ログインから自動）</span><b>{me.name}</b></span><span className="ml-auto flex items-center gap-1 text-faint"><Lock size={12} />手で変えない</span></div>
-        <div className="flex flex-col gap-1">
-          <span className="text-sm font-semibold">案件文を貼る（Slack・メールの文面そのまま）</span>
-          {text ? <pre className="whitespace-pre-wrap rounded-[10px] border border-field bg-sunken p-2.5 text-sm">{text}</pre>
-            : <button onClick={paste} className="rounded-[10px] border border-dashed border-field px-3 py-6 text-body text-muted hover:bg-soft">ここに貼る（見本の案件文を貼ります）</button>}
-          <div className="flex items-center gap-1.5 text-sm" style={{ color: step === 'done' ? 'var(--tone-ok-fg)' : 'var(--color-muted)' }}>
-            {step === 'empty' && <><Search size={12} />貼ると各欄と最寄駅を自動で読み取ります（手で直した欄は上書きしません）</>}
-            {step === 'reading' && <><Sparkles size={12} className="mo-pulse" />AI が読み取り中…</>}
-            {step === 'done' && <><Sparkles size={12} />AI が 10 の欄を読み取りました・最寄駅「{r!.station}駅」を見つけました</>}
-          </div>
-        </div>
-        <p className="border-t border-line-soft pt-2 text-sm font-bold text-muted">基本</p>
-        <div className="grid gap-2 sm:grid-cols-2"><F l="案件名 *" v={r?.title} /><F l="会社名" v={r?.company} /></div>
-        <div className="grid gap-2 sm:grid-cols-3">
-          <label className="flex flex-col gap-0.5 text-xs text-faint">カテゴリ *<select value={cat} onChange={(e) => setCat(e.target.value as Cat)} className={sel}><option value="">選ぶ</option>{CATS.map((c) => <option key={c}>{c}</option>)}</select></label>
-          <F l="単価" v={r?.pay} /><F l="開始時期" v={r?.start} /></div>
-        <div className="grid gap-2 sm:grid-cols-3"><F l="勤務時間" v={r?.hours} /><F l="休日" v={r?.holiday} /><F l="求めているもの" v={r?.require} /></div>
-        <p className="border-t border-line-soft pt-2 text-sm font-bold text-muted">勤務地（駅でピンを立てる）</p>
-        <div className="grid gap-2 sm:grid-cols-2"><F l="最寄駅 *（自動検出）" v={r?.station && `${r.station}駅`} /><F l="アクセス" v={r?.access} /></div>
-        <div className="flex flex-wrap gap-3 text-body"><span className="text-sm text-muted">通勤手段</span>{MODES.map((m) => (
-          <label key={m.v} className="flex items-center gap-1"><input type="checkbox" checked={modes.includes(m.v)} onChange={() => setModes((x) => (x.includes(m.v) ? x.filter((y) => y !== m.v) : [...x, m.v]))} />{m.l}</label>))}</div>
-        <p className="border-t border-line-soft pt-2 text-sm font-bold text-muted">充足予約（任意）</p>
-        <label className="flex items-center gap-2 text-sm text-muted">この日に充足扱いにする<select value={rsv} onChange={(e) => setRsv(+e.target.value)} className={sel}><option value={0}>しない</option>{[[7, '1週間後'], [14, '2週間後'], [30, '1ヶ月後']].map(([d, l]) => <option key={d} value={d}>{l}（{fmt(addDays(+d))}）</option>)}</select></label>
-        <div className="flex flex-wrap items-center gap-2 border-t border-line-soft pt-3">
-          <span className="flex-1 text-xs text-faint">案件No は自動採番（スプレッドシートと共通）。本物では読み取った欄を手で直せます。</span>
-          <button className={ghost} onClick={() => { setText(''); setStep('empty'); setCat(''); setRsv(0); }}>クリア</button>
-          <button className="btn-primary" disabled={!ok} title={ok ? undefined : '案件文を貼って、カテゴリを選んでください'} onClick={() => r && cat && onSave({ ...r, category: cat, modes, owner: me.name, source: 'ike', status: 'open', reserve: rsv ? addDays(rsv) : undefined })}><Check size={14} />登録してマップに出す</button>
-        </div>
-      </div>
-      <div className="flex flex-col gap-3">
-        <div className="rounded-xl border border-line bg-surface p-3">
-          <h3 className="mb-2 flex items-center gap-1.5 text-body font-bold"><MapPin size={13} />ピンのプレビュー</h3>
-          <BaseMap>{st && (() => { const p = xy(st.lat, st.lng); return <g transform={`translate(${p.x},${p.y})`} className="mo-spring-in"><path d="M0 0C-2-6-10-9-10-16a10 10 0 1 1 20 0c0 7-8 10-10 16z" fill={cat ? catFg(cat) : 'var(--color-faint)'} /><text y={-12.5} textAnchor="middle" fontSize={9} fontWeight={700} fill="var(--color-surface)">?</text></g>; })()}</BaseMap>
-          <dl className="mt-2 grid grid-cols-[72px_1fr] gap-y-0.5 text-sm"><dt className="text-faint">駅</dt><dd>{st ? `${st.name}駅` : '—'}</dd><dt className="text-faint">座標</dt><dd className="num">{st ? `${st.lat.toFixed(4)}, ${st.lng.toFixed(4)}` : '—'}</dd></dl>
-        </div>
-        <div className="rounded-xl border border-line bg-surface p-3 text-sm">
-          <h3 className="mb-2 flex items-center gap-1.5 text-body font-bold"><FileSpreadsheet size={13} />スプレッドシートとの両刀</h3>
-          <div className="flex flex-wrap items-center gap-1.5 text-sm"><span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}>営業案件管理シート</span>⇄<span className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>データベース</span>⇄<span className="chip" style={{ background: 'var(--as)', color: 'var(--ad)' }}>この画面</span></div>
-          <ol className="mt-2 list-decimal pl-4 text-muted">
-            <li>シートに書いた行は10分ごとに取り込み（案件No で突き合わせ）</li><li>ここで登録した行はシートに書き戻し（同じ案件No）</li>
-            <li>充足・充足予約は<b>この画面が正</b>。シートには「充足」列として出す</li><li>案件受注に届いた案件は自動でここに写る</li></ol>
-          <div className="mt-2 rounded-lg bg-soft px-2.5 py-2 text-sm"><Check size={12} className="inline text-ok" /> 連携中：営業案件管理シート「案件マップ」タブ（見本）
-            <span className="block text-faint">本物では画面でシートの URL を貼って接続します。入れられるのは全体管理者・役員・営業管理だけ。</span></div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -467,14 +389,15 @@ function LiveCaseInput({ today, onSaved }: { today: string; onSaved: (caseNo: nu
 }
 
 // ========================= 要員マップ =========================
-function YouinMap({ live }: { live: boolean }) {
-  const md = useIke<MapData>(live ? 'proxy?action=getMapData' : null);
+function YouinMap() {
+  const md = useIke<MapData>('proxy?action=getMapData');
+  const live = md.live;
   const ly = useMemo(() => liveYouin(md.live ? md.data : null), [md.live, md.data]);
   const mk = useMikeiken();   // 要員マップの人は未経験の人だけ（今のプロパーリストに入っている人）
-  const YOUIN_ = live ? mk.keep(ly.youin, 'name') : YOUIN, CASES_ = live ? ly.cases : SLACK_CASES;
-  const at = (n?: string) => (n ? (live ? ly.pos.get(n) ?? stationOf(n) : stationOf(n)) : undefined);
-  const canEdit = usePerms().can('eigyo', 'edit');
-  const { hit, toast } = useMotivation();
+  const YOUIN_ = mk.keep(ly.youin, 'name'), CASES_ = ly.cases;
+  const at = (n?: string) => (n ? ly.pos.get(n) ?? stationOf(n) : undefined);
+  const canEdit = usePerms().can('eigyo', 'edit') && live;
+  const { toast } = useMotivation();
   const cs = useCaseSend();
   const [q, setQ] = useState(''), [hidden, setHidden] = useState<Record<string, boolean>>({});
   const [selCase, setSelCase] = useState<string | null>(null), [members, setMembers] = useState<string[]>([]);
@@ -486,29 +409,21 @@ function YouinMap({ live }: { live: boolean }) {
   const noStation = YOUIN_.filter((y) => !y.station);
   const toggle = (id: string) => setMembers((m) => (m.includes(id) ? m.filter((x) => x !== id) : [...m, id]));
   const apply = () => {
-    if (live) {
-      // 本物：選んだ案件の本文を、選んだ要員の LINE グループに送る（確認の窓のあと・今の配信画面の「送信」と同じ口）
-      if (!selCase) { toast({ text: '案件を選んでください' }); return; }
-      const names = YOUIN_.filter((y) => members.includes(y.id)).map((y) => y.name);
-      if (!names.length) { toast({ text: '要員を選んでください' }); return; }
-      cs.open(selCase, names, (n) => { if (n) { setSelCase(null); setMembers([]); } });
-      return;
-    }
-    const prev = { selCase, members };
-    hit();
-    toast({ text: `${selCase ? `案件 ${selCase} の本文を転記し、` : ''}宛先に要員 ${members.length}名を設定しました`, sub: '→ 配信ページの本文と宛先に反映しました（見本）', undo: () => { setSelCase(prev.selCase); setMembers(prev.members); } });
-    setSelCase(null); setMembers([]);
+    // 選んだ案件の本文を、選んだ要員の LINE グループに送る（確認の窓のあと・今の配信画面の「送信」と同じ口）
+    if (!live) return;
+    if (!selCase) { toast({ text: '案件を選んでください' }); return; }
+    const names = YOUIN_.filter((y) => members.includes(y.id)).map((y) => y.name);
+    if (!names.length) { toast({ text: '要員を選んでください' }); return; }
+    cs.open(selCase, names, (n) => { if (n) { setSelCase(null); setMembers([]); } });
   };
   const refresh = () => {
-    if (live) {
-      setLoading(true);
-      postLive('/api/live/eigyo', { action: 'slackSync' })
-        .then(() => { toast({ text: '案件を更新しました', sub: '→ Slack から案件を取り直して地図を描き直しました' }); md.reload(); })
-        .catch((e) => toast({ text: '更新できませんでした', sub: (e as Error).message }))
-        .finally(() => setLoading(false));
-      return;
-    }
-    setLoading(true); setTimeout(() => { setLoading(false); toast({ text: '案件を更新しました（見本）', sub: '→ Slack から案件を取り直して地図を描き直しました' }); }, 800); };
+    if (!live) return;
+    setLoading(true);
+    postLive('/api/live/eigyo', { action: 'slackSync' })
+      .then(() => { toast({ text: '案件を更新しました', sub: '→ Slack から案件を取り直して地図を描き直しました' }); md.reload(); })
+      .catch((e) => toast({ text: '更新できませんでした', sub: (e as Error).message }))
+      .finally(() => setLoading(false));
+  };
 
   return (
     <div className="grid gap-3.5 lg:grid-cols-[340px_1fr]">
@@ -518,14 +433,9 @@ function YouinMap({ live }: { live: boolean }) {
           <span className="text-sm text-muted">地図表示 <b className="text-ink">{shown.length}</b>名 / 案件 <b className="text-ink">{CASES_.length}</b>件</span>
         </div>
         <div className="rounded-lg bg-soft px-2.5 py-2 text-xs leading-relaxed text-muted">
-          {live ? (<>
-            {md.state === 'loading' && <>読み込み中…<br /></>}{md.state === 'error' && <span className="text-bad">{md.error}<br /></span>}
-            対象 {md.data?.counts?.target ?? '—'}名（除外 {md.data?.counts?.excluded ?? '—'}名）／最寄駅あり {YOUIN_.length - noStation.length}・なし {noStation.length}<br />
-            座標取得待ち {md.data?.counts?.pendingPeople ?? 0}名{ly.outside > 0 && `・簡易な地図の枠の外 ${ly.outside}名`}<br />
-          </>) : (<>
-          対象 {YOUIN_COUNTS.target}名（除外 {YOUIN_COUNTS.excluded}名）／最寄駅あり {YOUIN.length - noStation.length}・なし {noStation.length}（見本）<br />
-          座標取得待ち {YOUIN_COUNTS.pending}名（{YOUIN_COUNTS.pendingNames.join('、')}）→ もう一度「更新」を押すと表示されます<br />
-          </>)}
+          {md.state === 'loading' && <>読み込み中…<br /></>}{md.state === 'error' && <span className="text-bad">{md.error}<br /></span>}
+          対象 {md.data?.counts?.target ?? '—'}名（除外 {md.data?.counts?.excluded ?? '—'}名）／最寄駅あり {YOUIN_.length - noStation.length}・なし {noStation.length}<br />
+          座標取得待ち {md.data?.counts?.pendingPeople ?? 0}名{ly.outside > 0 && `・地図の枠の外 ${ly.outside}名`}<br />
           <button className="font-semibold underline" style={{ color: 'var(--ad)' }} onClick={() => setNoSt((v) => !v)}>最寄駅が空の {noStation.length}名を見る</button>
           {noSt && <span className="block">{noStation.map((y) => y.name).join('、')}（営業用リストの最寄駅を埋めると地図に出ます）</span>}
         </div>
@@ -534,6 +444,7 @@ function YouinMap({ live }: { live: boolean }) {
         <div className="flex items-center justify-between border-t border-line-soft pt-2 text-body font-bold">案件情報（{CASES_.length}）
           <span className="text-xs font-normal"><button className="underline" onClick={() => setHidden({})}>全表示</button> / <button className="underline" onClick={() => setHidden(Object.fromEntries(CASES_.map((c) => [c.kNo, true])))}>全非表示</button></span></div>
         <div className="flex max-h-[520px] flex-col gap-2 overflow-y-auto">
+          {!CASES_.length && <div className="rounded-lg border border-dashed border-line px-3 py-4 text-center text-sm text-muted">{md.state === 'loading' ? '読み込み中…' : md.state === 'error' ? '案件を読み込めませんでした' : '案件はまだありません'}</div>}
           {CASES_.map((c) => { const isSel = selCase === c.kNo; return (
             <div key={c.kNo} className="rounded-lg border p-2.5 text-sm" style={{ borderColor: isSel ? 'var(--a)' : 'var(--color-line)', background: isSel ? 'var(--as)' : undefined }}>
               <div className="flex items-center gap-2">
@@ -579,7 +490,7 @@ function YouinMap({ live }: { live: boolean }) {
         <div className="mo-fade-up fixed bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 rounded-xl border border-line bg-surface px-4 py-2.5 text-body shadow-lg">
           <span>{selCase ? <>案件 <b>{selCase}</b></> : <span className="text-warn">案件 未選択</span>}　／　要員 <b>{members.length}</b> 名</span>
           <button className={ghost} onClick={() => { setSelCase(null); setMembers([]); }}>選択解除</button>
-          <button className="btn-primary" disabled={!canEdit || cs.busy || (live && (!selCase || !members.length))} title={canEdit ? (live ? '選んだ要員の LINE グループに、選んだ案件を送ります（送る前に確認が出ます）' : undefined) : needText('edit')} onClick={apply}>{live ? '案件を送る' : '転記＆配信先設定'}</button>
+          <button className="btn-primary" disabled={!canEdit || cs.busy || !selCase || !members.length} title={canEdit ? '選んだ要員の LINE グループに、選んだ案件を送ります（送る前に確認が出ます）' : needText('edit')} onClick={apply}>案件を送る</button>
         </div>
       )}
 
@@ -589,8 +500,8 @@ function YouinMap({ live }: { live: boolean }) {
           <div className="fixed inset-0 z-40 bg-sumi/30" onClick={() => setDetail(null)} />
           <aside className="mo-drawer drawer gap-3 overflow-y-auto p-5">
             <div className="flex items-center justify-between"><h2 className="text-md font-bold">要員詳細情報</h2><button onClick={() => setDetail(null)} aria-label="閉じる"><X size={16} /></button></div>
-            {live ? <div className="text-lg font-bold"><PersonName name={detail.name} className="underline-offset-2 hover:underline" /></div> : <PersonName name={detail.name} className="text-lg font-bold hover:underline underline-offset-2" />}
-            {live && <p className="text-sm text-muted">サマリ・前職・面談可能日は要員リストの要員ページで見られます。<Link href={`/eigyo/proper?q=${encodeURIComponent(detail.name)}`} className="font-semibold" style={{ color: 'var(--ad)' }}>要員リストを開く</Link></p>}
+            <div className="text-lg font-bold"><PersonName name={detail.name} className="underline-offset-2 hover:underline" /></div>
+            <p className="text-sm text-muted">サマリ・前職・面談可能日は要員リストの要員ページで見られます。<Link href={`/eigyo/proper?q=${encodeURIComponent(detail.name)}`} className="font-semibold" style={{ color: 'var(--ad)' }}>要員リストを開く</Link></p>
             <dl className="grid grid-cols-[84px_1fr] gap-y-2 text-body">
               <dt className="text-faint">最寄駅</dt><dd>{detail.station}</dd>
               <dt className="text-faint">タグ</dt><dd className="flex flex-wrap gap-1">{detail.tags.map((t) => <span key={t} className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>{t}</span>)}</dd>

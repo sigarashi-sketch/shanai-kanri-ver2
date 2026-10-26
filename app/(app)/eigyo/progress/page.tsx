@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Check, MessageSquareText, Plus, X } from 'lucide-react';
-import { CANDIDATES, CASES, PROGRESS, caseOf, type Candidate, type ChatMsg, type ProgressRow, type Via } from '@/lib/progress-sample';
+import type { Candidate, ChatMsg, ProgressRow, Via } from '@/lib/types/eigyo';
 import { PageTitle, PrimaryButton } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
@@ -67,33 +67,32 @@ export default function ProgressPage() {
     const gidOf = Object.fromEntries((ddata?.candidates ?? []).map((c) => [c.id, c.groupId]));
     return { ...lp0, rows, threads: { ...lp0.threads, ...ld.threads }, cases: [...lp0.cases, ...ld.extraCases], cands, gidOf };
   }, [lp0, mk, ddata, pd.data, pr.data, judged]);
-  const canEdit = perm;
-  const noEdit = needText('edit');
-  const caseOf = (no: string) => (live ? lp.cases : CASES).find((c) => c.no === no);
+  const canEdit = perm && live;
+  const noEdit = live ? needText('edit') : '案件進捗を読み込めていません';
+  const caseOf = (no: string) => lp.cases.find((c) => c.no === no);
   const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
   const [gone, setGone] = useState<Record<string, boolean>>({});   // 本物：決めた直後に候補から消す（読み直しを待たない）
-  const [rowsS, setRows] = useState<ProgressRow[]>(PROGRESS);
-  const rows = live ? lp.rows : rowsS;
-  const [candsS, setCands] = useState<Candidate[]>(CANDIDATES);
-  const cands = live ? lp.cands.filter((c) => !gone[c.id]) : candsS;
+  const rows = live ? lp.rows : [];
+  const cands = live ? lp.cands.filter((c) => !gone[c.id]) : [];
   const [pick, setPick] = useState<Record<string, string>>({}); // 候補ごとに内勤が選び直した案件No
   const [flash, setFlash] = useState<string | null>(null);
   const [chat, setChat] = useState<ChatOpen | null>(null);
   const [via, setVia] = useState<Via | 'すべて'>('すべて');
-  const total = live ? lp.cands.length : CANDIDATES.length;
+  const total = live ? lp.cands.length : 0;
 
   const [tab, setTab] = useState<TabKey>('sent');
   const [rowFlash, setRowFlash] = useState<string | null>(null);
   const go = (k: TabKey) => { setTab(k); window.history.replaceState(null, '', `/eigyo/progress${k === 'sent' ? '' : '?tab=collect'}`); };
-  // ?tab=collect / ?chat=<候補id> で始める（画面の見本を撮るとき用）。クエリは useEffect で読む
-  useEffect(() => { const q = new URLSearchParams(window.location.search); if (q.get('tab') === 'collect') setTab('collect'); const id = q.get('chat'); const c = CANDIDATES.find((x) => x.id === id); if (c) setChat({ group: c.group, thread: c.thread, focus: c.msgId, cand: c }); }, []);
+  // ?tab=collect で始める。クエリは useEffect で読む
+  useEffect(() => { const q = new URLSearchParams(window.location.search); if (q.get('tab') === 'collect') setTab('collect'); }, []);
 
   const caseFor = (c: Candidate) => pick[c.id] ?? c.match?.caseNo ?? '';
 
   const settle = (c: Candidate, asCase: boolean) => {
     if (!canEdit || flash === c.id) return; // 消える前に2回押しても二重に載せない
     const no = caseFor(c);
-    if (live) {
+    if (!live) return;
+    {
       // 本物：今のシステムの回収の表に「載せた（どの案件か）／案件ではない」を書く。取り消すと候補に戻る
       setFlash(c.id);
       postLive('/api/live/eigyo', { action: 'directDecide', id: c.id, decision: asCase ? 'case' : 'not_case', caseNo: asCase ? no : '' })
@@ -111,30 +110,13 @@ export default function ProgressPage() {
         })
         .catch((e) => toast({ text: '載せられませんでした', sub: (e as Error).message }))
         .finally(() => setFlash(null));
-      return;
     }
-    setFlash(c.id);
-    setChat((o) => (o?.cand?.id === c.id ? null : o));
-    setTimeout(() => {
-      setFlash(null);
-      setCands((xs) => xs.filter((x) => x.id !== c.id));
-      const reply = c.thread.find((m) => m.who === 'person' && m.at > c.postedAt);
-      const row: ProgressRow = { id: `g-${c.id}`, caseNo: no || '新規', person: c.person, personId: c.personId, group: c.group, via: 'グループ直接', sentAt: c.postedAt, sender: c.poster, reply: reply?.text ?? '', replyAt: reply?.at.slice(-5), decision: '未判断' };
-      if (asCase) { setRows((rs) => [row, ...rs]); setRowFlash(row.id); setTimeout(() => setRowFlash(null), 1300); }
-      hit();
-      toast({
-        text: asCase ? `${c.person} への ${no ? caseOf(no)?.name : '新しい案件'} を載せました` : '案件ではない、にしました',
-        sub: asCase ? '→ 送った案件に「グループ直接」で載り、返信待ちに入りました' : '→ 同じ発言はもう候補に出ません',
-        // 元の並びの位置に戻す（先頭に飛ばさない）
-        undo: () => { setCands((xs) => (xs.some((x) => x.id === c.id) ? xs : CANDIDATES.filter((k) => k.id === c.id || xs.some((x) => x.id === k.id)))); if (asCase) setRows((rs) => rs.filter((r) => r.id !== row.id)); },
-      });
-    }, 450);
   };
 
   // 返信があった行の OK / NG を選ぶ（未判断を片づける）
   const decide = (r: ProgressRow, d: 'OK' | 'NG') => {
-    if (!canEdit) return;
-    if (live) {
+    if (!canEdit || !live) return;
+    {
       // 本物：今の📮判断（markSlackForwarded）。押した時に見えていた値（未判断）のままのときだけ書く＝同時に押されたら今の値を出す
       const body = { action: 'judge', caseNo: r.caseNo, gid: gidOfRow(r.id), name: r.group };
       const name = caseOf(r.caseNo)?.name ?? r.caseNo;
@@ -152,22 +134,12 @@ export default function ProgressPage() {
       const run = async () => { try { await postLive('/api/live/eigyo', { ...body, status: d, prev: '' }); } catch (e) { pd.reload(); throw e; } done(); };
       if (d === 'OK') setConfirm({ title: '「OK」にして営業へ回します', lines: [`${r.person}`, `案件：${name}`, `返信：${r.reply.slice(0, 60)}`], sends: 'Slack の案件スレッドに流れます（今の📮OK と同じ）', okLabel: 'OK にする', run });
       else run().catch((e) => toast({ text: '保存できませんでした', sub: (e as Error).message }));
-      return;
     }
-    const prev = { decision: r.decision, slack: r.slack };
-    setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, decision: d, slack: d === 'OK' ? true : x.slack } : x)));
-    setRowFlash(r.id); setTimeout(() => setRowFlash(null), 1300);
-    hit();
-    toast({
-      text: `${r.person} の ${caseOf(r.caseNo)?.name ?? '新しい案件'} を「${d}」にしました`,
-      sub: d === 'OK' ? '→ 担当営業に知らせました（📮営業へ）' : '→ この案件はこの人の候補から外しました',
-      undo: () => setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, ...prev } : x))),
-    });
   };
 
   const shown = rows.filter((r) => via === 'すべて' || r.via === via);
   const kpi = [
-    { label: live ? '直近7日に送った' : '今週送った', n: rows.length, sub: `グループ直接 ${rows.filter((r) => r.via === 'グループ直接').length}件` },
+    { label: '直近7日に送った', n: rows.length, sub: `グループ直接 ${rows.filter((r) => r.via === 'グループ直接').length}件` },
     { label: '返信待ち', n: rows.filter((r) => !r.reply).length, sub: '要員からの返事がまだ' },
     { label: '未判断', n: rows.filter((r) => r.reply && r.decision === '未判断').length, sub: '返信あり・OK/NG 待ち' },
     { label: 'OK', n: rows.filter((r) => r.decision === 'OK').length, sub: `営業へ ${rows.filter((r) => r.slack).length}件` },
@@ -219,7 +191,7 @@ export default function ProgressPage() {
                       const c = caseOf(r.caseNo);
                       return (
                         <tr key={r.id} className={`mo-fade-in border-t border-line-soft ${rowFlash === r.id ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
-                          <td className="px-4 py-2.5"><div className="font-semibold">{c?.name ?? (live ? r.caseNo : '新しい案件（登録待ち）')}</div><div className="text-xs text-faint">{r.caseNo}{c?.price && ` ・ ${c.price}`}</div></td>
+                          <td className="px-4 py-2.5"><div className="font-semibold">{c?.name ?? r.caseNo}</div><div className="text-xs text-faint">{r.caseNo}{c?.price && ` ・ ${c.price}`}</div></td>
                           <td className="px-2 py-2.5"><PersonName name={r.person} /></td>
                           <td className="whitespace-nowrap px-2 py-2.5"><Chip s={VIA_STYLE[r.via]}>{r.via}</Chip>{r.via !== 'あおい' && <span className="ml-1.5 text-xs text-muted">{r.sender}</span>}</td>
                           <td className="num whitespace-nowrap px-2 py-2.5">{r.sentAt}</td>
@@ -235,12 +207,12 @@ export default function ProgressPage() {
                             {r.slack && <span className="ml-1.5 text-xs text-muted">📮営業へ</span>}
                           </td>
                           <td className="px-4 py-2.5 text-right">
-                            <button onClick={() => setChat({ group: r.group, thread: live ? lp.threads[r.id] ?? [] : threadFor(r) })} className="inline-flex min-h-8 items-center whitespace-nowrap gap-1.5 rounded-lg border px-2.5 text-sm font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><MessageSquareText size={14} />チャット</button>
+                            <button onClick={() => setChat({ group: r.group, thread: lp.threads[r.id] ?? [] })} className="inline-flex min-h-8 items-center whitespace-nowrap gap-1.5 rounded-lg border px-2.5 text-sm font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><MessageSquareText size={14} />チャット</button>
                           </td>
                         </tr>
                       );
                     })}
-                    {shown.length === 0 && <tr><td colSpan={7} className="px-4 py-10 text-center text-body text-muted">「{via}」で送った案件はまだありません</td></tr>}
+                    {shown.length === 0 && <tr><td colSpan={7} className="px-4 py-10 text-center text-body text-muted">{pd.state === 'loading' ? '読み込み中…' : pd.state === 'error' ? '案件進捗を読み込めませんでした' : via === 'すべて' ? '送った案件はまだありません' : `「${via}」で送った案件はまだありません`}</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -250,10 +222,11 @@ export default function ProgressPage() {
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3">
               <RemainRing remain={cands.length} total={total} />
-              <div className="text-body"><b>グループに直接書いた案件の回収</b><div className="text-sm text-muted">内勤の発言から案件らしいものを拾い、一番近い案件を当てています。✓で確定したものだけ「送った案件」に載ります。{live ? `直近${ddata?.days ?? 14}日の発言から拾っています。` : '8月6日より前の発言は本文が無いので拾いません。'}</div></div>
+              <div className="text-body"><b>グループに直接書いた案件の回収</b><div className="text-sm text-muted">内勤の発言から案件らしいものを拾い、一番近い案件を当てています。✓で確定したものだけ「送った案件」に載ります。{`直近${ddata?.days ?? 14}日の発言から拾っています。`}</div></div>
             </div>
 
-            {cands.length === 0 && (
+            {cands.length === 0 && (pd.state === 'loading' || dd.state === 'loading') && <div className="rounded-xl border border-line bg-surface px-6 py-8 text-center text-body text-muted">読み込み中…</div>}
+            {cands.length === 0 && live && dd.state !== 'loading' && (
               <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-10 text-center">
                 <Check className="mx-auto text-ok" size={26} />
                 <div className="mt-2 text-md font-bold">回収候補はぜんぶ片づきました</div>
@@ -276,18 +249,18 @@ export default function ProgressPage() {
                       <label className="text-xs text-faint">どの案件か
                         <select aria-label="どの案件か" value={no} onChange={(e) => setPick((p) => ({ ...p, [c.id]: e.target.value }))} className="mt-1 block min-h-9 w-full rounded-[10px] border border-field bg-surface px-2 text-body text-ink">
                           <option value="">新しい案件として登録</option>
-                          {(live ? lp.cases : CASES).map((x) => <option key={x.no} value={x.no}>{x.no} {x.name}</option>)}
+                          {lp.cases.map((x) => <option key={x.no} value={x.no}>{x.no} {x.name}</option>)}
                         </select>
                       </label>
                       <div className="text-xs">
                         {c.match && !pick[c.id] ? <span style={{ color: scoreTone(c.match.score) }}>本文の近さ <b className="num">{c.match.score}%</b>{c.match.score < 70 && '・案件の紹介かどうか確かめてください'}</span>
-                          : !no ? <span className="text-warn">{live ? '近い案件がありません。確定すると「新しい案件」（G＋日時の番号）として載せます' : '近い案件がありません。確定すると案件ストックに新しく登録します'}</span>
+                          : !no ? <span className="text-warn">近い案件がありません。確定すると「新しい案件」（G＋日時の番号）として載せます</span>
                           : <span className="text-muted">選び直しました</span>}
                       </div>
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line-soft px-4 py-2.5">
-                    <button onClick={() => setChat({ group: c.group, thread: c.thread, focus: c.msgId, cand: c, gid: live ? lp.gidOf[c.id] : undefined })} className="mr-auto inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border px-3 text-body font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><MessageSquareText size={15} />チャットで前後を見る</button>
+                    <button onClick={() => setChat({ group: c.group, thread: c.thread, focus: c.msgId, cand: c, gid: lp.gidOf[c.id] })} className="mr-auto inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border px-3 text-body font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><MessageSquareText size={15} />チャットで前後を見る</button>
                     <button onClick={() => settle(c, false)} disabled={!canEdit} title={!canEdit ? noEdit : undefined} className="btn-secondary">案件ではない</button>
                     <PrimaryButton onClick={() => settle(c, true)} disabled={!canEdit} title={!canEdit ? noEdit : undefined}>
                       <span className="inline-flex items-center gap-1.5">{no ? <Check size={15} /> : <Plus size={15} />}{no ? '案件進捗に載せる' : '登録して載せる'}</span>
@@ -355,12 +328,4 @@ function LiveGroupThread({ gid, focusText }: { gid: string; focusText: string })
       </div>
     );
   })}</>);
-}
-
-// 送った案件の行から、そのグループのやりとりを組み立てる（見本）。実データではグループの発言を時刻で引く。
-function threadFor(r: ProgressRow): ChatMsg[] {
-  const c = caseOf(r.caseNo);
-  const out: ChatMsg[] = [{ id: 'x1', at: r.sentAt, who: r.via === 'あおい' ? 'aoi' : 'staff', name: r.via === 'あおい' ? 'あおい' : r.sender, text: `【案件のご案内】${c?.name ?? ''}（${r.caseNo}）\n単価 ${c?.price ?? '—'}` }];
-  if (r.reply) out.push({ id: 'x2', at: r.replyAt ?? '', who: 'person', name: r.person, text: r.reply });
-  return out;
 }

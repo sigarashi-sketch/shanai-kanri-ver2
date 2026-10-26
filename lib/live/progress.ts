@@ -3,7 +3,7 @@
 //   ・判断（OK/NG/その他）は今の 📮判断（slackForwarded：案件No＋送り先ID）。OK は今の画面でも営業へ（Slack）回る
 //   ・返信は、その送り先からの「送ってから2分あと〜次に別の案件を送るまで」の最初の発言（今の replyTsFor のいちばん基本の決まり）
 //   ・送った経路：今のシステムの送信はあおい（公式LINE）から。グループ直接の回収は今のシステムに無い
-import type { Case, ChatMsg, ProgressRow } from '../progress-sample';
+import type { Case, ChatMsg, ProgressRow } from '../types/eigyo';
 import { FWD_SEP, caseTitle, mdhm, pickLabel, stationIn, type ProgressData, type ProgressReply } from './eigyo-common';
 
 const DAYS = 7;
