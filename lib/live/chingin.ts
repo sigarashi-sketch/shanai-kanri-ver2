@@ -37,6 +37,7 @@ export type LiveArariRow = {
   key: string; name: string; company: string; shozoku: string; sales: number; salary: number; salaryLabel: string;
   fare: number; fareLabel: string; welfare: number; gross: number; rate: number; temp: boolean; warn: string[];
   salaryManual: boolean; fareManual: boolean; kintai: KintaiParts | null; salaryFromKintai: boolean;
+  fromYms: string[];   // 後の月の請求書に載っていた分（「8月稼働分」などを締めの月で振り分けた）の請求書の月
 };
 
 export function toArari(j: ArariLive | null): LiveArariRow[] {
@@ -47,5 +48,6 @@ export function toArari(j: ArariLive | null): LiveArariRow[] {
     welfare: p.welfare, gross: p.gross, rate: p.sales ? p.gross / p.sales : 0,
     temp: (p.salaryDefault && !p.salaryManual) || p.fareSrc === 'default', warn: p.warn || [],
     salaryManual: !!p.salaryManual, fareManual: p.fareSrc === 'manual', kintai: p.kintai || null, salaryFromKintai: p.salarySrc === 'kintai',
+    fromYms: [...new Set((p.files as Array<{ fromYm?: string }>).map((f) => f.fromYm).filter((x): x is string => !!x))],
   }));
 }
