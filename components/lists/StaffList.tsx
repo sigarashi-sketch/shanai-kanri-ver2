@@ -8,7 +8,7 @@ import { GhostButton, PageTitle, Pill, PrimaryButton, TONE, SkeletonRows } from 
 import { useMotivation } from '@/components/Motivation';
 import { needText, usePerms } from '@/components/Perms';
 import { isPending, useYoyaku, yoyakuLine } from '@/components/YoyakuStore';
-import { LIVE_WRITE_BLOCKED, LiveBanner, useIke } from '@/components/Live';
+import { LiveBanner, useIke } from '@/components/Live';
 import { tensekiMarks, toTensekiLive, type IkeTensekiList } from '@/lib/live/tenseki';
 import { normName } from '@/lib/live/eigyo-common';
 import { TENSEKI } from '@/lib/tenseki-sample';
@@ -101,7 +101,8 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
     && (!f.recruiter || p.recruiter === f.recruiter) && (!f.sales || p.sales === f.sales) && (!f.contract || p.contract === f.contract)), [all, tab, q, f]);
   const shown = rows.slice(0, limit);
   const toggle = (id: string) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  const block = live ? LIVE_WRITE_BLOCKED : undefined;
+  // 一括の LINE・書類の回収は人に届く送信なので、本物ではここから送らない（1人ずつは右上の「連絡」から）
+  const block = live ? 'LINE・書類の回収の依頼は、右上の「連絡」から1人ずつ送ってください（ここからまとめては送りません）' : undefined;
 
   // KPI（今の名簿の上の数字と同じ定義・いま絞っている行で数える）
   const kpi = [
@@ -179,10 +180,9 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
       {!embedded && (
         <PageTitle title="社員一覧" sub={live ? '今の従業員名簿と同じ判定で状態を出しています。チェックはその場で保存されます。名前か行を押すと画面の上に社員ページの中身、右の矢印でページに移ります' : '状態は日付つきの履歴から自動で決まります。名前か行を押すと画面の上に社員ページの中身、右の矢印でページに移ります'}>
           {live
-            ? <button disabled title={LIVE_WRITE_BLOCKED} className="btn-secondary cursor-not-allowed opacity-40">CSV</button>
+            ? <GhostButton onClick={() => { const n = downloadCsv(rows, data?.month || ''); toast({ text: `${n}人を CSV に書き出しました`, sub: '→ ダウンロードに入りました（いま絞り込んでいる人だけ・単価と住所は入れていません）' }); }}>CSV</GhostButton>
             : <GhostButton onClick={() => toast({ text: `${rows.length}人を CSV に書き出しました（見本）`, sub: '→ ダウンロードに入る想定です（いまは見本なのでファイルは作りません）' })}>CSV</GhostButton>}
-          {live ? <PrimaryButton disabled title={LIVE_WRITE_BLOCKED}>＋ 社員を追加</PrimaryButton>
-            : canEdit ? <Link href="/jinji/nyusha" className="btn-primary">＋ 社員を追加</Link> : <PrimaryButton disabled title={needText('edit')}>＋ 社員を追加</PrimaryButton>}
+          {canEdit ? <Link href="/jinji/nyusha" className="btn-primary">＋ 社員を追加</Link> : <PrimaryButton disabled title={needText('edit')}>＋ 社員を追加</PrimaryButton>}
         </PageTitle>
       )}
       <LiveBanner state={state} error={error} onReload={reload}
@@ -293,3 +293,17 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
 
 // 見本の予約（ログインしていないとき）
 const SAMPLE_YOYAKU: YoyakuRow[] = [{ name: PEOPLE[2].name, kind: 'taiki', date: '2026-11-01' }];
+
+// 社員一覧の CSV（本物・10-26）。いま絞り込んでいる人だけ・画面に出ている列だけ（単価・住所・電話は入れない）。ブラウザの中で作るだけ
+function downloadCsv(rows: Row[], month: string): number {
+  const head = ['氏名', 'ふりがな', '状態', '現場', '契約', '担当営業', '採用担当', '所属会社', '入社日', '入場日', '契約の終わり', '退場日', '退社日', '最寄駅'];
+  const q = (v: string) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const body = rows.map((r) => [r.name, r.kana, r.status, r.site, r.contract, r.sales, r.recruiter, r.company, r.joined, r.nyuujou, r.end, r.taijou, r.taishaBi, r.station].map(q).join(','));
+  const blob = new Blob(['\uFEFF' + [head.map(q).join(','), ...body].join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `社員一覧_${month || new Date().toISOString().slice(0, 7)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  return rows.length;
+}

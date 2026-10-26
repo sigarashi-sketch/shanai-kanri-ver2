@@ -6,7 +6,7 @@ import { PageTitle } from '@/components/ui';
 import { PersonName } from '@/components/Person';
 import { usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
-import { LiveBanner, NotInLegacy } from '@/components/Live';
+import { LiveBanner } from '@/components/Live';
 import FeedScene, { clothOf } from '@/components/FeedScene';
 import { useLiveRoute } from '@/lib/live/use-live-route';
 import { TYPE_LABEL, jstDay, samplePosts, type FeedPost, type FeedType, type HomeJinjiData } from '@/lib/home-jinji-sample';
@@ -83,7 +83,7 @@ export default function HomeJinjiPage() {
     <div className="mx-auto flex max-w-[640px] flex-col gap-4 px-1 py-2">
       <PageTitle title="ホーム人事" sub={scope === 'mine' ? `${live?.me || sampleSales || 'あなた'}さんが担当営業の人だけ・直近7日` : '未経験の人の動き・直近7日'} />
       <LiveBanner state={lv.state} error={lv.error} onReload={lv.reload}
-        note={`本物のデータ（承諾・参画決定・辞退・現場デビュー・現場面談・退社）。${scope === 'mine' ? '担当営業があなたの人だけ。' : ''}反応は画面の中だけです`} />
+        note={`本物のデータ（承諾・参画決定・辞退・現場デビュー・現場面談・退社・定期面談・メモ・再アサイン・採用LINEの友だち追加）。${scope === 'mine' ? '担当営業があなたの人だけ。' : ''}反応は画面の中だけです`} />
       {live?.warnings.map((w) => <div key={w} className="rounded-xl border border-line bg-soft px-4 py-2 text-sm text-muted">{w}</div>)}
 
       {/* ストーリー */}
@@ -120,7 +120,7 @@ export default function HomeJinjiPage() {
 
       {live && live.missing.length > 0 && (
         <div className="flex flex-col gap-3 border-t border-line pt-4">
-          <NotInLegacy what="定期面談・メモ・再アサインの日付・採用LINEの友だち追加をまとめて読む口" />
+          <div className="text-sm text-muted">定期面談・メモ・再アサイン・採用LINEの友だち追加を読めませんでした（下は見本です）</div>
           {missingSample.map((p, k) => <div key={p.id} className="opacity-70"><PostCard p={p} k={k} now={now} liked={false} pop={false} sampleTag onLike={() => {}} onCheer={() => {}} /></div>)}
         </div>
       )}

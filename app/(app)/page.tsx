@@ -4,12 +4,16 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { Check, ChevronRight } from 'lucide-react';
 import { APPROVALS, TODOS, type Todo } from '@/lib/sample';
-import { FIELD_RULES, daysFrom, fmtDate } from '@/lib/yoyaku-sample';
+import { FIELD_RULES, daysFrom, fmtDate, type Yoyaku } from '@/lib/yoyaku-sample';
 import { moduleOf, useYoyaku, within } from '@/components/YoyakuStore';
 import { MODULES } from '@/lib/theme';
 import { CountUp, RemainRing, useMotivation } from '@/components/Motivation';
 import { needText, usePerms } from '@/components/Perms';
-import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, type LiveState } from '@/components/Live';
+import { LIVE_WRITE_BLOCKED, LiveBanner, useIke, type LiveState } from '@/components/Live';
+import { useLiveRoute } from '@/lib/live/use-live-route';
+import { jinjiRead, yoyakuFromJinji, type JYoyaku } from '@/lib/live/jinji';
+import { yoyakuFromRosterStatus, type IkeRosterStatus } from '@/lib/live/yoyaku';
+import { useMikeiken } from '@/components/Mikeiken';
 import { PersonName } from '@/components/Person';
 
 // 本物（ログイン中）：/api/live/home（今の社内システムの読むだけの GET を3つまとめて件数だけ）。
@@ -78,6 +82,17 @@ export default function HomePage() {
   ].filter((k) => perms[k.m as keyof typeof perms] !== 'none') : null;
   const [flashing, setFlashing] = useState<string | null>(null);
   const total = L ? todos.length : mine.length;
+  // 本物の「7日以内に切り替わる予約」（10-26）：名簿の待機・退社の予約＋変更の予約（今のシステムの v2_yoyaku）。未経験の人だけ
+  const jv = useLiveRoute<JYoyaku>(L ? jinjiRead('yoyaku') : null);
+  const rs = useIke<IkeRosterStatus[]>(L ? 'proxy?action=getRosterStatus' : null);
+  const mk = useMikeiken();
+  const liveToday = jv.data?.today || new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+  const liveDays = (iso: string) => Math.round((Date.parse(`${iso}T00:00:00Z`) - Date.parse(`${liveToday}T00:00:00Z`)) / 86400000);
+  const liveReservations: Yoyaku[] = L ? mk.keep([...yoyakuFromRosterStatus(rs.data), ...yoyakuFromJinji(jv.data)], 'person')
+    .filter((r) => (r.state === '予約中' || r.state === '承認待ち') && liveDays(r.date) >= 0 && liveDays(r.date) <= 7 && can(moduleOf(r), 'view'))
+    .sort((a, b) => a.date.localeCompare(b.date)) : [];
+  const reservations = L ? liveReservations : myReservations;
+  const dLeft = (iso: string) => (L ? liveDays(iso) : daysFrom(iso));
 
   const done = (t: Todo) => {
     setFlashing(t.text);
@@ -159,10 +174,9 @@ export default function HomePage() {
       </div>
 
       {L && <div className="text-sm text-faint">労務・人事の「対応が要るもの」と承認の件数は、それぞれの画面を本物につないでから、ここにも出します。</div>}
-      {L && <NotInLegacy what="変更の予約" />}
       <section className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 7 }}>
         <div className="flex items-center justify-between px-[18px] py-3.5">
-          <h2 className="text-md font-bold">7日以内に切り替わる予約 <span className="num text-muted">{myReservations.length}</span></h2>
+          <h2 className="text-md font-bold">7日以内に切り替わる予約 <span className="num text-muted">{reservations.length}</span></h2>
           <span className="flex items-center gap-3 text-sm text-muted"><span className="flex items-center gap-1.5"><i className="mo-pulse size-[7px] rounded-full bg-ok" />毎朝6:00に自動で切り替え</span><Link href="/jinji/yoyaku" className="font-semibold" style={{ color: 'var(--ad)' }}>すべての予約</Link></span>
         </div>
         <div className="overflow-x-auto">
@@ -171,10 +185,10 @@ export default function HomePage() {
               <th className="px-[18px] py-2.5 font-semibold">適用日</th><th className="px-2 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">分類</th><th className="px-2 py-2.5 font-semibold">変更前 → 変更後</th><th className="px-[18px] py-2.5 font-semibold">一緒に変わるもの</th>
             </tr></thead>
             <tbody>
-              {myReservations.length === 0 && <tr><td colSpan={5} className="px-[18px] py-6 text-center text-muted">7日以内に切り替わる予約はありません</td></tr>}
-              {myReservations.map((r, i) => (
+              {reservations.length === 0 && <tr><td colSpan={5} className="px-[18px] py-6 text-center text-muted">7日以内に切り替わる予約はありません</td></tr>}
+              {reservations.map((r, i) => (
                 <tr key={r.id} className="row mo-fade-in border-t border-line-soft" style={{ ['--i' as string]: 8 + i }}>
-                  <td className="px-[18px] py-2.5"><b>{fmtDate(r.date)}</b><div className="text-xs text-faint">{daysFrom(r.date) === 0 ? '今日' : `あと${daysFrom(r.date)}日`}</div></td>
+                  <td className="px-[18px] py-2.5"><b>{fmtDate(r.date)}</b><div className="text-xs text-faint">{dLeft(r.date) === 0 ? '今日' : `あと${dLeft(r.date)}日`}</div></td>
                   <td className="px-2 py-2.5"><PersonName name={r.person} className="underline-offset-2 hover:underline" /></td>
                   <td className="px-2 py-2.5"><span className="font-bold"><span style={{ color: `var(--c-${moduleOf(r)})` }}>●</span> {SHORT[moduleOf(r)]}</span> {r.field}{r.state === '承認待ち' && <span className="chip ml-1.5" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>承認待ち</span>}</td>
                   <td className="px-2 py-2.5"><s className="text-faint">{r.from}</s> → <b>{r.to}</b></td>
