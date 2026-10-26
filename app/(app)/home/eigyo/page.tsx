@@ -1,15 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, Crown, Lock, TrendingDown, TrendingUp } from 'lucide-react';
+import { Crown, Lock, TrendingDown, TrendingUp } from 'lucide-react';
 import { PageTitle } from '@/components/ui';
-import { needText, usePerms } from '@/components/Perms';
-import { CountUp, RemainRing, useMotivation } from '@/components/Motivation';
+import { CountUp, RemainRing } from '@/components/Motivation';
 import { LiveBanner, useIke } from '@/components/Live';
 import { PersonName } from '@/components/Person';
 import { useMikeiken } from '@/components/Mikeiken';
-import { HE_ACTS, HE_ACT_LABELS, HE_GOAL, HE_LINES, HE_MONTH, HE_PREV, HE_PROPER_NAMES, HE_REPS, HE_REP_OF_MEMBER } from '@/lib/home-eigyo-sample';
-import { SHUSSHA_LABEL, fareOverMax, grossIsRough, grossOf, manOf, onlyProper, rate, repFromIkeLines, repOf, yen, type HeLine, type HeRep, type HeRepPrev, type IkePlReps } from '@/lib/live/home-eigyo';
+import { SHUSSHA_LABEL, fareOverMax, grossIsRough, grossOf, manOf, rate, repFromIkeLines, yen, type HeLine, type HeRep, type HeRepPrev, type IkePlReps } from '@/lib/live/home-eigyo';
 
 // ホーム営業（10-25 shoya「当月の営業に属する人たちの成約数・売上・粗利」「営業は自分の成約してる人だけ見れる。関係ない人は見ない」）。
 //   ・上：チーム合計と、担当営業ごとの順位（成約数・売上・粗利で並べ替え）。前月比つき
@@ -27,34 +25,28 @@ const diff = (now: number, prev: number, unit: string) => {
 };
 
 export default function HomeEigyoPage() {
-  const { me, can } = usePerms();
-  const { hit, toast } = useMotivation();
-  const isAdmin0 = me.role === 'owner' || me.role === 'manager';
-  const myRep0 = HE_REP_OF_MEMBER[me.id] ?? null;
   const [preview, setPreview] = useState('');           // 管理者が「営業の人の見え方」を試す
   const [sort, setSort] = useState<SortKey>('count');
-  const [picked, setPicked] = useState(HE_REPS[0]);
-  const [checked, setChecked] = useState<Record<string, boolean>>({});
-  const [flash, setFlash] = useState<string | null>(null);
+  const [picked, setPicked] = useState('');
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
-    const t = q.get('tantou'); if (t && HE_REPS.includes(t)) setPicked(t);
+    const t = q.get('tantou'); if (t) setPicked(t);
     const s = q.get('sort') as SortKey | null; if (s && SORTS.some((x) => x.k === s)) setSort(s);
   }, []);
 
   const ike = useIke<IkePlReps>('nippo?action=pl-reps');
   const mk = useMikeiken();
-  // ★本物で ok でない答え（今のシステムが失敗を返した）は「読めなかった」として出す。見本の数字に本物の印を付けて出さない（10-25）
+  // ★本物で ok でない答え（今のシステムが失敗を返した）は「読めなかった」として出す（10-25）
   const liveBad = ike.live && ike.data?.ok !== true;
   const L = ike.live && ike.data?.ok ? ike.data : null;
-  const MONTH = L ? L.ym : HE_MONTH;
-  const REPS: string[] = L ? [...new Set(L.reps.filter((x) => x.ym === L.ym).map((x) => x.tantou))] : HE_REPS;
-  const PREV: Record<string, HeRepPrev> = L ? Object.fromEntries(L.reps.filter((x) => x.ym === L.prev).map((x) => [x.tantou, { count: x.count, uriage: x.uriage, gross: x.gross }])) : HE_PREV;
-  const ACT_LABELS = L ? L.actLabels : HE_ACT_LABELS;
-  const ACTS: Record<string, Record<string, number>> = L ? Object.fromEntries(L.reps.filter((x) => x.ym === L.ym).map((x) => [x.tantou, x.acts || {}])) : HE_ACTS;
-  const isAdmin = L ? L.all : isAdmin0;
-  const myRep = L ? (L.all ? null : L.me || null) : myRep0;
+  const MONTH = L ? L.ym : '';
+  const REPS: string[] = L ? [...new Set(L.reps.filter((x) => x.ym === L.ym).map((x) => x.tantou))] : [];
+  const PREV: Record<string, HeRepPrev> = L ? Object.fromEntries(L.reps.filter((x) => x.ym === L.prev).map((x) => [x.tantou, { count: x.count, uriage: x.uriage, gross: x.gross }])) : {};
+  const ACT_LABELS = L ? L.actLabels : [];
+  const ACTS: Record<string, Record<string, number>> = L ? Object.fromEntries(L.reps.filter((x) => x.ym === L.ym).map((x) => [x.tantou, x.acts || {}])) : {};
+  const isAdmin = L ? L.all : false;
+  const myRep = L ? (L.all ? null : L.me || null) : null;
   const asRep = myRep ?? (isAdmin && preview ? preview : null);
   const shown = asRep ?? (isAdmin ? (REPS.includes(picked) ? picked : REPS[0] ?? null) : null);       // 成約した人の一覧を出す担当（出せなければ null）
   // 本物も明細をプロパーリスト（未経験の正）で絞る。担当ごとの合計は、明細が返ってくる担当だけ絞ったあとの明細から作り直す
@@ -62,11 +54,11 @@ export default function HomeEigyoPage() {
   const liveKept = L && mk.set ? liveLines.filter((l) => mk.has(l.name)) : [];
   const { kept: ALL, dropped } = L
     ? { kept: liveKept.map((l): HeLine => ({ tantou: l.tantou, name: l.name, joui: l.joui, status: l.status as HeLine['status'], md: l.md, uriage: l.uriage, gakumen: l.gakumenKnown ? 0 : null, fare: l.fareMissing ? null : 0, shussha: (l.shussha || 'jouchuu') as HeLine['shussha'], noBill: l.noBill, gross: l.gross })), dropped: liveLines.length - liveKept.length }
-    : onlyProper(HE_LINES, HE_PROPER_NAMES);   // 未経験の正＝プロパーリストに名前がある人だけ
+    : { kept: [] as HeLine[], dropped: 0 };
   const hasLines = (t: string) => !!L && (L.all || t === L.me);   // 明細が返ってくる担当（＝絞って作り直せる担当）
   const reps: HeRep[] = L
     ? L.reps.filter((x) => x.ym === L.ym).map((x) => (hasLines(x.tantou) ? repFromIkeLines(x.tantou, liveKept) : x))
-    : HE_REPS.map((t) => repOf(t, ALL));
+    : [];
   const unfiltered = L ? reps.filter((r) => !hasLines(r.tantou)).length : 0;
   const ranked = [...reps].sort((a, b) => b[sort] - a[sort] || b.count - a.count);
   const rankOf = (r: HeRep) => 1 + ranked.filter((x) => x[sort] > r[sort]).length;
@@ -80,18 +72,7 @@ export default function HomeEigyoPage() {
 
   const me1 = shown ? reps.find((r) => r.tantou === shown)! : null;
   const lines = shown ? ALL.filter((l) => l.tantou === shown) : [];
-  const goal = shown && !L ? HE_GOAL[shown] ?? 0 : 0;   // 目標は今のシステムに無い（本物では出さない）
-  const ckKey = shown ? `${MONTH}:${shown}` : '';
-  const canEdit = can('eigyo', 'edit') || !!myRep;
-
-  const confirm = () => {
-    if (!shown || checked[ckKey]) return;
-    const k = ckKey, who = shown;
-    setChecked((c) => ({ ...c, [k]: true })); setFlash(k); setTimeout(() => setFlash(null), 1300);
-    hit();
-    // ★どこにも保存していない（見本だけの動き）。本物ではボタンを押せない（10-25 保存していないのに「反映しました」と出さない）
-    toast({ text: `${who}さんの${ymLabel(MONTH)}の成約を確かめました（見本）`, sub: '見本なのでどこにも保存していません', undo: () => setChecked((c) => ({ ...c, [k]: false })) });
-  };
+  const goal = 0;   // 目標は今のシステムに無い（出さない）
 
   if (liveBad || (ike.live && mk.state === 'error')) return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
@@ -100,17 +81,18 @@ export default function HomeEigyoPage() {
     </main>
   );
 
-  // 本物を読んでいるあいだ（10秒ほど）は見本の数字を出さない
-  if (ike.state === 'loading' || (ike.live && mk.state === 'loading')) return (
+  // 読んでいるあいだ（10秒ほど）・読めないあいだは数字を出さない
+  if (!L || ike.state === 'loading' || (ike.live && mk.state === 'loading')) return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="ホーム営業" sub="担当営業ごとの成約数・売上・粗利（未経験の要員だけ）" />
-      <div className="rounded-xl border border-line bg-surface px-4 py-10 text-center text-body text-muted">日報②の契約実績を読んでいます…（10秒ほど）</div>
+      <LiveBanner state={ike.state} error={ike.error} onReload={ike.reload} />
+      <div className="rounded-xl border border-line bg-surface px-4 py-10 text-center text-body text-muted">{ike.state === 'loading' || mk.state === 'loading' ? '日報②の契約実績を読んでいます…（10秒ほど）' : 'まだありません'}</div>
     </main>
   );
 
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
-      <PageTitle title="ホーム営業" sub={`${ymLabel(MONTH)}・担当営業ごとの成約数・売上・粗利（未経験の要員だけ）${L ? '' : '・見本データ'}`}>
+      <PageTitle title="ホーム営業" sub={`${ymLabel(MONTH)}・担当営業ごとの成約数・売上・粗利（未経験の要員だけ）`}>
         {isAdmin && !myRep && (
           <label className="flex items-center gap-1.5 text-sm text-muted">見え方を試す
             <select value={preview} onChange={(e) => setPreview(e.target.value)} className="rounded-lg border border-field bg-surface px-2 py-1.5 text-sm text-ink">
@@ -177,7 +159,7 @@ export default function HomeEigyoPage() {
       {!shown || !me1 ? (
         <div className="rounded-xl border border-line bg-soft px-5 py-6 text-center text-body text-muted"><Lock size={16} className="mx-auto mb-1.5 text-faint" />成約した人の一覧は、担当営業の本人と管理者だけが見られます</div>
       ) : (
-        <section className={`mo-fade-up overflow-hidden rounded-xl border border-line bg-surface ${flash === ckKey ? 'mo-flash' : ''}`} style={{ ['--i' as string]: 10 }}>
+        <section className={`mo-fade-up overflow-hidden rounded-xl border border-line bg-surface `} style={{ ['--i' as string]: 10 }}>
           <div className="flex flex-wrap items-center gap-3 px-4 py-3">
             {goal > 0 && <RemainRing remain={Math.max(0, goal - me1.count)} total={goal} />}
             <div className="min-w-0 flex-1">
@@ -189,8 +171,6 @@ export default function HomeEigyoPage() {
                 {REPS.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
             )}
-            {!L && <button onClick={confirm} disabled={!canEdit || !!checked[ckKey]} title={!canEdit ? needText('edit') : checked[ckKey] ? 'この月は確かめてあります' : '見本なのでどこにも保存しません'}
-              className="btn-primary"><Check size={15} />{checked[ckKey] ? '確かめました（見本）' : '数字を確かめた（見本）'}</button>}
           </div>
           {goal > 0 && me1.count >= goal && <div className="mo-scale-in mx-4 mb-3 rounded-xl border border-ok-line bg-ok-soft px-4 py-3 text-center text-body font-semibold text-ok">{ymLabel(MONTH)}の目標に届きました。おつかれさまです</div>}
           <div className="overflow-x-auto">
@@ -227,7 +207,7 @@ export default function HomeEigyoPage() {
           </div>
         </section>
       )}
-      <p className="text-xs text-faint">{L ? '額面・交通費の金額はここには出しません（粗利だけ）。' : '数字は見本です（名前・会社・金額は作り物）。'}社保や交通費の扱いなど、最終判断は社労士・税理士・法務に確認してください。</p>
+      <p className="text-xs text-faint">額面・交通費の金額はここには出しません（粗利だけ）。社保や交通費の扱いなど、最終判断は社労士・税理士・法務に確認してください。</p>
     </main>
   );
 }
