@@ -118,7 +118,7 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
           <span className="ml-auto text-faint">{shown.length}人・粗利率の低い順</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1200px] border-collapse text-body">
+          <table className="w-full min-w-[1040px] border-collapse text-body">
             <thead><tr className="th-row text-left">
               <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">取引先・所属</th><th className="px-2 py-2.5 text-right font-semibold">勤怠（freee）</th><th className="px-2 py-2.5 text-right font-semibold">売上（請求）</th><th className="px-2 py-2.5 font-semibold">格納した請求書</th><th className="px-2 py-2.5 text-right font-semibold">給与</th><th className="px-2 py-2.5 text-right font-semibold">交通費</th><th className="px-2 py-2.5 text-right font-semibold">法定福利</th><th className="px-2 py-2.5 text-right font-semibold">粗利</th><th className="px-4 py-2.5 text-right font-semibold">粗利率</th>
             </tr></thead>
@@ -132,8 +132,14 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
                     <td className="px-2 py-2.5">{r.company}<div className="text-xs text-faint">{r.shozoku}</div></td>
                     <td className="num px-2 py-2.5 text-right"><KintaiCell k={r.kintai} /></td>
                     <td className="num px-2 py-2.5 text-right">{yen(r.sales)}{r.fromYms.length > 0 && <div className="whitespace-nowrap text-xs text-faint" title="後の月の請求書に「◯月稼働分」として載っていた分を、締めの月で入れています">{r.fromYms.map((m) => `${Number(m.slice(5))}月`).join('・')}の請求書から</div>}{r.salesSrc && <div className="whitespace-nowrap text-xs text-faint">{r.salesSrc === 'ikedon' ? '請求書づくりの下書き' : '格納した請求書'}</div>}</td>
-                    <td className="px-2 py-2.5 text-xs">{r.files.length === 0 ? <span className="text-faint">なし</span> : r.files.map((f) => <div key={f.id} className="whitespace-nowrap"><a href={stampedPdfUrl(f.id)} target="_blank" rel="noreferrer" className="underline underline-offset-2" style={{ color: 'var(--ad)' }}>{f.label}</a> <span className="num text-faint">{yen(f.amount)}{f.fromYm ? `（${Number(f.fromYm.slice(5))}月）` : ''}</span></div>)}</td>
-                    <td className="num px-2 py-2.5 text-right"><EditYen r={r} kind="salary" ym={d.ym} canEdit={canEdit} onSaved={reload} /><div className="text-xs text-faint">{r.salaryLabel}</div>{!r.salaryManual && r.kintai && <div className="whitespace-nowrap text-xs text-faint" title={r.salaryFromKintai ? 'freee の勤怠から出した給与の内訳' : 'freee の打刻から出した見込み（打刻が無い・少ないので給与には入れていません）'}>{r.salaryFromKintai ? '' : '勤怠の見込み：'}{wageParts(r.kintai)}</div>}</td>
+                    <td className="w-44 max-w-44 px-2 py-2.5 text-xs">{r.files.length === 0 ? <span className="text-faint">なし</span> : r.files.map((f) => (
+                      <div key={f.id} className="mb-1 min-w-0">
+                        <a href={stampedPdfUrl(f.id)} target="_blank" rel="noreferrer" title={f.label} className="block truncate underline underline-offset-2" style={{ color: 'var(--ad)' }}>{f.label.replace(/_.*$/, '')}</a>
+                        {f.rows.length > 0 ? f.rows.map((x, j) => <div key={j} className="flex min-w-0 gap-1 text-faint" title={x.d}><span className="min-w-0 flex-1 truncate">{x.d}</span><span className="num shrink-0">{x.a.toLocaleString('ja-JP')}</span></div>)
+                          : <div className="num text-faint">{yen(f.amount)}</div>}
+                        {f.fromYm && <div className="text-faint">{Number(f.fromYm.slice(5))}月の請求書</div>}
+                      </div>))}</td>
+                    <td className="num px-2 py-2.5 text-right"><EditYen r={r} kind="salary" ym={d.ym} canEdit={canEdit} onSaved={reload} /><div className="text-xs text-faint">{r.salaryLabel}</div>{!r.salaryManual && r.kintai && <div className="ml-auto max-w-52 text-xs text-faint" title={r.salaryFromKintai ? 'freee の勤怠から出した給与の内訳' : 'freee の打刻から出した見込み（打刻が無い・少ないので給与には入れていません）'}>{r.salaryFromKintai ? '' : '勤怠の見込み：'}{wageParts(r.kintai)}</div>}</td>
                     <td className="num px-2 py-2.5 text-right"><EditYen r={r} kind="fare" ym={d.ym} canEdit={canEdit} onSaved={reload} /><div className="text-xs text-faint">{r.fareLabel}</div></td>
                     <td className="num px-2 py-2.5 text-right text-muted">{yen(r.welfare)}</td>
                     <td className="num px-2 py-2.5 text-right font-bold">{yen(r.gross)}</td>
