@@ -7,8 +7,9 @@ import { LEVELS, ROLES, type Level, type Member, type Perms } from './access';
 import { MODULES } from './theme';
 
 export type OrgRole = { id: string; label: string; perms: Perms; manageAccess: boolean };
-/** 部署（parent=null）とチーム（parent=部署の id）。並びは配列の順。headId は長。 */
-export type Unit = { id: string; name: string; parent: string | null; headId?: string };
+/** 部署（parent=null）とチーム（parent=部署の id）。並びは配列の順。headId は長。
+ *  role・own＝その組織に付けた権限（10-26 shoya「組織ごとに権限付与したい」）。中の人全員に付く（部署に付けた分はチームの人にも付く） */
+export type Unit = { id: string; name: string; parent: string | null; headId?: string; role?: string; own?: Partial<Perms> };
 export type Title = { id: string; label: string };
 /** 人ごとに持つのはこれだけ（キーは今のシステムの userId） */
 export type Assign = { unit?: string; title?: string; role?: string; own?: Partial<Perms> };
@@ -17,9 +18,8 @@ export type OrgState = { v: 1; units: Unit[]; titles: Title[]; roles: OrgRole[];
 /** 画面に並べる人（今のシステムから読む・保存しない） */
 export type OrgPerson = { userId: string; name: string; email: string; legacyRole: string; mikeiken: boolean; retired: boolean; isSelf?: boolean };
 
-/** 会社のメール（@engineer-mikata.com）＝内勤、それ以外＝要員（10-25 shoya） */
-export const INNAI_DOMAIN = '@engineer-mikata.com';
-export const personKind = (p: { email: string }): '内勤' | '要員' => (p.email.trim().toLowerCase().endsWith(INNAI_DOMAIN) ? '内勤' : '要員');
+/** 会社のメール＝内勤、それ以外＝要員（要員はシステムに入れない・lib/innai.ts） */
+export { INNAI_DOMAIN, personKind } from './innai';
 
 export const ORG_STORAGE_KEY = 'v2_org';
 export const NO_ROLE = 'none';
@@ -97,11 +97,34 @@ export const SAVED_SHARED = '保存しました（全員に効きます）';
 
 export const roleOf = (s: OrgState, a?: Assign) => s.roles.find((r) => r.id === (a?.role ?? NO_ROLE)) ?? s.roles.find((r) => r.id === NO_ROLE)!;
 
-/** その人の分類ごとの段階＝ロールの段階と個別に付けた段階の高いほう（effectivePerms と同じ考え方） */
+/** その人が入っている組織（チームなら 部署→チーム の順）。未所属なら空 */
+export function unitChain(s: OrgState, unitId?: string): Unit[] {
+  const u = s.units.find((x) => x.id === unitId);
+  if (!u) return [];
+  const p = u.parent ? s.units.find((x) => x.id === u.parent) : undefined;
+  return p ? [p, u] : [u];
+}
+/** 組織そのものに付けた段階（ロール＋個別の高いほう） */
+export function unitOwnPerms(s: OrgState, u: Unit): Perms {
+  const r = (s.roles.find((x) => x.id === (u.role ?? NO_ROLE)) ?? roleOf(s)).perms;
+  return Object.fromEntries(MODULES.map((m) => [m.key, hi(r[m.key], u.own?.[m.key] ?? 'none')])) as Perms;
+}
+/** 所属から付く段階（部署とチームの高いほう） */
+export function unitPerms(s: OrgState, unitId?: string): Perms {
+  const ps = unitChain(s, unitId).map((u) => unitOwnPerms(s, u));
+  return Object.fromEntries(MODULES.map((m) => [m.key, ps.reduce<Level>((acc, p) => hi(acc, p[m.key]), 'none')])) as Perms;
+}
+
+/** その人の分類ごとの段階＝ロール・個別・所属（部署とチーム）の一番高いもの（effectivePerms と同じ考え方） */
 export function orgPerms(s: OrgState, a?: Assign): Perms {
   const r = roleOf(s, a).perms;
   const own = a?.own ?? {};
-  return Object.fromEntries(MODULES.map((m) => [m.key, hi(r[m.key], own[m.key] ?? 'none')])) as Perms;
+  const u = unitPerms(s, a?.unit);
+  return Object.fromEntries(MODULES.map((m) => [m.key, hi(hi(r[m.key], own[m.key] ?? 'none'), u[m.key])])) as Perms;
+}
+/** 権限管理ができるか＝本人のロールか、所属の組織のロールで持っている */
+export function orgManage(s: OrgState, a?: Assign): boolean {
+  return roleOf(s, a).manageAccess || unitChain(s, a?.unit).some((u) => !!s.roles.find((r) => r.id === u.role)?.manageAccess);
 }
 
 /** 部署の中のチーム id もふくめた集合（部署で絞るとき用） */

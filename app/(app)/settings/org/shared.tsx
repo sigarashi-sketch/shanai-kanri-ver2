@@ -1,10 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { GripVertical, KeyRound, Pencil } from 'lucide-react';
-import { PersonName } from '@/components/Person';
+import { Check, GripVertical, KeyRound, Pencil } from 'lucide-react';
 import { MODULES } from '@/lib/theme';
-import { levelLabel, orgPerms, roleOf, type OrgPerson, type OrgState } from '@/lib/org';
+import { levelLabel, orgManage, orgPerms, type OrgPerson, type OrgState } from '@/lib/org';
 
 // 組織表の部品（人の札・結果の段階・名前の直し方・ドラッグの型）
 export type Commit = (fn: (s: OrgState) => OrgState, text: string, opts?: { sub?: string; flash?: string }) => void;
@@ -25,26 +24,30 @@ export function PermChips({ org, userId }: { org: OrgState; userId: string }) {
       {MODULES.map((m) => eff[m.key] === 'none'
         ? <span key={m.key} className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)', opacity: 0.6 }}>{m.short} 見ない</span>
         : <span key={m.key} className="chip" style={{ background: `var(--s-${m.key})`, color: `var(--d-${m.key})` }}>{m.short} {levelLabel(eff[m.key])}</span>)}
-      {roleOf(org, a).manageAccess && <span className="chip" title="権限管理ができる" style={{ background: 'var(--tone-caution-bg)', color: 'var(--tone-caution-fg)' }}><KeyRound size={11} />権限管理</span>}
+      {orgManage(org, a) && <span className="chip" title="権限管理ができる" style={{ background: 'var(--tone-caution-bg)', color: 'var(--tone-caution-fg)' }}><KeyRound size={11} />権限管理</span>}
     </span>
   );
 }
 
-/** ドラッグで部署・チームに入れられる人の札 */
-export function PersonChip({ p, org, head, flash }: { p: OrgPerson; org: OrgState; head?: boolean; flash?: boolean }) {
+/** 人の札。押すと選ぶ（もう一度押すと外す）・ドラッグで部署・チームへ（選んでいる札をつかむと選んだ全員が動く） */
+export function PersonChip({ p, org, head, flash, selected, onToggle, dragIds }: { p: OrgPerson; org: OrgState; head?: boolean; flash?: boolean; selected?: boolean; onToggle?: () => void; dragIds?: string[] }) {
   const t = org.titles.find((x) => x.id === org.people[p.userId]?.title);
   return (
-    <span draggable onDragStart={(e) => { e.dataTransfer.setData(DND_PERSON, p.userId); e.dataTransfer.effectAllowed = 'move'; }}
-      className={`inline-flex cursor-grab items-center gap-1 rounded-lg border border-line bg-surface py-1 pl-1 pr-2 text-sm active:cursor-grabbing ${flash ? 'mo-flash' : ''}`}
-      title="ドラッグで部署・チームへ">
-      <GripVertical size={12} className="text-faint" />
-      <PersonName name={p.name} />
+    <button type="button" draggable aria-pressed={selected} aria-label={p.name} onClick={onToggle}
+      onDragStart={(e) => { e.dataTransfer.setData(DND_PERSON, (dragIds?.length ? dragIds : [p.userId]).join(',')); e.dataTransfer.effectAllowed = 'move'; }}
+      className={`inline-flex cursor-pointer items-center gap-1 rounded-lg border py-1 pl-1 pr-2 text-sm active:cursor-grabbing ${flash ? 'mo-flash' : ''}`}
+      style={selected ? { borderColor: 'var(--a)', background: 'var(--as)', boxShadow: '0 0 0 2px var(--al)' } : { borderColor: 'var(--color-line)', background: 'var(--color-surface)' }}
+      title={selected ? 'もう一度押すと選ぶのをやめる・ドラッグで選んだ全員を動かす' : '押して選ぶ（何人でも）・ドラッグで部署・チームへ'}>
+      {selected ? <Check size={12} style={{ color: 'var(--ad)' }} /> : <GripVertical size={12} className="text-faint" />}
+      <span className="font-semibold">{p.name}</span>
       {t && <span className="text-xs text-muted">{t.label}</span>}
       {head && <span className="chip" style={{ background: 'var(--as)', color: 'var(--ad)' }}>長</span>}
       {p.mikeiken && <span className="chip" title="未経験事業部" style={{ background: 'var(--tone-info-bg)', color: 'var(--tone-info-fg)' }}>未</span>}
-    </span>
+    </button>
   );
 }
+/** ドラッグで運ばれてきた人（カンマ区切り） */
+export const droppedPeople = (e: React.DragEvent) => e.dataTransfer.getData(DND_PERSON).split(',').filter(Boolean);
 
 /** 管理者が名前を付ける・直す（押すと欄になる。Enter/外を押すと確定、Esc でやめる） */
 export function NameEdit({ value, onSave, className, label }: { value: string; onSave: (v: string) => void; className?: string; label: string }) {

@@ -1,6 +1,7 @@
 import 'server-only';
 import { cookies } from 'next/headers';
 import { cached, userKey } from './cache';
+import { isInnaiEmail, tokenEmail } from './innai';
 
 // 今の社内システム（IKEIKE_ORIGIN）を、ログインした人のトークンで呼ぶ（本物のデータの出どころはここだけ）。
 //   ・DB の鍵は ver2 に置かない。見られる範囲・権限の判定は全部今の社内システムがやる
@@ -8,8 +9,10 @@ import { cached, userKey } from './cache';
 export const IKE_TOKEN_COOKIE = 'v2_ike_token';
 export const IKE_ORIGIN = process.env.IKEIKE_ORIGIN || 'https://ikeike-app.vercel.app';
 
+// 要員（会社のメールでない人）のトークンは持っていても使わない＝ログインしていない扱い（lib/innai.ts）
 export async function ikeToken(): Promise<string> {
-  return (await cookies()).get(IKE_TOKEN_COOKIE)?.value || '';
+  const t = (await cookies()).get(IKE_TOKEN_COOKIE)?.value || '';
+  return t && isInnaiEmail(tokenEmail(t)) ? t : '';
 }
 
 export async function ikeFetch(path: string, init?: RequestInit, timeoutMs = 25000): Promise<Response> {

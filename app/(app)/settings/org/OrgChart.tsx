@@ -1,27 +1,46 @@
 'use client';
 
-import { useState } from 'react';
-import { GripVertical, Trash2, Users } from 'lucide-react';
-import { moveBefore, newId, type OrgPerson, type Unit } from '@/lib/org';
-import { AddName, DND_PERSON, DND_UNIT, hasType, NameEdit, PersonChip, type Ctl } from './shared';
+import { useEffect, useState } from 'react';
+import { ArrowDownToLine, ChevronRight, GripVertical, KeyRound, Trash2, Users, X } from 'lucide-react';
+import { LEVELS, atLeast, type Level } from '@/lib/access';
+import { MODULES } from '@/lib/theme';
+import { levelLabel, moveBefore, newId, unitOwnPerms, unitPath, type OrgPerson, type Unit } from '@/lib/org';
+import { AddName, DND_PERSON, DND_UNIT, droppedPeople, hasType, NameEdit, PersonChip, type Ctl } from './shared';
 
 type Ops = {
   list: OrgPerson[]; inUnit: (id: string | undefined) => OrgPerson[]; name: (uid: string) => string;
-  putPerson: (uid: string, unit: string | undefined) => void; dropUnit: (from: string, to: Unit) => void; removeUnit: (u: Unit) => void; addUnit: (nm: string, parent: string | null) => void;
+  putPeople: (uids: string[], unit: string | undefined) => void; dropUnit: (from: string, to: Unit) => void; removeUnit: (u: Unit) => void; addUnit: (nm: string, parent: string | null) => void;
+  sel: Set<string>; toggle: (uid: string) => void; selectAll: (uids: string[]) => void;
 };
 
-// 組織図（木）。部署→チーム。人の札をドラッグして入れる。部署・チームもドラッグで並び替え（チームはほかの部署へも移せる）。
+// 組織図（木）。部署→チーム。部署・チームもドラッグで並び替え（チームはほかの部署へも移せる）。
+// 人を動かす（10-26 shoya「選択移動しづらい」）：札を押して何人でも選ぶ → 行き先の「ここへ移す」を押す（または上の帯で行き先を選ぶ）。
+//   ドラッグも残す。選んでいる札をつかむと選んだ全員が動く。Esc で選ぶのをやめる
+// 組織の権限（10-26 shoya「組織ごとに権限付与したい」）：部署・チームにロールと分類ごとの段階を付けると、中の人全員に付く（部署の分はチームの人にも）
 export function OrgChart({ ctl, list }: { ctl: Ctl; list: OrgPerson[] }) {
   const { org, commit, flash } = ctl;
   const depts = org.units.filter((u) => !u.parent);
   const known = new Set(org.units.map((u) => u.id));
   const inUnit = (id: string | undefined) => list.filter((p) => (id ? org.people[p.userId]?.unit === id : !known.has(org.people[p.userId]?.unit ?? '')));
   const name = (uid: string) => ctl.people.find((p) => p.userId === uid)?.name ?? '';
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') setSel(new Set()); };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, []);
+  const toggle = (uid: string) => setSel((x) => { const n = new Set(x); if (n.has(uid)) n.delete(uid); else n.add(uid); return n; });
+  const selectAll = (uids: string[]) => setSel((x) => new Set([...x, ...uids]));
 
-  const putPerson = (uid: string, unit: string | undefined) => {
-    if ((org.people[uid]?.unit ?? undefined) === unit) return;
+  const putPeople = (uids: string[], unit: string | undefined) => {
+    const cur = (uid: string) => { const x = org.people[uid]?.unit; return x && known.has(x) ? x : undefined; };
+    const todo = uids.filter((uid) => cur(uid) !== unit);
+    setSel(new Set());
+    if (!todo.length) return;
     const where = org.units.find((u) => u.id === unit)?.name ?? '未所属';
-    commit((s) => ({ ...s, people: { ...s.people, [uid]: { ...s.people[uid], unit } } }), `${name(uid)}さんを「${where}」に入れました`, { sub: '→ 組織図と一覧の所属に反映', flash: uid });
+    const who = todo.length === 1 ? `${name(todo[0])}さん` : `${todo.length}人`;
+    commit((s) => ({ ...s, people: { ...s.people, ...Object.fromEntries(todo.map((uid) => [uid, { ...s.people[uid], unit }])) } }),
+      `${who}を「${where}」に入れました`, { sub: '→ 組織図と一覧の所属に反映', flash: todo.length === 1 ? todo[0] : unit });
   };
   const dropUnit = (from: string, to: Unit) => {
     const f = org.units.find((u) => u.id === from);
@@ -39,20 +58,39 @@ export function OrgChart({ ctl, list }: { ctl: Ctl; list: OrgPerson[] }) {
   };
   const addUnit = (nm: string, parent: string | null) => {
     const id = newId('u');
-    commit((s) => ({ ...s, units: [...s.units, { id, name: nm, parent }] }), `「${nm}」を足しました`, { sub: '→ 人をドラッグして入れられます', flash: id });
+    commit((s) => ({ ...s, units: [...s.units, { id, name: nm, parent }] }), `「${nm}」を足しました`, { sub: '→ 人を選んで「ここへ移す」で入れられます', flash: id });
   };
 
-  const ops: Ops = { list, inUnit, name, putPerson, dropUnit, removeUnit, addUnit };
+  const ops: Ops = { list, inUnit, name, putPeople, dropUnit, removeUnit, addUnit, sel, toggle, selectAll };
   const none = inUnit(undefined);
   const [overNone, setOverNone] = useState(false);
+  const unitOptions = depts.flatMap((d) => [d, ...org.units.filter((t) => t.parent === d.id)]);
   return (
     <div className="flex flex-col gap-3">
+      {sel.size > 0 ? (
+        <div className="mo-fade-up sticky top-2 z-20 flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 text-body shadow-md" style={{ borderColor: 'var(--a)', background: 'var(--as)' }}>
+          <b>{sel.size}人を選んでいます</b>
+          <span className="text-sm text-muted">→ 行き先の「ここへ移す」を押すか、ここで選ぶ</span>
+          <select aria-label="選んだ人の行き先" value="" className="rounded-md border border-field bg-surface px-2 py-1 text-sm"
+            onChange={(e) => { if (e.target.value) putPeople(Array.from(sel), e.target.value === '__none' ? undefined : e.target.value); }}>
+            <option value="">行き先を選ぶ…</option>
+            <option value="__none">未所属に戻す</option>
+            {unitOptions.map((u) => <option key={u.id} value={u.id}>{u.parent ? `　└ ${u.name}` : u.name}</option>)}
+          </select>
+          <button onClick={() => setSel(new Set())} className="ml-auto inline-flex items-center gap-1 text-sm font-semibold underline"><X size={13} />選ぶのをやめる（Esc）</button>
+        </div>
+      ) : (
+        <p className="text-sm text-faint">名前を押すと選べます（何人でも）。選んだら行き先の「ここへ移す」を押します。ドラッグでも動かせます。</p>
+      )}
       <section onDragOver={(e) => { if (hasType(e, DND_PERSON)) { e.preventDefault(); setOverNone(true); } }} onDragLeave={() => setOverNone(false)}
-        onDrop={(e) => { e.preventDefault(); setOverNone(false); const p = e.dataTransfer.getData(DND_PERSON); if (p) putPerson(p, undefined); }}
+        onDrop={(e) => { e.preventDefault(); setOverNone(false); const ids = droppedPeople(e); if (ids.length) putPeople(ids, undefined); }}
         className="rounded-xl border border-dashed p-3" style={{ borderColor: overNone ? 'var(--a)' : 'var(--color-field)', background: 'var(--color-soft)' }}>
-        <div className="mb-2 text-body font-bold">未所属 <span className="font-normal text-faint">{none.length}人・ここから部署やチームへドラッグ</span></div>
+        <div className="mb-2 flex flex-wrap items-center gap-2 text-body font-bold">未所属 <span className="font-normal text-faint">{none.length}人</span>
+          <Pick ids={none.map((p) => p.userId)} ops={ops} />
+          <MoveHere ops={ops} onMove={() => putPeople(Array.from(sel), undefined)} label="未所属に戻す" />
+        </div>
         <div className="flex max-h-[220px] flex-wrap gap-1.5 overflow-y-auto">
-          {none.map((p) => <PersonChip key={p.userId} p={p} org={org} flash={flash === p.userId} />)}
+          {none.map((p) => <PersonChip key={p.userId} p={p} org={org} flash={flash === p.userId} selected={sel.has(p.userId)} onToggle={() => toggle(p.userId)} dragIds={sel.has(p.userId) ? Array.from(sel) : undefined} />)}
           {!none.length && <span className="text-sm text-faint">全員どこかに入っています</span>}
         </div>
       </section>
@@ -64,9 +102,72 @@ export function OrgChart({ ctl, list }: { ctl: Ctl; list: OrgPerson[] }) {
   );
 }
 
+/** 選んでいる人がいるときだけ出る「ここへ移す」 */
+function MoveHere({ ops, onMove, label = 'ここへ移す' }: { ops: Ops; onMove: () => void; label?: string }) {
+  if (!ops.sel.size) return null;
+  return (
+    <button onClick={onMove} className="mo-fade-in inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-sm font-bold" style={{ background: 'var(--btn-bg, var(--a))', color: 'var(--btn-fg, var(--ao))', border: '1px solid var(--btn-border, transparent)' }}>
+      <ArrowDownToLine size={13} />{label}（{ops.sel.size}人）
+    </button>
+  );
+}
+/** この箱の人をまとめて選ぶ */
+function Pick({ ids, ops }: { ids: string[]; ops: Ops }) {
+  if (!ids.length || ids.every((id) => ops.sel.has(id))) return null;
+  return <button onClick={() => ops.selectAll(ids)} className="text-xs font-normal text-muted underline">全員選ぶ</button>;
+}
+
+/** 組織に付ける権限（ロール＋分類ごとの段階）。中の人全員に付く */
+function UnitPerms({ u, ctl }: { u: Unit; ctl: Ctl }) {
+  const { org, commit } = ctl;
+  const [open, setOpen] = useState(false);
+  const role = org.roles.find((r) => r.id === u.role);
+  const eff = unitOwnPerms(org, u);
+  const has = MODULES.some((m) => eff[m.key] !== 'none') || !!role?.manageAccess;
+  const set = (patch: Partial<Unit>, text: string) =>
+    commit((s) => ({ ...s, units: s.units.map((x) => (x.id === u.id ? { ...x, ...patch } : x)) }), text, { sub: `→ 「${unitPath(org, u.id)}」の人全員の結果の段階に反映`, flash: u.id });
+  const sc = 'rounded-md border border-field bg-surface px-1.5 py-0.5 text-sm';
+  return (
+    <div className="mt-1.5 rounded-lg border border-line-soft px-2 py-1.5 text-sm">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <button onClick={() => setOpen((v) => !v)} className="inline-flex items-center gap-0.5 font-semibold text-muted" aria-expanded={open}>
+          <ChevronRight size={13} style={{ transform: open ? 'rotate(90deg)' : undefined, transition: 'transform 200ms' }} />組織の権限
+        </button>
+        {has ? MODULES.filter((m) => eff[m.key] !== 'none').map((m) => <span key={m.key} className="chip" style={{ background: `var(--s-${m.key})`, color: `var(--d-${m.key})` }}>{m.short} {levelLabel(eff[m.key])}</span>)
+          : <span className="text-faint">なし（中の人は本人のロールだけ）</span>}
+        {role?.manageAccess && <span className="chip" style={{ background: 'var(--tone-caution-bg)', color: 'var(--tone-caution-fg)' }}><KeyRound size={11} />権限管理</span>}
+      </div>
+      {open && (
+        <div className="mo-fade-in mt-1.5 flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-1">ロール
+            <select aria-label={`${u.name}のロール`} className={sc} value={u.role ?? ''}
+              onChange={(e) => set({ role: e.target.value || undefined }, e.target.value ? `「${u.name}」に「${org.roles.find((r) => r.id === e.target.value)?.label}」を付けました` : `「${u.name}」のロールを外しました`)}>
+              <option value="">なし</option>{org.roles.filter((r) => r.id !== 'none').map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+            </select>
+          </label>
+          {MODULES.map((m) => {
+            const floor: Level = role?.perms[m.key] ?? 'none';
+            const own = u.own?.[m.key] ?? 'none';
+            return (
+              <label key={m.key} className="flex items-center gap-1"><span style={{ color: `var(--c-${m.key})` }}>●</span>{m.short}
+                <select aria-label={`${u.name}の${m.short}の段階`} className={sc} value={atLeast(own, floor) ? own : floor}
+                  title={floor !== 'none' ? `ロールで${levelLabel(floor)}まで持っています` : '組織に付ける段階'}
+                  onChange={(e) => set({ own: { ...u.own, [m.key]: e.target.value as Level } }, `「${u.name}」の${m.short}を「${levelLabel(e.target.value as Level)}」にしました`)}>
+                  {LEVELS.map((l) => <option key={l.key} value={l.key} disabled={!atLeast(l.key, floor)}>{l.label}</option>)}
+                </select>
+              </label>
+            );
+          })}
+          {!u.parent && <span className="text-xs text-faint">部署に付けた分は、中のチームの人にも付きます</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Box({ u, depth, ctl, ops }: { u: Unit; depth: 0 | 1; ctl: Ctl; ops: Ops }) {
   const { org, commit, flash } = ctl;
-  const { list, inUnit, name, putPerson, dropUnit, removeUnit, addUnit } = ops;
+  const { list, inUnit, name, putPeople, dropUnit, removeUnit, addUnit, sel, toggle } = ops;
     const [over, setOver] = useState(false);
     const teams = depth === 0 ? org.units.filter((x) => x.parent === u.id) : [];
     const mine = inUnit(u.id);
@@ -75,7 +176,7 @@ function Box({ u, depth, ctl, ops }: { u: Unit; depth: 0 | 1; ctl: Ctl; ops: Ops
       <div
         onDragOver={(e) => { if (hasType(e, DND_PERSON) || hasType(e, DND_UNIT)) { e.preventDefault(); e.stopPropagation(); setOver(true); } }}
         onDragLeave={() => setOver(false)}
-        onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setOver(false); const p = e.dataTransfer.getData(DND_PERSON); const f = e.dataTransfer.getData(DND_UNIT); if (p) putPerson(p, u.id); else if (f) dropUnit(f, u); }}
+        onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setOver(false); const ids = droppedPeople(e); const f = e.dataTransfer.getData(DND_UNIT); if (ids.length) putPeople(ids, u.id); else if (f) dropUnit(f, u); }}
         className={`rounded-xl border bg-surface ${depth === 0 ? 'p-3' : 'p-2.5'} ${flash === u.id ? 'mo-flash' : ''}`}
         style={{ borderColor: over ? 'var(--a)' : 'var(--color-line)', boxShadow: over ? '0 0 0 3px var(--al)' : undefined, background: depth ? 'var(--color-soft)' : undefined }}>
         <div className="flex flex-wrap items-center gap-2">
@@ -83,6 +184,7 @@ function Box({ u, depth, ctl, ops }: { u: Unit; depth: 0 | 1; ctl: Ctl; ops: Ops
           <NameEdit label={u.name} value={u.name} className={depth ? 'text-body font-semibold' : 'text-md font-bold'}
             onSave={(v) => commit((s) => ({ ...s, units: s.units.map((x) => (x.id === u.id ? { ...x, name: v } : x)) }), `「${u.name}」を「${v}」にしました`, { flash: u.id })} />
           <span className="text-xs text-faint"><Users size={11} className="mr-0.5 inline" />{cand.length}人</span>
+          <MoveHere ops={ops} onMove={() => putPeople(Array.from(sel), u.id)} />
           <label className="ml-auto flex items-center gap-1 text-xs text-muted">長
             <select aria-label={`${u.name}の長`} value={u.headId ?? ''} className="max-w-[140px] rounded-md border border-field bg-surface px-1.5 py-0.5 text-sm"
               onChange={(e) => { const h = e.target.value || undefined; commit((s) => ({ ...s, units: s.units.map((x) => (x.id === u.id ? { ...x, headId: h } : x)) }), h ? `「${u.name}」の長を${name(h)}さんにしました` : `「${u.name}」の長を外しました`, { sub: '→ 組織図の「長」の札に反映', flash: u.id }); }}>
@@ -92,9 +194,11 @@ function Box({ u, depth, ctl, ops }: { u: Unit; depth: 0 | 1; ctl: Ctl; ops: Ops
           </label>
           <button aria-label={`${u.name}を消す`} title="消す（中の人は未所属に戻る）" onClick={() => removeUnit(u)} className="rounded p-1 text-faint hover:text-bad"><Trash2 size={13} /></button>
         </div>
-        <div className="mt-2 flex min-h-8 flex-wrap gap-1.5">
-          {mine.map((p) => <PersonChip key={p.userId} p={p} org={org} head={u.headId === p.userId} flash={flash === p.userId} />)}
-          {!mine.length && <span className="text-sm text-faint">ここに人をドラッグ</span>}
+        <UnitPerms u={u} ctl={ctl} />
+        <div className="mt-2 flex min-h-8 flex-wrap items-center gap-1.5">
+          {mine.map((p) => <PersonChip key={p.userId} p={p} org={org} head={u.headId === p.userId} flash={flash === p.userId} selected={sel.has(p.userId)} onToggle={() => toggle(p.userId)} dragIds={sel.has(p.userId) ? Array.from(sel) : undefined} />)}
+          {!mine.length && <span className="text-sm text-faint">人を選んで「ここへ移す」（ドラッグでも入れられます）</span>}
+          <Pick ids={mine.map((p) => p.userId)} ops={ops} />
         </div>
         {depth === 0 && (
           <div className="mt-3 flex flex-col gap-2 border-l-2 pl-3" style={{ borderColor: 'var(--al)' }}>
