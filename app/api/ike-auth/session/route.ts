@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { IKE_TOKEN_COOKIE } from '@/lib/skillsheet-source';
+import { refreshCookie, tokenCookie } from '@/lib/ike-session';
 import { isInnaiEmail, tokenEmail } from '@/lib/innai';
 import { orgGrants, parseOrg } from '@/lib/org';
 import { tokenSub } from '@/lib/members-store';
@@ -11,7 +11,7 @@ const ORIGIN = process.env.IKEIKE_ORIGIN || 'https://ikeike-app.vercel.app';
 //   （画面を開くたびに app/(app)/layout.tsx でも同じ判定をする＝組織表から外すと次に開いたときから入れない）
 
 export async function POST(req: Request) {
-  const b = (await req.json().catch(() => ({}))) as { access_token?: string; expires_in?: number };
+  const b = (await req.json().catch(() => ({}))) as { access_token?: string; refresh_token?: string; expires_in?: number };
   const t = String(b.access_token || '');
   if (!t) return NextResponse.json({ ok: false, error: 'ログインの情報がありません' }, { status: 400 });
   // 要員（会社のメールでない人）は、今の社内システムに聞く前に断る。誰であっても入れない（lib/innai.ts）
@@ -29,6 +29,8 @@ export async function POST(req: Request) {
     if (!org || !orgGrants(org, org.people[tokenSub(t)])) return NextResponse.json({ ok: false, error: '組織表でロールが割り振られていないので入れません。全体管理者に組織表への追加を頼んでください' }, { status: 403 });
   }
   const res = NextResponse.json({ ok: true });
-  res.cookies.set(IKE_TOKEN_COOKIE, t, { path: '/', httpOnly: true, secure: true, sameSite: 'lax', maxAge: Math.max(60, Math.min(3600, Number(b.expires_in) || 3600) - 60) });
+  res.cookies.set(tokenCookie(t, Number(b.expires_in) || 3600));
+  // 更新の鍵も覚える＝1時間で切れても proxy.ts が自動で延ばす（lib/ike-session.ts）
+  if (b.refresh_token) res.cookies.set(refreshCookie(String(b.refresh_token)));
   return res;
 }
