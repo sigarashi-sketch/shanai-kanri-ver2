@@ -38,6 +38,7 @@ const SEIKYU_POST = new Set([
   'genba-save', 'saved-save', 'saved-number', 'saved-del', 'saved-pdf-fix', 'fmt-make', 'paystmt-make',
   'stamped-upload', 'stamped-ext-upload', 'stamped-ext-del', 'gk-upload', 'gk-del', 'store-persons',
   'store-sheet-set',   // 請求書勤怠表で手で入れる請求金額（請求書ベースの粗利の売上になる・10-26）
+  'store-hours-set',   // 勤務表勤怠表で手で入れる勤務時間（請求書ベースの粗利の給与はこの時間で計算・10-26）
   'issuer-set', 'issuer-del', 'table-set', 'sheet-set', 'sheet-save',
   // seikyu-sheets.js
   'sheet-ai', 'mnm-sheet-mark',
