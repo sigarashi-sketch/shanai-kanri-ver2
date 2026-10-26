@@ -6,7 +6,10 @@ import { APPS, MASTER, MONTHLY, PAY_MONTH, S_REJECT, amountOf, yen, type SState,
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { CountUp, RemainRing, useMotivation } from '@/components/Motivation';
-import { LIVE_WRITE_BLOCKED, LiveBanner, NotInLegacy, useIke } from '@/components/Live';
+import { LiveBanner, useIke } from '@/components/Live';
+import { useLiveRoute } from '@/lib/live/use-live-route';
+import { JINJI_URL, jinjiRead, type JShikakuStage } from '@/lib/live/jinji';
+import { useLiveWrite, WriteError } from '@/components/jinji/useLiveWrite';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { shikakuFromIke, type IkeShikakuList, type LiveMonthly, type LiveShikakuApp } from '@/lib/live/shikaku';
 import { PersonName } from '@/components/Person';
@@ -15,6 +18,8 @@ import { ShikakuLiveActions } from '@/components/jinji/ShikakuLiveActions';
 // 資格手当（人事管理）＝本人の申請を 合格証の確認 → 承認 → 給与に反映 の順に片づける。
 //   ・手当の額は資格から決まる（本人は額を入れない）。「現場経験で加算」は承認のときに選ぶだけ
 //   ・確認・反映は「直す」、承認は「承認」の権限。差し戻しの理由は選ぶだけ
+//   ★本物（10-26）：段は今のシステムの v2_shikaku_stage。確かめた＝shikaku-check／承認・差し戻し＝申請の段階（承認・却下）／反映＝shikaku-reflect（反映した月を残すだけ。freee の給与への入力は今までどおり）
+//     現場経験の加算は今の手当一覧に額が無いので、承認するときに「確定手当額」を手直しする（今の管理画面と同じ）
 //   ・「毎月の手当」タブで、いま手当が付いている人と 1か月の合計を見る（?tab=monthly）
 type Tab = 'apps' | 'monthly';
 const STAGES: SState[] = ['確認待ち', '承認待ち', '反映待ち'];
@@ -33,12 +38,18 @@ export default function ShikakuPage() {
   const ike = useIke<IkeShikakuList>('shikaku-apply?action=list');
   const live = ike.live;
   const mk = useMikeiken();   // 本物は未経験の人だけ（今のプロパーリストに入っている人）
-  const L = useMemo(() => shikakuFromIke(ike.data ? { ...ike.data, rows: mk.keep(ike.data.rows || [], 'name') } : null), [ike.data, mk]);
+  const stg = useLiveRoute<{ ok: boolean; rows: JShikakuStage[] }>(live ? jinjiRead('shikaku') : null);
+  const reloadAll = () => { ike.reload(); stg.reload(); };
+  const { send, error: wErr, setError: setWErr } = useLiveWrite(live, reloadAll);
+  const L = useMemo(() => shikakuFromIke(ike.data ? { ...ike.data, rows: mk.keep(ike.data.rows || [], 'name') } : null, stg.data?.rows ?? null), [ike.data, mk, stg.data]);
   const apps: ShikakuApp[] = live ? L.apps : sApps;
   const monthly = live ? L.monthly : sMonthly;
   const amt = (a: ShikakuApp) => (a as LiveShikakuApp).amount ?? amountOf(a);
   const urlOf = (a: ShikakuApp, f: string) => (f === '合格証' ? (a as LiveShikakuApp).certUrl : (a as LiveShikakuApp).receiptUrl);
-  const noW = live ? LIVE_WRITE_BLOCKED : undefined;
+  const noW: string | undefined = undefined;
+  // 給与に反映する月＝来月（本物）
+  const payYm = (() => { const d = new Date(Date.now() + 9 * 3600e3); const m = d.getUTCMonth() + 2; const y = d.getUTCFullYear() + (m > 12 ? 1 : 0); return `${y}-${String(((m - 1) % 12) + 1).padStart(2, '0')}`; })();
+  const payLabel = live ? `${Number(payYm.slice(5))}月` : PAY_MONTH;
   const [stage, setStage] = useState<SState | 'すべて'>('すべて');
   const [reason, setReason] = useState<Record<string, string>>({});
   const [flash, setFlash] = useState<string | null>(null);
@@ -57,10 +68,15 @@ export default function ShikakuPage() {
     setFlash(a.id); setTimeout(() => setFlash(null), 1300); hit();
     toast({ text, sub, undo: () => { setApps((xs) => xs.map((x) => (x.id === a.id ? { ...x, ...prev } : x))); undoExtra?.(); } });
   };
-  const confirm = (a: ShikakuApp) => update(a, { state: '承認待ち' }, `${a.name} の合格証を確かめました`, '→ 承認する人のやることに載りました');
-  const reject = (a: ShikakuApp) => { const r = reason[a.id] ?? defReason(a); update(a, { state: '差し戻し', reason: r }, `${a.name} の申請を差し戻しました`, `→ 本人に「${r}」で戻しました（インフォメーション）`); };
-  const approve = (a: ShikakuApp) => update(a, { state: '反映待ち' }, `${a.name} の${a.cert}を承認しました（月 ${yen(amountOf(a))}）`, `→ ${PAY_MONTH}の給与に足す一覧に載りました`);
+  const liveRow = (a: ShikakuApp) => (a as LiveShikakuApp).ike;
+  const SH = '/api/live/shikaku';
+  const confirm = (a: ShikakuApp) => live ? void send({ url: JINJI_URL, body: { action: 'shikaku-check', id: a.id, on: true }, text: `${a.name} の合格証を確かめました`, sub: '→ 承認する人のやることに載りました', undo: () => ({ url: JINJI_URL, body: { action: 'shikaku-check', id: a.id, on: false } }) }) : update(a, { state: '承認待ち' }, `${a.name} の合格証を確かめました`, '→ 承認する人のやることに載りました');
+  const reject = (a: ShikakuApp) => { const r = reason[a.id] ?? defReason(a);
+    const row = liveRow(a);
+    if (live && row) { send({ url: SH, body: { action: 'updateStatus', id: a.id, status: '却下', memo: [row.memo, `差し戻し：${r}`].filter(Boolean).join('\n') }, text: `${a.name} の申請を差し戻しました`, sub: `→ 理由「${r}」をメモに残しました（本人への連絡は LINE から）`, undo: () => ({ url: SH, body: { action: 'updateStatus', id: a.id, status: row.status, memo: row.memo ?? '' } }) }); return; } update(a, { state: '差し戻し', reason: r }, `${a.name} の申請を差し戻しました`, `→ 本人に「${r}」で戻しました（インフォメーション）`); };
+  const approve = (a: ShikakuApp) => { const row = liveRow(a); return live && row ? void send({ url: SH, body: { action: 'updateStatus', id: a.id, status: '承認' }, text: `${a.name} の${a.cert}を承認しました（月 ${yen(amt(a))}）`, sub: `→ ${payLabel}の給与に足す一覧に載りました`, undo: () => ({ url: SH, body: { action: 'updateStatus', id: a.id, status: row.status } }) }) : update(a, { state: '反映待ち' }, `${a.name} の${a.cert}を承認しました（月 ${yen(amountOf(a))}）`, `→ ${PAY_MONTH}の給与に足す一覧に載りました`); };
   const reflect = (a: ShikakuApp) => {
+    if (live) { send({ url: JINJI_URL, body: { action: 'shikaku-reflect', id: a.id, month: payYm }, text: `${a.name} の手当を${payLabel}の給与に反映したと記録しました`, sub: `→ 資格手当 ${yen(amt(a))}。freee の給与への入力は今までどおりです`, undo: () => ({ url: JINJI_URL, body: { action: 'shikaku-reflect', id: a.id, month: '' } }) }); return; }
     const label = a.plus && MASTER[a.cert]?.plus ? `${a.cert}（${MASTER[a.cert].plus!.label}）` : a.cert;
     update(a, { state: '反映ずみ' }, `${a.name} の手当を給与に反映しました`, `→ freee の${PAY_MONTH}の給与に「資格手当 ${yen(amountOf(a))}」を足しました・毎月の手当に載りました`,
       () => setMonthly((m) => [...m, { personId: a.personId, name: a.name, cert: label, amount: amountOf(a), since: '2026/11' }]),
@@ -70,9 +86,10 @@ export default function ShikakuPage() {
   return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
       <PageTitle title="資格手当" sub={`本人の申請（LINE の資格手当申請から）を、合格証の確認 → 承認 → 給与に反映 の順に片づけます${live ? '' : '・見本データ'}`} />
-      <LiveBanner state={ike.state} error={ike.error} onReload={ike.reload} note="今の社内システムの段階は「未確認・承認・却下」だけです。未確認を確認待ちに、承認ずみを毎月の手当に出しています。段階・確定手当額はプルダウン／欄から選ぶとすぐ保存されます" />
+      <LiveBanner state={ike.state} error={ike.error} onReload={ike.reload} note="申請は今の社内システムから。確かめた・承認・差し戻し・給与に反映はすぐ保存されます（給与への反映は「反映した」と残すだけで、freee への入力は今までどおり）。現場経験の加算は確定手当額の欄で直します" />
       <MikeikenNote mk={mk} live={ike.live} />
-      {live && <NotInLegacy what="「承認待ち」「給与に反映」の段と現場経験の加算" />}
+      {live && stg.state === 'error' && <LiveBanner state="error" error={`段（承認待ち・反映待ち）を読めませんでした（${stg.error}）`} onReload={stg.reload} />}
+      <WriteError error={wErr} onClose={() => setWErr('')} />
       <div role="tablist" className="mo-fade-up flex gap-1 border-b border-line" style={{ ['--i' as string]: 1 }}>
         {([['apps', `申請 ${open.length}`], ['monthly', '毎月の手当']] as const).map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => { setTab(k); window.history.replaceState(null, '', k === 'monthly' ? '?tab=monthly' : window.location.pathname); }} className="tab">{l}</button>
@@ -123,26 +140,29 @@ export default function ShikakuPage() {
                           </td>
                           <td className="num whitespace-nowrap px-2 py-2.5 text-right font-semibold">{yen(amt(a))}{(a as LiveShikakuApp).masterUnknown && <div className="text-xs font-normal text-warn">手当一覧に無い資格（要確認）</div>}
                             {m?.plus && a.state === '承認待ち' && (
-                              <select aria-label={`${a.name} の現場経験の加算`} value={a.plus ? 'on' : 'off'} disabled={live || !canApprove} onChange={(e) => setApps((xs) => xs.map((x) => (x.id === a.id ? { ...x, plus: e.target.value === 'on' } : x)))} className="mt-1 block min-h-7 w-full rounded-md border border-field bg-surface px-1 text-xs font-normal disabled:opacity-50">
+                              !live && <select aria-label={`${a.name} の現場経験の加算`} value={a.plus ? 'on' : 'off'} disabled={live || !canApprove} onChange={(e) => setApps((xs) => xs.map((x) => (x.id === a.id ? { ...x, plus: e.target.value === 'on' } : x)))} className="mt-1 block min-h-7 w-full rounded-md border border-field bg-surface px-1 text-xs font-normal disabled:opacity-50">
                                 <option value="off">加算なし</option>
                                 <option value="on">＋{yen(m.plus.amount)}（{m.plus.label}）</option>
                               </select>
                             )}
+                            {live && a.state === '承認待ち' && (a as LiveShikakuApp).masterNote && <div className="mt-1 text-xs font-normal text-warn">{(a as LiveShikakuApp).masterNote}（加算するなら確定手当額を直す）</div>}
                           </td>
                           <td className="px-2 py-2.5"><span className="chip" style={{ background: `var(--tone-${t}-bg)`, color: `var(--tone-${t}-fg)` }}>{a.state}</span></td>
                           <td className="px-4 py-2.5">
-                            {live && (a as LiveShikakuApp).ike && <ShikakuLiveActions row={(a as LiveShikakuApp).ike!} onDone={ike.reload} />}
-                            {!live && a.state === '確認待ち' && (
+                            {a.state === '確認待ち' && (
                               <div className="flex flex-wrap items-center gap-1.5">
-                                <button onClick={() => confirm(a)} disabled={live || !canEdit || noCert} title={noW ?? (!canEdit ? needText('edit') : noCert ? '合格証が無いので確かめられません' : undefined)} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2.5 text-sm font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><FileCheck2 size={14} />合格証を確かめた</button>
-                                <select aria-label="差し戻しの理由" value={reason[a.id] ?? defReason(a)} disabled={live || !canEdit} title={noW} onChange={(e) => setReason((r) => ({ ...r, [a.id]: e.target.value }))} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-sm disabled:opacity-50">
+                                <button onClick={() => confirm(a)} disabled={!canEdit || noCert} title={noW ?? (!canEdit ? needText('edit') : noCert ? '合格証が無いので確かめられません' : undefined)} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2.5 text-sm font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><FileCheck2 size={14} />合格証を確かめた</button>
+                                <select aria-label="差し戻しの理由" value={reason[a.id] ?? defReason(a)} disabled={!canEdit} title={noW} onChange={(e) => setReason((r) => ({ ...r, [a.id]: e.target.value }))} className="min-h-8 rounded-lg border border-field bg-surface px-1.5 text-sm disabled:opacity-50">
                                   {S_REJECT.map((r) => <option key={r} value={r}>{r}</option>)}
                                 </select>
-                                <button onClick={() => reject(a)} disabled={live || !canEdit} title={noW ?? (!canEdit ? needText('edit') : undefined)} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-sm text-muted disabled:opacity-40"><CornerUpLeft size={14} />差し戻す</button>
+                                <button onClick={() => reject(a)} disabled={!canEdit} title={noW ?? (!canEdit ? needText('edit') : undefined)} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-sm text-muted disabled:opacity-40"><CornerUpLeft size={14} />差し戻す</button>
                               </div>
                             )}
-                            {!live && a.state === '承認待ち' && <button onClick={() => approve(a)} disabled={live || !canApprove} title={noW ?? (!canApprove ? needText('approve') : undefined)} className="btn-primary btn-sm"><Check size={14} />承認する</button>}
-                            {!live && a.state === '反映待ち' && <button onClick={() => reflect(a)} disabled={live || !canEdit} title={noW ?? (!canEdit ? needText('edit') : undefined)} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2.5 text-sm font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>{PAY_MONTH}の給与に反映</button>}
+                            {a.state === '承認待ち' && <button onClick={() => approve(a)} disabled={!canApprove} title={noW ?? (!canApprove ? needText('approve') : undefined)} className="btn-primary btn-sm"><Check size={14} />承認する</button>}
+                            {a.state === '反映待ち' && <button onClick={() => reflect(a)} disabled={!canEdit} title={noW ?? (!canEdit ? needText('edit') : undefined)} className="inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border px-2.5 text-sm font-semibold disabled:opacity-40" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>{payLabel}の給与に反映</button>}
+                            {live && (a as LiveShikakuApp).ike && (
+                              <details className="mt-1.5"><summary className="cursor-pointer text-xs text-faint">段階・確定手当額・消す</summary><div className="mt-1"><ShikakuLiveActions row={(a as LiveShikakuApp).ike!} onDone={reloadAll} /></div></details>
+                            )}
                           </td>
                         </tr>
                       );
@@ -168,7 +188,7 @@ export default function ShikakuPage() {
                     <td className="px-2 py-2.5">{m.cert}</td>
                     <td className="num px-2 py-2.5 text-muted">{m.since}〜</td>
                     <td className="num px-4 py-2.5 text-right font-semibold">{yen(m.amount)}</td>
-                    {live && <td className="px-4 py-2.5">{(m as LiveMonthly).ike && <ShikakuLiveActions row={(m as LiveMonthly).ike!} onDone={ike.reload} />}</td>}
+                    {live && <td className="px-4 py-2.5">{(m as LiveMonthly).ike && <ShikakuLiveActions row={(m as LiveMonthly).ike!} onDone={reloadAll} />}</td>}
                   </tr>
                 ))}
               </tbody>
