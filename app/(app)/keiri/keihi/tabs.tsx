@@ -12,7 +12,8 @@ import { postLive } from '@/lib/live/post';
 import { CLAIMS } from '@/lib/keihi-sample';
 
 // 交通費・経費の「月次」「稟議」タブ（10-25 今の keihi-admin.html から移し替え）。
-//   月次：GET /api/keihi?action=monthly&ym= … その月の承認・支払済を人ごとに合計（給与の振込みに載せる額）。読むだけ
+//   月次：GET /api/keihi?action=monthly&ym= … その月の承認・支払済を人ごとに合計（給与の振込みに載せる額）
+//         支払済にする（10-26）：POST /api/live/keihi {action:'markPaid'} → 今の markPaid（全員分・定期の打刻の確認が済むまでは今のシステムが止める）
 //   稟議：GET /api/keihi?action=ringiList&status=申請中 … 承認・見送りは POST /api/live/keihi（本人の LINE に届く）
 //   本物は未経験の人だけ（今のプロパーリストに入っている人）
 const yen = (n: number) => `¥${(Number(n) || 0).toLocaleString('ja-JP')}`;
@@ -23,6 +24,9 @@ type MonthlyPerson = { name: string; claims: number; commute_yen: number; other_
 type Monthly = { ok?: boolean; ym: string; people: MonthlyPerson[]; pending: number; error?: string };
 
 export function KeihiMonthlyTab({ live, mk }: { live: boolean; mk: Mikeiken }) {
+  const canApprove = usePerms().can('keiri', 'approve');
+  const { hit, toast } = useMotivation();
+  const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
   const [ym, setYm] = useState('');
   useEffect(() => setYm(jstYm(1)), []);
   const ike = useIke<Monthly>(live && ym ? `keihi?action=monthly&ym=${ym}` : null);
@@ -65,7 +69,19 @@ export function KeihiMonthlyTab({ live, mk }: { live: boolean; mk: Mikeiken }) {
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-faint">支払済にする操作は、定期の打刻の確認が済んでからなので、今の社内システムの経費の管理画面で行ってください。</p>
+      {live && ok && people.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-sm">
+          <span className="text-muted">給与に載せたら、この月の承認済みを「支払済」にします（全員分。定期つきは打刻の確認が済んでから・済んでいなければ止まります）。</span>
+          <button disabled={!canApprove} title={!canApprove ? needText('approve') : undefined} className="btn-secondary btn-sm ml-auto"
+            onClick={() => setConfirm({
+              title: `${ymLabel(ym)}分の承認済みを支払済にする`, okLabel: '支払済にする', danger: true,
+              lines: ['この月の「承認」の申請を全員分（未経験以外の人も含む）支払済にします。元に戻せません', '支払月は翌月（月末締め・翌月末日払い）', '定期つきで打刻の確認がまだの申請があれば、今のシステムが止めます（毎朝9時すぎに自動で確認）'],
+              run: async () => { const r = await postLive<{ count?: number }>('/api/live/keihi', { action: 'markPaid', ym }); hit(); toast({ text: `${ymLabel(ym)}分 ${r.count ?? 0}件を支払済にしました` }); ike.reload(); },
+            })}>この月の承認済みを支払済にする</button>
+        </div>
+      )}
+      {!live && <p className="text-xs text-faint">支払済にする操作は、ログインすると今の社内システムに書きます（定期の打刻の確認が済んでから）。</p>}
+      {confirm && <ConfirmWrite spec={confirm} onClose={() => setConfirm(null)} />}
     </div>
   );
 }

@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react';
 import { Plus, Search, X } from 'lucide-react';
-import { NotInLegacy } from '../Live';
 import { RemainRing, useMotivation } from '../Motivation';
 import { needText } from '../Perms';
 import { AUD_LABEL, isoMdhm, viaLabel, type Audience, type DryRes, type PollDetailRes, type PollListRes, type PollRow, type Recipient } from '@/lib/live/renraku';
@@ -26,7 +25,6 @@ export function AnnaiTab({ live, canSend, info, wide }: { live: boolean; canSend
         <Pills items={[['send', '送る'], ['progress', '進み具合']] as const} value={view} onChange={setView} small />
         <span className="text-xs text-faint">案件ではなく、案内・お知らせを送るところ</span>
       </div>
-      {info && <div className="px-4 pt-3"><NotInLegacy what="この公式アカウントの案内配信" /></div>}
       {view === 'send' ? <SendView on={on} canSend={canSend} wide={wide} onSent={() => setView('progress')} /> : <ProgressView on={on} wide={wide} />}
     </div>
   );

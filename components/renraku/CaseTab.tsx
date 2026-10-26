@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { NotInLegacy, useIke } from '../Live';
+import { useIke } from '../Live';
 import type { ProgressData } from '@/lib/live/eigyo-common';
 import { caseHaishinRows, type CaseHaishin, type IkouListRes } from '@/lib/live/renraku';
 import { SAMPLE_CASES } from '@/lib/live/renraku-sample';
@@ -25,10 +25,15 @@ export function CaseTab({ live, info, onManual }: { live: boolean; info: boolean
   const err = on ? sent.error || pend.error || pd.error : '';
   const [open, setOpen] = useState<string | null>(null);
   const tot = rows.reduce((a, r) => ({ ok: a.ok + r.ok, ng: a.ng + r.ng, un: a.un + r.undecided }), { ok: 0, ng: 0, un: 0 });
+  // インフォメーション（それゆけ未経験の公式LINE）からは案件を送らない。案件は あおい から
+  if (info) return (
+    <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-3">
+      <Note tone="info">インフォメーションからは案件を送っていません。案件の配信は「あおい」（営業・労務・経理の画面の連絡）から送ります。</Note>
+    </div>
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto px-4 py-3">
-      {info && <NotInLegacy what="この公式アカウントの案件配信" />}
       <div className="flex items-center justify-between gap-2 text-sm text-muted">
         <span>営業リストから送った案件だけ（アナウンス・案内は出しません）</span>
         <button onClick={onManual} className="shrink-0 font-semibold" style={{ color: 'var(--ad)' }}>手動配信で送る →</button>

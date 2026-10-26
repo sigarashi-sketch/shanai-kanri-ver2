@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { NotInLegacy, useIke } from '../Live';
+import { useIke } from '../Live';
 import { useMotivation } from '../Motivation';
 import { needText } from '../Perms';
 import {
@@ -225,7 +225,6 @@ export function ManualTab({ live, canSend, info, wide }: { live: boolean; canSen
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className={`min-h-0 flex-1 overflow-y-auto px-4 py-3 ${wide ? 'grid grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] items-start gap-3' : 'flex flex-col gap-3'}`}>
-        {info && <div className={wide ? 'col-span-2' : ''}><NotInLegacy what="この公式アカウントの手動配信" /></div>}
         <div className="flex flex-col gap-3">{left}</div>
         <div className="flex flex-col gap-3">{right}
           {result && (
