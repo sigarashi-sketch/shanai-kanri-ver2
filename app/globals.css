@@ -305,3 +305,20 @@ tr.row:hover, a.row:hover { background: var(--row-hover) }
 .hj-story-bar { transform-origin: left; animation: hj-story-bar linear both }
 .hj-heart { animation: hj-heart 800ms ease-out both }
 @media (prefers-reduced-motion: reduce) { .hj-sc * { animation: none !important } }
+
+/* ===== 右クリックメニュー（public/ctx-menu.js＝今のいけどんの写し）を着せ替えに合わせる（10-26） =====
+   ctx-menu.js は自分の見た目を <style> で後から入れるので、html を頭に付けて上書きする。字体・面・線・文字を ver2 の役割の名前で塗る */
+html .ike-ctx, html .ike-ctx-shot {
+  --border: var(--color-line); --border-soft: var(--color-line-soft); --ink: var(--color-ink);
+  --muted: var(--color-muted); --faint: var(--color-faint); --primary: var(--btn-bg); --primary-soft: var(--color-sunken); --primary-ink: var(--color-ink);
+  font-family: var(--font-sans); color: var(--color-ink); border-color: var(--color-line);
+}
+html .ike-ctx { background: color-mix(in srgb, var(--color-surface) 94%, transparent); }
+html .ike-ctx-shot { background: var(--color-surface); }
+html .ike-ctx-shot-f button, html .ike-ctx-shot-f a { font-family: var(--font-sans); }
+html .ike-ctx-shot-f a { background: var(--color-surface); }
+html .ike-ctx-shot-f button { color: var(--btn-fg); }
+html .ike-ctx-shot-img { background: var(--color-soft); }
+html .ike-ctx-toast { font-family: var(--font-sans); }
+/* スプリット（/split）の枠の中：左のメニューと上のバーを出さず、中身に全部使う（components/CtxMenu.tsx が html に in-split を付ける） */
+html.in-split nav[aria-label="メニュー"], html.in-split header.topbar { display: none !important; }

@@ -12,6 +12,7 @@ import { MotivationProvider, TodayPill } from './Motivation';
 import { NoAccess, pageAccess, usePerms } from './Perms';
 import { RenrakuButton } from './Renraku';
 import { PersonHost } from './Person';
+import { CtxMenu } from './CtxMenu';
 import { ThemeSwitch } from './ThemeSwitch';
 import { YoyakuProvider } from './YoyakuStore';
 import { AlertProvider } from './AlertStore';
@@ -142,6 +143,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
           {blocked ? <NoAccess label={findNav(pathname).item?.label ?? group!.label} legacy={legacyBlocked} /> : children}
         </div>
         <div id="drawer-root" />
+        {/* 全画面共通の右クリックメニュー（今のいけどんの ctx-menu.js をそのまま・10-26） */}
+        <CtxMenu />
       </div>
       </AlertProvider>
       </YoyakuProvider>

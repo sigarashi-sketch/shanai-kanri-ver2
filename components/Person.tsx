@@ -23,7 +23,8 @@ export function PersonName({ name, id, className, children }: { name: string; id
   if (!name || name === '—') return <>{children ?? name}</>;
   return (
     <button type="button" onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent('person:open', { detail: { name, id } })); }}
-      title="押すとこの人の情報" className={className ?? 'font-semibold underline-offset-2 hover:underline'} style={className ? undefined : { color: 'var(--ad)' }}>
+      data-ctx-name={name} data-ctx-key={id || undefined}
+      title="押すとこの人の情報（右クリックでほかの画面で開く）" className={className ?? 'font-semibold underline-offset-2 hover:underline'} style={className ? undefined : { color: 'var(--ad)' }}>
       {children ?? name}
     </button>
   );
