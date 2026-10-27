@@ -2,16 +2,17 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronRight, Columns3, FileSpreadsheet, GripVertical, RefreshCw, Search, X } from 'lucide-react';
+import { ChevronRight, Columns3, GripVertical, RefreshCw, Search, X } from 'lucide-react';
 import { Pill } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
 import { ProperDetail } from '@/components/ProperDetail';
+import { SukishiFiles, sukishiFilesText } from '@/components/SukishiFiles';
 import { Dialog } from '@/components/Dialog';
 import { useIke } from '@/components/Live';
 import { ScoreBadge, ScoreNote, SCORE_HINT, SCORE_LABEL, useProperScores } from '@/components/ProperScore';
 import { Z_MODAL } from '@/lib/layers';
-import { normName, properStatus, type EngineerRow, type EngineerRows } from '@/lib/live/eigyo-common';
+import { fileUrlsOf, normName, properStatus, type EngineerRow, type EngineerRows } from '@/lib/live/eigyo-common';
 import {
   COMMUTE_BLOCKS, COMMUTE_PREF, LONG_TEXT, SCORE_FILTER_OPTS, SELECT_ALIAS, SELECT_BLANK, SELECT_OPTIONS, commuteKey, shownValue, scoreFilterLabel, scoreValue,
   type CommuteDetail, type CommuteListRow, type ScoreKind,
@@ -25,7 +26,7 @@ import {
 //   ・書く：チェック・選択肢・文字は変えたらすぐ保存（/api/live/proper-save → 今の saveEngineerRow）。トーストの「取り消す」で前の値に戻す
 //     参画決定ON の連動（稼働中ON・営業止め/再アサインOFF・入社案内の予約）は今のシステムがやる → 保存のあと読み直す
 //   ・「稼働月を開いたときに今月へ直す」書き込みは入れない（今の画面だけの動き・10-25 指示）
-//   ・dropout の印（/api/live/proper-dropout → 今の setDropout）・PDF を作り直す（/api/live/proper-pdf → 今の /api/skillsheet pdf）もここから
+//   ・dropout の印（/api/live/proper-dropout → 今の setDropout）・PDF出力／Excel出力（components/SukishiFiles → /api/live/proper-pdf → 今の /api/skillsheet pdf|xlsx）もここから
 
 type Val = string | boolean;
 type V = Record<string, Val>;
@@ -49,7 +50,7 @@ const scopeTest: Record<Scope, (p: PRow) => boolean> = {
 
 const PREF_KEY = 'v2_proper_cols_v2';
 // はじめに出す列＝大事なものだけ（横スクロールなしで見える数）。ほかは列の設定で足すか、行を押して小窓で見る（10-25 shoya）
-const MAIN_COLS = new Set(['status', 'score:join', 'tantou', 'eki', 'lastReply', 'sukishi', 'shoudaku_nyusha_bi']);
+const MAIN_COLS = new Set(['status', 'score:join', 'tantou', 'eki', 'lastReply', 'sukishi', 'pdf', 'shoudaku_nyusha_bi']);
 type Prefs = { order: string[]; hidden: string[]; shown: string[] };
 function loadPrefs(): Prefs | null { try { const s = localStorage.getItem(PREF_KEY); return s ? (JSON.parse(s) as Prefs) : null; } catch { return null; } }
 function savePrefs(p: Prefs) { try { localStorage.setItem(PREF_KEY, JSON.stringify(p)); } catch { /* 残せなくても画面は動く */ } }
@@ -204,19 +205,6 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [live, hit, toast, reload, save]);
 
-  // ---- スキシの PDF を作り直す（取り消しはない＝作り直すだけ。URL は変わらない） ----
-  const [pdfBusy, setPdfBusy] = useState<Set<string>>(new Set());
-  const remakePdf = async (p: PRow) => {
-    if (!live) return;
-    setPdfBusy((b) => new Set([...b, p.r.row]));
-    try {
-      const r = await fetch('/api/live/proper-pdf', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ row: p.r.row }) });
-      const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!r.ok || !j.ok) toast({ text: `${p.r.name}：PDF を作れませんでした`, sub: j.error || `（${r.status}）` });
-      else { hit(); toast({ text: `${p.r.name}：PDF を作り直しました`, sub: '→ 本名版・イニシャル版（URL はそのまま）' }); await reload(); }
-    } catch (e) { toast({ text: `${p.r.name}：PDF を作れませんでした`, sub: (e as Error).message }); }
-    finally { setPdfBusy((b) => { const n = new Set(b); n.delete(p.r.row); return n; }); }
-  };
   const ro = !canEdit;
   const roTitle = ro ? needText('edit') : undefined;
   const isBusy = (p: PRow, f: string) => busy.has(`${p.r.row}:${f}`);
@@ -271,8 +259,9 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
         text: (p) => (sukishiDone?.has(p.r.row) ? '作成済み' : sukishiState(p.v)),
         cell: (p) => { const st = sukishiDone?.has(p.r.row) ? '作成済み' : sukishiState(p.v); return (
           <button type="button" onClick={() => onSukishi(p.r.row)} title={st === '作成済み' ? '押すとスキシを見る' : '押すとスキシを作る'} className="chip whitespace-nowrap" style={SK_TONE[st]}>{st}</button>); } },
-      { key: 'pdf', label: 'PDF', group: 'スキシ', def: false, filter: 'none', text: (p) => (p.r.pdfUrl || p.r.pdfAnonUrl ? 'あり' : ''),
-        cell: (p) => <span className="flex flex-col gap-1"><PdfLinks r={p.r} />{isUrl(s(p.v.sukishi)) && <button type="button" disabled={ro || pdfBusy.has(p.r.row)} title={roTitle ?? 'いまのスキシの中身で本名版・イニシャル版の PDF を作り直す（URL は変わりません）'} onClick={() => remakePdf(p)} className="w-fit rounded-md border border-field px-1.5 text-xs font-semibold disabled:opacity-50">{pdfBusy.has(p.r.row) ? '作成中…' : 'PDF を作り直す'}</button>}</span> },
+      // 今の proper.html の PDF 列と同じ（本名版／イニシャル版 × PDF／Excel の閲覧・DL と、スキシがあれば PDF出力・Excel出力）。スキシの隣にはじめから出す
+      { key: 'pdf', label: 'PDF', group: 'スキシ', def: true, filter: 'text', hint: '本名版／イニシャル版の PDF・Excel を閲覧・DL／その場で出力', text: (p) => sukishiFilesText(p.r),
+        cell: (p) => <SukishiFiles files={fileUrlsOf(p.r)} row={p.r.row} name={p.r.name} canMake={isUrl(s(p.v.sukishi))} live={live} onMade={reload} /> },
       txt('summary', 'サマリ', 'スキシ', false, 200),
       txt('zenshoku', '前職/経験/資格', 'スキシ', false, 200),
       txt('kibou_shokushu', '希望職種', '条件', true, 120),
@@ -305,7 +294,7 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
     ];
     return all.map((c) => ({ ...c, def: MAIN_COLS.has(c.key) }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scores, aux, ro, roTitle, busy, save, sukishiDone, onSukishi, pdfBusy]);
+  }, [scores, aux, ro, roTitle, busy, save, sukishiDone, onSukishi, live, reload]);
 
   // ---- 出す列・並び（その人の端末に残す） ----
   const [prefs, setPrefs] = useState<Prefs | null>(null);
@@ -529,12 +518,6 @@ function TextCell({ value, multiline, disabled, title, busy, label, onCommit }: 
       {value ? <span className={multiline ? 'line-clamp-2 whitespace-pre-line text-sm' : 'block max-w-[220px] truncate'}>{value}</span> : <span className="text-faint">—</span>}
     </button>
   );
-}
-
-function PdfLinks({ r }: { r: EngineerRow }) {
-  const one = (label: string, url?: string) => (url && isUrl(url) ? <a key={label} href={url} target="_blank" rel="noreferrer" className="underline" style={{ color: 'var(--ad)' }}>{label}</a> : null);
-  const links = [one('PDF 本名', r.pdfUrl), one('PDF ｲﾆｼｬﾙ', r.pdfAnonUrl), one('XLS 本名', r.xlsxUrl), one('XLS ｲﾆｼｬﾙ', r.xlsxAnonUrl)].filter(Boolean);
-  return links.length ? <span className="flex flex-col gap-0.5 whitespace-nowrap text-sm">{links}</span> : <span className="text-faint">—</span>;
 }
 
 // ---- 列を選ぶ（出す/出さない・ドラッグで並べ替え・この端末に残す） ----
