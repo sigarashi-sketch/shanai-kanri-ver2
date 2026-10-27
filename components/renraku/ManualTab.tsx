@@ -62,6 +62,7 @@ export function ManualTab({ live, canSend, info, wide }: { live: boolean; canSen
   const toggleSkill = (w: string) => setSkill((s0) => { const ws = s0.split(/[\s　]+/).filter(Boolean); return (ws.includes(w) ? ws.filter((x) => x !== w) : [...ws, w]).join(' '); });
   const [sel, setSel] = useState<string[]>([]);
   const [why, setWhy] = useState('');
+  const [openSum, setOpenSum] = useState<string[]>([]);   // サマリを全文で開いている人
   const people = useMemo(() => new Map((L?.people ?? []).map((p) => [p.id, p])), [L]);
   // 案件文が変わって条件に合わなくなった人は、黙って残さず外して知らせる（今の画面と同じ）
   useEffect(() => {
@@ -176,20 +177,44 @@ export function ManualTab({ live, canSend, info, wide }: { live: boolean; canSen
         const on2 = sel.includes(p.id);
         const kj = judgeKadou(p, kadou, L);
         const cj = commuteJudge(p, L?.commute, ST);
+        const area = L?.commute?.[p.key];
+        const fare = ST?.fare?.byId?.[p.id];
+        const sk = p.skills ?? {};
+        // 今の営業共有リスト（partner-list.js personCard）と同じ項目を出す（10-27 shoya「前のいけどんみたいな情報量」）
+        const cells: [string, string | undefined][] = [
+          ['通勤エリア', area ? (area.short || (area.any ? '1都3県OK' : '')) : '未回答'], ['稼働', p.kadou], ['稼働可能日', p.kanouBi], ['通勤', p.tsuukin],
+          ['シフト', p.shift], ['夜勤', p.yakin], ['出張', p.shucchou], ['並行数', p.heikou], ['希望職種', p.kibou],
+          ...(sk.shikaku ? [['所有資格', sk.shikaku] as [string, string]] : []), ...(sk.tools ? [['経験ツール', sk.tools] as [string, string]] : []), ...(sk.tokui ? [['得意分野', sk.tokui] as [string, string]] : []),
+        ];
+        const open = openSum.includes(p.id);
         return (
-          <label key={p.id} className={`flex items-start gap-2.5 rounded-lg px-2 py-1.5 text-body ${kind === 'blocked' ? 'opacity-60' : 'hover:bg-soft'} ${on2 ? 'mo-flash' : ''}`}>
+          <label key={p.id} className={`mb-1.5 flex items-start gap-2.5 rounded-lg border px-2.5 py-2 text-body ${kind === 'blocked' ? 'opacity-60' : 'hover:bg-soft'} ${on2 ? 'mo-flash' : ''}`}
+            style={{ borderColor: on2 ? 'var(--a)' : 'var(--color-line-soft)', ...(on2 ? { background: 'var(--al)' } : {}) }}>
             <input type="checkbox" className="mt-1" checked={on2} disabled={kind === 'blocked'} onChange={() => toggle(p)} />
             <span className="min-w-0 flex-1">
-              <span className="flex flex-wrap items-center gap-x-2"><b>{p.name}</b><span className="text-xs text-faint">{p.eki || '駅—'}・稼働 {p.kadou || '—'}</span></span>
-              <span className="mt-0.5 flex flex-wrap gap-1">
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1"><b>{p.name}</b><span className="text-xs text-muted">📍 {p.eki || '駅未登録'}</span>
                 {gender && genders && genderOf(genders[normName(p.name)]) && <span className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>{genderOf(genders[normName(p.name)])}</span>}
-                {(p.tags ?? []).map((t) => <span key={t} className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>{t}</span>)}
                 {cj === 'ok' && <span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}>通勤OK</span>}
                 {cj === 'na' && <span className="chip" style={{ background: 'var(--tone-caution-bg)', color: 'var(--tone-caution-fg)' }}>通勤 未回答</span>}
+                {fare && <span className="chip" style={{ background: `var(--tone-${fare.state === 'ok' ? 'mute' : 'bad'}-bg)`, color: `var(--tone-${fare.state === 'ok' ? 'mute' : 'bad'}-fg)` }}>交通費 {fare.yen != null ? `${fare.yen.toLocaleString('ja-JP')}円` : '—'}</span>}
                 {kj === 'unknown' && <span className="chip" style={{ background: 'var(--tone-caution-bg)', color: 'var(--tone-caution-fg)' }}>稼働月 不明</span>}
                 {kind === 'blocked' && <span className="chip" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>{fareBlock(p, ST)}</span>}
               </span>
-              {p.kibou && <span className="block truncate text-xs text-muted">希望：{p.kibou}</span>}
+              <span className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs sm:grid-cols-3">
+                {cells.map(([k, v]) => <span key={k} className="min-w-0 truncate" title={v || ''}><span className="text-faint">{k} </span>{v || <span className="text-faint">—</span>}</span>)}
+                <span className="min-w-0 truncate"><span className="text-faint">スキシ </span>{p.sukishi ? <a href={p.sukishi} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="font-semibold underline underline-offset-2" style={{ color: 'var(--ad)' }}>開く</a> : <span className="text-faint">—</span>}</span>
+              </span>
+              {p.summary
+                ? <span className="mt-1 block rounded-md border-l-2 px-2 py-1 text-xs" style={{ borderColor: 'var(--a)', background: 'var(--color-soft, transparent)' }}>
+                    <span className="font-semibold text-muted">サマリ </span>
+                    <span className={`whitespace-pre-wrap ${open ? '' : 'line-clamp-3'}`}>{p.summary}</span>
+                    <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpenSum((o) => (open ? o.filter((x) => x !== p.id) : [...o, p.id])); }} className="ml-1 font-semibold" style={{ color: 'var(--ad)' }}>{open ? '▴ 閉じる' : '▾ 全文'}</button>
+                  </span>
+                : <span className="mt-1 block text-xs text-faint">サマリ 未作成</span>}
+              {p.career?.text
+                ? <span className="mt-0.5 block text-xs"><span className="text-faint">経歴（フォーム{p.career.count ? `・${p.career.count}社` : ''}） </span>{p.career.text}</span>
+                : p.zenshoku ? <span className="mt-0.5 block text-xs"><span className="text-faint">経験・資格 </span>{p.zenshoku}<span className="ml-1 text-faint">（営業リスト記載・フォーム未回答）</span></span> : null}
+              {!!(p.tags ?? []).length && <span className="mt-1 flex flex-wrap gap-1">{(p.tags ?? []).map((t) => <span key={t} className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>{t}</span>)}</span>}
             </span>
           </label>
         );
@@ -278,7 +303,7 @@ export function ManualTab({ live, canSend, info, wide }: { live: boolean; canSen
           </div>
         )}
         {why && <Note tone="warn">{why}</Note>}
-        <div className={`${wide ? 'max-h-[46vh]' : 'max-h-[300px]'} overflow-y-auto`}>
+        <div className={`${wide ? 'max-h-[60vh]' : 'max-h-[460px]'} overflow-y-auto`}>
           {list2('合いそうな人', g.main, 'main')}
           {list2('通勤エリアが未回答の人', g.na, 'na')}
           {list2('交通費・粗利の条件で選べない人', g.blocked, 'blocked')}

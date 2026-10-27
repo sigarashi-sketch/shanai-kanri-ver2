@@ -164,8 +164,9 @@ export function caseHaishinRows(pd: ProgressData | null, sent: IkouReq[], pendin
 // ============================================================ 手動配信（営業共有リストと同じ判定）
 export type PartnerPerson = {
   id: string; name: string; key: string; eki: string; kadou: string; kanouBi?: string; tsuukin?: string;
+  shift?: string; yakin?: string; shucchou?: string; sukishi?: string;
   heikou?: string; kibou?: string; summary?: string; zenshoku?: string; tags?: string[];
-  skills?: { shikaku?: string; tools?: string; tokui?: string }; career?: { text?: string }; kanagawa?: boolean;
+  skills?: { shikaku?: string; tools?: string; tokui?: string }; career?: { text?: string; count?: number }; kanagawa?: boolean;
 };
 export type CommuteEntry = { any: boolean; blocks: string[]; short?: string };
 export type PartnerListRes = {

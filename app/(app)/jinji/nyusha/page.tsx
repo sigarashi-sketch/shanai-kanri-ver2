@@ -8,17 +8,18 @@ import { PersonName } from '@/components/Person';
 import { PageTitle, SkeletonRows } from '@/components/ui';
 import { NyushaMarks } from '@/components/jinji/NyushaMarks';
 import { useLiveRoute } from '@/lib/live/use-live-route';
-import { nyushaQuery, SHEET_HEADER, SHEET_TAB, SHEET_URL, fmtSheetDate, rowKind, sortSheetRows, type NyushaSheetLive, type SheetFilter, type SheetRow } from '@/lib/live/nyusha';
+import { notRegistered, nyushaQuery, SHEET_HEADER, SHEET_TAB, SHEET_URL, fmtSheetDate, rowKind, sortSheetRows, type NyushaSheetLive, type SheetFilter, type SheetRow } from '@/lib/live/nyusha';
 
 // 入社手続き（人事管理）＝労務の「freee送信管理」スプシの「参画決定者」タブと同じ列・同じ名前（A〜L）。
 //   ・freee送信☑の人は「freee送信済み（送信日）」。未送信の人を上に。辞退・入社取消の行はグレー
-//   ・絞り込み：すべて／未送信／送信済み／辞退・取消
+//   ・絞り込み：すべて／未送信／送信済み／未登録／辞退・取消
+//   ・送信済みなのに従業員名簿に出てこない人＝本人が freee の登録をまだ終えていない →「freee未登録」の札（10-27 shoya）
 //   ・本物（/api/live/nyusha）はまず労務のスプシそのもの（今の nyusha-progress?action=sheet・10-25）を読み、全部の列をスプシのまま出す。
 //     スプシが読めなかったとき（Google の不調など）だけ、今のシステムの材料から組み立てる＝メール・freee送信・送信日・メモ・辞退/入社取消は「—」にして、スプシへのリンクを出す
 //   ・検索：氏名・よみがな（ひらがな/カタカナどちらでも）・メール・メモで探す。下の「入社手続きの印」も同じ言葉で絞る（10-27）
 //   ?p=<社員id> でその人の行に印を付けて送る（社員ページから）
 //   ★見本は出さない。読み込み中は「読み込み中」、読めなかったときはエラーだけ（10-26）
-const FILTERS: SheetFilter[] = ['すべて', '未送信', '送信済み', '辞退・取消'];
+const FILTERS: SheetFilter[] = ['すべて', '未送信', '送信済み', '未登録', '辞退・取消'];
 const SHEET_ONLY = 'スプシにだけある列（いまはスプシが読めなかったので出せません）';
 
 const fmtWage = (v: string) => (/^\d{5,7}$/.test(v.replace(/[,，円¥\s]/g, '')) ? `${Number(v.replace(/[,，円¥\s]/g, '')).toLocaleString('ja-JP')}円` : v);
@@ -37,8 +38,9 @@ export default function NyushaPage() {
   useEffect(() => { const p = new URLSearchParams(window.location.search).get('p'); if (p) setFocus(p); }, []);
   useEffect(() => { if (focus) document.getElementById(`ny-${focus}`)?.scrollIntoView({ block: 'center' }); }, [focus, rows.length]);
 
-  const count = (f: SheetFilter) => (f === 'すべて' ? rows.length : rows.filter((r) => rowKind(r) === f).length);
-  const shown = sortSheetRows((filter === 'すべて' ? rows : rows.filter((r) => rowKind(r) === filter)).filter((r) => hit(r.name, r.kana, r.email, r.memo)));
+  const isF = (r: SheetRow, f: SheetFilter) => (f === 'すべて' ? true : f === '未登録' ? notRegistered(r) : rowKind(r) === f);
+  const count = (f: SheetFilter) => rows.filter((r) => isF(r, f)).length;
+  const shown = sortSheetRows(rows.filter((r) => isF(r, filter)).filter((r) => hit(r.name, r.kana, r.email, r.memo)));
   const unsent = count('未送信');
 
   return (
@@ -65,7 +67,7 @@ export default function NyushaPage() {
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
         <div className="text-body">
           {!full ? <><b>{rows.length}人</b><span className="ml-2 text-muted">参画決定が 10/1 以降（9月決定で10月以降に入場の人を含む）</span></>
-            : <><b>freee 未送信 {unsent}人</b><span className="ml-2 text-muted">送信済み {count('送信済み')}人・辞退/取消 {count('辞退・取消')}人</span></>}
+            : <><b>freee 未送信 {unsent}人</b><span className="ml-2 text-muted">送信済み {count('送信済み')}人{count('未登録') > 0 && <>（うち freee 未登録 <b style={{ color: 'var(--tone-warn-fg)' }}>{count('未登録')}人</b>）</>}・辞退/取消 {count('辞退・取消')}人</span></>}
         </div>
         <label className="flex min-h-9 min-w-[200px] flex-1 items-center gap-2 rounded-[10px] border border-field bg-surface px-3 text-faint sm:max-w-[280px]"><Search size={15} /><input value={q} onChange={(e) => setQ(e.target.value)} aria-label="入社手続きを検索" placeholder="名前・よみがな・メール・メモ" className="min-w-0 flex-1 bg-transparent text-body text-ink outline-none" /></label>
         <div className="ml-auto flex flex-wrap gap-1.5">
@@ -82,6 +84,7 @@ export default function NyushaPage() {
         </div>
       </div>
 
+      {full && (lv.data!.warnings || []).length > 0 && <p className="text-xs" style={{ color: 'var(--tone-warn-fg)' }}>{lv.data!.warnings.join('／')}</p>}
       <div className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: 2 }}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1180px] border-collapse text-body">
@@ -106,7 +109,10 @@ export default function NyushaPage() {
                     <td className="num whitespace-nowrap px-2 py-2.5">{r.wage ? fmtWage(r.wage) : <span className="text-faint">—</span>}</td>
                     <td className="whitespace-nowrap px-2 py-2.5">
                       {r.sent == null ? na : r.sent
-                        ? <span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}><Check size={11} />freee送信済み{r.sentOn ? `（${fmtSheetDate(r.sentOn)}）` : ''}</span>
+                        ? <span className="inline-flex flex-wrap gap-1">
+                            <span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}><Check size={11} />freee送信済み{r.sentOn ? `（${fmtSheetDate(r.sentOn)}）` : ''}</span>
+                            {notRegistered(r) && <span className="chip" title="freee に送ったが、従業員名簿にまだ出てこない＝本人が freee の登録をまだ終えていない" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>freee未登録</span>}
+                          </span>
                         : grey ? <span className="text-faint">—</span>
                           : <span className="chip" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>未送信</span>}
                     </td>
