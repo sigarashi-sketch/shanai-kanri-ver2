@@ -1,0 +1,77 @@
+# claude/* に push したら GitHub が本番（Vercel プロジェクト shanai-kanri-v2）に出す（2026-10-27・Mac の見張り役 v2.sh の代わり）。
+#   中身は .github/deploy/run.sh。結果はタグ deploy-ok/<sha7>・deploy-failed/<sha7>、様子はタグ deploy-watch/status。
+#   ★リポジトリの Secrets に VERCEL_TOKEN が要る（無い間は何もしない＝Mac の見張り役が出す）
+#   ★VERCEL_TOKEN があると タグ deploy-watch/actions を付ける。Mac の見張り役はそれを見たら このリポジトリを出さなくなる
+name: deploy
+on:
+  push:
+    branches: ['claude/**']
+
+permissions:
+  contents: write
+
+env:
+  VERCEL_SCOPE: mikeiken
+  VERCEL_PROJECT: shanai-kanri-v2
+  PROD_HOST: shanai-kanri-v2.vercel.app
+  KEEP: mf/
+  SETTLE: '60'
+
+jobs:
+  # 落ち着き待ち: 同じブランチに続けて push したら 前の分の待ちを取り消す＝最後の1回だけ出す
+  settle:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: settle-${{ github.ref }}
+      cancel-in-progress: true
+    outputs:
+      go: ${{ steps.c.outputs.go }}
+    steps:
+      - id: c
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          MSG: ${{ github.event.head_commit.message }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then echo "VERCEL_TOKEN が無いので出さない（Mac の見張り役に任せる）"; echo "go=0" >> "$GITHUB_OUTPUT"; exit 0; fi
+          case "$MSG" in wip:*|WIP:*|Wip:*) echo "wip: なので出さない"; echo "go=0" >> "$GITHUB_OUTPUT"; exit 0 ;; esac
+          # Mac の見張り役に「こちらが出す」と知らせる（付いていなければ1回だけ）
+          git init -q . && git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          if ! git ls-remote --tags origin refs/tags/deploy-watch/actions | grep -q .; then
+            git fetch -q --depth 1 origin "${{ github.sha }}"
+            git -c user.name=shoya -c user.email=s.igarashi@engineer-mikata.com tag -a deploy-watch/actions FETCH_HEAD -m "本番出しは GitHub Actions がやる（Mac の見張り役は このリポジトリを見ない）"
+            git push -q origin refs/tags/deploy-watch/actions
+          fi
+          sleep "$SETTLE"
+          echo "go=1" >> "$GITHUB_OUTPUT"
+
+  # 本番出しは リポジトリで1つずつ（main と本番を取り合わない）
+  deploy:
+    needs: settle
+    if: needs.settle.outputs.go == '1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    concurrency:
+      group: deploy-prod
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          BRANCH: ${{ github.ref_name }}
+          AUTHOR_EMAIL: s.igarashi@engineer-mikata.com
+          WAIT_MIN: '10'
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: |
+          # Vercel は先頭のコミットの作者がチームに居ないと止める（TEAM_ACCESS_REQUIRED）
+          git config user.name shoya
+          git config user.email "$AUTHOR_EMAIL"
+          cp -R .github/deploy "$RUNNER_TEMP/deploy"
+          bash "$RUNNER_TEMP/deploy/run.sh"
