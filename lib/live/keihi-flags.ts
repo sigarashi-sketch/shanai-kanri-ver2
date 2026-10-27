@@ -6,13 +6,14 @@
 //     ・シフト未提出 … GET /api/shift-calendar?action=list&month= ＋ GET /api/kintai-today?stale=1（勤務区分）→ shiftMissingOf と同じ
 //                    勤務区分がシフト・夜勤で、その月に1日も入れていない＝未提出／入れたが提出していない＝下書き
 //     ・欠勤の報告 … GET /api/roster?op=kekkin&action=list&month=（LINE の欠勤連絡＋手で足した欠勤・1人1日1行）
-//                    ★遅刻・早退は月単位で読める口が無い（当日の出勤状況の連絡は1日ずつ）ので出さない
+//     ・遅刻・早退 … GET /api/roster?op=roumu&action=contacts&month=（勤怠連絡 kintai_contacts の AI の見分け＝欠勤管理と同じ・10-27 足した）
+//                    late＝遅刻の連絡／early＝早退・早めの退勤の連絡。★本文は使わない（日付と種類だけ）。欠勤は上の欠勤の報告で出すのでここでは数えない
 //     ・勤務表とのずれ … GET /api/roster?op=shime&action=board（勤怠の締め：勤務表 × freee のキャッシュ）
 //   ★理由・メモ（健康のことが入る）・時間は返さない。日付と種類だけ
 import { normName } from './eigyo-common';
 import type { KeihiClaim } from './keihi';
 
-export type FlagKind = 'dakoku' | 'shift' | 'kekkin' | 'zure';
+export type FlagKind = 'dakoku' | 'shift' | 'kekkin' | 'chikoku' | 'zure';
 export type FlagTone = 'bad' | 'warn' | 'caution' | 'info';
 export type KeihiFlag = { kind: FlagKind; tone: FlagTone; label: string; lines: string[]; note?: string };
 /** 人（normName）→ 月（YYYY-MM）→ 印 */
@@ -24,7 +25,7 @@ export type KeihiFlagsResp = {
   habitsFrom?: string; habitsTo?: string;
 };
 
-export const FLAG_NAME: Record<FlagKind, string> = { dakoku: '打刻漏れ', shift: 'シフト表', kekkin: '欠勤の報告', zure: '勤務表とのずれ' };
+export const FLAG_NAME: Record<FlagKind, string> = { dakoku: '打刻漏れ', shift: 'シフト表', kekkin: '欠勤の報告', chikoku: '遅刻・早退の連絡', zure: '勤務表とのずれ' };
 
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 export const dayJa = (d: string) => { const t = new Date(d + 'T00:00:00Z'); return `${t.getUTCMonth() + 1}/${t.getUTCDate()}（${DOW[t.getUTCDay()]}）`; };
@@ -35,6 +36,7 @@ export type IkeHabits = { ok: boolean; from?: string; to?: string; habits?: Reco
 export type IkeShiftListLite = { ok: boolean; rows?: { name: string; submittedAt: string | null; work?: number }[] };
 export type IkeTodayLite = { ok: boolean; rows?: { name: string; kubun?: string }[] };
 export type IkeKekkinLite = { ok: boolean; rows?: { date: string; nn?: string; name: string; contact?: boolean; manual?: boolean }[] };
+export type IkeContactsLite = { ok: boolean; rows?: { date: string; nn?: string; name: string; kind: string; source?: string }[] };
 export type IkeShimeLite = { ok: boolean; rows?: { key: string; name: string; cells: Record<string, { status: string; diffDays?: number; diffMins?: number | null }> }[] };
 
 const SHIFT_REQUIRED_KUBUN = ['シフト', '夜勤'];   // 今のシステムの isShiftSubmitRequired と同じ（lib/live/shift.ts と揃える）
@@ -52,6 +54,7 @@ export function buildKeihiFlags(
     today: IkeTodayLite | null;
     shift: Record<string, IkeShiftListLite | null>;
     kekkin: Record<string, IkeKekkinLite | null>;
+    contacts?: Record<string, IkeContactsLite | null>;
     shime: IkeShimeLite | null;
   },
   keep: (key: string) => boolean,
@@ -106,6 +109,26 @@ export function buildKeihiFlags(
     for (const [key, xs] of by) {
       xs.sort((a, b) => a.date.localeCompare(b.date));
       push(out, key, ym, { kind: 'kekkin', tone: 'warn', label: `欠勤 ${xs.length}日`, lines: xs.map((x) => `${dayJa(x.date)} ${x.how}`) });
+    }
+  }
+
+  // 遅刻・早退の連絡（勤怠連絡の AI の見分けをそのまま。本文・理由は出さない・同じ人の同じ日・同じ種類は1つ）
+  for (const ym of months) {
+    const k = src.contacts?.[ym];
+    if (!k?.ok) continue;
+    const by = new Map<string, Map<string, string>>();
+    for (const r of k.rows || []) {
+      if (r.kind !== 'late' && r.kind !== 'early') continue;
+      const key = normName(r.nn || r.name);
+      if (!key || !keep(key) || !r.date?.startsWith(ym)) continue;
+      const m = by.get(key) || new Map<string, string>();
+      m.set(`${r.date}|${r.kind}`, `${dayJa(r.date)} ${r.kind === 'late' ? '遅刻' : '早退・早めの退勤'}の連絡（${r.source === '1:1' ? '1:1' : 'グループ'}）`);
+      by.set(key, m);
+    }
+    for (const [key, m] of by) {
+      const xs = [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+      const late = xs.filter(([k2]) => k2.endsWith('|late')).length, early = xs.length - late;
+      push(out, key, ym, { kind: 'chikoku', tone: 'info', label: [late ? `遅刻 ${late}回` : '', early ? `早退 ${early}回` : ''].filter(Boolean).join('・'), lines: xs.map(([, l]) => l), note: 'LINE の連絡を AI が見分けたものです（欠勤管理と同じ）。打刻の時間とは突き合わせていません' });
     }
   }
 

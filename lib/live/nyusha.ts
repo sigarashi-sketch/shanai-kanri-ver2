@@ -5,15 +5,15 @@
 //     A参画決定日／B氏名／Cよみがな／Dメールアドレス／E入社日／F入場日／G賃金（額面月給）
 //     H freee送信☑／I送信日／Jメモ／K辞退・入社取消／L辞退・取消日（Kに値がある行はグレー）
 //
-//   ★今のシステムには、このスプシ（参画決定者タブ）の中身を返す GET が無い（あるのは cron の書き込み口だけ＝呼ばない）。
-//     ver2 には Google の鍵も無い。なので本物のときは、スプシと同じ材料を返す今の GET から組み立てられる列だけ出す：
+//   ★まずスプシそのものを読む（今のシステムの GET /api/nyusha-progress?action=sheet・10-25 足した）＝全部の列がスプシのまま。
+//     スプシが読めないとき（権限が無い・Google が落ちている）だけ、スプシと同じ材料を返す今の GET から組み立てられる列を出す：
 //       A 参画決定日 … /api/nyusha-progress?days=0 の decided_at（参画決定ログの最後の true・JST の日付）
 //       B 氏名       … 同上（営業リストの参画決定 ON・辞退でない人）
 //       C よみがな   … /api/roster?op=jimu&action=list の kana（名簿に載っている人だけ。スプシは basic_info.kana）
 //       E 入社日     … /api/roster?op=nyusha&action=list（roster_nyusha.nyusha_bi＝スプシと同じ）→無ければ jimu の nyusha
 //       F 入場日     … nyusha-progress の nyuujou_bi（営業リスト）→空なら jimu の nyuujou（日報の入場日で補った値）
 //       G 賃金       … /api/roster?action=getEngineerRows の 額面（sales_roster.gakumen＝スプシと同じ）。営業リストの行（id）で引く
-//     D メール・H freee送信・I 送信日・J メモ・K 辞退/入社取消・L 日付 は今のシステムに読む口が無い → null（画面は「スプシで見る」）
+//     組み立てのときだけ D メール・H freee送信・I 送信日・J メモ・K 辞退/入社取消・L 日付 は null（画面は「スプシで見る」）
 //   ★対象の人はスプシに寄せる：参画決定日が 10/1(JST) 以降、または 9月に決まって入場日が 10/1 以降（10/21 に手で足した分）。
 //     スプシの初回だけ freee に同名がいる人を外した分・労務が手で消した行は、ここでは区別できない。
 //   ★1人1行は営業リストの行（id）で決める（10-25 名前で重ねると同姓同名の人が消える）。同じ名前が2行あれば「同姓同名」と書き添える
