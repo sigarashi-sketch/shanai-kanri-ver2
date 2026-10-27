@@ -10,14 +10,14 @@
 //   ・名前の小窓（embedded）では送れない（送る欄を出さない・10-25）。小窓が読んだ分（initial）を使い、プロパーリストを読み直さない
 //     読めなかったときも 404 にしない（後ろの画面まで「見つからない」にしない）。リンクは別タブで開く
 import { ChatSummary } from '@/components/ChatSummary';
-import { ChatLog } from '@/components/ChatLog';
+import { ChatLog, type ReplyTo } from '@/components/ChatLog';
+import { ChatComposer } from '@/components/ChatComposer';
 import Link from 'next/link';
 import { useMemo, useRef, useState } from 'react';
 import { Pill, SkeletonRows } from '@/components/ui';
 import { ScoreLine } from '@/components/ProperScore';
 import { PersonBasic } from '@/components/PersonBasic';
 import { PersonMemo } from '@/components/PersonMemo';
-import { useMotivation } from '@/components/Motivation';
 import { LiveBanner, useIke } from '@/components/Live';
 import { useCaseSend } from '@/components/CaseSendDialog';
 import { usePerms } from '@/components/Perms';
@@ -246,27 +246,6 @@ function SentCases({ name, live, liver, embedded }: { name: string; live: boolea
 }
 
 // ---- チャット（個人＝あおいの 1:1／グループ＝この人のLINEグループ） ----
-function HoldButton({ label, onDone, disabled, title }: { label: string; onDone: () => void; disabled?: boolean; title?: string }) {
-  const [p, setP] = useState(0);
-  const t = useRef<ReturnType<typeof setInterval> | null>(null);
-  const start = () => {
-    if (disabled || t.current) return;
-    const t0 = Date.now();
-    t.current = setInterval(() => {
-      const k = Math.min(1, (Date.now() - t0) / 900);
-      setP(k);
-      if (k >= 1) { clearInterval(t.current!); t.current = null; setP(0); onDone(); }
-    }, 16);
-  };
-  const stop = () => { if (t.current) clearInterval(t.current); t.current = null; setP(0); };
-  return (
-    <button disabled={disabled} title={title ?? '押し続けると送ります（0.9秒）'} onPointerDown={start} onPointerUp={stop} onPointerLeave={stop}
-      className="relative min-h-10 select-none overflow-hidden rounded-[10px] px-4 text-body font-bold disabled:cursor-not-allowed disabled:opacity-40" style={{ background: 'var(--a)', color: 'var(--ao)' }}>
-      <span className="absolute inset-y-0 left-0 bg-black/20" style={{ width: `${p * 100}%` }} />
-      <span className="relative">{label}</span>
-    </button>
-  );
-}
 
 function Chat({ name, live, everyone, embedded, canSummary }: { name: string; live: boolean; everyone: readonly string[]; embedded: boolean; canSummary: boolean }) {
   const [sub, setSub] = useState<'個人' | 'グループ'>('個人');
@@ -289,6 +268,8 @@ function Chat({ name, live, everyone, embedded, canSummary }: { name: string; li
   const err = live ? list.error || (sub === '個人' ? th.error : gt.error) : '';
   const target = sub === '個人' ? userId : groupId;
   const none = live && list.state === 'live' && !target && !mustPick;
+  const [reply, setReply] = useState<{ t: string; r: ReplyTo } | null>(null);
+  const curReply = reply && reply.t === `${sub}:${target}` ? reply.r : null;
 
   return (
     <section className="overflow-hidden rounded-xl border border-line bg-surface">
@@ -315,7 +296,8 @@ function Chat({ name, live, everyone, embedded, canSummary }: { name: string; li
         {sub === 'グループ' && myGroups.length === 1 && <span className="ml-auto text-sm text-muted">{myGroups[0].name}</span>}
         {live && target && canSummary && <span className={(sub === '個人' ? mine.length > 1 : myGroups.length >= 1) ? '' : 'ml-auto'}><ChatSummary kind={sub === '個人' ? 'user' : 'group'} id={target} name={sub === '個人' ? name : myGroups.find((g) => g.groupId === groupId)?.name || name} live={live} /></span>}
       </div>
-      <ChatLog bubbles={loading ? [] : bubbles} className="max-h-[520px] min-h-[260px]" resetKey={`${sub}:${target}`}>
+      <ChatLog bubbles={loading ? [] : bubbles} className="max-h-[520px] min-h-[260px]" resetKey={`${sub}:${target}`}
+        onReply={!embedded && live && target ? (r) => setReply({ t: `${sub}:${target}`, r }) : undefined}>
         {loading && <p className="text-body text-muted">読み込み中…</p>}
         {err && <p className="text-body text-bad">{err}</p>}
         {mustPick && <p className="text-body text-muted">同じ名前の LINE の相手が{mine.length}人います。表示名を見て、上で選んでください</p>}
@@ -323,35 +305,11 @@ function Chat({ name, live, everyone, embedded, canSummary }: { name: string; li
       </ChatLog>
       {embedded
         ? <p className="border-t border-line-soft px-[18px] py-3 text-sm text-faint">見るだけです。送るのは要員ページのチャットから。パスワードらしい文字は伏せています</p>
-        : <Composer kind={sub === '個人' ? 'person' : 'group'} target={target} live={live} disabled={!live || !target}
-          onSent={() => (sub === '個人' ? th.reload() : gt.reload())} />}
+        : <ChatComposer kind={sub === '個人' ? 'person' : 'group'} target={target} live={live} canTalk={live && !!target} className="border-t border-line-soft"
+          reply={curReply} onClearReply={() => setReply(null)} onSent={() => (sub === '個人' ? th.reload() : gt.reload())}
+          sentToast={{ text: '送りました', sub: sub === '個人' ? '→ あおいのトークに残りました' : '→ グループのトークに残りました' }}
+          placeholder={sub === '個人' ? 'あおいから本人に送る文' : 'グループに送る文（送ってよいかは今のシステムが決めます）'} disabledTitle="送り先がありません" />}
     </section>
   );
 }
 
-function Composer({ kind, target, live, disabled, onSent }: { kind: 'person' | 'group'; target: string; live: boolean; disabled: boolean; onSent: () => void }) {
-  const { hit, toast } = useMotivation();
-  const [text, setText] = useState('');
-  const [busy, setBusy] = useState(false);
-  const send = async () => {
-    if (!text.trim()) return;
-    if (!live) return;
-    setBusy(true);
-    try {
-      const r = await fetch('/api/live/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(kind === 'person' ? { kind, userId: target, text } : { kind, groupId: target, text }) });
-      const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string; warning?: string };
-      if (j.ok) { hit(); toast({ text: '送りました', sub: j.warning || (kind === 'person' ? '→ あおいのトークに残りました' : '→ グループのトークに残りました') }); setText(''); onSent(); }
-      else toast({ text: '送れませんでした', sub: j.error || '' });
-    } catch (e) { toast({ text: '送れませんでした', sub: (e as Error).message }); }
-    finally { setBusy(false); }
-  };
-  return (
-    <div className="flex flex-wrap items-end gap-2 border-t border-line-soft px-[18px] py-3">
-      <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} maxLength={5000} aria-label="送る文"
-        placeholder={kind === 'person' ? 'あおいから本人に送る文' : 'グループに送る文（送ってよいかは今のシステムが決めます）'}
-        className="min-h-[44px] min-w-0 flex-1 resize-y rounded-[10px] border border-field bg-surface px-3 py-2 text-body outline-none" />
-      <HoldButton label={busy ? '送っています…' : '長押しで送る'} disabled={busy || disabled || !text.trim()} onDone={send}
-        title={disabled ? '送り先がありません' : undefined} />
-    </div>
-  );
-}
