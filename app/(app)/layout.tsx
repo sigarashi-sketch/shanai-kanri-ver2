@@ -4,6 +4,7 @@ import { PermsProvider } from '@/components/Perms';
 import { canManageAccess, canUseApp, effectivePages, effectivePerms } from '@/lib/access';
 import { APP_NAME } from '@/lib/app';
 import { loadMe } from '@/lib/members-store';
+import Watermark from '@/components/Watermark';
 
 // 入口（10-26 見本データをなくした）。
 //   ・ログインしていない（トークンが無い・切れた）ときは、メニューも画面も出さず「会社のアカウントでログイン」だけ
@@ -19,6 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <PermsProvider me={me} kperms={effectivePerms(me)} pages={effectivePages(me)} manageAccess={canManageAccess(me)}>
       <Shell>{children}</Shell>
+      <Watermark email={me.email} />
     </PermsProvider>
   );
 }
