@@ -3,6 +3,8 @@ import { isListOnlyIkeRole, isRoleKey, roleFromIke, type Member } from './access
 import { kAll, toKPerms } from './kubun';
 import { orgAssigned, orgGrants, orgManage, orgPages, orgPerms, parseOrg, roleOf, unitChain, type OrgState } from './org';
 import { ikeFetchCached, ikeToken } from './ike';
+import { cached } from './cache';
+import { ike, onIkeikeDb } from './sy/db';
 import { isInnaiEmail, tokenEmail } from './innai';
 
 // いまの人と名簿（10-26 見本の5人をやめて本物に）。
@@ -35,7 +37,20 @@ function tokenName(t: string): string {
 }
 
 type SharedValue = { members?: unknown; org?: unknown } | null;
+// 組織表などの共有の設定（今の社内システムの app_settings の v2_access）。
+//   ★サーバから DB を直接読む（service role・読むだけ・全員同じ中身なので30秒ためる）。今のシステムの /api/assistant は
+//     応募者対応・リスト閲覧などのロールに 403 を返すので、本人のトークンで読むと その人たちは組織表が読めず
+//     「ロールが割り振られていない」で入れなかった（10-27 承諾者管理の人たち）。DB が読めないときだけ 今の口で読む
 async function sharedValue(): Promise<SharedValue> {
+  if (onIkeikeDb()) {
+    try {
+      const { v } = await cached<SharedValue | undefined>('v2_access|db', 30_000, async () => {
+        const { data, error } = await ike().from('app_settings').select('value').eq('key', 'v2_access').maybeSingle();
+        return error ? undefined : ((data as { value?: SharedValue } | null)?.value ?? null);
+      }, { keep: (x) => x !== undefined });
+      if (v !== undefined) return v;
+    } catch { /* 下の今の口で読む */ }
+  }
   try {
     const r = await ikeFetchCached<{ value?: SharedValue }>('/api/assistant?action=v2-settings', 30_000, { timeoutMs: 8000, raw: true });
     return r.ok ? r.data?.value ?? null : null;
@@ -108,7 +123,9 @@ export async function loadMe(): Promise<MeLoad> {
     //   組織表を読めないときも入れない（開いて確かめられない人を入れない）
     if (ikeRole !== 'super_admin' && !(org && orgGrants(org, org.people[tokenSub(t)]))) return { ok: false, reason: 'no_role' };
     // 未経験事業部か＝今のシステムの ippass（#未経験-クローズ の参加者・super_admin は常に true）。営業共有リストだけのロールは入れない
-    const inside = (r.data.ippass === true || ikeRole === 'super_admin') && !(r.data.listOnly ?? isListOnlyIkeRole(ikeRole));
+    //   ★組織表で「未経験事業部」（とその下のチーム）に入れた人は、今のシステムのロール（リスト閲覧など）や ippass に関係なく未経験事業部（10-27 承諾者管理の人たち）＝組織表が正
+    const orgInside = !!org && unitChain(org, org.people[tokenSub(t)]?.unit).some((u) => u.name === '未経験事業部');
+    const inside = orgInside || ((r.data.ippass === true || ikeRole === 'super_admin') && !(r.data.listOnly ?? isListOnlyIkeRole(ikeRole)));
     const me = withOrg(withRole({ id: email, email, name: tokenName(t) || shared.get(email)?.name || email.split('@')[0], division: inside ? '未経験事業部' : 'その他', kind: '内勤' }, ikeRole, shared), tokenSub(t), ikeRole, org);
     return { ok: true, me, ikeRole };
   } catch (e) {
