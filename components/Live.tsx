@@ -11,25 +11,75 @@ export type LiveState = 'loading' | 'live' | 'sample' | 'error';
 export const LIVE_WRITE_BLOCKED = '本物のデータでは、ここからは変えられません（今の社内システムの画面で操作してください）';
 
 export function useIke<T>(path: string | null, opts?: { pollMs?: number }) {
+  return useLiveFetch<T>(path ? `/api/ike/${path}` : null, opts);
+}
+
+// ---- リアルタイム更新（10-27 shoya「ver2 もリアルタイム更新するようにしてね」） ----
+//   ・useIke / useLiveRoute は何も渡さなくても LIVE_POLL_MS ごとに読み直す（pollMs: 0 で止める。止め方は下の usePoll のまま）
+//   ・中身が変わっていなければ画面は描き直さない（入力中・選択中の状態を崩さない）
+//   ・この画面・別のタブで書き込み（POST 等）が通ったら、その場で全部読み直す（watchWrites・タブ間は BroadcastChannel）
+//   ・重い／外の API を引く口（AI の検索・送る前の宛先確認・外部の会計 等）は自動では読み直さない（NO_POLL）
+export const LIVE_POLL_MS = 60_000;
+const NO_POLL = /testSearch|action=dry|\/api\/live\/horyu\?view=(story|narr)|proper-score|keihi-check|keihi-mf/;
+
+/** useIke と useLiveRoute の中身（url を GET で読む） */
+export function useLiveFetch<T>(url: string | null, opts?: { pollMs?: number }) {
   const [data, setData] = useState<T | null>(null);
   const [state, setState] = useState<LiveState>('loading');
   const [error, setError] = useState('');
   const seq = useRef(0);
+  const last = useRef('');
   const load = useCallback(async () => {
-    if (!path) return;
+    if (!url) return;
     const my = ++seq.current;
     try {
-      const r = await fetch(`/api/ike/${path}`, { cache: 'no-store' });
-      const j = (await r.json().catch(() => ({}))) as T & { error?: string };
+      const r = await fetch(url, { cache: 'no-store' });
+      const txt = await r.text().catch(() => '');
       if (my !== seq.current) return;
-      if (r.status === 401 && j.error === 'not_logged_in') { setState('sample'); return; }
-      if (!r.ok) { setError(j.error || `読めませんでした（${r.status}）`); setState('error'); return; }
-      setData(j); setError(''); setState('live');
+      let j = {} as T & { error?: string };
+      try { j = JSON.parse(txt); } catch { /* 空・壊れた中身 */ }
+      if (r.status === 401 && j.error === 'not_logged_in') { last.current = ''; setState('sample'); return; }
+      if (!r.ok) { last.current = ''; setError(j.error || `読めませんでした（${r.status}）`); setState('error'); return; }
+      if (txt !== last.current) { last.current = txt; setData(j); }
+      setError(''); setState('live');
     } catch (e) { if (my === seq.current) { setError((e as Error).message); setState('error'); } }
-  }, [path]);
-  useEffect(() => { load(); }, [load]);
-  usePoll(path ? load : null, opts?.pollMs);
+  }, [url]);
+  useEffect(() => { last.current = ''; load(); }, [load]);
+  const ms = opts?.pollMs ?? (url && NO_POLL.test(url) ? 0 : LIVE_POLL_MS);
+  usePoll(url ? load : null, ms);
   return { data, state, error, reload: load, live: state === 'live' };
+}
+
+// 書き込みが通ったら読み直す。自分の設定・添付の上げ・見た記録のような 中身の変わらない書き込みでは読み直さない
+const QUIET_WRITE = /my-prefs|prefs|upload|chat-upload|\/view|log|ike-auth|roster-prefs/;
+// POST でも読むだけの口（手動配信・案内配信の宛先確認・案内の一覧＝app/api/live/haishin の READS）
+const READ_BY_POST = /"op"\s*:\s*"(dry|poll-list|poll-detail)"/;
+let writesWatched = false;
+let kickTimer: ReturnType<typeof setTimeout> | null = null;
+let channel: BroadcastChannel | null = null;
+const kickAll = () => {
+  if (kickTimer) clearTimeout(kickTimer);
+  kickTimer = setTimeout(() => { kickTimer = null; if (!document.hidden) wakers.forEach((f) => f()); }, 400);
+};
+function watchWrites() {
+  if (writesWatched || typeof window === 'undefined') return;
+  writesWatched = true;
+  try { channel = new BroadcastChannel('v2-live'); channel.onmessage = () => kickAll(); } catch { channel = null; }
+  const orig = window.fetch.bind(window);
+  window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const res = await orig(input, init);
+    try {
+      const method = (init?.method || (input instanceof Request ? input.method : 'GET')).toUpperCase();
+      if (method !== 'GET' && method !== 'HEAD' && res.ok) {
+        const u = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, location.href);
+        const body = typeof init?.body === 'string' ? init.body : '';
+        if (u.origin === location.origin && u.pathname.startsWith('/api/') && !QUIET_WRITE.test(u.pathname + u.search) && !READ_BY_POST.test(body)) {
+          kickAll(); channel?.postMessage(1);
+        }
+      }
+    } catch { /* 読み直しの合図だけ。失敗しても本来の fetch には響かせない */ }
+    return res;
+  };
 }
 
 // ---- 読み直し（pollMs）の止め方（10-25・今の live.js と同じ考え方） ----
@@ -62,6 +112,7 @@ export function usePoll(fn: (() => void) | null, ms: number | undefined) {
   useEffect(() => {
     if (!on || !ms) return;
     watchInput();
+    watchWrites();
     const run = () => ref.current?.();
     const t = setInterval(() => { if (pollAwake()) run(); }, ms);
     // タブに戻ってきた＝さわったのと同じ扱い（すぐ1回読んで、また続ける）

@@ -257,15 +257,36 @@ export function cannotPick(p: PartnerPerson, st: StationRes | null, l: PartnerLi
   return null;
 }
 
-export type PickGroups = { main: PartnerPerson[]; na: PartnerPerson[]; blocked: PartnerPerson[]; kadouNg: number };
-/** 絞り込み（今の computeGroups の 駅・稼働月・言葉）。通勤が合わない人は落とし、未回答は下へ、交通費/粗利で止まる人は一番下に畳む */
-export function pickGroups(l: PartnerListRes | null, st: StationRes | null, o: { kadou: number; word: string }): PickGroups {
-  const words = o.word.trim().split(/[\s　]+/).filter(Boolean).map((w) => w.toLowerCase());
-  const g: PickGroups = { main: [], na: [], blocked: [], kadouNg: 0 };
+export type PickGroups = { main: PartnerPerson[]; na: PartnerPerson[]; blocked: PartnerPerson[]; kadouNg: number; filtered: number };
+/** 性別の書き方を揃える（男/男性/M → 男性） */
+export const genderOf = (v: string | undefined) => {
+  const t = String(v ?? '').trim().normalize('NFKC');
+  return /^(男|M$|m$|male)/i.test(t) ? '男性' : /^(女|F$|f$|female)/i.test(t) ? '女性' : t ? 'その他' : '';
+};
+/** スキルの検索に使う文（資格・ツール・得意・前職・職歴・タグ） */
+const skillHay = (p: PartnerPerson) => [p.skills?.shikaku, p.skills?.tools, p.skills?.tokui, p.zenshoku, p.career?.text, ...(p.tags ?? [])].join('\n').normalize('NFKC').toLowerCase();
+const wordsOf = (s: string) => s.trim().normalize('NFKC').split(/[\s　]+/).filter(Boolean).map((w) => w.toLowerCase());
+export type PickOpts = {
+  kadou: number; word: string;
+  /** 10-27 shoya「フリーワード 性別 スキルなどで絞れる検索欄」：'' は指定しない・'不明' は基本情報フォームに性別が無い人 */
+  gender?: '' | '男性' | '女性' | '不明'; genders?: Record<string, string> | null; skill?: string;
+};
+/** 絞り込み（今の computeGroups の 駅・稼働月・言葉 ＋ ver2 の性別・スキル）。通勤が合わない人は落とし、未回答は下へ、交通費/粗利で止まる人は一番下に畳む */
+export function pickGroups(l: PartnerListRes | null, st: StationRes | null, o: PickOpts): PickGroups {
+  const words = wordsOf(o.word), skills = wordsOf(o.skill ?? '');
+  const g: PickGroups = { main: [], na: [], blocked: [], kadouNg: 0, filtered: 0 };
   for (const p of l?.people ?? []) {
     if (words.length) {
-      const hay = [p.summary, p.zenshoku, p.kibou, p.name, p.eki, p.career?.text].join('\n').toLowerCase();
-      if (!words.every((w) => hay.includes(w))) continue;
+      const hay = [p.summary, p.zenshoku, p.kibou, p.name, p.eki, p.kadou, p.heikou, p.tsuukin, p.career?.text, p.skills?.shikaku, p.skills?.tools, p.skills?.tokui, ...(p.tags ?? [])].join('\n').normalize('NFKC').toLowerCase();
+      if (!words.every((w) => hay.includes(w))) { g.filtered++; continue; }
+    }
+    if (skills.length) {
+      const hay = skillHay(p);
+      if (!skills.every((w) => hay.includes(w))) { g.filtered++; continue; }
+    }
+    if (o.gender) {
+      const v = genderOf(o.genders?.[normName(p.name)]);
+      if (o.gender === '不明' ? !!v : v !== o.gender) { g.filtered++; continue; }
     }
     if (judgeKadou(p, o.kadou, l) === 'ng') { g.kadouNg++; continue; }
     const j = commuteJudge(p, l?.commute, st);
@@ -275,6 +296,19 @@ export function pickGroups(l: PartnerListRes | null, st: StationRes | null, o: {
     else g.main.push(p);
   }
   return g;
+}
+/** スキルの候補（資格・ツールに多く出てくる語。押すとスキルの欄に入る） */
+export function skillChips(l: PartnerListRes | null, max = 14): string[] {
+  const n = new Map<string, number>();
+  for (const p of l?.people ?? []) {
+    const seen = new Set<string>();
+    for (const raw of [p.skills?.shikaku, p.skills?.tools].join('\n').normalize('NFKC').split(/[、,，/／・;；\n\r\t]+|\s{2,}/)) {
+      const w = raw.replace(/[（(].*?[)）]/g, '').replace(/^[\s・*-]+|[\s。]+$/g, '').trim();
+      if (w.length < 2 || w.length > 16 || /^(なし|無し|特になし|ない|-|ー)$/.test(w) || seen.has(w)) continue;
+      seen.add(w); n.set(w, (n.get(w) ?? 0) + 1);
+    }
+  }
+  return [...n.entries()].filter(([, c]) => c >= 2).sort((a, b) => b[1] - a[1]).slice(0, max).map(([w]) => w);
 }
 
 /** 案件の本文（今の配信画面 ikouMessage と同じ文面） */

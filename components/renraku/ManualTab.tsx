@@ -2,13 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useIke } from '../Live';
+import { useLiveRoute } from '@/lib/live/use-live-route';
 import { useMotivation } from '../Motivation';
 import { needText } from '../Perms';
 import {
-  cannotPick, caseHead, commuteJudge, fareBlock, ikouMessage, judgeKadou, pickGroups,
+  cannotPick, caseHead, commuteJudge, fareBlock, genderOf, ikouMessage, judgeKadou, pickGroups, skillChips,
   type DryRes, type PartnerListRes, type PartnerPerson, type Recipient, type StationRes,
 } from '@/lib/live/renraku';
-import { buildNameIndex, matchName } from '@/lib/live/renraku-names';
+import { buildNameIndex, matchName, parsePastedNames, suggestName } from '@/lib/live/renraku-names';
+import { normName } from '@/lib/live/eigyo-common';
 import { HoldButton, LinePreview, Note, SendProgress, Step, haishin, useIkeDebounced } from './parts';
 
 // 手動配信：今の営業共有リスト（partner-list.html / ikou-manual.html）と同じ流れ（2026-10-25 shoya）。
@@ -17,6 +19,9 @@ import { HoldButton, LinePreview, Note, SendProgress, Step, haishin, useIkeDebou
 //   ③ 人を選ぶ（選べない人は今の画面と同じ理由で止める）→ ④ 本文 → 長押しで配信
 //   送ると：今の手動配信と同じ「手動配信の依頼」を積んで案件番号（P…）を付け（ikou-requests create・manual）、
 //           その番号で 1:1 に送る（line-broadcast mode=send kNo）→ 案件進捗に載る → 依頼を「送った」にする（markSent）
+//   10-27 shoya「名前コピペで選択・フリーワード 性別 スキルなどで絞れる検索欄」：
+//     ③の「名前を貼り付けて選ぶ」＝今の配信画面の PASTENAMES と同じ照合（lib/live/renraku-names.ts。1字違いは自動で選ばず「もしかして」）
+//     ②の検索欄＝フリーワード（サマリ・前職・希望・駅・資格・ツール・タグ…）／スキル（資格・ツール・得意・職歴）／性別（基本情報フォームの回答＝/api/live/genders）
 //   ガード（条件・稼働月・交通費・人数・粗利・アダルト/店舗運営系・配信できる時間）は今の API が最後にもう一度見る。断られたら理由をそのまま出す
 const PHRASES = ['お疲れ様です！', '{名前}さん', '興味がありましたら「興味あります」とご返信ください。', '見送りの場合もその旨いただけると助かります。', 'ご不明な点があればお気軽にご連絡ください。'];
 type Result = { ok: boolean; title: string; lines: string[] };
@@ -30,6 +35,10 @@ export function ManualTab({ live, canSend, info, wide }: { live: boolean; canSen
   const [station, setStation] = useState('');
   const [kadou, setKadou] = useState(0);
   const [word, setWord] = useState('');
+  const [skill, setSkill] = useState('');
+  const [gender, setGender] = useState<'' | '男性' | '女性' | '不明'>('');
+  // 性別は営業共有リストに無いので、選んだときだけ基本情報フォームの回答から読む（5分ごと）
+  const gd = useLiveRoute<{ ok?: boolean; genders?: Record<string, string>; error?: string }>(on && gender ? '/api/live/genders' : null, { pollMs: 300_000 });
   const [bump, setBump] = useState(0);
 
   // ① 案件文 → 駅・条件（今の API。打っている途中は待つ）
@@ -47,7 +56,10 @@ export function ManualTab({ live, canSend, info, wide }: { live: boolean; canSen
   useEffect(() => setBump(0), [caseText, station]);
 
   // ② 絞り込み ③ 選ぶ
-  const g = useMemo(() => pickGroups(L, ST, { kadou, word }), [L, ST, kadou, word]);
+  const genders = gd.data?.genders ?? null;
+  const g = useMemo(() => pickGroups(L, ST, { kadou, word, skill, gender: gender && genders ? gender : '', genders }), [L, ST, kadou, word, skill, gender, genders]);
+  const chips = useMemo(() => skillChips(L), [L]);
+  const toggleSkill = (w: string) => setSkill((s0) => { const ws = s0.split(/[\s　]+/).filter(Boolean); return (ws.includes(w) ? ws.filter((x) => x !== w) : [...ws, w]).join(' '); });
   const [sel, setSel] = useState<string[]>([]);
   const [why, setWhy] = useState('');
   const [openSum, setOpenSum] = useState<string[]>([]);   // サマリを全文で開いている人
@@ -66,6 +78,37 @@ export function ManualTab({ live, canSend, info, wide }: { live: boolean; canSen
     setWhy(''); setSel((s) => [...s, p.id]);
   };
   const picked = sel.map((id) => people.get(id)).filter((p): p is PartnerPerson => !!p);
+
+  // ③ 名前を貼り付けて選ぶ（営業中の人の中から。通勤エリア外・選べない人は理由を出して選ばない）
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [paste, setPaste] = useState('');
+  const [pasteRes, setPasteRes] = useState<{ added: string[]; already: string[]; ng: string[]; miss: string[]; maybe: { asked: string; p: PartnerPerson }[] } | null>(null);
+  const applyPaste = () => {
+    const names = parsePastedNames(paste);
+    if (!names.length || !L) { setPasteRes(null); return; }
+    const idx = buildNameIndex<PartnerPerson>((L.people ?? []).map((p) => ({ name: p.name, value: p })));
+    const res = { added: [] as string[], already: [] as string[], ng: [] as string[], miss: [] as string[], maybe: [] as { asked: string; p: PartnerPerson }[] };
+    const next = [...sel];
+    for (const n of names) {
+      const m = matchName(n, idx);
+      if (!m || m.how === 'partial') {
+        const sg = m ? { value: m.value } : suggestName(n, idx);
+        if (sg) res.maybe.push({ asked: n, p: sg.value }); else res.miss.push(n);
+        continue;
+      }
+      const p = m.value;
+      if (next.includes(p.id)) { res.already.push(p.name); continue; }
+      const r = commuteJudge(p, L.commute, ST) === 'ng' ? '通勤エリア外' : cannotPick(p, ST, L, next.length);
+      if (r) { res.ng.push(`${p.name}（${r.replace(/ため選べません.*$/, '').replace(/^【|】/g, '')}）`); continue; }
+      next.push(p.id); res.added.push(p.name);
+    }
+    setSel(next); setWhy(''); setPasteRes(res);
+    if (!res.maybe.length && !res.miss.length && !res.ng.length) setPaste('');
+  };
+  const pickMaybe = (asked: string, p: PartnerPerson) => {
+    setPasteRes((r) => r && { ...r, maybe: r.maybe.filter((x) => x.asked !== asked) });
+    if (!sel.includes(p.id)) toggle(p);
+  };
 
   // ④ 本文
   const [text, setText] = useState('');
@@ -150,6 +193,7 @@ export function ManualTab({ live, canSend, info, wide }: { live: boolean; canSen
             <input type="checkbox" className="mt-1" checked={on2} disabled={kind === 'blocked'} onChange={() => toggle(p)} />
             <span className="min-w-0 flex-1">
               <span className="flex flex-wrap items-center gap-x-2 gap-y-1"><b>{p.name}</b><span className="text-xs text-muted">📍 {p.eki || '駅未登録'}</span>
+                {gender && genders && genderOf(genders[normName(p.name)]) && <span className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>{genderOf(genders[normName(p.name)])}</span>}
                 {cj === 'ok' && <span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}>通勤OK</span>}
                 {cj === 'na' && <span className="chip" style={{ background: 'var(--tone-caution-bg)', color: 'var(--tone-caution-fg)' }}>通勤 未回答</span>}
                 {fare && <span className="chip" style={{ background: `var(--tone-${fare.state === 'ok' ? 'mute' : 'bad'}-bg)`, color: `var(--tone-${fare.state === 'ok' ? 'mute' : 'bad'}-fg)` }}>交通費 {fare.yen != null ? `${fare.yen.toLocaleString('ja-JP')}円` : '—'}</span>}
@@ -206,13 +250,58 @@ export function ManualTab({ live, canSend, info, wide }: { live: boolean; canSen
           <select value={kadou} onChange={(e) => setKadou(Number(e.target.value))} aria-label="稼働月" className="rounded-lg border border-field bg-surface px-2 py-1.5">
             <option value={0}>稼働月を指定しない</option>{months.map((m) => <option key={m.ym} value={m.ym}>{m.label}稼働</option>)}
           </select>
-          <input value={word} onChange={(e) => setWord(e.target.value)} placeholder="言葉で絞る（例：CCNA ヘルプデスク）" aria-label="言葉で絞る" className="min-w-0 flex-1 rounded-lg border border-field bg-surface px-2 py-1.5 outline-none" />
+          <select value={gender} onChange={(e) => setGender(e.target.value as typeof gender)} aria-label="性別" className="rounded-lg border border-field bg-surface px-2 py-1.5">
+            <option value="">性別：すべて</option><option value="男性">男性</option><option value="女性">女性</option><option value="不明">性別が不明</option>
+          </select>
+          <input value={word} onChange={(e) => setWord(e.target.value)} placeholder="フリーワード（例：ヘルプデスク 品川 シフト可）" aria-label="フリーワード" className="min-w-0 flex-1 rounded-lg border border-field bg-surface px-2 py-1.5 outline-none" />
         </div>
+        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
+          <input value={skill} onChange={(e) => setSkill(e.target.value)} placeholder="スキル・資格（例：CCNA Excel）" aria-label="スキル・資格" className="min-w-0 flex-1 rounded-lg border border-field bg-surface px-2 py-1.5 outline-none" />
+          {(word || skill || gender || kadou) ? <button type="button" onClick={() => { setWord(''); setSkill(''); setGender(''); setKadou(0); }} className="rounded-full border border-line px-2.5 py-1 text-xs text-muted">絞り込みを消す</button> : null}
+        </div>
+        {!!chips.length && (
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {chips.map((c) => { const onC = skill.split(/[\s　]+/).includes(c); return (
+              <button key={c} type="button" aria-pressed={onC} onClick={() => toggleSkill(c)} className="chip" style={onC ? { background: 'var(--a)', color: 'var(--ao)' } : { background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>{c}</button>
+            ); })}
+          </div>
+        )}
+        {gender && gd.state === 'loading' && <p className="mt-1.5 text-xs text-faint">性別を読み込んでいます…</p>}
+        {gender && gd.data?.ok === false && <Note tone="warn">{gd.data.error || '性別を読めませんでした'}（性別では絞っていません）</Note>}
+        {gender && gd.error && <Note tone="warn">{gd.error}（性別では絞っていません）</Note>}
         {(!on || list.state === 'loading') && <p className="mt-2 text-sm text-muted">営業中の人を読み込んでいます…</p>}
         {on && list.error && <Note tone="bad">{list.error}</Note>}
-        <p className="mt-1.5 text-xs text-faint">{g.main.length + g.na.length}人{kadou ? `・稼働月が違う ${g.kadouNg}人を除外` : ''}{ST?.fare?.pending ? '・交通費を調べています…' : ''}</p>
+        <p className="mt-1.5 text-xs text-faint">{g.main.length + g.na.length}人{g.filtered ? `・検索で ${g.filtered}人を除外` : ''}{kadou ? `・稼働月が違う ${g.kadouNg}人を除外` : ''}{ST?.fare?.pending ? '・交通費を調べています…' : ''}</p>
       </Step>
       <Step n={3} title={`人を選ぶ（${picked.length}人${lim?.cap ? ` / ${lim.cap}人まで` : ''}）`} done={!!picked.length}>
+        <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+          <button type="button" onClick={() => setPasteOpen((v) => !v)} aria-expanded={pasteOpen} className="rounded-full border border-line px-2.5 py-1 text-sm">名前を貼り付けて選ぶ</button>
+          {!!picked.length && <button type="button" onClick={() => { setSel([]); setPasteRes(null); }} className="rounded-full border border-line px-2.5 py-1 text-xs text-muted">選択を全部外す</button>}
+        </div>
+        {pasteOpen && (
+          <div className="mb-2 rounded-lg border border-line p-2">
+            <textarea value={paste} onChange={(e) => setPaste(e.target.value)} rows={3} aria-label="名前の貼り付け"
+              placeholder={'名前をコピペ（改行・カンマ・読点で区切る。ふりがな・敬称・表の行のままでも可）\n例：山田 太郎\n鈴木花子さん'}
+              className="w-full resize-y rounded-lg border border-field bg-surface px-2 py-1.5 text-body outline-none" />
+            <div className="mt-1 flex items-center gap-2">
+              <button type="button" disabled={!paste.trim() || !L} onClick={applyPaste} className="rounded-full px-3 py-1 text-sm font-semibold disabled:opacity-40" style={{ background: 'var(--a)', color: 'var(--ao)' }}>この名前を選ぶ</button>
+              <span className="text-xs text-faint">{parsePastedNames(paste).length ? `${parsePastedNames(paste).length}人分` : ''}</span>
+            </div>
+            {pasteRes && (
+              <div className="mt-1.5 flex flex-col gap-1 text-sm">
+                {!!pasteRes.added.length && <Note tone="info">{`${pasteRes.added.length}人を選びました：${pasteRes.added.join('、')}`}</Note>}
+                {!!pasteRes.already.length && <p className="text-xs text-faint">もう選んであった：{pasteRes.already.join('、')}</p>}
+                {!!pasteRes.ng.length && <Note tone="warn">{`この案件では選べない ${pasteRes.ng.length}人\n${pasteRes.ng.join('\n')}`}</Note>}
+                {!!pasteRes.maybe.length && (
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">もしかして：
+                    {pasteRes.maybe.map((m) => <button key={m.asked} type="button" onClick={() => pickMaybe(m.asked, m.p)} className="rounded-full border px-2 py-0.5" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}>「{m.asked}」→ {m.p.name}</button>)}
+                  </div>
+                )}
+                {!!pasteRes.miss.length && <Note tone="warn">{`営業中の人に見つからない ${pasteRes.miss.length}人：${pasteRes.miss.join('、')}`}</Note>}
+              </div>
+            )}
+          </div>
+        )}
         {why && <Note tone="warn">{why}</Note>}
         <div className={`${wide ? 'max-h-[60vh]' : 'max-h-[460px]'} overflow-y-auto`}>
           {list2('合いそうな人', g.main, 'main')}

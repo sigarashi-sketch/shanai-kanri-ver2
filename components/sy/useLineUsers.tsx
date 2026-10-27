@@ -1,6 +1,7 @@
 'use client';
 import type { PinKind } from '@/lib/sy/pins';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { usePoll } from '@/components/Live';
 
 export interface LineUser {
   user_id: string; display_name: string; picture_url: string; followed: boolean; subject_key: string; subject_name: string;
@@ -11,26 +12,26 @@ export interface LineUser {
   staff?: boolean;                   // 内勤（ログインできる人と同じ名前）。一覧で紫に出す（api/s/line/users）
 }
 
-// 公式LINEの友だち一覧。pollMs を渡すと定期的に読み直す（チャットの新着）。
+// 公式LINEの友だち一覧。定期的に読み直す（チャットの新着。渡さなければ30秒・リアルタイム更新 10-27）。
 export interface LegacyChat {
   chat_id: string; name: string; friend: boolean; last_talked_at: string | null; last_text: string; message_count: number;
   user_id: string | null; match_kind: string; subject_key: string; subject_name: string; name_guesses: string[];
 }
 
-export function useLineUsers(pollMs = 0) {
+export function useLineUsers(pollMs = 30_000) {
   const [users, setUsers] = useState<LineUser[] | null>(null);
   const [legacy, setLegacy] = useState<LegacyChat[]>([]);
   const [pinKinds, setPinKinds] = useState<PinKind[]>([]);
   const [configured, setConfigured] = useState(true);
   const [bot, setBot] = useState<{ name?: string; basicId?: string; addUrl?: string } | null>(null);
+  const last = useRef('');
   const reload = useCallback(() =>
-    fetch('/api/sy/s/line/users').then((r) => r.json()).then((j) => { if (j.users) { setUsers(j.users); setConfigured(!!j.configured); setBot(j.bot || null); setLegacy(j.legacy || []); setPinKinds(j.pinKinds || []); } }).catch(() => {}), []);
-  useEffect(() => {
-    reload();
-    if (!pollMs) return;
-    const t = setInterval(() => { if (document.visibilityState === 'visible') reload(); }, pollMs);
-    return () => clearInterval(t);
-  }, [reload, pollMs]);
+    fetch('/api/sy/s/line/users').then((r) => r.text()).then((t) => {
+      if (t === last.current) return;   // 変わっていなければ描き直さない（読み直しのたびに一覧が組み直されない）
+      const j = JSON.parse(t);
+      if (j.users) { last.current = t; setUsers(j.users); setConfigured(!!j.configured); setBot(j.bot || null); setLegacy(j.legacy || []); setPinKinds(j.pinKinds || []); } }).catch(() => {}), []);
+  useEffect(() => { reload(); }, [reload]);
+  usePoll(reload, pollMs);
   return { users, setUsers, legacy, setLegacy, pinKinds, setPinKinds, configured, bot, reload };
 }
 
