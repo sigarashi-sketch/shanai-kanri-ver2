@@ -26,6 +26,7 @@
 - **見積書作成** `/keiri/mitsumori`（10-27 shoya「経理管理に見積書つくるタブ・請求書作成と同じような実装で」）：今のシステムに見積書の画面は無いので ver2 で作った。見本は請求書作成（seikyu-make.html）の A4 の雛形と同じ位置・大きさ、PDF はブラウザの印刷。発行元の候補は請求書作成と同じ `/ik/api/seikyu?action=issuers`。保存は saiyou.settings の `v2_mitsumori:<id>`（`app/api/live/mitsumori`・`lib/mitsumori.ts`・直す/消すは経理管理の「直す」以上）
 - 案件進捗は単独（LINEグループに直接投げた案件も回収する）。カスタム（列・並べ方・判断の絞り込み・自分のタブ）は10-27に入れた＝この端末に覚える
 - 案件・要員マップは 営業 `/eigyo/map` と 人事 `/jinji/map` の両方のメニューにある（同じ画面・10-27 shoya）
+- **成約日報** `/eigyo/nippo` は今の `/nippo.html` をそのまま出す（10-27 shoya「もとに戻して・デザインね」・app/ik の IK_PAGES と app/ik/api の nippo の口）
 - 面談可能日の承認（/eigyo/availability）は 10-27 shoya「DBだけ保持してページから消して」で画面・書く口・読む口を外した（データは今のシステムのまま）
 
 <!-- BEGIN:nextjs-agent-rules -->

@@ -6,7 +6,7 @@ import 'server-only';
 //   ★見た目は今のまま。今の外枠（左メニュー・上バー・タブ・AIに聞く）だけ消す（ver2 の外枠と二重になるため）
 
 /** ver2 で開ける今の画面（請求の2つ＋3D の出勤ボード）。ほかの画面は開かない（中継する API を増やさないため） */
-export const IK_PAGES = new Set(['seikyu.html', 'seikyu-make.html', 'attendance-3d.html', 'bikkura.html']);   // bikkura＝たまげたポン（人財管理・10-27）
+export const IK_PAGES = new Set(['seikyu.html', 'seikyu-make.html', 'attendance-3d.html', 'bikkura.html', 'nippo.html']);   // nippo＝成約日報（10-27 shoya「デザインもとに戻して」＝今の画面をそのまま）   // bikkura＝たまげたポン（人財管理・10-27）
 
 /** 画面のコード（JS/CSS）と画像。データは入っていない（今のシステムでもログインなしで読める静的ファイル） */
 export const ASSET_TYPES: Record<string, string> = {
@@ -35,6 +35,7 @@ if(navigator.sendBeacon){var b=navigator.sendBeacon.bind(navigator);navigator.se
 const HIDE_SHELL = `<style id="v2-embed">
 .ike-sidebar,.ike-topbar,.ike-m-appbar,.ike-m-tabbar,.ike-scrim,.ike-m-scrim,.ike-subtabs,#ai-widget{display:none!important}
 .ike-main{margin-left:0!important}
+a[href="/ik/home.html"]{display:none!important}
 body{padding-top:0!important;padding-bottom:0!important}
 </style>`;
 

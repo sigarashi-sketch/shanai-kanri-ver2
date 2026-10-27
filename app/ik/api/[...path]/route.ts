@@ -59,6 +59,9 @@ function allowedGet(api: string, rest: string[], sp: URLSearchParams): boolean {
   if (api === 'proxy') return action === 'getRosterStatus';
   if (api === 'shared-kv') return [...sp.keys()].every((k) => k === 'scope');
   if (api === 'bikkura') return action === 'me';   // たまげたポン（人財管理）の残高・設定
+  // 成約日報（nippo.html・10-27 今の画面に戻した）：日報の下書き・締め切り・選択肢・自分の分。駅の候補（keihi stations）も読むだけ
+  if (api === 'nippo') return ['init', 'due', 'masters', 'self'].includes(action);
+  if (api === 'keihi') return action === 'stations';
   return false;
 }
 
@@ -109,7 +112,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ path: string[]
   const action = url.searchParams.get('action') || '';
   // たまげたポン（人財管理・10-27）：本人がまわす（draw）・自分の作業を申告する（manual）だけ。マイル・確率・上限は今のシステムが決める
   const BIKKURA_POST = new Set(['draw', 'manual']);
-  const okPost = path.length === 1 && url.searchParams.getAll('action').length === 1 && ((path[0] === 'seikyu' && SEIKYU_POST.has(action)) || (path[0] === 'bikkura' && BIKKURA_POST.has(action)));
+  // 成約日報（10-27）：今の画面は action を本文（JSON）に入れて POST する。日報を出す・埋める・直す・入場退場の反映・好みだけ通す（selftest は通さない）
+  const NIPPO_POST = new Set(['submit', 'fill', 'edit', 'edit-end', 'pref', 'reflect']);
+  const body = await req.arrayBuffer();
+  let nippoOk = false;
+  if (path.length === 1 && path[0] === 'nippo' && !url.searchParams.has('action')) {
+    try { const j = JSON.parse(new TextDecoder().decode(body)) as { action?: unknown }; nippoOk = typeof j.action === 'string' && NIPPO_POST.has(j.action); } catch { nippoOk = false; }
+  }
+  const okPost = nippoOk || (path.length === 1 && url.searchParams.getAll('action').length === 1 && ((path[0] === 'seikyu' && SEIKYU_POST.has(action)) || (path[0] === 'bikkura' && BIKKURA_POST.has(action))));
   if (!okPost) return blocked();
   if (!sameSite(req)) return NextResponse.json({ ok: false, success: false, error: 'この画面の外からは保存できません' }, { status: 403 });
   const token = await ikeToken();
@@ -118,7 +128,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ path: string[]
     const r = await fetch(`${IKE_ORIGIN}/api/${path[0]}${url.search}`, {
       method: 'POST', cache: 'no-store', redirect: 'manual', signal: AbortSignal.timeout(295000),
       headers: { Authorization: `Bearer ${token}`, Cookie: `sb_access=${token}`, 'Content-Type': req.headers.get('content-type') || 'application/json', Accept: req.headers.get('accept') || '*/*' },
-      body: await req.arrayBuffer(),
+      body,
     });
     if (r.ok) dropUserCache(token);
     const out = new Headers();
