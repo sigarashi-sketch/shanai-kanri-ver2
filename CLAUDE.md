@@ -1,7 +1,7 @@
 # いけどん ver2（本番）
 
 いけいけどんどん（ses/02_ツール/LINE/ikeike-next/legacy）の作り直し。**本番で使っている**（10-27 shoya「もう本番なんだけど」）。
-本番＝Vercel プロジェクト shanai-kanri-v2（https://shanai-kanri-v2.vercel.app）。GitHub の main に入れると自動で出る。**クラウドの `claude/…` に push しても、Mac の見張り役（いけどんの tools/deploy-watch/v2.sh・10-27 shoya「見張り役つけて」）が main に取り込み → tsc → vercel --prod まで出す**（結果はこのリポジトリのタグ `deploy-ok/<sha7>`・`deploy-failed/<sha7>`、様子はタグ `deploy-watch/status`。出したくない途中は先頭のコミットを `wip:` で始める）。手元は `npm run dev`（http://localhost:3330）。
+本番＝Vercel プロジェクト shanai-kanri-v2（https://shanai-kanri-v2.vercel.app）。GitHub からの自動ビルドは止めてある（`vercel.json` の git.deploymentEnabled=false・10-27 Vercel のビルド代対策＝push のたびのプレビューと main の本番が見張り役の `vercel --prod` と二重三重になっていた）＝本番に出すのは見張り役だけ。**クラウドの `claude/…` に push しても、Mac の見張り役（いけどんの tools/deploy-watch/v2.sh・10-27 shoya「見張り役つけて」）が main に取り込み → tsc → vercel --prod まで出す**（結果はこのリポジトリのタグ `deploy-ok/<sha7>`・`deploy-failed/<sha7>`、様子はタグ `deploy-watch/status`。出したくない途中は先頭のコミットを `wip:` で始める。push が3分落ち着いてから出す＝続けた push は最後の1回だけ・細かい修正はまとめて push）。手元は `npm run dev`（http://localhost:3330）。
 今のシステム（legacy）は並べて動いている。legacy 側に手を入れる前は shoya に確認する。
 - 営業だけ先に出すスイッチ：`lib/kubun.ts` の `PRE_LAUNCH`（true＝全体管理者以外は営業とホーム・設定だけ。いまは false）。メニュー・右クリック・画面は `usePerms().open(href)` で決める
 - 配る URL に vercel.app を付けない（10-27 shoya）＝会社のドメインをつなぐ（ドメインはまだ買わない・同日）
