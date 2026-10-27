@@ -5,8 +5,8 @@ import { isMikeiken } from '@/lib/live/mikeiken';
 import { FORBIDDEN, roleCan } from '@/lib/live/role';
 
 // 名前の小窓の「基本情報」タブ（10-25 shoya「名前クリックしたらチャットと基本情報の回答もだして」）。
-//   今の GET /api/basic-info?action=detail&health=0（健康状況は読まない）を読んで、小窓に出す分だけに削って返す
-//   ★電話・メール・住所・生年月日・緊急連絡先は返さない（小窓はどの画面からも開くので。要るときは今の基本情報の画面で）
+//   今の GET /api/basic-info?action=detail を読んで、小窓に出す分だけに削って返す
+//   ★生年月日・住所・既往歴（健康状況）も出す（10-27 shoya「既往歴と住所ちゃんとうつして・生年月日も」）。電話・メール・緊急連絡先は返さない
 //   ★名前は URL に出さない＝POST { name }（10-25）。未経験の人だけ（今のプロパーリストに入っている人）
 //   ★人事の情報なので、管理者と採用の担当だけ（lib/live/role.ts）。ほかのロールは 403
 type Detail = {
@@ -15,9 +15,10 @@ type Detail = {
   work?: { company: string; from: string; to: string; emp_type: string; job_category: string; description: string }[];
   submittedAt?: string | null;
   sameName?: boolean; personId?: string;
+  health?: { label: string; value: string }[]; healthError?: string;
 };
 const KEEP: [string, string][] = [
-  ['kana', 'よみがな'], ['gender', '性別'], ['age', '年齢'], ['eki', '最寄駅'], ['gakureki', '最終学歴'], ['tools', '使えるツール'],
+  ['kana', 'よみがな'], ['gender', '性別'], ['birth', '生年月日'], ['age', '年齢'], ['address', '住所'], ['eki', '最寄駅'], ['gakureki', '最終学歴'], ['tools', '使えるツール'],
   ['shikaku', '資格'], ['tokui', '得意なこと'], ['shift', 'シフト勤務'], ['yakin', '夜勤'], ['shutcho', '出張'], ['timestamp', '回答日'],
 ];
 
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: m.startsWith('ログインが切れ') ? m : 'プロパーリストが読めないので、未経験の人か確かめられませんでした' }, { status: m.startsWith('ログインが切れ') ? 401 : 502 });
   }
   if (!isMikeiken(mk, name)) return NextResponse.json({ answered: false, note: '未経験の人ではないので出していません' });
-  const r = await ikeFetch(`/api/basic-info?action=detail&health=0&name=${encodeURIComponent(name)}${person ? `&person=${encodeURIComponent(person)}` : ''}`);
+  const r = await ikeFetch(`/api/basic-info?action=detail&name=${encodeURIComponent(name)}${person ? `&person=${encodeURIComponent(person)}` : ''}`);
   if (r.status === 401) return NextResponse.json({ error: 'ログインが切れました。もう一度ログインしてください' }, { status: 401 });
   if (!r.ok) return NextResponse.json({ error: `基本情報を読めませんでした（${r.status}）` }, { status: 502 });
   const d = (await r.json().catch(() => ({}))) as Detail;
@@ -43,9 +44,11 @@ export async function POST(req: Request) {
   if (d.sameName && !person) return NextResponse.json({ answered: false, note: '同じ名前の人がいます。この人がだれか（応募）がまだつながっていないので、回答は出していません（設定の「同姓同名をつなぐ」で決めると出ます）' });
   const s = d.sheet || null;
   return NextResponse.json({
-    answered: !!s || !!(d.analysis || []).length,
+    answered: !!s || !!(d.analysis || []).length || !!(d.health || []).length,
     facts: s ? KEEP.map(([k, l]) => [l, String(s[k] || '')]).filter(([, v]) => v) : [],
     analysis: d.analysis || [],
+    health: d.health || [],
+    healthError: d.healthError || '',
     work: (d.work || []).map((w) => ({ company: w.company, from: w.from, to: w.to, emp: w.emp_type, job: w.job_category, description: w.description })),
     note: s ? '' : d.sheetError || '',
   });
