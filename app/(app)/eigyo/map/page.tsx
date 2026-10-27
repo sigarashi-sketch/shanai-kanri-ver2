@@ -17,7 +17,7 @@ import {
   type Cat, type CasesMapList, type Job, type MapData, type Youin,
 } from '@/lib/live/map';
 import { PersonName } from '@/components/Person';
-import { TileMap, pct } from '@/components/TileMap';
+import { Pin, TileMap, pct } from '@/components/TileMap';
 
 // 案件・要員マップ（営業）。今の社内システムの「案件マップ」と「要員マップ」を1画面の2つのタブにしたもの。中身・操作・言葉は今の画面どおり。
 //   案件マップ：マップ／案件入力（案件文を貼る → AI が欄を埋める）／充足・終了。出発駅を選ぶと通勤の目安で並ぶ（実経路は出さない）
@@ -223,20 +223,20 @@ function CasesMap({ from, setFrom, data, loading, reload }: { from: string; setF
                 </div>)}
               {!fj && from && <div className="absolute inset-x-2 bottom-6 rounded-lg bg-surface/90 px-3 py-1.5 text-sm text-muted"><Train size={12} className="inline" /> ピンかカードを選ぶと、地図に経路の目安（距離・所要時間）が出ます</div>}
             </>}>
-              {fj && fromS && (() => { const a = xy(fromS.lat, fromS.lng), s = at(fj.station!)!, b = xy(s.lat, s.lng); return <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="var(--ad)" strokeWidth={3} strokeDasharray="7 6" />; })()}
+              {fj && fromS && (() => { const a = xy(fromS.lat, fromS.lng), s = at(fj.station!)!, b = xy(s.lat, s.lng); return <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="var(--ad)" strokeWidth={3} strokeDasharray="7 6" vectorEffect="non-scaling-stroke" />; })()}
               {Object.entries(groups).map(([st, list]) => {
                 const s = at(st)!, p = xy(s.lat, s.lng), head = list[0], on = list.some((j) => j.case_no === focus);
                 return (
-                  <g key={st} transform={`translate(${p.x},${p.y})`} className="cursor-pointer" onClick={(e) => { e.stopPropagation(); pick(head); }}>
+                  <Pin key={st} x={p.x} y={p.y} className="cursor-pointer" onClick={(e) => { e.stopPropagation(); pick(head); }}>
                     <title>{list.map((j) => `No.${j.case_no} ${j.title}`).join('\n')}</title>
                     {on && <circle cy={-15} r={15} fill="var(--al)" className="mo-pulse" />}
                     <path d="M0 0C-2-6-10-9-10-16a10 10 0 1 1 20 0c0 7-8 10-10 16z" fill={catFg(head.category)} stroke="var(--color-surface)" strokeWidth={1.5} strokeDasharray={head.reserve ? '3 2' : undefined} opacity={head.reserve ? 0.75 : 1} />
                     <text y={-12.5} textAnchor="middle" fontSize={9} fontWeight={700} fill="var(--color-surface)">{head.case_no}</text>
                     {list.length > 1 && <g transform="translate(9,-25)"><circle r={6.5} fill="var(--color-ink)" /><text y={3} textAnchor="middle" fontSize={8.5} fontWeight={700} fill="var(--color-surface)">{list.length}</text></g>}
-                  </g>
+                  </Pin>
                 );
               })}
-              {fromS && (() => { const p = xy(fromS.lat, fromS.lng); return <g><circle cx={p.x} cy={p.y} r={8} fill="var(--ad)" stroke="var(--color-surface)" strokeWidth={3} /><text x={p.x} y={p.y - 13} textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--color-ink)">出発：{fromS.name}</text></g>; })()}
+              {fromS && (() => { const p = xy(fromS.lat, fromS.lng); return <Pin x={p.x} y={p.y}><circle r={8} fill="var(--ad)" stroke="var(--color-surface)" strokeWidth={3} /><text y={-13} textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--color-ink)">出発：{fromS.name}</text></Pin>; })()}
             </BaseMap>
           </div>
           <div className="flex flex-col gap-2">
@@ -453,16 +453,16 @@ function YouinMap() {
           </div>); })()}>
           {CASES_.filter((c) => !hidden[c.kNo]).flatMap((c, ci) => c.stations.map((st) => {
             const s = at(st); if (!s) return null; const p = xy(s.lat, s.lng), on = focus === c.kNo || selCase === c.kNo;
-            return <g key={c.kNo + st} transform={`translate(${p.x + 12 + (ci % 3) * 5},${p.y - 10 - (ci % 2) * 5})`} onClick={(e) => { e.stopPropagation(); setFocus(c.kNo); }} className="cursor-pointer">
+            return <Pin key={c.kNo + st} x={p.x} y={p.y} onClick={(e) => { e.stopPropagation(); setFocus(c.kNo); }} className="cursor-pointer"><g transform={`translate(${12 + (ci % 3) * 5},${-10 - (ci % 2) * 5})`}>
               <title>{`${c.kNo}（${st}）${c.remote ? ' リモート併用' : ''}\n${c.content}`}</title>
-              {on && <circle r={13} fill="var(--tone-warn-bg)" className="mo-pulse" />}<circle r={7} fill="var(--tone-warn-fg)" stroke="var(--color-surface)" strokeWidth={2} /></g>;
+              {on && <circle r={13} fill="var(--tone-warn-bg)" className="mo-pulse" />}<circle r={7} fill="var(--tone-warn-fg)" stroke="var(--color-surface)" strokeWidth={2} /></g></Pin>;
           }))}
           {Object.entries(byStation).map(([st, list]) => {
             const s = at(st)!, p = xy(s.lat, s.lng), r = Math.min(9 + list.length * 1.5, 22), picked = list.some((y) => members.includes(y.id));
-            return <g key={st} onClick={(e) => { e.stopPropagation(); setPop(st); }} className="cursor-pointer">
+            return <Pin key={st} x={p.x} y={p.y} onClick={(e) => { e.stopPropagation(); setPop(st); }} className="cursor-pointer">
               <title>{`${st} ${list.length}`}</title>
-              <circle cx={p.x} cy={p.y} r={r} fill="var(--tone-info-fg)" fillOpacity={0.85} stroke={picked ? 'var(--a)' : 'var(--color-surface)'} strokeWidth={picked ? 4 : 2} />
-              <text x={p.x} y={p.y + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--color-surface)">{list.length}</text></g>;
+              <circle r={r} fill="var(--tone-info-fg)" fillOpacity={0.85} stroke={picked ? 'var(--a)' : 'var(--color-surface)'} strokeWidth={picked ? 4 : 2} />
+              <text y={4} textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--color-surface)">{list.length}</text></Pin>;
           })}
         </BaseMap>
         <p className="mt-1.5 text-xs text-faint">要員は営業用リストの最寄駅、案件は Slack に流れた案件の現場の駅に出します。駅の丸を押すと名前が出て、チェックで配信の宛先に入れられます。</p>
