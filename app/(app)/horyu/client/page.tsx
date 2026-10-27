@@ -205,7 +205,7 @@ export default function ClientPage() {
         {tab === 'map' && (<div className="flex flex-col gap-3">
           <input value={mapQ} onChange={(e) => setMapQ(e.target.value)} placeholder="イニシャル・駅・スキルで絞り込み" className={inp} />
           {(() => {
-            // 地図（国土地理院の淡色地図）。今のシステムが返す駅の座標（coords）がある駅だけ丸を置く。丸を押すとその駅のメンバーが開く
+            // 地図（Google マップ）。今のシステムが返す駅の座標（coords）がある駅だけ丸を置く。丸を押すとその駅のメンバーが開く
             const pins = Object.entries(byEki).map(([eki, list]) => ({ eki, list, c: d.coords?.[eki] ?? d.coords?.[eki.replace(/駅$/, '')] }))
               .filter((x): x is { eki: string; list: ClientPerson[]; c: [number, number] } => !!x.c && x.c[0] <= BOX.n && x.c[0] >= BOX.s && x.c[1] >= BOX.w && x.c[1] <= BOX.e);
             const onMap = pins.reduce((a, x) => a + x.list.length, 0);
