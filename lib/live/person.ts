@@ -57,11 +57,16 @@ export const memberOf = (d: MembersRes | null, name: string) => d?.members?.find
 // ---- チャット ----
 export type Contact = { line_user_id: string; display_name?: string | null; link_status?: string | null; linked_name?: string | null; linked_normalized_name?: string | null; last_message_at?: string | null };
 export type ContactsRes = { contacts: Contact[]; error?: string };
-export type ThreadMsg = { id: number | string; direction: 'in' | 'out' | string; message_type?: string; text?: string | null; sent_at: string; sender_name?: string | null };
+// 画像・ファイル（今の api/chat.ts が付ける media）と 引用リプライの引用元（quoted）・返信できるか（can_reply／canReply）
+export type ChatMedia = { kind: 'image' | 'video' | 'audio' | 'file' | string; url: string; downloadUrl?: string; fileName?: string; fileSize?: number; sent?: boolean };
+export type ChatQuoted = { found?: boolean; text?: string; direction?: string; sender?: string; at?: string };
+export type ThreadMsg = { id: number | string; direction: 'in' | 'out' | string; message_type?: string; text?: string | null; sent_at: string; sender_name?: string | null;
+  line_message_id?: string | null; media?: ChatMedia; quoted?: ChatQuoted; can_reply?: boolean };
 export type ThreadRes = { contact: Contact | null; messages: ThreadMsg[]; error?: string };
 export type Group = { groupId: string; name: string; lastAt: string | null; lastText?: string; unread?: number };
 export type GroupsRes = { groups: Group[]; error?: string };
-export type GroupMsg = { key?: string; ts?: number; sent_at: string; direction: 'in' | 'out' | string; text?: string | null; sender?: string | null; source?: string };
+export type GroupMsg = { key?: string; ts?: number; sent_at: string; direction: 'in' | 'out' | string; text?: string | null; sender?: string | null; source?: string;
+  msgId?: string; canReply?: boolean; media?: ChatMedia; quoted?: ChatQuoted };
 export type GroupThreadRes = { group: { groupId: string; name: string } | null; messages: GroupMsg[]; error?: string };
 
 /** この人の 1:1 の LINE 相手（紐付けずみだけ。紐付けの氏名で当てる） */
@@ -79,14 +84,34 @@ export function groupsOf(d: GroupsRes | null, name: string, everyone: readonly s
   return (d?.groups ?? []).filter((g) => matchGroupName(g.name, norms) === n);
 }
 
-export type Bubble = { key: string; out: boolean; who: string; text: string; at: string };
+/** media / quoted は今の API のまま。replyId＝この吹き出しに返信（引用）できるときの LINE のメッセージ ID */
+export type Bubble = { key: string; out: boolean; who: string; text: string; at: string; media?: ChatMedia; quoted?: ChatQuoted; replyId?: string };
 const at = (iso: string) => { const t = Date.parse(iso); if (!t) return ''; const d = new Date(t + 9 * 3600e3); return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`; };
 const body = (text?: string | null, type?: string) => text || (type && type !== 'text' ? `（${type === 'image' ? '画像' : type === 'sticker' ? 'スタンプ' : type === 'file' ? 'ファイル' : type}）` : '');
 
+/** 受信の画像・ファイルの実体は今の /api/line-content（ログインが要る）→ ver2 の中継 /api/live/line-content に向ける。
+ *  この画面から送った分は Storage の署名つき URL（そのまま開ける） */
+export function mediaUrl(u?: string): string {
+  if (!u) return '';
+  if (u.startsWith('/api/line-content')) return '/api/live/line-content' + u.slice('/api/line-content'.length);
+  return /^https:\/\//.test(u) ? u : '';
+}
+const mediaOf = (m?: ChatMedia): ChatMedia | undefined => {
+  const url = mediaUrl(m?.url);
+  return m && url ? { ...m, url, downloadUrl: mediaUrl(m.downloadUrl) || url } : undefined;
+};
+const quotedOf = (q?: ChatQuoted): ChatQuoted | undefined => (q ? { ...q, text: maskSecrets(q.text || '') } : undefined);
+
 export const threadBubbles = (d: ThreadRes | null): Bubble[] =>
-  (d?.messages ?? []).map((m) => ({ key: String(m.id), out: m.direction === 'out', who: m.direction === 'out' ? (m.sender_name || 'あおい') : '', text: maskSecrets(body(m.text, m.message_type)), at: at(m.sent_at) }));
+  (d?.messages ?? []).map((m) => ({
+    key: String(m.id), out: m.direction === 'out', who: m.direction === 'out' ? (m.sender_name || 'あおい') : '', text: maskSecrets(body(m.text, m.message_type)), at: at(m.sent_at),
+    media: mediaOf(m.media), quoted: quotedOf(m.quoted), replyId: m.can_reply && m.line_message_id ? String(m.line_message_id) : undefined,
+  }));
 export const groupBubbles = (d: GroupThreadRes | null): Bubble[] =>
-  (d?.messages ?? []).map((m, i) => ({ key: m.key || `${m.sent_at}-${i}`, out: m.direction === 'out', who: m.sender || (m.direction === 'out' ? '自社' : ''), text: maskSecrets(body(m.text)) || '（文字のない投稿）', at: at(m.sent_at) }));
+  (d?.messages ?? []).map((m, i) => ({
+    key: m.key || `${m.sent_at}-${i}`, out: m.direction === 'out', who: m.sender || (m.direction === 'out' ? '自社' : ''), text: maskSecrets(body(m.text)) || '（文字のない投稿）', at: at(m.sent_at),
+    media: mediaOf(m.media), quoted: quotedOf(m.quoted), replyId: m.canReply && m.msgId ? m.msgId : undefined,
+  }));
 
 // ---- パスワードらしい文字を伏せる（10-25：トークに現場のログイン情報が貼られていることがある） ----
 //   ・「パスワード／PW／pass／暗証番号」のすぐ後ろの値（英数字・記号 4 文字以上）を伏せる

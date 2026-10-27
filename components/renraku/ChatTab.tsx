@@ -3,19 +3,20 @@
 import { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { useIke } from '../Live';
-import { useMotivation } from '../Motivation';
 import { needText } from '../Perms';
 import { ChatSummary } from '@/components/ChatSummary';
-import { ChatLog } from '@/components/ChatLog';
+import { ChatLog, type ReplyTo } from '@/components/ChatLog';
+import { ChatComposer } from '@/components/ChatComposer';
 import { groupBubbles, threadBubbles, type GroupThreadRes, type ThreadRes } from '@/lib/live/person';
 import { SEG_LABEL, contactRows, filterChat, groupRows, segCounts, type ChatRow, type ChatSeg, type LiveContactsRes, type LiveGroupsRes } from '@/lib/live/renraku';
-import { HoldButton, Pills } from './parts';
+import { Pills } from './parts';
 import { useMikeiken } from '../Mikeiken';
 
 // チャット：営業中／稼働中／その他 × 1:1／グループ（今の chat.html と同じ2軸）。
 //   ・振り分けは今の API の segment（api/_chat_segment.ts の答え）をそのまま使う。その他も消さずに残す（誰も消さない）
 //   ・「要対応のみ」（相手ボール）と検索はタブをまたぐ（今と同じ）
 //   ・送るのは長押し。送る口は /api/live/chat（今の POST /api/chat の send / groupSend だけ）。グループへ送れる人かは今の API が決める
+//   ・画像・PDF の添付と 返信（引用）は今と同じ（components/ChatComposer.tsx・10-27）。届いた画像はその場に出す（ChatLog）
 //   ・インフォメーション（10-26）：GET chat?action=infoContacts / infoThread を読むだけ。未経験の人だけ。振り分け（営業中/稼働中）は無い。
 //     送る欄は出すが押せない（このアカウントの送る鍵は それゆけ未経験 にしか無い）
 const QUICK = ['確認します', 'ありがとうございます！', '承知しました', '少々お待ちください'];
@@ -85,30 +86,15 @@ export function ChatTab({ live, canSend, contacts, info }: { live: boolean; canS
 }
 
 function Thread({ row, live, canSend, info, onBack }: { row: ChatRow; live: boolean; canSend: boolean; info: boolean; onBack: () => void }) {
-  const { hit, toast } = useMotivation();
   const one = row.kind === 'one';
   const th = useIke<ThreadRes>(live && one ? `chat?action=${info ? 'infoThread' : 'thread'}&userId=${encodeURIComponent(row.id)}` : null, { pollMs: 15000 });
   const gt = useIke<GroupThreadRes>(live && !one && !info ? `chat?action=groupThread&groupId=${encodeURIComponent(row.id)}` : null, { pollMs: 15000 });
   const bubbles = live ? (one ? threadBubbles(th.data) : groupBubbles(gt.data)) : [];
   const st = one ? th : gt;
-  const [text, setText] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [reply, setReply] = useState<ReplyTo | null>(null);
   // インフォメーションは今の社内システムから送れない（読むだけ）
   const infoLive = info && live;
   const canTalk = live && canSend && !row.blocked && !info;
-
-  const send = async () => {
-    if (!text.trim()) return;
-    if (!live || info) return;
-    setBusy(true);
-    try {
-      const r = await fetch('/api/live/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(one ? { kind: 'person', userId: row.id, text } : { kind: 'group', groupId: row.id, text }) });
-      const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string; warning?: string };
-      if (j.ok) { hit(); toast({ text: `${row.name} に送りました`, sub: j.warning || '→ 今の社内システムのチャットにも同じトークが残りました' }); setText(''); st.reload(); }
-      else toast({ text: '送れませんでした', sub: j.error || '' });
-    } catch (e) { toast({ text: '送れませんでした', sub: (e as Error).message }); }
-    finally { setBusy(false); }
-  };
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -116,17 +102,15 @@ function Thread({ row, live, canSend, info, onBack }: { row: ChatRow; live: bool
         <button onClick={onBack} className="min-w-0 flex-1 truncate py-0.5 text-left text-sm text-muted">← トーク一覧 ／ <b className="text-ink">{row.name}</b>{row.kind === 'group' && <span className="ml-1 text-faint">（グループ）</span>}</button>
         {!info && <ChatSummary kind={one ? 'user' : 'group'} id={row.id} name={row.name} live={live} />}
       </div>
-      <ChatLog bubbles={bubbles.slice(-200)} className="min-h-0 flex-1" resetKey={row.id}>
+      <ChatLog bubbles={bubbles.slice(-200)} className="min-h-0 flex-1" resetKey={row.id} onReply={canTalk ? setReply : undefined}>
         {live && st.state === 'loading' && !bubbles.length && <p className="text-body text-muted">読み込み中…</p>}
         {live && st.error && <p className="text-body text-bad">{st.error}</p>}
       </ChatLog>
-      {!infoLive && <div className="flex flex-wrap gap-1.5 px-4 pt-2">{QUICK.map((x) => <button key={x} type="button" onClick={() => setText((t) => (t ? t + x : x))} className="rounded-full border border-line px-2.5 py-1 text-sm">{x}</button>)}</div>}
-      <div className="flex items-end gap-2 px-4 py-3">
-        <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} maxLength={5000} disabled={!canTalk}
-          placeholder={infoLive ? 'インフォメーションからの返信は それゆけ未経験 の画面から（ここは読むだけ）' : !canSend ? needText('edit') : row.blocked ? 'ブロックされているので送れません' : one ? 'あおいから本人へ送る文' : 'グループへ送る文（送ってよい人かは今のシステムが決めます）'}
-          className="min-w-0 flex-1 resize-none rounded-[10px] border border-field bg-surface px-3 py-2 text-body outline-none disabled:bg-soft" />
-        <HoldButton label={busy ? '送っています…' : '長押しで送る'} disabled={!canTalk || busy || !text.trim()} title={infoLive ? 'このアカウントの送る鍵は それゆけ未経験 にしか無いので、ここからは送れません' : !canSend ? needText('edit') : undefined} onDone={send} />
-      </div>
+      <ChatComposer kind={one ? 'person' : 'group'} target={row.id} live={live} canTalk={canTalk} quick={infoLive ? undefined : QUICK}
+        reply={reply} onClearReply={() => setReply(null)} onSent={() => st.reload()}
+        sentToast={{ text: `${row.name} に送りました`, sub: '→ 今の社内システムのチャットにも同じトークが残りました' }}
+        placeholder={infoLive ? 'インフォメーションからの返信は それゆけ未経験 の画面から（ここは読むだけ）' : !canSend ? needText('edit') : row.blocked ? 'ブロックされているので送れません' : one ? 'あおいから本人へ送る文' : 'グループへ送る文（送ってよい人かは今のシステムが決めます）'}
+        disabledTitle={infoLive ? 'このアカウントの送る鍵は それゆけ未経験 にしか無いので、ここからは送れません' : !canSend ? needText('edit') : undefined} />
     </div>
   );
 }
