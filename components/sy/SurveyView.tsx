@@ -5,7 +5,7 @@ import { fx } from '@/components/sy/compat';
 import { foldSearch, normName } from '@/lib/sy/name';
 import { SURVEY_CUTOFF as CUTOFF, answeredTargets, isSurveyTarget, surveyMonthOf } from '@/lib/sy/survey';
 import { Chip, PageHeader, Tabs, btnPrimary, inputCls } from '@/components/sy/ui';
-import { MemberDrawer } from '@/components/sy/compat';
+import MemberDrawer from '@/components/sy/MemberDrawer';
 import { useRoster } from '@/components/sy/useRoster';
 import { SendDialog, SurveyTplSettings, useSurveyTpl } from '@/components/sy/SurveyTpl';
 import { latestByPerson, ruleHits, ruleLabel, type ScoreRule } from '@/lib/sy/survey-tpl-types';

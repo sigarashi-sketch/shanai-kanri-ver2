@@ -55,7 +55,7 @@ export default function PonSettingsView() {
   return (
     <div>
       <PageHeader title="たまげたポンの設定" sub={`許可している人 ${onN}人・数字はどれも仮置きです`}>
-        <Link href="https://soreyuke.vercel.app/pon" className={btnGray}>たまげたポンを開く</Link>
+        <Link href="/jinzai/pon" className={btnGray}>たまげたポンを開く</Link>
       </PageHeader>
       <div className="mx-auto max-w-4xl space-y-7 px-4 py-5 md:px-6">
         <p className="rounded-lg bg-ig-subtle p-3 text-xs leading-relaxed text-ig-muted">

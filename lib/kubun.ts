@@ -34,7 +34,7 @@ export const KUBUN_OF_HREF: Record<string, KubunKey> = {
   // 人財管理（10-27・それゆけ未経験から移した画面と、人事管理から移した画面。区分は人事管理にいたときと同じ＝見られる人は変わらない）
   '/jinzai/teiki': 'kadou', '/jinzai/survey': 'kadou', '/jinzai/community': 'kadou', '/jinzai/events': 'kadou', '/jinzai/enquete': 'kadou',
   '/jinzai/saiyou': 'mendan', '/jinzai/shikaku': 'kadou', '/jinzai/rishoku': 'bunseki', '/jinzai/ltv': 'bunseki', '/jinzai/bdsh': 'kadou',
-  '/jinzai/richmenu': 'kadou', '/jinzai/pon': 'kadou',
+  '/jinzai/richmenu': 'kadou', '/jinzai/pon': 'kadou', '/jinzai/roster': 'kadou', '/jinzai/chat': 'kadou', '/jinzai/broadcast': 'kadou', '/jinzai/proper': 'sales',
   // 労務/営業管理
   '/roumu/overtime': 'kintai', '/roumu/shime': 'kintai',
   '/roumu/contracts': 'kadou', '/roumu/alerts': 'kintai', '/roumu/kb': 'kanri',
@@ -81,7 +81,7 @@ const MOD_HREF_PREFIX: Record<ModuleKey, string[]> = { jinji: ['/home/jinji', '/
 // 分類をまたいで移した画面は、古い値を読むときは元の分類のまま数える（人事の段階で勤怠が開かないように）
 const MOVED_FROM: Record<string, ModuleKey> = {
   // 人財管理は 10-27 にできた分類。前の値（4分類）を読むときは人事管理として数える
-  ...Object.fromEntries(['teiki', 'survey', 'community', 'events', 'enquete', 'saiyou', 'shikaku', 'rishoku', 'ltv', 'bdsh', 'richmenu', 'pon'].map((x) => [`/jinzai/${x}`, 'jinji' as ModuleKey])), '/jinji/today': 'roumu', '/jinji/shift': 'roumu', '/keiri/approval': 'roumu' };
+  ...Object.fromEntries(['teiki', 'survey', 'community', 'events', 'enquete', 'saiyou', 'shikaku', 'rishoku', 'ltv', 'bdsh', 'richmenu', 'pon', 'roster', 'chat', 'broadcast'].map((x) => [`/jinzai/${x}`, 'jinji' as ModuleKey])), '/jinzai/proper': 'eigyo', '/jinji/today': 'roumu', '/jinji/shift': 'roumu', '/keiri/approval': 'roumu' };
 const modOfHref = (h: string, legacy: boolean) => (legacy ? MOVED_FROM[h] : undefined) ?? (Object.keys(MOD_HREF_PREFIX) as ModuleKey[]).find((m) => MOD_HREF_PREFIX[m].some((p) => h === p || h.startsWith(p)));
 /** その分類のメニューの画面が入っている区分。legacy＝保存してある古い値を読むとき（移した画面は元の分類で数える） */
 export function kubunsOfModule(m: ModuleKey, legacy = false): KubunKey[] {

@@ -25,12 +25,16 @@ export const NAV: NavGroup[] = [
     // 人財管理（10-27 shoya「それゆけ未経験も移管しちゃおう ページは人財管理ってメニューで」「すでにはいっちゃってるのはそのままそこにうつせばいい」）。
     //   それゆけにしかなかった画面は ver2 に移した（components/sy・データはそれゆけの API を /api/sy で）。ver2 にもうあった画面は人事管理からここへ
     module: 'jinzai', label: '人財管理', items: [
+      { href: '/jinzai/roster', label: '従業員名簿', built: true },
+      { href: '/jinzai/chat', label: 'チャット', built: true },
+      { href: '/jinzai/broadcast', label: '配信', built: true },
       { href: '/jinzai/teiki', label: '定期面談', built: true },
       { href: '/jinzai/survey', label: '月次アンケート', built: true },
       { href: '/jinzai/community', label: 'コミュニティ', built: true },
       { href: '/jinzai/events', label: 'イベント出欠', built: true },
       { href: '/jinzai/enquete', label: 'アンケート作成', built: true },
       { href: '/jinzai/saiyou', label: '採用', built: true },
+      { href: '/jinzai/proper', label: 'プロパーリスト', built: true }, // 営業の要員リストと同じ画面
       { href: '/jinzai/shikaku', label: '資格手当', built: true },
       { href: '/jinzai/rishoku', label: '離職リスク・離職率', built: true },
       { href: '/jinzai/ltv', label: '粗利・LTV', built: true },

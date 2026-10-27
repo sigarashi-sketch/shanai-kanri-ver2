@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, Search } from 'lucide-react';
 import { normName } from '@/lib/sy/name';
 import { yen, ymLabel, type LtvData, type LtvPerson } from '@/lib/sy/ltv-types';
-import { MemberDrawer } from '@/components/sy/compat';
+import MemberDrawer from '@/components/sy/MemberDrawer';
 import { useRoster } from '@/components/sy/useRoster';
 import { PageHeader, inputCls } from '@/components/sy/ui';
 import { useKept } from '@/components/sy/compat';

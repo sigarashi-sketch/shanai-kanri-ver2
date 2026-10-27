@@ -4,10 +4,10 @@
 //   画面のコードはそれゆけの写し（components/sy/*）。データはそれゆけの API を /api/sy/ 経由で読む（app/api/sy）。
 //   ・fx（動き・お知らせ）→ ver2 のお知らせ（SyFxHost が受けて useMotivation の toast・hit に渡す）
 //   ・useKept → この画面のあいだだけ覚える（再読み込みでは戻さない）
-//   ・MemberDrawer（それゆけの名簿の詳細）→ ver2 の「この人の情報」（PersonName と同じ）を開く
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import { useMotivation } from '@/components/Motivation';
 import type { MendanKind } from '@/lib/sy/teiki-types';
+import type { CheckSubject, CheckTag } from '@/lib/sy/kyouiku-check';
 
 const emit = (detail: { kind: 'toast' | 'hit'; text?: string; type?: string }) => { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('sy:fx', { detail })); };
 export const fx = {
@@ -41,15 +41,6 @@ export function useKept<T>(_name: string, init: T, _skip = false): [T, Dispatch<
   return useState<T>(init);
 }
 
-export function MemberDrawer({ m, onClose }: { m: { name: string }; onClose: () => void; onPatch?: (p: Partial<Member>) => void; [k: string]: unknown }) {
-  useEffect(() => {
-    window.dispatchEvent(new CustomEvent('person:open', { detail: { name: m.name } }));
-    onClose();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [m.name]);
-  return null;
-}
-
 // ---- それゆけのサーバの型（写し。中身はそれゆけ lib/roster.ts・lib/db.ts・lib/member-activity.ts） ----
 export interface Member {
   key: string; kind: 'employee' | 'candidate';
@@ -76,3 +67,7 @@ export interface MemberBase {
   mendanLog: { id: string; memoId: string; at: string; kind: MendanKind; label: string; by: string; body: string; details: { k: string; v: string }[] }[];
   warnings: string[];
 }
+export interface StudyAns { form: string; event: string; answer: string; attend: boolean; at: string }
+export interface MemberStudy { study: StudyAns[]; warnings: string[] }
+export interface CheckAdminPart { first: number; last: number; plays: number; firstAt: string; lastAt: string; tags: CheckTag[]; items: { label: string; tag: string; ok: boolean; dk: boolean }[]; kpm: number; accuracy: number }
+export interface CheckAdmin { parts: Record<CheckSubject, CheckAdminPart | null>; taken: number; avg: number | null; firstAvg: number | null; self: boolean }

@@ -5,7 +5,7 @@ import { fx } from '@/components/sy/compat';
 import type { Member } from '@/components/sy/compat';
 import { normName } from '@/lib/sy/name';
 import { DEFAULT_TEIKI, LEADER_LABEL, MENDAN_KINDS, MENDAN_KIND_NAME, OTHER_COLOR, mendanKindOf, type MendanKind, type TeikiEvent, type TeikiRecord, type TeikiSettings, type TeikiTantou } from '@/lib/sy/teiki-types';
-import { MemberDrawer } from '@/components/sy/compat';
+import MemberDrawer from '@/components/sy/MemberDrawer';
 import MendanRemindModal from '@/components/sy/MendanRemind';
 import { MinutesModal } from '@/components/sy/MemoEdit';
 import { useRoster } from '@/components/sy/useRoster';
