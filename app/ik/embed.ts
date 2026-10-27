@@ -64,11 +64,16 @@ const NO_WM_PRINT = `<style id="v2-nowm-print">@media print{#ike-wm{display:none
 const PDF_OPT_OLD = "html2canvas: { scale: 2, backgroundColor: '#ffffff'";
 const PDF_OPT_NEW = "html2canvas: { scale: 2, ignoreElements: function (e) { return e.id === 'ike-wm'; }, backgroundColor: '#ffffff'";
 
+// 印刷（PDF に保存）のファイル名は いちばん外のページ（ver2・「社内管理」）の題名から付く。iframe の中の画面が document.title に入れた
+//   ファイル名（fileNameOf）を、印刷の間だけ外のページの題名にも入れる（10-27 shoya「名前のとこまだ治ってなくね」）。印刷が終わったら戻す
+const PRINT_TITLE = `<script>(function(){var p=window.print;if(!p||window.top===window)return;window.print=function(){var t=null,d=null;try{d=window.top.document;t=d.title;d.title=document.title}catch(e){d=null}
+try{return p.apply(window,arguments)}finally{if(d)setTimeout(function(){d.title=t},500)}}})();</script>`;
+
 export function embedHtml(html: string, opts?: { pane?: 'make' | 'store'; noWatermarkDocs?: boolean }): string {
   let out = rewritePaths(html).replace(FILE_NAME_OLD, FILE_NAME_NEW);
   if (opts?.noWatermarkDocs) {
     out = out.split(PDF_OPT_OLD).join(PDF_OPT_NEW);
-    out = out.includes('</head>') ? out.replace('</head>', NO_WM_PRINT + '</head>') : NO_WM_PRINT + out;
+    out = out.includes('</head>') ? out.replace('</head>', NO_WM_PRINT + PRINT_TITLE + '</head>') : NO_WM_PRINT + PRINT_TITLE + out;
   }
   if (opts?.pane) out = out.includes('</body>') ? out.replace('</body>', PANE(opts.pane) + '</body>') : out + PANE(opts.pane);
   // 保険の script は <head> のいちばん先（今の画面の script より前）に置く
