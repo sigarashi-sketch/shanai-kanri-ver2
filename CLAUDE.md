@@ -27,6 +27,7 @@
 - 案件進捗は単独（LINEグループに直接投げた案件も回収する）。カスタム（列・並べ方・判断の絞り込み・自分のタブ）は10-27に入れた＝この端末に覚える
 - 案件・要員マップは 営業 `/eigyo/map` と 人事 `/jinji/map` の両方のメニューにある（同じ画面・10-27 shoya）
 - **成約日報** `/eigyo/nippo` は今の `/nippo.html` をそのまま出す（10-27 shoya「もとに戻して・デザインね」・app/ik の IK_PAGES と app/ik/api の nippo の口）
+  - **18時の締め**（10-27 shoya「ver2 も18時になったら強制で日報出現させて」）：平日18時（日本時間）を過ぎて今日の日報を出していない「日報を書く人」は、どの画面を開いても `/eigyo/nippo?must=1` へ寄せる（出すまで動けない）。決まりは今のシステムの auth-guard.js と同じ＝`/ik/api/nippo?action=due`・控えは localStorage `ike_nippo_due`（`components/NippoMust.tsx`・Shell）。iframe の中の auth-guard.js の寄せは `app/ik/embed.ts` rewriteAsset で止めてある
 - 面談可能日の承認（/eigyo/availability）は 10-27 shoya「DBだけ保持してページから消して」で画面・書く口・読む口を外した（データは今のシステムのまま）
 
 <!-- BEGIN:nextjs-agent-rules -->
