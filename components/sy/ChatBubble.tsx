@@ -9,7 +9,7 @@ export function Bubble({ m }: { m: Msg }) {
   return (
     <div className={`flex ${m.direction === 'out' ? 'justify-end' : 'justify-start'}`}>
       <div className="max-w-[75%]">
-        <div className={`ig-rise whitespace-pre-wrap break-words rounded-[22px] px-4 py-2 text-[15px] leading-snug ${m.direction === 'out' ? (m.legacy ? 'bg-ig-bubble-out/75 text-white' : 'bg-ig-bubble-out text-white') : 'bg-ig-bubble-in text-ig-text'}`}>
+        <div className={`ig-rise whitespace-pre-wrap break-words rounded-[22px] px-4 py-2 text-[15px] leading-snug ${m.direction === 'out' ? (m.legacy ? 'bg-ig-bubble-out/75 text-ig-bubble-out-fg' : 'bg-ig-bubble-out text-ig-bubble-out-fg') : 'bg-ig-bubble-in text-ig-bubble-in-fg'}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {m.media?.kind === 'image' ? <a href={m.media.url} target="_blank"><img src={m.media.url} alt="画像" className="max-h-60 rounded-lg" /></a>
             : m.media?.kind === 'video' ? <video src={m.media.url} controls preload="metadata" className="max-h-60 rounded-lg" />
