@@ -71,16 +71,18 @@ export async function GET(req: Request) {
       ],
     });
 
-    const mikeikenStaff = staff && mk ? staff.filter((r) => isMikeiken(mk, r.name)) : null;
     const inRoster = staff ? new Set(staff.map((r) => mikeikenKey(r.name))) : null;
     const properNames = mk ? [...mk] : null;
     sections.push({
       key: 'mikeiken', title: '未経験の人数', legacyFrom: 'プロパーリスト（全エリア・営業止め・辞退もふくむ）', v2From: '社員一覧（名簿にいて、プロパーリストに名前がある人）',
-      note: 'プロパーリストには、まだ名簿にいない人（入社前・辞退）も入っているので、ずれた分の多くはそれです',
+      // ver2 の「未経験」はプロパーリストそのもの（lib/live/mikeiken.ts）＝同じ表を読むので数はずれようがない。
+      //   名簿にいる人といない人に分けて出すだけ（前は「名簿にいる人」と全体を比べて ⚠ になっていた・10-27 shoya「これだけちがう」）
+      note: 'ver2 の未経験＝今のプロパーリストに名前がある人（同じ表を読んでいます）。名簿にいる人＋いない人（入社前・辞退など）がプロパーリストの人数です',
       error: [!proper.ok ? `今：${proper.error}` : '', staffErr ? `ver2：${staffErr}` : ''].filter(Boolean).join('／') || undefined,
       rows: [
-        { label: '未経験の人', legacy: mk ? mk.size : null, v2: mikeikenStaff ? mikeikenStaff.length : null, unit: '人' },
-        { label: 'プロパーリストにいて名簿にいない人', legacy: null, v2: properNames && inRoster ? properNames.filter((n) => !inRoster.has(n)).length : null, unit: '人', ref: true },
+        { label: '未経験の人（プロパーリストの人数）', legacy: mk ? mk.size : null, v2: properNames ? properNames.length : null, unit: '人' },
+        { label: 'うち名簿にいる人（ver2 の社員一覧に出る）', legacy: null, v2: properNames && inRoster ? properNames.filter((n) => inRoster.has(n)).length : null, unit: '人', ref: true },
+        { label: 'うち名簿にいない人（入社前・辞退など）', legacy: null, v2: properNames && inRoster ? properNames.filter((n) => !inRoster.has(n)).length : null, unit: '人', ref: true },
       ],
     });
 
