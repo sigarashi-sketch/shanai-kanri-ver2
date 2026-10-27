@@ -22,7 +22,7 @@ import { HoryuNote } from '../HoryuNote';
 //   ・「案件を更新」＝ Slack から案件を取り直す（今の proxy?action=syncSlackCache・/api/live/horyu/sync-slack）
 //   ・「転記＆配信先設定」は今は配信ページの中に埋め込んだときだけ動く。ver2 では配信ページにつなぐ先がまだ無いので、案件文と名前を写すだけ
 //   ・人は未経験の人だけ。名前を押すと人の小窓（PersonName）
-//   ・地図は国土地理院の淡色地図タイル（components/TileMap・営業の案件・要員マップと同じ）。座標が枠の外の駅は一覧だけ
+//   ・地図は Google マップの地図タイル（components/TileMap・営業の案件・要員マップと同じ）。座標が枠の外の駅は一覧だけ
 const ghost = 'inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border border-line bg-surface px-2.5 text-[12px] font-semibold disabled:opacity-40';
 
 type Detail = {

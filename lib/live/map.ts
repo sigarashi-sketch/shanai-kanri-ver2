@@ -2,7 +2,7 @@
 //   ・案件マップ … /api/cases-map?action=list（今の cases-map.html と同じ。行に駅の座標 lat/lng が入っている）
 //     ※今の list は読む前に「充足予約の期限切れを倒す」「案件受注を写す」を自分でやる（今の画面を開いたときと同じ動き）
 //   ・要員マップ … /api/proxy?action=getMapData（今の map.html と同じ。営業中の人の最寄駅と、Slack の案件の現場の駅に座標つき）
-//   ・地図は国土地理院の地図タイル（淡色・鍵なし）を背景に敷き、その上にピンを重ねる。座標が地図の枠の外の駅は地図に出さず、一覧にだけ出す
+//   ・地図は Google マップの地図タイル（日本語・鍵なし・10-27 shoya「Googleの地図にして」）を背景に敷き、その上にピンを重ねる。座標が地図の枠の外の駅は地図に出さず、一覧にだけ出す
 //     タイルは枠（BOX）の決まった範囲を全部読むだけ（人や案件の場所は外へ送らない）
 import { blockReason } from './eigyo-common';
 
@@ -50,12 +50,12 @@ const SC = (COS * 1000) / (WORLD / 360);   // 地図の単位（ピンの大き�
 const X0 = mx(BOX.w), Y0 = my(BOX.n), X1 = mx(BOX.e), Y1 = my(BOX.s);
 export const MAP_W = Math.round((X1 - X0) * SC), MAP_H = Math.round((Y1 - Y0) * SC);
 export const xy = (lat: number, lng: number) => ({ x: (mx(lng) - X0) * SC, y: (my(lat) - Y0) * SC });
-/** 背景の地図タイル（国土地理院・淡色地図）。位置は地図の枠に対する％ */
+/** 背景の地図タイル（Google マップ・日本語・高解像度 scale=2）。位置は地図の枠に対する％。サーバは mt0〜3 に振り分ける */
 export const TILES = (() => {
   const out: { src: string; left: number; top: number; w: number; h: number }[] = [];
   for (let tx = Math.floor(X0 / 256); tx <= Math.floor(X1 / 256); tx++)
     for (let ty = Math.floor(Y0 / 256); ty <= Math.floor(Y1 / 256); ty++)
-      out.push({ src: `https://cyberjapandata.gsi.go.jp/xyz/pale/${Z}/${tx}/${ty}.png`, left: ((tx * 256 - X0) / (X1 - X0)) * 100, top: ((ty * 256 - Y0) / (Y1 - Y0)) * 100, w: (256 / (X1 - X0)) * 100, h: (256 / (Y1 - Y0)) * 100 });
+      out.push({ src: `https://mt${(tx + ty) % 4}.google.com/vt/lyrs=m&hl=ja&gl=JP&scale=2&x=${tx}&y=${ty}&z=${Z}`, left: ((tx * 256 - X0) / (X1 - X0)) * 100, top: ((ty * 256 - Y0) / (Y1 - Y0)) * 100, w: (256 / (X1 - X0)) * 100, h: (256 / (Y1 - Y0)) * 100 });
   return out;
 })();
 
