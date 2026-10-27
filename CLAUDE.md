@@ -1,7 +1,8 @@
-# いけどん ver2（本番前）
+# いけどん ver2（本番）
 
-いけいけどんどん（ses/02_ツール/LINE/ikeike-next/legacy）の作り直し。**全部できあがるまで本番に出さない**（2026-10-22 shoya）。
-手元で `npm run dev`（http://localhost:3330）で動かす。見本URL（本番とは別の Vercel プロジェクト shanai-kanri-v2・10-23〜）にも出す（10-27〜 GitHub の main に入れると自動で出る＝クラウドからも main に push すれば出る。claude/… のブランチはお試しの別URL）。本番（legacy）に入れる前は shoya ともう一度確認する。
+いけいけどんどん（ses/02_ツール/LINE/ikeike-next/legacy）の作り直し。**本番で使っている**（10-27 shoya「もう本番なんだけど」）。
+本番＝Vercel プロジェクト shanai-kanri-v2（https://shanai-kanri-v2.vercel.app）。GitHub の main に入れると自動で出る（クラウドからも main に push すれば出る。claude/… のブランチはお試しの別URL）。手元は `npm run dev`（http://localhost:3330）。
+今のシステム（legacy）は並べて動いている。legacy 側に手を入れる前は shoya に確認する。
 
 - 土台：Next.js 16（App Router）＋ React 19 ＋ Tailwind 4 ＋ lucide-react（それゆけ saiyou-app と同じ）
 - 字体：ミンミカと同じ Inter ＋ ヒラギノ角ゴ
@@ -9,7 +10,7 @@
 - 動き：モーション図鑑（legacy/api/_assets/docs/motion-catalog.html）の語彙だけ（`app/globals.css` の mo-*）
 - 遊び心（今日の処理・残りリング→完了カード・波及先トースト・取り消す）は **なくさない**（`components/Motivation.tsx`）
 - 入れる人：**未経験事業部の内勤だけ**が全画面。それ以外は `/shared`（営業共有リスト）だけ（`lib/access.ts`）。それ以外のロールは ver2 で作り直し中
-- いまは見本データ（`lib/sample.ts`）。いまの人は上のバーの「見え方」で切り替え（cookie v2_viewer・ログインをつないだら消す）
+- データは本物（今のシステムから読む）。いまの人＝ログインした本人（`lib/members-store.ts` loadMe・見本データと「見え方」の切り替えは 10-26 にやめた）
 - 画面のルール：ses/docs/ver2/UIの型.md ／ 見た目の見本：https://claude.ai/artifact/6nLiR9H8CNZYqqgegPBUE1
 - 画面にブランド名（いけいけどんどん／いけどん）は出さない
 - 権限：区分＝**左メニューの分類**（人事管理・人財管理・労務/営業管理・営業・経理管理）＋かな西エリア（`lib/kubun.ts`・10-27 shoya「左のメニュー依存に」）ごとに 見ない/見る/直す/承認（付いていなければ見ない）＋ロール（全体管理者・管理者・全体を見る）。2つの分類で見せたい画面は メニューに別の href で複製する。`lib/access.ts`・付けるのは組織表 `/settings/org`
