@@ -3,12 +3,14 @@
 import { useState } from 'react';
 import { PersonName } from '@/components/Person';
 import { needText, usePerms } from '@/components/Perms';
+import { nyushaQuery } from '@/lib/live/nyusha';
 import { useLiveRoute } from '@/lib/live/use-live-route';
 import { useLiveWrite, WriteError } from './useLiveWrite';
 
 // 入社手続きの印（今の入社手続きの画面 nyusha-admin.html と同じ・10-25）。人ごとに 雇用契約サイン〜雇用保険証 を「済み／対象外／まだ」から選ぶ。
 //   ・選んだらすぐ保存（取り消すで戻る）。メモは欄を離れたら保存
 //   ・印は人が付ける（freee・クラウドサインからは取らない）。参画決定から60日以内の人＋付けかけの人
+//   ・q＝上の検索の言葉（氏名・メモで絞る）
 //   ・読めないとき（ログインしていない）は出さない
 type Check = { v: 'done' | 'na'; at?: string; by?: string };
 type Row = { id: string; name: string; decided_at?: string; checks: Record<string, Check>; memo: string; progress?: { done: number; need: number; complete: boolean } };
@@ -26,7 +28,7 @@ const progressOf = (c: Record<string, Check>, items: Item[]) => {
   return { done, need };
 };
 
-export function NyushaMarks() {
+export function NyushaMarks({ q = '' }: { q?: string }) {
   const canEdit = usePerms().can('jinji', 'edit');
   const lv = useLiveRoute<Res>(URL);
   const live = lv.live && !!lv.data;
@@ -35,7 +37,9 @@ export function NyushaMarks() {
   if (lv.state === 'loading' || lv.state === 'sample') return null;
   if (lv.state === 'error') return <div className="rounded-xl border border-line bg-surface px-4 py-3 text-sm text-muted">入社手続きの印：{lv.error}</div>;
   const items = live && lv.data!.items.length ? lv.data!.items : ITEMS;
-  const rows = (live ? lv.data!.rows : []).map((r) => ({ ...r, ...(local[r.id] || {}) }));
+  const hit = nyushaQuery(q);
+  const all = (live ? lv.data!.rows : []).map((r) => ({ ...r, ...(local[r.id] || {}) }));
+  const rows = all.filter((r) => hit(r.name, r.memo));
 
   const set = (r: Row, key: string, value: '' | 'done' | 'na') => {
     const prev = r.checks[key]?.v || '';
@@ -71,7 +75,7 @@ export function NyushaMarks() {
             <th className="px-2 py-2.5 font-semibold">進み</th><th className="px-4 py-2.5 font-semibold">メモ</th>
           </tr></thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={items.length + 4} className="px-4 py-8 text-center text-muted">対象の人はいません</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={items.length + 4} className="px-4 py-8 text-center text-muted">{all.length && q.trim() ? `「${q.trim()}」に当たる人はいません` : '対象の人はいません'}</td></tr>}
             {rows.map((r) => {
               const pg = progressOf(r.checks, items);
               return (

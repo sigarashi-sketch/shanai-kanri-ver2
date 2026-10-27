@@ -60,6 +60,14 @@ export type IkeNyushaOverlay = Record<string, { nyushaBi?: string }>;
 /** ISO の時刻 → JST の日付 */
 export const jstDate = (iso: string) => { const t = Date.parse(iso); return Number.isFinite(t) ? new Date(t + 9 * 3600000).toISOString().slice(0, 10) : ''; };
 
+// 検索：空白区切りの言葉が全部どこかに当たる人。氏名は空白を詰めて、かなはカタカナ→ひらがなに寄せて比べる（10-27）
+const fold = (s: string) => s.normalize('NFKC').toLowerCase().replace(/[\s　]+/g, '').replace(/[\u30a1-\u30f6]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0x60));
+export function nyushaQuery(q: string): (...fields: (string | null | undefined)[]) => boolean {
+  const words = q.split(/[\s　]+/).map(fold).filter(Boolean);
+  if (!words.length) return () => true;
+  return (...fields) => { const hay = fields.map((f) => fold(f || '')).join('\n'); return words.every((w) => hay.includes(w)); };
+}
+
 /** スプシに載る人か（参画決定日と入場日で決める） */
 export function inSheetScope(decidedOn: string, nyuujouOn: string): boolean {
   if (!decidedOn) return false;
