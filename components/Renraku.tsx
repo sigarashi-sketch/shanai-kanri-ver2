@@ -124,7 +124,7 @@ function RenrakuPanel({ account, module, badge: bd, onClose }: { account: Accoun
         <LiveBanner state={contacts.state} error={contacts.error} onReload={contacts.reload}
           note={info ? 'それゆけ未経験の公式LINE「インフォメーション」を読むだけです（未経験の人だけ）。送るのは それゆけ未経験 の画面から（今の社内システムにはこのアカウントの送る鍵がありません）' : '本物の LINE です。送ると相手に届きます（長押しで送る）'} />
       </div>
-      <div role="tablist" className="flex gap-1 border-b border-line px-4 text-body">
+      <div role="tablist" data-tour="renraku-tabs" className="flex gap-1 border-b border-line px-4 text-body">
         {TABS.map(([k, l]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className="tab">{l}</button>
         ))}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Check, CircleHelp, Lock, X } from 'lucide-react';
+import { ArrowRight, Check, CircleHelp, Lock, Play, X } from 'lucide-react';
 import { Dialog } from './Dialog';
 import { Tour, type TourStep } from './Tour';
 import { usePerms } from './Perms';
@@ -22,6 +22,9 @@ const levelText = (l: Level) => LEVELS.find((x) => x.key === l)!.label;
 
 export function GuideHost({ groups }: { groups: NavGroup[] }) {
   const [mode, setMode] = useState<'tour' | 'list' | null>(null);
+  const [start, setStart] = useState(0);
+  // 一覧の窓から選んだところ（はじめに・分類・画面）からガイドを始める（10-27 shoya「ここから選択すると使い方ガイド始まるように」）
+  const tourFrom = (key: string) => { setStart(Math.max(0, steps.findIndex((x) => x.key === key))); setMode('tour'); };
   const steps = useTourSteps(groups);
   useEffect(() => {
     try { if (!localStorage.getItem(GUIDE_SEEN_KEY)) setMode('tour'); } catch { /* 覚えられない端末では自動では出さない */ }
@@ -29,14 +32,18 @@ export function GuideHost({ groups }: { groups: NavGroup[] }) {
   const close = () => { setMode(null); try { localStorage.setItem(GUIDE_SEEN_KEY, new Date().toISOString()); } catch { /* noop */ } };
   return (
     <>
-      <button type="button" data-tour="guide" onClick={() => setMode('tour')} className="flex min-h-10 items-center gap-1.5 rounded-[10px] border border-line px-2.5 text-sm font-semibold text-ink hover:bg-soft" title="使い方ガイド（実際の画面で順に案内します）">
+      <button type="button" data-tour="guide" onClick={() => { setStart(0); setMode('tour'); }} className="flex min-h-10 items-center gap-1.5 rounded-[10px] border border-line px-2.5 text-sm font-semibold text-ink hover:bg-soft" title="使い方ガイド（実際の画面で順に案内します）">
         <CircleHelp size={16} strokeWidth={1.8} />使い方
       </button>
-      {mode === 'tour' && <Tour steps={steps} onClose={close} onList={() => setMode('list')} />}
-      {mode === 'list' && <GuideDialog groups={groups} onClose={close} />}
+      {mode === 'tour' && <Tour key={start} steps={steps} start={start} onClose={close} onList={() => setMode('list')} />}
+      {mode === 'list' && <GuideDialog groups={groups} onClose={close} onTour={tourFrom} />}
     </>
   );
 }
+
+// 連絡の窓を開く・閉じる（右上の「連絡」ボタンを押すのと同じ。ツアーの段に入ったときだけ）
+const openRenraku = () => { if (!document.querySelector('[data-tour="renraku-tabs"]')) document.querySelector<HTMLButtonElement>('[data-tour="renraku"] button')?.click(); };
+const closeRenraku = () => { document.querySelector<HTMLButtonElement>('aside[aria-label^="連絡"] button[aria-label="閉じる"]')?.click(); };
 
 /** 実際の画面で案内する段（components/Tour.tsx）。その人が開ける画面だけ・メニューの並びのまま */
 function useTourSteps(groups: NavGroup[]): TourStep[] {
@@ -63,14 +70,16 @@ function useTourSteps(groups: NavGroup[]): TourStep[] {
     for (let k = start; k < end; k++) out[k].skipTo = end;
   });
   out.push(
-    { key: 'renraku', section: 'おわりに（連絡・見た目）', target: 'renraku', title: '連絡', text: 'どの画面でも右上の「連絡」から、チャット・配信・手動配信を開けます（人事の画面＝インフォメーション、それ以外＝あおい）。送信は長押しです。' },
-    { key: 'theme', section: 'おわりに（連絡・見た目）', target: 'theme', title: '見た目とチャットの色', text: '「見た目」で画面の着せ替えと、チャットの色（こちら＝送った側・相手 の吹き出し）を選べます。チャットの色はあなたの分として保存するので、どの端末でも同じです。' },
+    { key: 'renraku', section: 'おわりに（連絡・見た目）', target: 'renraku', onEnter: closeRenraku, title: '連絡', text: 'どの画面でも右上の「連絡」から、LINE のチャットと配信を開けます。人事の画面＝インフォメーション、それ以外＝あおい の公式アカウントです。右上の数は 返事を待っている人の数です。' },
+    { key: 'renraku-tabs', section: 'おわりに（連絡・見た目）', target: 'renraku-tabs', onEnter: openRenraku, title: '連絡の4つのタブ', text: '・チャット：1:1 とグループのトーク。相手を選ぶとやり取りが出て、下の欄から返信できます（送信は長押し＝間違えて送らないため）\n・案件配信：営業リストから送った案件と、送った人数・日時・OK／NG\n・手動配信：宛先を選んでまとめて送る\n・案内配信：件名・本文・回答ボタンつきで送って、進み具合を見る\n\n手動配信・案内配信は「大きく開く」で広く使えます。' },
+    { key: 'summary', section: 'おわりに（連絡・見た目）', target: 'summary', fallback: 'renraku-tabs', onEnter: openRenraku, title: '要約ボタン', text: 'チャットで相手（人・グループ）を選ぶと、右上に「要約」が出ます。押すと、直近のやり取りを AI が まとめます（ひとこと・起きたこと・待っていること・気をつけること）。\n\n横の「3日／7日」で、どこまでさかのぼってまとめるかを選べます。押した人にだけ出て、相手には届きません。人の詳細のチャットにも同じボタンがあります。' },
+    { key: 'theme', section: 'おわりに（連絡・見た目）', target: 'theme', onEnter: closeRenraku, title: '見た目とチャットの色', text: '「見た目」で画面の着せ替えと、チャットの色（こちら＝送った側・相手 の吹き出し）を選べます。チャットの色はあなたの分として保存するので、どの端末でも同じです。' },
     { key: 'guide', section: 'おわりに（連絡・見た目）', target: 'guide', title: 'このガイド', text: 'これで終わりです。右上の「使い方」から、いつでもこの案内をもう一度見られます。吹き出しの「一覧で見る」で、全部の画面の説明を一覧でも見られます。\n\nほかにも：人の名前を押すとその人の情報が上に出る・右クリックで画面を移る／並べる・片づけたあとは「取り消す」で戻せます。' },
   );
   return out;
 }
 
-function GuideDialog({ groups, onClose }: { groups: NavGroup[]; onClose: () => void }) {
+function GuideDialog({ groups, onClose, onTour }: { groups: NavGroup[]; onClose: () => void; onTour: (key: string) => void }) {
   const { me, kperms, pages, home, open } = usePerms();
   const homeItems = NAV_HOME.filter((it) => open(it.href));
   const secs = [{ key: 'intro', label: 'はじめに', color: 'var(--color-ink)' }, ...groups.map((g) => ({ key: g.module as string, label: g.label, color: `var(--c-${g.module})` }))];
@@ -105,13 +114,17 @@ function GuideDialog({ groups, onClose }: { groups: NavGroup[]; onClose: () => v
         </nav>
         <div key={sec} className="mo-fade-in min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {sec === 'intro' ? (
-            <Intro home={home} homeItems={homeItems} groups={groups} kanawest={kperms.kanawest !== 'none'} />
+            <>
+              <button type="button" onClick={() => onTour('hello')} className="btn mb-4 bg-sumi text-white"><Play size={14} />実際の画面で案内をはじめる（最初から）</button>
+              <Intro home={home} homeItems={homeItems} groups={groups} kanawest={kperms.kanawest !== 'none'} />
+            </>
           ) : g ? (
             <div className="flex flex-col gap-3">
               <h3 className="flex items-center gap-2 text-md font-bold"><i className="size-2.5 rounded-full" style={{ background: `var(--c-${g.module})` }} />{g.label}
                 <span className="text-sm font-normal text-muted">{kperms.kanawest !== 'none' ? '見るだけ（神奈川要員だけ）' : kperms[g.module] !== 'none' ? `「${levelText(kperms[g.module])}」の権限` : '一部の画面だけ「見る」'}</span>
+                <button type="button" onClick={() => onTour(`grp-${g.module}`)} className="ml-auto inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-sm font-semibold text-white" style={{ background: `var(--c-${g.module})`, color: `var(--o-${g.module})` }}><Play size={13} />この分類を実際の画面で案内</button>
               </h3>
-              {g.items.map((it, n) => <ItemCard key={it.href} it={it} mod={g.module} n={n} {...levelOf(g, it)} onGo={onClose} />)}
+              {g.items.map((it, n) => <ItemCard key={it.href} it={it} mod={g.module} n={n} {...levelOf(g, it)} onGo={onClose} onTour={() => onTour(it.href)} />)}
             </div>
           ) : null}
         </div>
@@ -121,7 +134,7 @@ function GuideDialog({ groups, onClose }: { groups: NavGroup[]; onClose: () => v
         {i > 0 && <button type="button" onClick={() => setSec(secs[i - 1].key)} className="btn-secondary ml-auto">戻る</button>}
         {i < secs.length - 1
           ? <button type="button" onClick={() => setSec(secs[i + 1].key)} className={`btn ${i > 0 ? '' : 'ml-auto'} bg-sumi text-white`}>次へ（{secs[i + 1].label}）<ArrowRight size={15} /></button>
-          : <button type="button" onClick={onClose} className="btn bg-sumi text-white">はじめる</button>}
+          : <button type="button" onClick={() => onTour('hello')} className="btn bg-sumi text-white"><Play size={14} />実際の画面で案内をはじめる</button>}
       </div>
     </Dialog>
   );
@@ -154,6 +167,7 @@ function Intro({ home, homeItems, groups, kanawest }: { home: string; homeItems:
         <ul className="mt-1.5 flex list-disc flex-col gap-1 pl-5 text-muted">
           <li>右上の「連絡」：チャット・配信・手動配信（人事の画面＝インフォメーション、それ以外＝あおい）。送信は長押しです。</li>
           <li>右クリック：画面の一覧から移る・スプリット（2〜4画面を並べる）。</li>
+          <li>チャットの「要約」：相手（人・グループ）を選ぶと右上に出ます。直近のやり取りを AI がまとめます（ひとこと・起きたこと・待っていること・気をつけること）。横の「3日／7日」でさかのぼる日数を選べます。押した人にだけ出ます。</li>
           <li>人の名前を押すと、その人の情報が画面の上に出ます。</li>
           <li>何かを片づけると下に知らせが出て、「取り消す」で戻せます。</li>
           <li>右上の「見た目」：画面の着せ替えと、<b className="text-ink">チャットの色</b>（こちら＝送った側・相手 の吹き出しの色）を選べます。好きな色は「＋」から。どのチャット（連絡・人の詳細・人財管理のチャット）にも効き、あなたの分として保存するので どの端末でも同じ色です。「元の色に戻す」でいつでも戻せます。</li>
@@ -164,14 +178,15 @@ function Intro({ home, homeItems, groups, kanawest }: { home: string; homeItems:
   );
 }
 
-function ItemCard({ it, mod, n, l, note, onGo }: { it: NavItem; mod: string; n: number; l: Level; note?: string; onGo: () => void }) {
+function ItemCard({ it, mod, n, l, note, onGo, onTour }: { it: NavItem; mod: string; n: number; l: Level; note?: string; onGo: () => void; onTour: () => void }) {
   const e = GUIDE[it.href];
   return (
     <article className="mo-fade-up rounded-xl border border-line bg-surface p-4" style={{ ['--i' as string]: Math.min(n, 12) }}>
       <div className="flex flex-wrap items-center gap-2">
         <b className="text-md">{it.label}</b>
         {l !== 'none' && <span className="chip" style={{ background: `var(--c-${mod})`, color: `var(--o-${mod})` }}>{levelText(l)}{note ? `・${note}` : ''}</span>}
-        <Link href={it.href} onClick={onGo} className="ml-auto inline-flex items-center gap-1 text-sm font-semibold hover:underline">開く<ArrowRight size={14} /></Link>
+        <button type="button" onClick={onTour} className="ml-auto inline-flex items-center gap-1 rounded-lg border border-field px-2 py-0.5 text-sm font-semibold hover:bg-soft" title="ここから実際の画面で案内する"><Play size={12} />ここから案内</button>
+        <Link href={it.href} onClick={onGo} className="inline-flex items-center gap-1 text-sm font-semibold hover:underline">開く<ArrowRight size={14} /></Link>
       </div>
       {e ? (
         <div className="mt-2 flex flex-col gap-1.5 text-body">
