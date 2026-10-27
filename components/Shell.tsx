@@ -20,7 +20,7 @@ import { LiveIndicator } from './Live';
 import { useMePages } from './MePages';
 import { horyuVisible } from '@/lib/horyu-access';
 
-const MODULE_ICON: Record<ModuleKey, typeof Users> = { jinji: Users, roumu: Clock, eigyo: Briefcase, keiri: ReceiptText, jinzai: Sprout };
+export const MODULE_ICON: Record<ModuleKey, typeof Users> = { jinji: Users, roumu: Clock, eigyo: Briefcase, keiri: ReceiptText, jinzai: Sprout };
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

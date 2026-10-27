@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { PermsProvider } from '@/components/Perms';
 import { SplitHost } from '@/components/CtxMenu';
-import { canManageAccess, canUseApp, effectivePerms } from '@/lib/access';
+import { canManageAccess, canUseApp, effectivePages, effectivePerms } from '@/lib/access';
 import { loadMe } from '@/lib/members-store';
 
 export const metadata = { title: 'スプリット' };
@@ -15,7 +15,7 @@ export default async function Page() {
   const me = got.me;
   if (!canUseApp(me)) redirect('/shared');
   return (
-    <PermsProvider me={me} kperms={effectivePerms(me)} manageAccess={canManageAccess(me)}>
+    <PermsProvider me={me} kperms={effectivePerms(me)} pages={effectivePages(me)} manageAccess={canManageAccess(me)}>
       <SplitHost />
     </PermsProvider>
   );
