@@ -1,7 +1,12 @@
 # いけどん ver2（本番前）
 
-いけいけどんどん（ses/02_ツール/LINE/ikeike-next/legacy）の作り直し。**全部できあがるまで本番に出さない**（2026-10-22 shoya）。
-手元で `npm run dev`（http://localhost:3330）で動かす。見本URL（本番とは別の Vercel プロジェクト shanai-kanri-v2・10-23〜）にも出す。本番（legacy）に入れる前は shoya ともう一度確認する。
+いけいけどんどん（ses/02_ツール/LINE/ikeike-next/legacy）の作り直し。
+手元で `npm run dev`（http://localhost:3330）で動かす。Vercel プロジェクト shanai-kanri-v2（10-23〜）に出す。
+
+- **営業から先に出す（2026-10-27 shoya「営業からやっちゃいたい」。10-22 の「全部できあがるまで出さない」を変えた）**: 今の社内システム（legacy）は残したまま、営業の人に ver2 の営業画面も使ってもらう**並行運用**。読み書きはどちらも今のシステムの口を通る（`lib/live/post.ts` → `/api/live/**`）ので データは食い違わない
+  - 全体管理者でない人に見えるのは 営業（/home/eigyo・/eigyo/）とホーム・設定だけ。人事・労務・経理・保留は 全体管理者だけ（`lib/kubun.ts` の `PRE_LAUNCH`・`PRE_LAUNCH_CLOSED`。出すときはそこから外す）。メニュー・右クリック・画面は `usePerms().open(href)` で決める
+  - 配る URL に vercel.app を付けない（10-27 shoya）＝会社のドメインをつなぐ
+  - 今のシステムの URL を ver2 に切り替えるのは まだ（全部そろって `/settings/cutover` が全部 ✓ になってから shoya ともう一度確認）
 
 - 土台：Next.js 16（App Router）＋ React 19 ＋ Tailwind 4 ＋ lucide-react（それゆけ saiyou-app と同じ）
 - 字体：ミンミカと同じ Inter ＋ ヒラギノ角ゴ
@@ -16,3 +21,4 @@
 - 要員リスト `/eigyo/proper`：タブで プロパー（スキシ作成）／営業共有リスト／従業員名簿（人事を見る人だけ）／ライバーリスト（全体管理者だけ）
 - 連絡（チャット・配信・手動配信）は各画面の右上（`components/Renraku.tsx`）。人事＝インフォメーション、それ以外＝あおい。送信は長押し
 - 案件進捗は単独。作り込みはあとで（LINEグループに直接投げた案件も回収する）
+- 案件・要員マップは 営業 `/eigyo/map` と 人事 `/jinji/map` の両方のメニューにある（同じ画面・10-27 shoya。人事側は区分「稼働中の人」）

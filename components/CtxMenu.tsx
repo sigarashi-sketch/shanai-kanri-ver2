@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { NAV, NAV_EXTRA, NAV_HORYU, NAV_KANRI } from '@/lib/nav';
 import { horyuVisible } from '@/lib/horyu-access';
-import { pageAccess, usePerms } from './Perms';
+import { usePerms } from './Perms';
 import { useMePages } from './MePages';
 
 // 全画面共通の右クリックメニュー（10-26 shoya「ver2いけどんにもあった右クリックメニュー実装してほしい」）。
@@ -78,11 +78,11 @@ function iconSvg(n: string) {
 
 /** この人に見える画面（Shell のメニューと同じ決め方）。右クリックの行き先とスプリットの候補に使う */
 export function useCtxPages(): { pages: CtxPage[]; ready: boolean } {
-  const { kperms, manageAccess } = usePerms();
+  const { manageAccess, open } = usePerms();
   const { pa, ready } = useMePages();
   const out: CtxPage[] = [{ t: 'ホーム', href: '/', g: 'ホーム' }];
-  NAV.forEach((g) => g.items.forEach((it) => { if (pageAccess(kperms, it.href) && horyuVisible(it.href, pa)) out.push({ t: it.label, href: it.href, g: g.label }); }));
-  NAV_HORYU.forEach((it) => { if (horyuVisible(it.href, pa)) out.push({ t: it.label, href: it.href, g: '保留' }); });
+  NAV.forEach((g) => g.items.forEach((it) => { if (open(it.href) && horyuVisible(it.href, pa)) out.push({ t: it.label, href: it.href, g: g.label }); }));
+  NAV_HORYU.forEach((it) => { if (open(it.href) && horyuVisible(it.href, pa)) out.push({ t: it.label, href: it.href, g: '保留' }); });
   NAV_EXTRA.forEach((it) => out.push({ t: it.label, href: it.href, g: 'そのほか' }));
   if (manageAccess) NAV_KANRI.forEach((it) => out.push({ t: it.label, href: it.href, g: '管理' }));
   return { pages: out, ready };

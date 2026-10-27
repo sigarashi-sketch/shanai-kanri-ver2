@@ -30,7 +30,7 @@ export const KUBUN_OF_HREF: Record<string, KubunKey> = {
   // 人事管理
   '/home/jinji': 'kadou', '/jinji/staff': 'kadou', '/jinji/yoyaku': 'kadou', '/jinji/nyusha': 'mendan', '/jinji/jimu': 'kadou',
   '/jinji/shikaku': 'kadou', '/jinji/sankyu': 'kadou', '/jinji/rishoku': 'bunseki', '/jinji/community': 'kadou', '/jinji/bdsh': 'kadou',
-  '/jinji/saiyou': 'mendan', '/jinji/ocr': 'mendan', '/jinji/ippass': 'kanri',
+  '/jinji/saiyou': 'mendan', '/jinji/ocr': 'mendan', '/jinji/ippass': 'kanri', '/jinji/map': 'kadou',
   // 労務/営業管理
   '/roumu/today': 'kintai', '/roumu/approval': 'kintai', '/roumu/overtime': 'kintai', '/roumu/shime': 'kintai', '/roumu/shift': 'kintai',
   '/roumu/kekkin': 'kintai', '/roumu/contracts': 'kadou', '/roumu/timesheet': 'seikyu', '/roumu/alerts': 'kintai', '/roumu/kb': 'kanri',
@@ -42,6 +42,14 @@ export const KUBUN_OF_HREF: Record<string, KubunKey> = {
   '/keiri/keihi': 'kadou', '/keiri/check': 'kintai', '/keiri/kintai-shogo': 'seikyu', '/keiri/seikyu': 'seikyu', '/keiri/seikyu-zukuri': 'seikyu',
   '/keiri/seikyu-make': 'seikyu', '/keiri/kakunou': 'seikyu', '/keiri/chingin': 'bunseki',
 };
+// 営業から先に出す（10-27 shoya「ver2 ローンチ・営業からやっちゃいたい」）。今の社内システムは残したまま並行で使う
+//   PRE_LAUNCH が true の間、全体管理者でない人には PRE_LAUNCH_CLOSED の下の画面を出さない（メニューにも出ない・開くと「権限がありません」）
+//   ＝営業の画面（/home/eigyo・/eigyo/）と、ホーム・設定だけ。人事・労務・経理・保留を出すときは、そこを外す（全部出すなら false）
+export const PRE_LAUNCH = true;
+export const PRE_LAUNCH_CLOSED = ['/home/jinji', '/jinji', '/roumu', '/keiri', '/horyu'] as const;
+export const preLaunchClosed = (pathname: string, owner: boolean) =>
+  PRE_LAUNCH && !owner && PRE_LAUNCH_CLOSED.some((h) => pathname === h || pathname.startsWith(h + '/'));
+
 /** かな西エリアで開ける画面（神奈川要員だけに絞る）。連絡パネルのチャットも同じ扱い */
 export const KANAWEST_HREFS = ['/eigyo/proper', '/eigyo/mendan', '/eigyo/progress'] as const;
 
