@@ -29,7 +29,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ path: string[] 
     try {
       const r = await fetch(`${IKE_ORIGIN}/${name}${qs}`, { cache: 'no-store', signal: AbortSignal.timeout(20000) });
       if (!r.ok) return html(noticeHtml('読めませんでした', `今の社内システムから画面を読めませんでした（${r.status}）。`), 502);
-      return html(embedHtml(await r.text(), { pane: name === 'seikyu-make.html' && (pane === 'make' || pane === 'store') ? pane : undefined }));
+      return html(embedHtml(await r.text(), {
+        pane: name === 'seikyu-make.html' && (pane === 'make' || pane === 'store') ? pane : undefined,
+        noWatermarkDocs: name === 'seikyu-make.html' || name === 'seikyu.html',   // 請求書の書類に透かしを入れない
+      }));
     } catch (e) {
       return html(noticeHtml('読めませんでした', `今の社内システムから画面を読めませんでした（${(e as Error).message}）。`), 502);
     }

@@ -155,6 +155,8 @@ const SHEET_CSS = `
   @page { size: A4; margin: 0; }
   html, body { background: #fff !important; }
   body > *:not(#mitsu-print) { display: none !important; }
+  /* 画面の透かし（components/Watermark・<html> 直下）は書類に入れない（10-27 shoya「書類に透かしいれないで」） */
+  #v2-wm { display: none !important; }
   #mitsu-print { display: block !important; }
   #mitsu-print .sheet { box-shadow: none; border-radius: 0; margin: 0 !important; height: 296mm; min-height: 0; overflow: hidden; page-break-after: always; break-after: page; }
   #mitsu-print .sheet:last-child { page-break-after: auto; break-after: auto; }
