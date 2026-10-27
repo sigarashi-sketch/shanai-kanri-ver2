@@ -44,7 +44,10 @@ export function ThemeSwitch() {
 
 /** チャットの色：こちら（送った側）と相手。見本の吹き出しで見え方を出す */
 function ChatColorPick({ c }: { c: ChatColors }) {
-  const set = (side: 'out' | 'in', v?: string) => saveChatColors({ ...c, [side]: v });
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const set = (side: 'out' | 'in', v?: string) => {
+    void saveChatColors({ ...c, [side]: v }).then((r) => setMsg(r.ok ? { ok: true, text: '保存しました（どの端末でも同じ色）' } : { ok: false, text: `${r.error}・この端末にだけ残しました` }));
+  };
   const row = (side: 'out' | 'in', label: string) => (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-2 text-sm font-semibold">{label}
@@ -64,13 +67,14 @@ function ChatColorPick({ c }: { c: ChatColors }) {
   );
   return (
     <div className="mt-1.5 flex flex-col gap-2 border-t border-line-soft px-2.5 pb-1.5 pt-2.5">
-      <div className="flex items-center gap-1.5 text-sm font-bold"><MessageCircle size={14} />チャットの色<span className="text-xs font-normal text-muted">この端末に覚えます</span></div>
+      <div className="flex items-center gap-1.5 text-sm font-bold"><MessageCircle size={14} />チャットの色<span className="text-xs font-normal text-muted">あなたの分として保存</span></div>
       <div className="flex flex-col gap-1 rounded-lg bg-soft p-2 text-sm">
         <div className="flex"><span className="rounded-[14px] rounded-bl-md border border-line px-2.5 py-1" style={{ background: 'var(--chat-in-bg, var(--color-surface))', color: 'var(--chat-in-fg, var(--color-ink))' }}>相手の吹き出し</span></div>
         <div className="flex justify-end"><span className="rounded-[14px] rounded-br-md px-2.5 py-1" style={{ background: 'var(--chat-out-bg, var(--a))', color: 'var(--chat-out-fg, var(--ao))' }}>こちらの吹き出し</span></div>
       </div>
       {row('out', 'こちら（送った側）')}
       {row('in', '相手')}
+      {msg && <p role="status" className={`text-xs ${msg.ok ? 'text-ok' : 'text-bad'}`}>{msg.text}</p>}
     </div>
   );
 }
