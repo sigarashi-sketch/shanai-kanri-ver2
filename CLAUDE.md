@@ -16,7 +16,7 @@
 - 左メニュー（`components/Shell.tsx` SideNav）：ふだんはアイコンの帯、マウスを合わせると重ねて広がる（今のシステムと同じ）。ピンで広げたまま固定。分類の見出しを押すと画面の一覧が開く
 - 要員リスト `/eigyo/proper`：タブで プロパー（スキシ作成）／営業共有リスト／従業員名簿（人事を見る人だけ）／ライバーリスト（全体管理者だけ）
 - 連絡（チャット・配信・手動配信）は各画面の右上（`components/Renraku.tsx`）。人事＝インフォメーション、それ以外＝あおい。送信は長押し
-- **人財管理**（10-27・5つ目の分類・緑）：それゆけ未経験（saiyou-app）の画面を移した。それゆけにしか無かった画面（従業員名簿・チャット・配信・定期面談・月次アンケート・イベント出欠・アンケート作成・粗利LTV・リッチメニュー・たまげたポンの設定）は `components/sy`（それゆけの写しを ver2 の部品・色で）、データはそれゆけの API を `/api/sy/*` で読み書き（`lib/soreyuke.ts`・同じログインのトークンを sa_access に入れる＝権限・保存の決まりはそれゆけのまま）。ver2 にもうあった コミュニティ・離職率・資格手当・採用・bdsh は人事管理から移しただけ（区分はそのまま）。プロパーリストは営業の要員リストと同じ画面、たまげたポンを回す画面は今のシステムの bikkura.html を /ik で
+- **人財管理**（10-27・5つ目の分類・緑）：それゆけ未経験（saiyou-app）を中身ごと移した（同日 shoya「それゆけを ver2 にぶちこんで」）。画面 `components/sy`・処理 `app/api/sy/s/*`（それゆけ app/api/s の写し）・`lib/sy`（それゆけ lib の写し）。**それゆけのサーバは呼ばない**＝saiyou スキーマを service role で直接読み書きし、LINE「インフォメーション」にも ver2 から送る。ログインは ver2 のトークン（`lib/sy/auth.ts`）、それゆけの4段階の権限・内勤一般は見るだけ（`lib/sy/api.ts`・proxy.ts が x-sa-method を渡す）もそのまま。★ver2 の Vercel に鍵が要る：IKEIKE_SERVICE_ROLE・LINE_CHANNEL_ACCESS_TOKEN・LINE_CHANNEL_SECRET・SESSION_SECRET（どれもそれゆけと同じ値）。要員向け（LINE Webhook・/m・/k bdsh・/f 回答ページ・cron）は URL を配ってあるのでそれゆけに残す。ver2 にもうあった コミュニティ・離職率・資格手当・採用・bdsh は人事管理から移しただけ（区分はそのまま）。プロパーリストは営業の要員リストと同じ画面、たまげたポンを回す画面は今のシステムの bikkura.html を /ik で。**それゆけ側の lib・API を直したら lib/sy・app/api/sy/s も同じに**
 - 案件進捗は単独。作り込みはあとで（LINEグループに直接投げた案件も回収する）
 
 <!-- BEGIN:nextjs-agent-rules -->

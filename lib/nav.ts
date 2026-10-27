@@ -23,7 +23,7 @@ export const NAV: NavGroup[] = [
   },
   {
     // 人財管理（10-27 shoya「それゆけ未経験も移管しちゃおう ページは人財管理ってメニューで」「すでにはいっちゃってるのはそのままそこにうつせばいい」）。
-    //   それゆけにしかなかった画面は ver2 に移した（components/sy・データはそれゆけの API を /api/sy で）。ver2 にもうあった画面は人事管理からここへ
+    //   それゆけにしかなかった画面は ver2 に移した（画面 components/sy・処理 app/api/sy/s と lib/sy＝それゆけの写し）。ver2 にもうあった画面は人事管理からここへ
     module: 'jinzai', label: '人財管理', items: [
       { href: '/jinzai/roster', label: '従業員名簿', built: true },
       { href: '/jinzai/chat', label: 'チャット', built: true },

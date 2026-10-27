@@ -4,7 +4,7 @@
 //   ・手で付けるタグ … DB（0016 tags / member_tags）。画面で作って付ける（components/TagEditor.tsx）。Member.tags に名前が入る
 //   チャットのバッジ・絞り込みチップと、配信の「条件で絞る → タグ」は tagsOf / allTags を通して両方を同じに扱う。
 //   名簿と紐付いていないLINEは誰か分からないのでタグは付かない
-import type { Member } from '@/components/sy/compat';
+import type { Member } from './roster';
 
 export interface TagDef {
   key: string;

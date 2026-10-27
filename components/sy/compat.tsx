@@ -1,7 +1,7 @@
 'use client';
 
 // 人財管理（それゆけ未経験から移した画面・10-27）が使う、それゆけの道具の ver2 版。
-//   画面のコードはそれゆけの写し（components/sy/*）。データはそれゆけの API を /api/sy/ 経由で読む（app/api/sy）。
+//   画面のコードはそれゆけの写し（components/sy/*）。データは ver2 の中の /api/sy/s/*（それゆけ app/api/s の写し・lib/sy）が saiyou スキーマを直接読み書きする。
 //   ・fx（動き・お知らせ）→ ver2 のお知らせ（SyFxHost が受けて useMotivation の toast・hit に渡す）
 //   ・useKept → この画面のあいだだけ覚える（再読み込みでは戻さない）
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
