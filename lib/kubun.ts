@@ -4,7 +4,9 @@
 //   ・ロール・組織・個別のどれも、この区分ごとに 見ない/見る/直す/承認 を付ける
 //   ・前に保存した値（10-26〜27 の今のいけどん寄りの区分 営業/案件/面談・入社/稼働中の人/勤怠/請求/分析/管理）は toKPerms で読み替える
 //   ・かな西エリア：要員の画面（KANAWEST_HREFS）を「神奈川要員チェックの人だけ」で開ける区分。
-//     その画面の元の区分が「見ない」で、かな西エリアだけ持っている人は、神奈川要員だけに絞って見せる（lib/kanawest-scope.ts）
+//     ★10-27 shoya「かな西は全部見れるようにしたけど神奈川要員だけにしてね表示」：かな西エリアが付いた人は、ほかの区分を持っていても
+//       いつも神奈川要員だけ（lib/kanawest-scope.ts）。開けるのは 神奈川要員だけに絞れる画面（KANAWEST_HREFS）とホーム・設定だけ＝絞れない画面は出さない
+//       ほかの区分の段階は 絞れる画面を その区分で持っているかの印にだけ使う。全体管理者・管理者・全体を見る（kAll）には付けない
 import { NAV } from './nav';
 import type { ModuleKey } from './theme';
 import type { Level } from './access';
@@ -13,7 +15,7 @@ export type KubunKey = ModuleKey | 'kanawest';
 /** mod＝札の色に使う分類（色だけ） */
 export const KUBUN: { key: KubunKey; label: string; mod: ModuleKey; hint: string }[] = [
   ...NAV.map((g) => ({ key: g.module as KubunKey, label: g.label, mod: g.module, hint: g.items.map((it) => it.label).join('・') })),
-  { key: 'kanawest', label: 'かな西エリア', mod: 'eigyo', hint: '要員リスト・面談管理・案件進捗・チャットを神奈川要員だけで' },
+  { key: 'kanawest', label: 'かな西エリア', mod: 'eigyo', hint: '付けると神奈川要員だけ（ほかの区分を持っていても）。開けるのは要員リスト・面談管理・案件進捗・チャットだけ' },
 ];
 export const KUBUN_KEYS = KUBUN.map((k) => k.key);
 export type KPerms = Record<KubunKey, Level>;
@@ -53,18 +55,19 @@ export const pageGranted = (pages: readonly string[], pathname: string) => pages
 export function pageAccess(kperms: KPerms, pathname: string, pages: readonly string[] = []): 'all' | 'kanawest' | null {
   const k = kubunOfPath(pathname);
   if (!k) return 'all';
+  if (isKanawest(kperms)) return isKanawestHref(pathname) ? 'kanawest' : null;
   if (kperms[k] !== 'none') return 'all';
   if (pageGranted(pages, pathname)) return 'all';
-  if (isKanawestHref(pathname) && kperms.kanawest !== 'none') return 'kanawest';
   return null;
 }
-/** かな西エリアだけを持つ人（ほかの区分が全部「見ない」）。この人が読めるのは神奈川要員の人のことだけ（lib/kanawest-scope.ts） */
-export const isKanawestOnly = (k: KPerms) => k.kanawest !== 'none' && KUBUN_KEYS.every((x) => x === 'kanawest' || k[x] === 'none');
+/** かな西エリアが付いた人（ほかの区分を持っていても）。この人が読めるのは神奈川要員の人のことだけ（lib/kanawest-scope.ts・10-27） */
+export const isKanawest = (k: KPerms) => k.kanawest !== 'none';
 
 const RANK: Record<Level, number> = { none: 0, view: 1, edit: 2, approve: 3 };
 const hi = (a: Level, b: Level): Level => (RANK[a] >= RANK[b] ? a : b);
 const isLevel = (v: unknown): v is Level => v === 'none' || v === 'view' || v === 'edit' || v === 'approve';
-export const kAll = (l: Level): KPerms => Object.fromEntries(KUBUN_KEYS.map((k) => [k, l])) as KPerms;
+/** 全部の区分を同じ段階に（かな西エリアは絞る印なので付けない） */
+export const kAll = (l: Level): KPerms => Object.fromEntries(KUBUN_KEYS.map((k) => [k, k === 'kanawest' ? 'none' : l])) as KPerms;
 export const K_NONE = kAll('none');
 export const kMax = (a: Partial<KPerms>, b: Partial<KPerms>): KPerms =>
   Object.fromEntries(KUBUN_KEYS.map((k) => [k, hi(a[k] ?? 'none', b[k] ?? 'none')])) as KPerms;
