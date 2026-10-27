@@ -62,8 +62,8 @@ export async function GET(req: Request) {
     const kadouAll = staff ? staff.filter((r) => r.statusKey === 'kadou').length : null;
     const kadouMk = staff && mk ? staff.filter((r) => r.statusKey === 'kadou' && isMikeiken(mk, r.name)).length : null;
     sections.push({
-      key: 'kadou', title: '稼働中の人数', legacyFrom: 'ダッシュボード（稼働中＝名簿−退社−待機−休職−退場−再アサイン−入場前）', v2From: 'ホーム人事・社員一覧（名簿の4つの材料から状態を出す）',
-      note: '今の時点の人数です（月を選んでも変わりません）。ver2 の画面に出すのは未経験の人だけなので、下の行は参考です',
+      key: 'kadou', title: '稼働中の人数', legacyFrom: 'ダッシュボード（稼働中＝名簿−退社−待機−休職−退場−再アサイン−入場前）', v2From: 'ホーム人事・社員一覧（ダッシュボードと同じ外し方・入場日は営業リスト→日報②・10-27）',
+      note: '今の時点の人数です（月を選んでも変わりません）。名簿で状態を手で選んだ人（現場外・参画予定・稼働中）は ver2 だけが見るので、その分ずれることがあります。下の行は参考です',
       error: [!dash.ok ? `今：${dash.error}` : !wf ? '今：稼働の数を読めませんでした' : '', staffErr ? `ver2：${staffErr}` : ''].filter(Boolean).join('／') || undefined,
       rows: [
         { label: '稼働中（全員）', legacy: wf?.activeCount ?? null, v2: kadouAll, unit: '人' },

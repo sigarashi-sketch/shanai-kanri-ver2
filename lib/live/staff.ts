@@ -114,36 +114,46 @@ function taijouEffective(taijou: unknown, today: string, entries: unknown[]): bo
   if (today && iso > today) return false;
   return !entries.some((d) => { const e = parseDateIso(d); return !!e && e > iso; });
 }
-const OVERRIDES = ['kadou', 'yotei', 'zaiseki', 'kyushoku', 'taiki'];
+const OVERRIDES = ['kadou', 'yotei', 'zaiseki', 'kyushoku'];   // 待機は待機チェック（taiki）で決める
 const YOTEI_STALE_DAYS = 30;
 
 export type StatusInput = {
   taisha: boolean; saiAssign: boolean; taijouBi: string; hasEntry: boolean; startDate: string; endDate: string; joukyou: string;
   jitai: boolean; poa: boolean; sankakuKettei: boolean; lastUpdated: string; today: string; taiki: boolean; statusOverride: string;
   mnmKakutei: boolean; nyushaDay: string;
+  /** 入場日（営業リスト → 無ければ日報②の契約実績。今のシステムの salesOverlay が日報で補った値＝日報が正） */
+  nyuujou: string;
 };
-/** 今のシステムの deriveRosterStatus の写し：退社チェック ＞ 手で選んだ状態 ＞ 自動（待機チェックは 稼働中/現場外 を待機に差し替える）。 */
+// 稼働中の決め方は、今のシステムのダッシュボードの「稼働人数」（api/_active_count.ts の activeExclusion／activeDateSets）にそろえる
+//   （10-27 shoya「1（ダッシュボード）で。日報が正な情報のはず 直近は」）。前は名簿の画面の状態（deriveRosterStatus）の写しで、18人ずれていた。
+//   外す順（1人1回）: 退社 ＞ 待機 ＞ 休職 ＞ 退場 ＞ 再アサイン ＞ 入場前。どれでもなければ稼働中。
+//     ・退場＝退場日が今日以前で、その後の入場（営業リスト/日報の入場日・開始日）が無い／状況欄に「終了・退職」で終了日が先でない
+//     ・入場前＝入場日（営業リスト→日報→開始日）が先。仮行（一覧に行が無い）で入場日も無い人も入場前。
+//       ただし仮行でもミンミカで案件確定＋入社日を過ぎていれば稼働中
+//     ・入場日が無い人は入場済み扱い。契約の終了日だけでは外さない（自動更新）
+//   ★手で選んだ状態（現場外・参画予定・稼働中）は、名簿の画面と同じく優先する。ダッシュボードはこれを見ないので、
+//     手で選んだ人の分だけ 突き合わせ（/settings/cutover）の稼働中がずれることがある
+//   稼働中でない人の 参画予定／現場外 の分け方は、名簿の画面と同じ（辞退・ぽあ・古い参画決定は現場外）
 export function deriveStatus(x: StatusInput): RosterStatusKey {
   if (x.taisha) return 'taisha';
-  const ov = OVERRIDES.includes(x.statusOverride) ? (x.statusOverride as RosterStatusKey) : null;
-  if (ov && (ov !== 'taiki' || x.taiki)) return ov;
-  const st = base(x);
-  return x.taiki && (st === 'kadou' || st === 'zaiseki') ? 'taiki' : st;
-}
-function base(x: StatusInput): RosterStatusKey {
-  if (x.saiAssign || taijouEffective(x.taijouBi, x.today, [x.startDate])) return 'zaiseki';
-  if (!x.hasEntry) {
-    if (x.jitai || x.poa) return 'zaiseki';
-    const nd = parseDateIso(x.nyushaDay);
-    if (x.mnmKakutei && nd && nd <= x.today) return 'kadou';
-    if (!x.sankakuKettei) return 'zaiseki';
-    const age = daysBetween(x.today, x.lastUpdated);
-    return age != null && age <= YOTEI_STALE_DAYS ? 'yotei' : 'zaiseki';
-  }
-  const sd = parseDateIso(x.startDate);
-  if (sd && sd > x.today) return x.jitai || x.poa ? 'zaiseki' : 'yotei';
+  if (x.taiki) return 'taiki';
+  if (OVERRIDES.includes(x.statusOverride)) return x.statusOverride as RosterStatusKey;
+  const start = x.hasEntry ? x.startDate : '';
+  if (taijouEffective(x.taijouBi, x.today, [x.nyuujou, start])) return 'zaiseki';
   if (hasEndWording(x.joukyou)) { const ed = parseDateIso(x.endDate); if (!(ed && ed > x.today)) return 'zaiseki'; }
+  if (x.saiAssign) return 'zaiseki';
+  const nyuujou = parseDateIso(x.nyuujou) || parseDateIso(start);
+  if (!x.hasEntry && x.mnmKakutei) { const nd = parseDateIso(x.nyushaDay); if (nd && nd <= x.today) return 'kadou'; }
+  if ((nyuujou && nyuujou > x.today) || (!nyuujou && !x.hasEntry)) return maeOf(x);
   return 'kadou';
+}
+/** 入場前の人：参画予定か現場外か（名簿の画面と同じ分け方） */
+function maeOf(x: StatusInput): RosterStatusKey {
+  if (x.jitai || x.poa) return 'zaiseki';
+  if (x.hasEntry) return 'yotei';
+  if (!x.sankakuKettei) return 'zaiseki';
+  const age = daysBetween(x.today, x.lastUpdated);
+  return age != null && age <= YOTEI_STALE_DAYS ? 'yotei' : 'zaiseki';
 }
 
 /** "570,000円" → "57万"（読めなければそのまま・空は —） */
@@ -176,7 +186,7 @@ export function buildStaffList(
       taisha: !!st?.taisha, saiAssign: !!s.saiAssign, taijouBi: ny.taijouBi || '', hasEntry: !r.provisional,
       startDate: r.start || '', endDate: r.end || '', joukyou: r.joukyou || '', jitai: !!s.jitai, poa: !!s.poa,
       sankakuKettei: !!s.sankakuKettei, lastUpdated: String(s.updatedAt || '').slice(0, 10), today, taiki: !!st?.taiki,
-      statusOverride: st?.status_override || '', mnmKakutei: !!s.mnmKakutei, nyushaDay: s.mnmJoined || ny.nyushaBi || r.nyusha || '',
+      statusOverride: st?.status_override || '', mnmKakutei: !!s.mnmKakutei, nyushaDay: s.mnmJoined || ny.nyushaBi || r.nyusha || '', nyuujou: String(s.nyuujouBi || ''),
     });
     return {
       id: personId ? personStaffId(personId) : staffIdOf(r.name), nameId: staffIdOf(r.name), personId, name: r.name, kana: r.kana || '', status: STATUS_LABEL[key], statusKey: key,

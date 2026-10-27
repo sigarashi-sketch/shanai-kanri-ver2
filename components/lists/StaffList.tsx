@@ -96,7 +96,7 @@ export function StaffList({ embedded = false }: { embedded?: boolean }) {
     { l: '表示中', n: rows.length },
     { l: STATUS_LABEL.kadou, n: rows.filter((r) => r.status === STATUS_LABEL.kadou).length, tip: 'いま現場の案件で稼働している人数（入場予定とは重ならない）' },
     { l: STATUS_LABEL.yotei, n: rows.filter((r) => r.status === STATUS_LABEL.yotei).length, tip: '案件が決まっていて、まだ現場に入っていない人数' },
-    { l: '稼働人数（退社・待機・休職除く）', n: rows.filter((r) => !r.edit.taisha && !r.edit.taiki && r.edit.override !== 'kyushoku' && r.status !== '休職・産休' && r.status !== '退社').length, tip: 'ダッシュボードの「稼働人数」と同じ定義（稼働中＋入場予定＋在籍（現場外））' },
+    { l: '在籍（退社・待機・休職除く）', n: rows.filter((r) => !r.edit.taisha && !r.edit.taiki && r.edit.override !== 'kyushoku' && r.status !== '休職・産休' && r.status !== '退社').length, tip: '稼働中＋入場予定＋在籍（現場外）。ダッシュボードの「稼働人数」は左の「稼働中」と同じ数え方（10-27）' },
     { l: 'LINEグループあり', n: live ? rows.filter((r) => r.edit.hasLine).length : null },
     { l: 'LINEグループなし', n: live ? rows.filter((r) => !r.edit.hasLine).length : null },
     { l: '終了日あり', n: live ? rows.filter((r) => r.end).length : null },
