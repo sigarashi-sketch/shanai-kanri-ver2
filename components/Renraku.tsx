@@ -86,7 +86,7 @@ export function RenrakuButton({ module }: { module: ModuleKey | 'home' }) {
   return (
     <>
       <button onClick={() => setOpen((v) => !v)} aria-expanded={open} title={ball ? `要対応 ${ball}件` : undefined} className="relative flex min-h-10 items-center gap-2 rounded-[10px] border border-line px-3 text-body font-semibold text-muted">
-        <MessageSquare size={17} strokeWidth={1.8} />連絡<span className="rounded-full bg-sunken px-2 py-0.5 text-xs font-medium text-muted">{account}</span>
+        <MessageSquare size={17} strokeWidth={1.8} />連絡<span className="rounded-full bg-sunken px-2 py-0.5 text-xs font-medium text-muted max-md:hidden">{account}</span>
         {ball > 0 && <span className="num absolute -right-1.5 -top-1.5 rounded-full bg-bad px-1.5 text-xs font-bold" style={{ color: 'var(--color-surface)' }}>{ball > 99 ? '99+' : ball}</span>}
       </button>
       {open && <DrawerPortal><RenrakuPanel account={account} module={module} badge={bd} onClose={() => setOpen(false)} /></DrawerPortal>}

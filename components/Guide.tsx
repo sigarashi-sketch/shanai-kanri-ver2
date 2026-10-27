@@ -33,7 +33,7 @@ export function GuideHost({ groups }: { groups: NavGroup[] }) {
   return (
     <>
       <button type="button" data-tour="guide" onClick={() => { setStart(0); setMode('tour'); }} className="flex min-h-10 items-center gap-1.5 rounded-[10px] border border-line px-2.5 text-sm font-semibold text-ink hover:bg-soft" title="使い方ガイド（実際の画面で順に案内します）">
-        <CircleHelp size={16} strokeWidth={1.8} />使い方
+        <CircleHelp size={16} strokeWidth={1.8} /><span className="max-md:sr-only">使い方</span>
       </button>
       {mode === 'tour' && <Tour key={start} steps={steps} start={start} onClose={close} onList={() => setMode('list')} />}
       {mode === 'list' && <GuideDialog groups={groups} onClose={close} onTour={tourFrom} />}
@@ -154,6 +154,7 @@ function Intro({ home, homeItems, groups, kanawest }: { home: string; homeItems:
         <h3 className="text-md font-bold">左のメニュー</h3>
         <ul className="mt-1.5 flex list-disc flex-col gap-1 pl-5 text-muted">
           <li>ふだんはアイコンだけの細い帯です。マウスを合わせると広がり、分類の見出しを押すと画面の一覧が開きます。上のピンで広げたまま固定できます。</li>
+          <li>携帯では帯を出さず、左上の <b className="text-ink">≡</b> を押すとメニューが左から出ます（画面を選ぶか、外を押すと閉じます）。名前とログアウトはメニューのいちばん下です。</li>
           <li>「ホーム」を押すと <b className="text-ink">{homeLabel}</b> が開きます。{homeItems.length > 0 && <>その下の「{homeItems.map((x) => x.label).join('・')}」もここから。</>}</li>
           <li>メニューに出ているのは、あなたが開ける画面だけです（{groups.length}つの分類・{groups.reduce((n, g) => n + g.items.length, 0)}画面）。左の目次から、分類ごとの説明を見られます。</li>
         </ul>
@@ -177,7 +178,7 @@ function Intro({ home, homeItems, groups, kanawest }: { home: string; homeItems:
           <li>人の名前を押すと、その人の情報が画面の上に出ます。</li>
           <li>何かを片づけると下に知らせが出て、「取り消す」で戻せます。</li>
           <li>右上の「見た目」：画面の着せ替え（8種類・分類の色はそのまま）と、<b className="text-ink">チャットの色</b>（こちら＝送った側・相手 の吹き出しの色）を選べます。好きな色は「＋」から。どのチャット（連絡・人の詳細・人財管理のチャット）にも効き、あなたの分として保存するので どの端末でも同じ色です。「元の色に戻す」でいつでも戻せます。</li>
-          <li>このガイドは右上の「使い方」からいつでも開けます。</li>
+          <li>このガイドは右上の「使い方」（携帯では ? のボタン）からいつでも開けます。</li>
         </ul>
       </section>
     </div>

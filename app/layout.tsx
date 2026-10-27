@@ -9,9 +9,9 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 
 export const metadata: Metadata = { title: APP_NAME, robots: { index: false } };
-// 携帯で開いても PC と同じ表示にする（10-23 shoya「iPhone から見るから PC と同じ表示」）。幅 1280 の画面として描いて縮めて見せる。
-//   携帯向けの並びを作るときはここを 'device-width' に戻す
-export const viewport: Viewport = { width: 1280, initialScale: undefined };
+// 携帯は携帯の幅で描く（10-27 shoya「携帯表示も対応して」。10-23 の「幅 1280 で縮めて見せる」はやめた）。
+//   幅 768 未満：左メニューは上のバーの ≡ から引き出す（components/Shell.tsx）・余白と表は globals.css の「携帯」
+export const viewport: Viewport = { width: 'device-width', initialScale: 1, viewportFit: 'cover' };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
