@@ -361,3 +361,7 @@ html.in-split nav[aria-label="メニュー"], html.in-split header.topbar { disp
 .ig-face-bounce { animation: ig-face-bounce 2.4s ease-in-out infinite }
 .ig-gradient { background: linear-gradient(45deg, #feda75 0%, #fa7e1e 25%, #d62976 50%, #962fbf 75%, #4f5bd5 100%) }
 @media (prefers-reduced-motion: reduce) { .ig-pop, .ig-rise, .ig-face-bounce { animation: none } .ig-lift:hover { transform: none } }
+
+/* 使い方ガイドのポインタ（components/Tour.tsx）：着いたら軽く押す */
+@keyframes tour-tap { 0%, 60%, 100% { transform: translate(0, 0) scale(1) } 75% { transform: translate(1px, 2px) scale(.88) } }
+@media (prefers-reduced-motion: reduce) { [style*="tour-tap"] { animation: none !important } }
