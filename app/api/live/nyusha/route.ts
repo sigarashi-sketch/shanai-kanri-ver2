@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { ikeFetch, ikeToken } from '@/lib/ike';
 import { cellsOf, type EngineerRows } from '@/lib/live/eigyo-common';
 import { mikeikenSetOf, onlyMikeiken } from '@/lib/live/mikeiken';
+import { normName, type IkeRosterData } from '@/lib/live/staff';
 import { buildSheetRows, fromSheetRows, type IkeJimuLite, type IkeSankakuSheet, type IkeNyushaOverlay, type IkeNyushaProgress } from '@/lib/live/nyusha';
 
 // 入社手続き（＝労務の freee送信管理スプシ「参画決定者」タブと同じ列）の本物。lib/live/nyusha.ts の説明を参照。
@@ -11,6 +12,7 @@ import { buildSheetRows, fromSheetRows, type IkeJimuLite, type IkeSankakuSheet, 
 //     nyusha-progress?days=0（GET は読むだけ・POST は呼ばない）／roster?action=getEngineerRows（額面・未経験の絞り）
 //     roster?op=nyusha&action=list（入社日・action=save は GET でも書くので list 以外は呼ばない）／roster?op=jimu&action=list（よみがな・入場日の補い）
 //   ★cron-freee-send-sheet は書き込み（スプシへの追記・管理部タブの書き直し）を起こすので、?dry でも呼ばない
+//     ＋ proxy?action=getRosterData（従業員名簿・freee に送った人が もう名簿に載ったか＝登録が済んだか・10-27）
 //   ★未経験の人だけ（今のプロパーリストに入っている人）。プロパーリストが読めなければ人の行は返さない
 //   ★メール（basic_info.email）は今のシステムも画面に返さない＝ここでも出さない
 class AuthGone extends Error {}
@@ -33,7 +35,11 @@ export async function GET() {
     // スプシが設定されていない（今のシステムの答えが ok・url 空・rows 空）ときは「読めた・0人」にしないで、組み立てに回す（10-25）
     const noSheet = !!sheet?.ok && !sheet.url;
     if (sheet?.ok && sheet.url && Array.isArray(sheet.rows)) {
-      return NextResponse.json({ rows: onlyMikeiken(mikeikenSetOf(eng0), fromSheetRows(sheet.rows), 'name'), warnings: [], generatedAt: new Date().toISOString(), source: 'sheet' });
+      // freee に送った人が 従業員名簿に出てきたか（本人が freee の登録を終えると 名簿に載る・10-27 shoya）。名簿が読めなければ null＝印を付けない
+      const roster = await soft(getJson<IkeRosterData>('/api/proxy?action=getRosterData'));
+      const onRoster = roster?.success && Array.isArray(roster.rows) ? new Set(roster.rows.filter((r) => !r.provisional).map((r) => normName(r.name))) : null;
+      const rows = fromSheetRows(sheet.rows).map((r) => ({ ...r, registered: onRoster ? onRoster.has(normName(r.name)) : null }));
+      return NextResponse.json({ rows: onlyMikeiken(mikeikenSetOf(eng0), rows, 'name'), warnings: onRoster ? [] : ['従業員名簿が読めなかったので、freee の登録が済んだかは出していません'], generatedAt: new Date().toISOString(), source: 'sheet' });
     }
     const [progress, eng, ny, jimu] = await Promise.all([
       getJson<IkeNyushaProgress>('/api/nyusha-progress?days=0'),

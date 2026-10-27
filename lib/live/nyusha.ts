@@ -47,6 +47,8 @@ export type SheetRow = {
   except: ExceptKind | null;  // K
   exceptOn: string | null;    // L
   note?: string;              // 画面に添える一言（同姓同名など）
+  /** 従業員名簿（getRosterData・仮行でない行）に載っているか。null＝名簿が読めなかった（10-27） */
+  registered?: boolean | null;
 };
 /** source: 'sheet'＝スプシそのもの（全部の列が本物）／'build'＝スプシが読めず今の GET から組み立てた（D・H〜L は null） */
 export type NyushaSheetLive = { rows: SheetRow[]; warnings: string[]; generatedAt: string; source?: 'sheet' | 'build' };
@@ -133,8 +135,11 @@ export function fromSheetRows(rows: readonly IkeSankakuSheetRow[]): SheetRow[] {
 }
 
 // ---- 画面で使う道具 ----------------------------------------------------------------
-export type SheetFilter = 'すべて' | '未送信' | '送信済み' | '辞退・取消';
-export const rowKind = (r: SheetRow): Exclude<SheetFilter, 'すべて'> | '不明' =>
+export type SheetFilter = 'すべて' | '未送信' | '送信済み' | '未登録' | '辞退・取消';
+/** freee に送ったのに 従業員名簿にまだ出てこない＝本人が freee の登録を終えていない（10-27 shoya「送信済みで拾えてないのはまだ登録してない人」） */
+export const notRegistered = (r: SheetRow) => !r.except && r.sent === true && r.registered === false;
+
+export const rowKind = (r: SheetRow): Exclude<SheetFilter, 'すべて' | '未登録'> | '不明' =>
   r.except ? '辞退・取消' : r.sent == null ? '不明' : r.sent ? '送信済み' : '未送信';
 
 /** 未送信 → 送信済み → 辞退・取消 の順。同じ中は参画決定日の古い順（＝スプシの並び） */
