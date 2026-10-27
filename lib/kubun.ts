@@ -15,8 +15,8 @@ export const KUBUN: { key: KubunKey; label: string; mod: ModuleKey; hint: string
   { key: 'anken', label: '案件', mod: 'eigyo', hint: '案件・案件進捗・案件掲載・マップ' },
   { key: 'mendan', label: '面談・入社', mod: 'jinji', hint: '面談管理・面談可能日・採用（承諾者管理）・入社手続き・スキルシート' },
   { key: 'kadou', label: '稼働中の人', mod: 'jinji', hint: '社員一覧・変更の予約・資格手当・産休育休・コミュニティ・派遣契約・交通費経費' },
-  { key: 'kintai', label: '勤怠', mod: 'roumu', hint: '当日の出勤状況・申請の承認・残業・締め・シフト・欠勤・交通費チェック・アラート' },
-  { key: 'seikyu', label: '請求', mod: 'keiri', hint: '請求書・請求書づくり・作成・格納・勤務表の届き具合・勤怠の照合' },
+  { key: 'kintai', label: '勤怠', mod: 'roumu', hint: '当日の出勤状況（欠勤管理）・シフト表・申請の承認・残業・締め・交通費チェック・アラート' },
+  { key: 'seikyu', label: '請求', mod: 'keiri', hint: '請求書・請求書づくり・作成・格納・勤怠の照合' },
   { key: 'bunseki', label: '分析', mod: 'keiri', hint: '売上・粗利・想定賃金・離職リスク' },
   { key: 'kanawest', label: 'かな西エリア', mod: 'eigyo', hint: '要員リスト・面談管理・案件進捗・チャットを神奈川要員だけで' },
   { key: 'kanri', label: '管理', mod: 'roumu', hint: '労務法務ナレッジ・媒体アイパス管理' },
@@ -30,16 +30,16 @@ export const KUBUN_OF_HREF: Record<string, KubunKey> = {
   // 人事管理
   '/home/jinji': 'kadou', '/jinji/staff': 'kadou', '/jinji/yoyaku': 'kadou', '/jinji/nyusha': 'mendan', '/jinji/jimu': 'kadou',
   '/jinji/shikaku': 'kadou', '/jinji/sankyu': 'kadou', '/jinji/rishoku': 'bunseki', '/jinji/community': 'kadou', '/jinji/bdsh': 'kadou',
-  '/jinji/saiyou': 'mendan', '/jinji/ocr': 'mendan', '/jinji/ippass': 'kanri',
+  '/jinji/saiyou': 'mendan', '/jinji/ocr': 'mendan', '/jinji/ippass': 'kanri', '/jinji/today': 'kintai', '/jinji/shift': 'kintai',
   // 労務/営業管理
-  '/roumu/today': 'kintai', '/roumu/approval': 'kintai', '/roumu/overtime': 'kintai', '/roumu/shime': 'kintai', '/roumu/shift': 'kintai',
-  '/roumu/kekkin': 'kintai', '/roumu/contracts': 'kadou', '/roumu/timesheet': 'seikyu', '/roumu/alerts': 'kintai', '/roumu/kb': 'kanri',
+  '/roumu/overtime': 'kintai', '/roumu/shime': 'kintai',
+  '/roumu/contracts': 'kadou', '/roumu/alerts': 'kintai', '/roumu/kb': 'kanri',
   // 営業
   '/home/eigyo': 'sales', '/eigyo/cases': 'anken', '/eigyo/progress': 'anken', '/eigyo/mendan': 'mendan', '/eigyo/availability': 'mendan',
   '/eigyo/keisai': 'anken', '/eigyo/proper': 'sales', '/eigyo/sales-list': 'sales', '/eigyo/skillsheet': 'mendan', '/eigyo/haken': 'kadou',
   '/eigyo/taiki': 'sales', '/eigyo/nippo': 'sales', '/eigyo/map': 'anken', '/eigyo/pl': 'bunseki',
   // 経理管理
-  '/keiri/keihi': 'kadou', '/keiri/check': 'kintai', '/keiri/kintai-shogo': 'seikyu', '/keiri/seikyu': 'seikyu', '/keiri/seikyu-zukuri': 'seikyu',
+  '/keiri/approval': 'kintai', '/keiri/keihi': 'kadou', '/keiri/check': 'kintai', '/keiri/kintai-shogo': 'seikyu', '/keiri/seikyu': 'seikyu', '/keiri/seikyu-zukuri': 'seikyu',
   '/keiri/seikyu-make': 'seikyu', '/keiri/kakunou': 'seikyu', '/keiri/chingin': 'bunseki',
 };
 /** かな西エリアで開ける画面（神奈川要員だけに絞る）。連絡パネルのチャットも同じ扱い */
@@ -74,8 +74,11 @@ export const kMax = (a: Partial<KPerms>, b: Partial<KPerms>): KPerms =>
 
 /** 前の4分類の段階 → 区分の段階（その分類のメニューの画面が入っている区分に、同じ段階を付ける。保存してある古い値を読むとき） */
 const MOD_HREF_PREFIX: Record<ModuleKey, string[]> = { jinji: ['/home/jinji', '/jinji/'], roumu: ['/roumu/'], eigyo: ['/home/eigyo', '/eigyo/'], keiri: ['/keiri/'] };
+// 分類をまたいで移した画面は、古い値を読むときは元の分類のまま数える（人事の段階で勤怠が開かないように）
+const MOVED_FROM: Record<string, ModuleKey> = { '/jinji/today': 'roumu', '/jinji/shift': 'roumu', '/keiri/approval': 'roumu' };
+const modOfHref = (h: string) => MOVED_FROM[h] ?? (Object.keys(MOD_HREF_PREFIX) as ModuleKey[]).find((m) => MOD_HREF_PREFIX[m].some((p) => h === p || h.startsWith(p)));
 export function kubunsOfModule(m: ModuleKey): KubunKey[] {
-  return [...new Set(Object.entries(KUBUN_OF_HREF).filter(([h]) => MOD_HREF_PREFIX[m].some((p) => h === p || h.startsWith(p))).map(([, k]) => k))];
+  return [...new Set(Object.entries(KUBUN_OF_HREF).filter(([h]) => modOfHref(h) === m).map(([, k]) => k))];
 }
 /** 保存してある段階を区分の形に（区分のキーならそのまま・4分類のキーなら区分に開く・知らないキーは捨てる） */
 export function toKPerms(raw: unknown): Partial<KPerms> {

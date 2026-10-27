@@ -1,4 +1,5 @@
 // 画面で使い回す小さな部品（状態の札・見出し）。色は分類色（--a 系）と状態色だけ。
+import { Info } from 'lucide-react';
 import type { Status } from '@/lib/types/base';
 
 const STATUS_STYLE: Record<string, { bg: string; fg: string }> = {
@@ -17,10 +18,21 @@ export function Pill({ children }: { children: Status | string }) {
   return <span className="chip" style={{ background: s.bg, color: s.fg }}>{children}</span>;
 }
 
+// 10-27 shoya「こういう説明いらない 極力スッキリな情報量に」：sub は頭の短い一言（日付・時点・件数など数字の入ったもの）だけ出し、
+//   残りの説明は ⓘ に指を置いたときだけ出す
+function splitSub(sub: string): [string, string] {
+  const i = sub.search(/[。・]/);
+  const head = (i < 0 ? sub : sub.slice(0, i)).trim();
+  return /\d/.test(head) && head.length <= 30 ? [head, sub.slice(head.length).replace(/^[。・\s]+/, '')] : ['', sub];
+}
 export function PageTitle({ title, sub, children }: { title: string; sub?: string; children?: React.ReactNode }) {
+  const [head, rest] = sub ? splitSub(sub) : ['', ''];
   return (
     <div className="mo-fade-up flex flex-wrap items-end justify-between gap-3">
-      <div><h1 className="text-xl font-bold tracking-tight">{title}</h1>{sub && <div className="mt-0.5 text-body text-muted">{sub}</div>}</div>
+      <div>
+        <h1 className="flex items-center gap-1.5 text-xl font-bold tracking-tight">{title}{rest && <span title={rest} aria-label={rest} className="cursor-help text-faint"><Info size={15} /></span>}</h1>
+        {head && <div className="mt-0.5 text-sm text-muted">{head}</div>}
+      </div>
       {children && <div className="flex gap-2">{children}</div>}
     </div>
   );

@@ -53,6 +53,11 @@ function allowedGet(api: string, rest: string[], sp: URLSearchParams): boolean {
   if (api === 'seikyu') return SEIKYU_GET.has(action);
   if (api === 'auth') return action === 'me';
   if (api === 'live') return [...sp.keys()].every((k) => k === 'since') && /^\d*$/.test(sp.get('since') || '');
+  // 3D の出勤ボード（attendance-3d.html・当日の出勤状況のタブ・10-27）が読む口。送る（chat send・recipients）は POST なので通らない＝見るだけ
+  if (api === 'attendance-board') return ['', 'absence', 'habits', 'rev', 'recipient'].includes(action);
+  if (api === 'office') return action === 'state';
+  if (api === 'proxy') return action === 'getRosterStatus';
+  if (api === 'shared-kv') return [...sp.keys()].every((k) => k === 'scope');
   return false;
 }
 

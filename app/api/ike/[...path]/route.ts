@@ -13,7 +13,7 @@ const NOT_ALLOWED = 'この読み口は通していません';
 // '' は action（op）なし。roster のように op で分かれる口は 'op:action'
 const ALLOW: Record<string, readonly string[]> = {
   proxy: ['getProgressData', 'getProgressReplies', 'getMapData', 'getRosterStatus', 'getReplies', 'getGroupNames', 'getSalesTableData', 'getInterviews'],
-  roster: ['getEngineerRows', 'jimu:list', 'kekkin:list', 'shime:board', 'timesheet:list', 'eigyo:taiki', 'eigyo:direct', 'shime:unread', 'roumu:marks', 'roumu:contacts', 'roumu:depcall', 'roumu:shime-todo', 'roumu:overtime', 'roumu:haken', 'roumu:shift-patterns'],
+  roster: ['getEngineerRows', 'jimu:list', 'kekkin:list', 'shime:board', 'eigyo:taiki', 'eigyo:direct', 'shime:unread', 'roumu:marks', 'roumu:contacts', 'roumu:depcall', 'roumu:shime-todo', 'roumu:overtime', 'roumu:haken', 'roumu:shift-patterns'],
   // ↑ eigyo:* は待機の状態・グループ直接の回収候補／roumu:* は労務（どちらも今のシステムの GET は SELECT だけ・10-26）
   'cases-map': ['list'],
   nippo: ['', 'pl-reps', 'masters'],   // masters＝成約日報の会社・現場マスタ（10-26・SELECT だけ）
@@ -28,7 +28,7 @@ const ALLOW: Record<string, readonly string[]> = {
   kb: ['list', 'get', 'testSearch'],
   'shift-calendar': ['month', 'list', 'detail'],
   'kintai-today': ['', 'month'],
-  'attendance-board': ['absence'],
+  'attendance-board': ['absence', ''],   // ''＝その日の出勤/欠勤/休み/不明（当日の出勤状況の「出勤の記録」が日ごとに読む・3D の出勤ボードと同じ口・10-27）
   admin: ['list', 'googleLinks'],
   'progress-stats': [''],
   'my-activity': ['today'],   // 上のバーの「今日の処理」（本人の操作の記録を数えるだけ・GET は SELECT だけ・10-26 base）

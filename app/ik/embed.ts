@@ -5,8 +5,8 @@ import 'server-only';
 //   ★変えるのは「行き先」だけ：/api/… → /ik/api/…（ver2 自身の /api/live などとぶつけない）、/shell.js など → /ik/shell.js
 //   ★見た目は今のまま。今の外枠（左メニュー・上バー・タブ・AIに聞く）だけ消す（ver2 の外枠と二重になるため）
 
-/** ver2 で開ける今の画面（請求の2つ）。ほかの画面は開かない（中継する API を増やさないため） */
-export const IK_PAGES = new Set(['seikyu.html', 'seikyu-make.html']);
+/** ver2 で開ける今の画面（請求の2つ＋3D の出勤ボード）。ほかの画面は開かない（中継する API を増やさないため） */
+export const IK_PAGES = new Set(['seikyu.html', 'seikyu-make.html', 'attendance-3d.html']);
 
 /** 画面のコード（JS/CSS）と画像。データは入っていない（今のシステムでもログインなしで読める静的ファイル） */
 export const ASSET_TYPES: Record<string, string> = {

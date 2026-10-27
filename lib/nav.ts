@@ -12,6 +12,8 @@ export const NAV: NavGroup[] = [
       { href: '/home/jinji', label: 'ホーム人事', built: true },
       { href: '/jinji/staff', label: '社員一覧', built: true },
       { href: '/jinji/yoyaku', label: '変更の予約', built: true },
+      { href: '/jinji/today', label: '当日の出勤状況', built: true }, // 労務から人事へ（10-27 shoya）。出勤の記録・欠勤管理・3D の出勤ボードはこの画面のタブ
+      { href: '/jinji/shift', label: 'シフト表', built: true }, // 労務から人事へ（10-27 shoya）。提出状況・当月の実績はタブ
       { href: '/jinji/nyusha', label: '入社手続き', built: true },
       { href: '/jinji/jimu', label: '参画決定者の手続き', built: true },
       { href: '/jinji/shikaku', label: '資格手当', built: true },
@@ -26,14 +28,9 @@ export const NAV: NavGroup[] = [
   },
   {
     module: 'roumu', label: '労務/営業管理', items: [
-      { href: '/roumu/today', label: '当日の出勤状況', built: true },
-      { href: '/roumu/approval', label: '申請の承認', built: true },
       { href: '/roumu/overtime', label: '残業・36協定・有給', built: true },
       { href: '/roumu/shime', label: '勤怠の締め', built: true },
-      { href: '/roumu/shift', label: 'シフト表', built: true },
-      { href: '/roumu/kekkin', label: '欠勤管理', built: true },
       { href: '/roumu/contracts', label: '派遣契約', built: true },
-      { href: '/roumu/timesheet', label: '勤務表の届き具合', built: true },
       { href: '/roumu/alerts', label: 'アラート設定', built: true },
       { href: '/roumu/kb', label: '労務法務ナレッジ', built: true },
     ],
@@ -58,6 +55,7 @@ export const NAV: NavGroup[] = [
   },
   {
     module: 'keiri', label: '経理管理', items: [
+      { href: '/keiri/approval', label: '申請の承認', built: true }, // 労務から経理へ（10-27 shoya）
       { href: '/keiri/keihi', label: '交通費・経費', built: true },
       { href: '/keiri/check', label: '交通費チェック', built: true },
       { href: '/keiri/kintai-shogo', label: '勤怠の照合', built: true }, // 上位から届いた勤務表 × freee を要員ごと・日ごとに（読むだけ・締めは労務の勤怠の締め・10-26）

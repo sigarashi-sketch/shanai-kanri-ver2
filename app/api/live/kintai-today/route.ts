@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { ikeWrite } from '@/lib/ike-write';
 import { KINMU_CHOICES, TODAY_NOTE_MAX } from '@/lib/live/today';
 
-// 当日の出勤状況（/roumu/today）の書く口（10-25）。
+// 当日の出勤状況（/jinji/today）の書く口（10-25）。
 //   note  {date,key,name,note} → 今の POST /api/kintai-today?action=note（内勤のメモ。空にすると消える）
 //   kubun {name,kinmuKubun}    → 今の POST /api/roster?op=extra&action=saveKinmuKubun（名簿・未打刻のお知らせの対象にも効く）
 //   ★freee の勤怠は書き換えない（今のシステムの口がそもそも書かない）
