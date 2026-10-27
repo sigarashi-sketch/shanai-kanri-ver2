@@ -365,3 +365,15 @@ html.in-split nav[aria-label="メニュー"], html.in-split header.topbar { disp
 /* 使い方ガイドのポインタ（components/Tour.tsx）：着いたら軽く押す */
 @keyframes tour-tap { 0%, 60%, 100% { transform: translate(0, 0) scale(1) } 75% { transform: translate(1px, 2px) scale(.88) } }
 @media (prefers-reduced-motion: reduce) { [style*="tour-tap"] { animation: none !important } }
+
+/* ===== 携帯（幅 768 未満・10-27 shoya「携帯表示も対応して」） =====
+   ・画面の左右の余白を詰める（各画面の main は px-6 のまま書いてある）
+   ・横に広い表は、表の中だけ横に動かす（もう overflow-x-auto の箱に入っている表はそのまま）
+   ・入力欄の字を 16px にする（iPhone は 16px 未満の欄を押すと画面を拡大してしまう） */
+@media (max-width: 767px) {
+  [data-tour="col"] main { padding-left: 12px; padding-right: 12px }
+  [data-tour="col"] :not(.overflow-x-auto):not(.overflow-auto):not(.overflow-x-scroll) > table { display: block; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch }
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), select, textarea { font-size: 16px }
+  .tab { padding: 8px 12px; min-height: 40px; font-size: var(--text-body) }
+  .drawer { top: var(--hdr, 58px); width: 100vw; border-left: 0 }
+}

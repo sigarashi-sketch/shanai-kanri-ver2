@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { Archive, Briefcase, Gift, ChevronDown, Clock, Home, MessageSquare, Network, Pin, PinOff, ReceiptText, ShieldCheck, SlidersHorizontal, Sprout, Users } from 'lucide-react';
+import { Archive, Briefcase, Gift, ChevronDown, Menu, X, Clock, Home, MessageSquare, Network, Pin, PinOff, ReceiptText, ShieldCheck, SlidersHorizontal, Sprout, Users } from 'lucide-react';
 import { GuideHost } from './Guide';
 import { NAV, NAV_EXTRA, NAV_HOME, NAV_HORYU, NAV_KANRI, findNav, type NavGroup, type NavItem } from '@/lib/nav';
 import { APP_NAME } from '@/lib/app';
@@ -23,6 +23,8 @@ import { horyuVisible } from '@/lib/horyu-access';
 import { NIPPO_HREF, useNippoMust } from './NippoMust';
 
 export const MODULE_ICON: Record<ModuleKey, typeof Users> = { jinji: Users, roumu: Clock, eigyo: Briefcase, keiri: ReceiptText, jinzai: Sprout };
+
+const logout = () => { void fetch('/api/ike-auth/logout', { method: 'POST' }).finally(() => window.location.reload()); };
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -46,6 +48,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
   useEffect(() => { if (away) router.replace(NIPPO_HREF + '?must=1'); }, [away, router]);
   // 右から出るパネル（連絡・スキシ）が上のバーに重ならないよう、バーの実際の高さを --hdr に入れる（狭い画面では折り返して高くなる）
   const hdr = useRef<HTMLElement>(null);
+  // 携帯（幅 768 未満）では左の帯を出さず、上のバーの ≡ で左から引き出す（10-27 shoya「携帯表示も対応して」）
+  const [drawer, setDrawer] = useState(false);
   useEffect(() => {
     const el = hdr.current; if (!el) return;
     const set = () => document.documentElement.style.setProperty('--hdr', `${el.getBoundingClientRect().height}px`);
@@ -60,26 +64,27 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <YoyakuProvider>
       <AlertProvider>
       <div data-module={module} className="flex min-h-screen">
-        <SideNav pathname={pathname} visible={visible} horyu={horyu} manageAccess={manageAccess} kanawestOf={(href) => canOpen(href) === 'kanawest'} canOpen={(href) => !!canOpen(href)} home={home} />
+        <SideNav me={me} drawer={drawer} setDrawer={setDrawer} pathname={pathname} visible={visible} horyu={horyu} manageAccess={manageAccess} kanawestOf={(href) => canOpen(href) === 'kanawest'} canOpen={(href) => !!canOpen(href)} home={home} />
 
         <div data-tour="col" className="flex min-w-0 flex-1 flex-col">
-          <header ref={hdr} data-tour="header" className="sticky top-0 z-30 flex min-h-[58px] flex-wrap items-center gap-3.5 topbar border-b border-line px-6 backdrop-blur">
-            {group && <span className="inline-flex items-center gap-1.5 text-body font-semibold" style={{ color: 'var(--ad)' }}><i className="size-2 rounded-full" style={{ background: 'var(--a)' }} />{group.label}</span>}
+          <header ref={hdr} data-tour="header" className="sticky top-0 z-30 flex min-h-[58px] flex-wrap items-center gap-x-2 gap-y-1.5 topbar border-b border-line px-3 py-2 backdrop-blur md:gap-3.5 md:px-6 md:py-0">
+            <button type="button" onClick={() => setDrawer(true)} aria-label="メニューを開く" aria-expanded={drawer} className="-ml-1 flex size-10 items-center justify-center rounded-[10px] text-ink hover:bg-soft md:hidden"><Menu size={22} /></button>
+            {group && <span className="inline-flex min-w-0 items-center gap-1.5 truncate text-body font-semibold" style={{ color: 'var(--ad)' }}><i className="size-2 rounded-full" style={{ background: 'var(--a)' }} />{group.label}</span>}
             {/* 全体検索（⌘K）と通知のベルは、中身ができるまで出さない（10-25 見た目の整理：押しても何も起きない飾りだったため） */}
-            <LiveIndicator />
+            <span className="contents max-md:hidden"><LiveIndicator /></span>
             {notes.length > 0 && <span role="status" className="mo-fade-in rounded-lg border border-warn-line bg-warn-soft px-2.5 py-1.5 text-sm text-warn">{notes.join('／')}</span>}
-            <div className="ml-auto flex items-center gap-3">
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2 md:gap-3">
               <GuideHost groups={visible} />
               <TodayPill />
               <span data-tour="theme" className="inline-flex"><ThemeSwitch /></span>
               <span data-tour="renraku" className="inline-flex"><RenrakuButton key={module} module={module as ModuleKey | 'home'} /></span>
-              <span className="max-w-[190px] truncate text-sm text-muted" title={me.email}>{me.name}</span>
-              <button onClick={() => { void fetch('/api/ike-auth/logout', { method: 'POST' }).finally(() => window.location.reload()); }} className="text-sm text-muted hover:underline">ログアウト</button>
+              <span className="max-w-[190px] truncate text-sm text-muted max-md:hidden" title={me.email}>{me.name}</span>
+              <button onClick={logout} className="text-sm text-muted hover:underline max-md:hidden">ログアウト</button>
             </div>
           </header>
           {/* 名前を押した人は、画面の一番上に出す（右でも小窓でもない・10-26 shoya「上に表示しろ」） */}
           <PersonHost />
-          {kanawestOnly && !blocked && <div role="status" className="mx-6 mt-3 rounded-lg border border-line bg-soft px-3 py-2 text-sm text-muted">かな西エリア：神奈川要員の人だけを出しています（見るだけ）</div>}
+          {kanawestOnly && !blocked && <div role="status" className="mx-3 mt-3 rounded-lg md:mx-6 border border-line bg-soft px-3 py-2 text-sm text-muted">かな西エリア：神奈川要員の人だけを出しています（見るだけ）</div>}
           {away ? null : blocked ? <NoAccess label={findNav(pathname).item?.label ?? group?.label ?? 'この画面'} legacy={legacyBlocked} /> : children}
         </div>
         <div id="drawer-root" />
@@ -102,7 +107,7 @@ const PIN_KEY = 'v2_side_pin', OPEN_KEY = 'v2_side_open';
 type SideGroup = { key: string; label: string; icon: typeof Users; color?: string; on?: string; items: NavItem[] };
 const isOn = (pathname: string, href: string) => pathname === href || pathname.startsWith(href + '/');
 
-function SideNav({ pathname, visible, horyu, manageAccess, kanawestOf, canOpen, home }: { pathname: string; visible: NavGroup[]; horyu: NavItem[]; manageAccess: boolean; kanawestOf: (href: string) => boolean; canOpen: (href: string) => boolean; home: string }) {
+function SideNav({ me, drawer, setDrawer, pathname, visible, horyu, manageAccess, kanawestOf, canOpen, home }: { me: { name: string; email: string }; drawer: boolean; setDrawer: (v: boolean) => void; pathname: string; visible: NavGroup[]; horyu: NavItem[]; manageAccess: boolean; kanawestOf: (href: string) => boolean; canOpen: (href: string) => boolean; home: string }) {
   const groups: SideGroup[] = [
     ...visible.map((g) => ({ key: g.module, label: g.label, icon: MODULE_ICON[g.module], color: `var(--c-${g.module})`, on: `var(--o-${g.module})`, items: g.items })),
     ...(horyu.length ? [{ key: 'horyu', label: '保留（あとで決める）', icon: Archive, items: horyu }] : []),
@@ -120,7 +125,7 @@ function SideNav({ pathname, visible, horyu, manageAccess, kanawestOf, canOpen, 
     window.addEventListener('v2-tour', on);
     return () => window.removeEventListener('v2-tour', on);
   }, []);
-  const wide = pinned || hover || tour;
+  const wide = pinned || hover || tour || drawer;
   const current = groups.find((g) => g.items.some((it) => isOn(pathname, it.href)))?.key;
 
   useEffect(() => {
@@ -136,7 +141,15 @@ function SideNav({ pathname, visible, horyu, manageAccess, kanawestOf, canOpen, 
     setPressed(null);
     if (current) setOpened((o) => (o.includes(current) ? o : [...o, current]));
     if (typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches) setHover(false);
-  }, [pathname, current]);
+    setDrawer(false);
+  }, [pathname, current, setDrawer]);
+  // 携帯の引き出しは Escape でも閉じる
+  useEffect(() => {
+    if (!drawer) return;
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setDrawer(false); };
+    window.addEventListener('keydown', esc);
+    return () => window.removeEventListener('keydown', esc);
+  }, [drawer, setDrawer]);
   // タッチで広げたときは、外を押したら帯に戻す
   useEffect(() => {
     if (!hover || pinned) return;
@@ -154,19 +167,22 @@ function SideNav({ pathname, visible, horyu, manageAccess, kanawestOf, canOpen, 
   const lbl = `whitespace-nowrap transition-[opacity,transform] duration-200 ${wide ? 'opacity-100 translate-x-0' : 'pointer-events-none -translate-x-1 opacity-0'}`;
 
   return (
-    <div className="relative shrink-0 transition-[width] duration-[260ms] ease-[cubic-bezier(.22,1,.36,1)]" style={{ width: pinned ? WIDE : RAIL }}>
+    <div className="relative w-[var(--rail)] shrink-0 transition-[width] duration-[260ms] ease-[cubic-bezier(.22,1,.36,1)] max-md:w-0" style={{ ['--rail' as string]: `${pinned ? WIDE : RAIL}px` } as CSSProperties}>
+      {/* 携帯：引き出しの後ろの暗い面（押すと閉じる） */}
+      {drawer && <div aria-hidden onClick={() => setDrawer(false)} className="mo-fade-in fixed inset-0 z-40 bg-black/30 md:hidden" />}
       <nav ref={navRef} data-tour="sidenav" aria-label="メニュー"
         onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
         onFocus={() => setHover(true)} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setHover(false); }}
-        className={`side fixed left-0 top-0 z-40 flex h-screen flex-col gap-2 overflow-y-auto overflow-x-hidden px-2.5 py-3.5 text-body transition-[width,box-shadow] duration-[260ms] ease-[cubic-bezier(.22,1,.36,1)] ${hover && !pinned ? 'shadow-[0_16px_48px_rgba(24,24,27,.28)]' : ''}`}
+        className={`side fixed left-0 top-0 z-40 flex h-dvh flex-col gap-2 overflow-y-auto overflow-x-hidden px-2.5 py-3.5 text-body transition-[width,box-shadow,transform] duration-[260ms] ease-[cubic-bezier(.22,1,.36,1)] ${(hover && !pinned) || drawer ? 'shadow-[0_16px_48px_rgba(24,24,27,.28)]' : ''} ${drawer || tour ? '' : 'max-md:-translate-x-full'}`}
         style={{ width: wide ? WIDE : RAIL }}>
         <div className="flex items-center gap-2.5 px-2 pb-1.5 pt-1">
           <div aria-hidden className="flex size-7 shrink-0 items-center justify-center rounded-lg side-logo text-md font-extrabold">S</div>
           <b className={`side-strong text-md ${lbl}`}>{APP_NAME}</b>
           <button onClick={pin} aria-pressed={pinned} aria-label={pinned ? 'メニューの固定をやめる' : 'メニューを広げたまま固定する'} title={pinned ? '固定をやめる（マウスを合わせたときだけ広げる）' : '広げたまま固定する'}
-            className={`side-muted side-hover ml-auto rounded-md p-1 ${lbl}`}>
+            className={`side-muted side-hover ml-auto rounded-md p-1 max-md:hidden ${lbl}`}>
             {pinned ? <PinOff size={15} /> : <Pin size={15} />}
           </button>
+          <button onClick={() => setDrawer(false)} aria-label="メニューを閉じる" className="side-muted side-hover ml-auto rounded-md p-1.5 md:hidden"><X size={18} /></button>
         </div>
         {/* ホーム＝その人のホーム（営業→ホーム営業・人事→ホーム人事・10-27）。下にたまげたポン（未経験事業部の人だけ） */}
         <Link href={home} data-tour="home" className={`side-hover flex items-center gap-2.5 rounded-lg px-2.5 py-2 ${pathname === home || pathname === '/' ? 'side-on font-semibold' : ''}`}>
@@ -232,6 +248,11 @@ function SideNav({ pathname, visible, horyu, manageAccess, kanawestOf, canOpen, 
               ))}
             </>
           )}
+          {/* 携帯は上のバーに名前とログアウトを置かないので、ここに出す */}
+          <div className="side-line mt-2 flex items-center gap-2 border-t px-2.5 pt-2.5 md:hidden">
+            <span className="side-muted min-w-0 flex-1 truncate text-sm" title={me.email}>{me.name}</span>
+            <button onClick={logout} className="side-hover rounded-md px-2 py-1 text-sm">ログアウト</button>
+          </div>
         </div>
       </nav>
     </div>
