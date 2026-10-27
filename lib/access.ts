@@ -45,6 +45,10 @@ export type Member = {
   manage?: boolean;
   /** 組織表で付いた画面ごとの「見るだけ」（左メニューの href・lib/kubun.ts pageGranted） */
   kpages?: string[];
+  /** 組織表で付いたロールの id（owner／manager／viewer_all／作ったロール） */
+  orgRole?: string;
+  /** 組織表の所属（部署→チームの名前）。組織表で決まっていない人（super_admin）は無し */
+  orgUnits?: string[];
 };
 
 export function canUseApp(m: Member): boolean {
@@ -59,6 +63,25 @@ export function effectivePerms(m: Member): KPerms {
 }
 /** 区分は見ないのまま「見る」で開ける画面（組織表で付いたもの） */
 export const effectivePages = (m: Member): string[] => (canUseApp(m) ? m.kpages ?? [] : []);
+// 保留（あとで決める）は shoya だけ（10-27 shoya「おれ以外保留は表示しないでね」）
+export const HORYU_EMAILS = ['s.igarashi@engineer-mikata.com'];
+export const canSeeHoryu = (m: Member) => HORYU_EMAILS.includes(m.email.toLowerCase());
+/** 管理者＝権限管理ができる人か、ロールが全体管理者・管理者（組織表のロールか、今のシステムのロールから）。設定はこの人だけ（10-27 shoya「設定は管理者だけに表示」） */
+export const isAdminMember = (m: Member, manageAccess: boolean) =>
+  manageAccess || m.role === 'owner' || m.role === 'manager' || m.orgRole === 'owner' || m.orgRole === 'manager';
+/** たまげたポンは未経験事業部の中の人だけ（10-27 shoya）。所属が組織表で決まっていない人（super_admin）は出す */
+export const inMikeikenUnit = (m: Member) => !m.orgUnits || m.orgUnits.includes('未経験事業部');
+/** 左の「ホーム」の行き先（10-27 shoya「営業がホーム押せば営業ホームへ・人事がホーム押せば人事ホームへ」）。
+ *  所属の名前に「営業」→ ホーム営業／「採用・人事・承諾・労務」→ ホーム人事。所属で決まらなければ 開けるホームが片方だけならそこ。どちらでもなければ今のホーム（/） */
+export function homeHrefOf(m: Member, open: (href: string) => unknown): string {
+  const u = m.orgUnits ?? [];
+  const e = !!open('/home/eigyo'), j = !!open('/home/jinji');
+  if (u.some((n) => n.includes('営業')) && e) return '/home/eigyo';
+  if (u.some((n) => /採用|人事|承諾|労務/.test(n)) && j) return '/home/jinji';
+  if (e && !j) return '/home/eigyo';
+  if (j && !e) return '/home/jinji';
+  return '/';
+}
 export const canManageAccess = (m: Member) => canUseApp(m) && (m.manage ?? !!ROLES[m.role]?.manageAccess);
 
 // 今の社内システムのロール → ver2 のロール（共有の設定にその人が載っていないときの初めの値・10-26）

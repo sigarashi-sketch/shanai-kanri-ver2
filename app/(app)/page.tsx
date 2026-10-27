@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { YOYAKU_FIELD, fmtDate, type Todo } from '@/lib/types/base';
@@ -47,7 +48,10 @@ type Yoyaku = ReturnType<typeof yoyakuFromRosterStatus>[number];
 const moduleOf = (r: Yoyaku): ModuleKey => YOYAKU_FIELD[r.field]?.module ?? 'jinji';
 
 export default function HomePage() {
-  const { can, perms } = usePerms();
+  const { can, perms, home } = usePerms();
+  const router = useRouter();
+  // 営業・人事の人は、それぞれのホームへ（10-27 shoya・lib/access.ts homeHrefOf）。ここに残るのは両方を見る人（管理者など）
+  useEffect(() => { if (home !== '/') router.replace(home); }, [home, router]);
   const hl = useHomeLive();
   const L = hl.state === 'live' ? hl.data : null;
   const loading = hl.state === 'loading';

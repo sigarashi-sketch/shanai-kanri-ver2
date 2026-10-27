@@ -1,7 +1,7 @@
 import 'server-only';
 import { isListOnlyIkeRole, isRoleKey, roleFromIke, type Member } from './access';
 import { kAll, toKPerms } from './kubun';
-import { orgAssigned, orgGrants, orgManage, orgPages, orgPerms, parseOrg, type OrgState } from './org';
+import { orgAssigned, orgGrants, orgManage, orgPages, orgPerms, parseOrg, roleOf, unitChain, type OrgState } from './org';
 import { ikeFetchCached, ikeToken } from './ike';
 import { isInnaiEmail, tokenEmail } from './innai';
 
@@ -86,7 +86,7 @@ function withOrg(m: Member, userId: string, ikeRole: string, org: OrgState | nul
   if (ikeRole === 'super_admin') return { ...m, kperms: kAll('approve'), manage: true };
   const a = org && userId ? org.people[userId] : undefined;
   if (!org || !orgAssigned(org, a)) return m;
-  return { ...m, kperms: orgPerms(org, a), manage: orgManage(org, a), kpages: orgPages(org, a) };
+  return { ...m, kperms: orgPerms(org, a), manage: orgManage(org, a), kpages: orgPages(org, a), orgRole: roleOf(org, a).id, orgUnits: unitChain(org, a?.unit).map((u) => u.name) };
 }
 
 /** いまの人（ログインした本人）。ログインしていない・切れたら not_logged_in */

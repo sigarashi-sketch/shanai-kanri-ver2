@@ -41,7 +41,6 @@ export const NAV: NavGroup[] = [
       { href: '/jinzai/ltv', label: '粗利・LTV', built: true },
       { href: '/jinzai/bdsh', label: 'bdsh', built: true }, // それゆけ未経験の bdsh（教育コンテンツの内勤画面）を開く（10-26 shoya「それゆけで押した時と同じ感じで」）
       { href: '/jinzai/richmenu', label: 'リッチメニュー', built: true },
-      { href: '/jinzai/pon', label: 'たまげたポン', built: true },
     ],
   },
   {
@@ -84,6 +83,11 @@ export const NAV: NavGroup[] = [
       { href: '/keiri/chingin', label: '想定賃金・粗利', built: true },
     ],
   },
+];
+
+// ホームの下（10-27 shoya「たまげたポンは未経験事業部のなかだけに これはホーム下において」）。区分には入れない＝出し分けは components/Perms.tsx open（未経験事業部の人だけ）
+export const NAV_HOME: NavItem[] = [
+  { href: '/jinzai/pon', label: 'たまげたポン', built: true },
 ];
 
 // 連絡（チャット・配信・手動配信）は各画面の右上「連絡」から開く（人事＝インフォメーション、それ以外＝あおい）。
@@ -138,6 +142,6 @@ export const NAV_HORYU: NavItem[] = [
 export function findNav(pathname: string): { group?: NavGroup; item?: NavItem } {
   for (const g of NAV) for (const it of g.items) if (pathname === it.href || pathname.startsWith(it.href + '/')) return { group: g, item: it };
   for (const it of NAV_HORYU) if (pathname === it.href || pathname.startsWith(it.href + '/')) return { item: it };
-  for (const it of [...NAV_EXTRA, ...NAV_KANRI]) if (pathname === it.href || pathname.startsWith(it.href + '/')) return { item: it };
+  for (const it of [...NAV_HOME, ...NAV_EXTRA, ...NAV_KANRI]) if (pathname === it.href || pathname.startsWith(it.href + '/')) return { item: it };
   return {};
 }
