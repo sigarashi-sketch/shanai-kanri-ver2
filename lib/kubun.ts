@@ -29,8 +29,12 @@ export const kubunLabel = (k: KubunKey) => KUBUN.find((x) => x.key === k)!.label
 export const KUBUN_OF_HREF: Record<string, KubunKey> = {
   // 人事管理
   '/home/jinji': 'kadou', '/jinji/staff': 'kadou', '/jinji/yoyaku': 'kadou', '/jinji/nyusha': 'mendan', '/jinji/jimu': 'kadou',
-  '/jinji/shikaku': 'kadou', '/jinji/sankyu': 'kadou', '/jinji/rishoku': 'bunseki', '/jinji/community': 'kadou', '/jinji/bdsh': 'kadou',
-  '/jinji/saiyou': 'mendan', '/jinji/ocr': 'mendan', '/jinji/ippass': 'kanri', '/jinji/today': 'kintai', '/jinji/shift': 'kintai',
+  '/jinji/sankyu': 'kadou', 
+  '/jinji/ocr': 'mendan', '/jinji/ippass': 'kanri', '/jinji/today': 'kintai', '/jinji/shift': 'kintai',
+  // 人財管理（10-27・それゆけ未経験から移した画面と、人事管理から移した画面。区分は人事管理にいたときと同じ＝見られる人は変わらない）
+  '/jinzai/teiki': 'kadou', '/jinzai/survey': 'kadou', '/jinzai/community': 'kadou', '/jinzai/events': 'kadou', '/jinzai/enquete': 'kadou',
+  '/jinzai/saiyou': 'mendan', '/jinzai/shikaku': 'kadou', '/jinzai/rishoku': 'bunseki', '/jinzai/ltv': 'bunseki', '/jinzai/bdsh': 'kadou',
+  '/jinzai/richmenu': 'kadou', '/jinzai/pon': 'kadou',
   // 労務/営業管理
   '/roumu/overtime': 'kintai', '/roumu/shime': 'kintai',
   '/roumu/contracts': 'kadou', '/roumu/alerts': 'kintai', '/roumu/kb': 'kanri',
@@ -73,12 +77,15 @@ export const kMax = (a: Partial<KPerms>, b: Partial<KPerms>): KPerms =>
   Object.fromEntries(KUBUN_KEYS.map((k) => [k, hi(a[k] ?? 'none', b[k] ?? 'none')])) as KPerms;
 
 /** 前の4分類の段階 → 区分の段階（その分類のメニューの画面が入っている区分に、同じ段階を付ける。保存してある古い値を読むとき） */
-const MOD_HREF_PREFIX: Record<ModuleKey, string[]> = { jinji: ['/home/jinji', '/jinji/'], roumu: ['/roumu/'], eigyo: ['/home/eigyo', '/eigyo/'], keiri: ['/keiri/'] };
+const MOD_HREF_PREFIX: Record<ModuleKey, string[]> = { jinji: ['/home/jinji', '/jinji/'], roumu: ['/roumu/'], eigyo: ['/home/eigyo', '/eigyo/'], keiri: ['/keiri/'], jinzai: ['/jinzai/'] };
 // 分類をまたいで移した画面は、古い値を読むときは元の分類のまま数える（人事の段階で勤怠が開かないように）
-const MOVED_FROM: Record<string, ModuleKey> = { '/jinji/today': 'roumu', '/jinji/shift': 'roumu', '/keiri/approval': 'roumu' };
-const modOfHref = (h: string) => MOVED_FROM[h] ?? (Object.keys(MOD_HREF_PREFIX) as ModuleKey[]).find((m) => MOD_HREF_PREFIX[m].some((p) => h === p || h.startsWith(p)));
-export function kubunsOfModule(m: ModuleKey): KubunKey[] {
-  return [...new Set(Object.entries(KUBUN_OF_HREF).filter(([h]) => modOfHref(h) === m).map(([, k]) => k))];
+const MOVED_FROM: Record<string, ModuleKey> = {
+  // 人財管理は 10-27 にできた分類。前の値（4分類）を読むときは人事管理として数える
+  ...Object.fromEntries(['teiki', 'survey', 'community', 'events', 'enquete', 'saiyou', 'shikaku', 'rishoku', 'ltv', 'bdsh', 'richmenu', 'pon'].map((x) => [`/jinzai/${x}`, 'jinji' as ModuleKey])), '/jinji/today': 'roumu', '/jinji/shift': 'roumu', '/keiri/approval': 'roumu' };
+const modOfHref = (h: string, legacy: boolean) => (legacy ? MOVED_FROM[h] : undefined) ?? (Object.keys(MOD_HREF_PREFIX) as ModuleKey[]).find((m) => MOD_HREF_PREFIX[m].some((p) => h === p || h.startsWith(p)));
+/** その分類のメニューの画面が入っている区分。legacy＝保存してある古い値を読むとき（移した画面は元の分類で数える） */
+export function kubunsOfModule(m: ModuleKey, legacy = false): KubunKey[] {
+  return [...new Set(Object.entries(KUBUN_OF_HREF).filter(([h]) => modOfHref(h, legacy) === m).map(([, k]) => k))];
 }
 /** 保存してある段階を区分の形に（区分のキーならそのまま・4分類のキーなら区分に開く・知らないキーは捨てる） */
 export function toKPerms(raw: unknown): Partial<KPerms> {
@@ -87,7 +94,7 @@ export function toKPerms(raw: unknown): Partial<KPerms> {
   for (const k of KUBUN_KEYS) if (isLevel(o[k])) out[k] = o[k] as Level;
   for (const m of ['jinji', 'roumu', 'eigyo', 'keiri'] as ModuleKey[]) {
     const l = o[m];
-    if (isLevel(l) && l !== 'none') out = kMax(out, Object.fromEntries(kubunsOfModule(m).map((k) => [k, l])));
+    if (isLevel(l) && l !== 'none') out = kMax(out, Object.fromEntries(kubunsOfModule(m, true).map((k) => [k, l])));
   }
   return out;
 }

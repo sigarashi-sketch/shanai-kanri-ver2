@@ -122,7 +122,7 @@ export function KekkinTab({ tabs }: { tabs: React.ReactNode }) {
           {<span className="ml-2 text-muted">未確認 {open.filter((r) => r.kind === '未確認').length}・現場にまだ伝えていない {inMonth.filter((r) => r.kind === '欠勤' && !r.siteNotified).length}・理由が未分類 {inMonth.filter((r) => r.kind === '欠勤' && r.reason === '未分類').length}</span>}
           {!canEdit && <div className="text-sm text-bad">{needText('edit')}</div>}
         </div>
-        <Link href="/jinji/rishoku" className="ml-auto text-sm font-semibold" style={{ color: 'var(--ad)' }}>離職リスクへ</Link>
+        <Link href="/jinzai/rishoku" className="ml-auto text-sm font-semibold" style={{ color: 'var(--ad)' }}>離職リスクへ</Link>
       </div>
 
       {live && open.length === 0 && (

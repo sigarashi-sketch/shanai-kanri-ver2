@@ -246,6 +246,7 @@ body { font-family: var(--font-sans); font-feature-settings: "palt" 0; }
 [data-module="roumu"] { --a: color-mix(in oklch, var(--c-roumu) var(--mix-p), var(--mix-to)); --ad: var(--d-roumu); --as: var(--s-roumu); --al: var(--l-roumu); --ao: var(--o-roumu); }
 [data-module="eigyo"] { --a: color-mix(in oklch, var(--c-eigyo) var(--mix-p), var(--mix-to)); --ad: var(--d-eigyo); --as: var(--s-eigyo); --al: var(--l-eigyo); --ao: var(--o-eigyo); }
 [data-module="keiri"] { --a: color-mix(in oklch, var(--c-keiri) var(--mix-p), var(--mix-to)); --ad: var(--d-keiri); --as: var(--s-keiri); --al: var(--l-keiri); --ao: var(--o-keiri); }
+[data-module="jinzai"] { --a: color-mix(in oklch, var(--c-jinzai) var(--mix-p), var(--mix-to)); --ad: var(--d-jinzai); --as: var(--s-jinzai); --al: var(--l-jinzai); --ao: var(--o-jinzai); }
 
 /* ===== モーション図鑑の語彙だけ（legacy/api/_assets/docs/motion-catalog.html） =====
    入場 (.22,1,.36,1)・退場 (.4,0,1,1)・弾み (.34,1.56,.64,1)
@@ -323,3 +324,35 @@ html .ike-ctx-shot-img { background: var(--color-soft); }
 html .ike-ctx-toast { font-family: var(--font-sans); }
 /* スプリット（/split）の枠の中：左のメニューと上のバーを出さず、中身に全部使う（components/CtxMenu.tsx が html に in-split を付ける） */
 html.in-split nav[aria-label="メニュー"], html.in-split header.topbar { display: none !important; }
+
+/* 人財管理（それゆけ未経験から移した画面・components/sy）が使う色の名前（ig-*）を ver2 の色に当てる（10-27）。
+   画面のコードはそれゆけの写しのまま、見た目は ver2（着せ替え・分類の色）に合わせる */
+@theme inline {
+  --color-ig-bg: var(--color-surface);
+  --color-ig-subtle: var(--color-soft);
+  --color-ig-hover: var(--color-sunken);
+  --color-ig-border: var(--color-field);
+  --color-ig-divider: var(--color-line);
+  --color-ig-text: var(--color-ink);
+  --color-ig-muted: var(--color-muted);
+  --color-ig-primary: var(--a);
+  --color-ig-primary-hover: var(--ad);
+  --color-ig-link: var(--ad);
+  --color-ig-danger: var(--color-bad);
+  --color-ig-ok: var(--color-ok);
+  --color-ig-warn: var(--color-warn);
+  --color-ig-stop: #8134af;
+}
+@keyframes ig-pop { 0% { transform: scale(.6); opacity: 0 } 60% { transform: scale(1.08); opacity: 1 } 100% { transform: scale(1) } }
+@keyframes ig-rise { from { transform: translateY(8px); opacity: 0 } to { transform: none; opacity: 1 } }
+@keyframes ig-fade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes ig-face-bounce { 0%, 100% { transform: translateY(0) rotate(0) } 30% { transform: translateY(-4px) rotate(-4deg) } 60% { transform: translateY(0) rotate(3deg) } }
+.ig-pop { animation: ig-pop .32s cubic-bezier(.34,1.56,.64,1) both }
+.ig-rise { animation: ig-rise .32s ease-out both }
+.ig-scrim { animation: ig-fade .2s ease-out both }
+.ig-press { transition: transform .12s ease-out } .ig-press:active { transform: scale(.96) }
+.ig-lift { transition: transform .2s ease-out, box-shadow .2s ease-out } .ig-lift:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(25,27,46,.12) }
+.ig-face { transition: transform .2s } .group:hover .ig-face { transform: scale(1.18) rotate(-6deg) }
+.ig-face-bounce { animation: ig-face-bounce 2.4s ease-in-out infinite }
+.ig-gradient { background: linear-gradient(45deg, #feda75 0%, #fa7e1e 25%, #d62976 50%, #962fbf 75%, #4f5bd5 100%) }
+@media (prefers-reduced-motion: reduce) { .ig-pop, .ig-rise, .ig-face-bounce { animation: none } .ig-lift:hover { transform: none } }

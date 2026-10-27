@@ -16,14 +16,27 @@ export const NAV: NavGroup[] = [
       { href: '/jinji/shift', label: 'シフト表', built: true }, // 労務から人事へ（10-27 shoya）。提出状況・当月の実績はタブ
       { href: '/jinji/nyusha', label: '入社手続き', built: true },
       { href: '/jinji/jimu', label: '参画決定者の手続き', built: true },
-      { href: '/jinji/shikaku', label: '資格手当', built: true },
       { href: '/jinji/sankyu', label: '産休・育休', built: true },
-      { href: '/jinji/rishoku', label: '離職リスク・離職率', built: true },
-      { href: '/jinji/community', label: 'コミュニティ', built: true },
-      { href: '/jinji/bdsh', label: 'bdsh', built: true }, // それゆけ未経験の bdsh（教育コンテンツの内勤画面）を開く（10-26 shoya「それゆけで押した時と同じ感じで」）
-      { href: '/jinji/saiyou', label: '採用', built: true },
       { href: '/jinji/ocr', label: '身分証の読み取り', built: true },
       { href: '/jinji/ippass', label: '媒体アイパス管理', built: true }, // 保留から人事へ（10-26 shoya）。開ける人は今のシステムの ippass と同じ（lib/horyu-access.ts）
+    ],
+  },
+  {
+    // 人財管理（10-27 shoya「それゆけ未経験も移管しちゃおう ページは人財管理ってメニューで」「すでにはいっちゃってるのはそのままそこにうつせばいい」）。
+    //   それゆけにしかなかった画面は ver2 に移した（components/sy・データはそれゆけの API を /api/sy で）。ver2 にもうあった画面は人事管理からここへ
+    module: 'jinzai', label: '人財管理', items: [
+      { href: '/jinzai/teiki', label: '定期面談', built: true },
+      { href: '/jinzai/survey', label: '月次アンケート', built: true },
+      { href: '/jinzai/community', label: 'コミュニティ', built: true },
+      { href: '/jinzai/events', label: 'イベント出欠', built: true },
+      { href: '/jinzai/enquete', label: 'アンケート作成', built: true },
+      { href: '/jinzai/saiyou', label: '採用', built: true },
+      { href: '/jinzai/shikaku', label: '資格手当', built: true },
+      { href: '/jinzai/rishoku', label: '離職リスク・離職率', built: true },
+      { href: '/jinzai/ltv', label: '粗利・LTV', built: true },
+      { href: '/jinzai/bdsh', label: 'bdsh', built: true }, // それゆけ未経験の bdsh（教育コンテンツの内勤画面）を開く（10-26 shoya「それゆけで押した時と同じ感じで」）
+      { href: '/jinzai/richmenu', label: 'リッチメニュー', built: true },
+      { href: '/jinzai/pon', label: 'たまげたポン', built: true },
     ],
   },
   {

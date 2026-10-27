@@ -11,7 +11,7 @@ import type { IkeShikakuList } from '@/lib/live/shikaku';
 
 // 申請の承認（本物・10-25）。今の社内システムにある「承認待ち」を1か所に集めて、片づける画面へ案内する。
 //   ・交通費・経費（申請中）／稟議（申請中）… /keiri/keihi で承認・差し戻し（本物に書ける）
-//   ・資格手当（未確認）… /jinji/shikaku
+//   ・資格手当（未確認）… /jinzai/shikaku
 //   ・面談可能日の返信（承認待ちの候補）… 今の社内システムの面談可能日の画面で反映
 //   ・画面の外のタスク（承認待ち）… 内勤のマイルの申請。今の社内システムのたまげたポンの承認で
 //   ★打刻修正・残業・有給など freee の申請は、今の社内システムに一覧が無い（freee の画面で承認）
@@ -39,7 +39,7 @@ export function ApprovalLive({ mk }: { mk: Mikeiken }) {
       items: mk.keep(keihi.data?.claims || [], 'linked_name').map((c) => ({ id: c.id, name: c.linked_name || '', what: `${Number(c.ym.slice(5))}月分・${(c.items || []).length}件`, when: md(c.submitted_at), amount: c.total_yen, person: true })) },
     { key: 'ringi', label: '稟議', href: '/keiri/keihi?tab=ringi', where: 'ここから承認・見送りできます', state: ringi.state, error: errOf(ringi),
       items: mk.keep(ringi.data?.ringi || [], 'linked_name').map((r) => ({ id: r.id, name: r.linked_name || '', what: r.title, when: md(r.created_at), amount: r.amount_yen, person: true })) },
-    { key: 'shikaku', label: '資格手当', href: '/jinji/shikaku', where: '資格手当の画面で確かめます', state: shikaku.state, error: errOf(shikaku),
+    { key: 'shikaku', label: '資格手当', href: '/jinzai/shikaku', where: '資格手当の画面で確かめます', state: shikaku.state, error: errOf(shikaku),
       items: mk.keep((shikaku.data?.rows || []).filter((r) => r.status === '未確認'), 'name').map((r) => ({ id: r.id, name: r.name, what: r.cert, when: md(r.created_at), person: true })) },
     { key: 'avail', label: '面談可能日の返信', where: '今の社内システムの「面談可能日」で反映します（ここでは反映しません）', state: avail.state, error: errOf(avail),
       items: mk.keep((avail.data?.candidates || []).filter((c) => c.status !== 'same'), 'name').map((c) => ({ id: c.normalizedName, name: c.name, what: `${c.status === 'new' ? '新しく' : '変わった'}・${c.items.length}日ぶん`, when: c.items[0] ? md(c.items[0].date) + '〜' : '', person: true })) },

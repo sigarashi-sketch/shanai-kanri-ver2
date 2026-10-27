@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { Archive, Briefcase, ChevronsLeft, ChevronsRight, Clock, Home, MessageSquare, Network, ReceiptText, ShieldCheck, SlidersHorizontal, Users } from 'lucide-react';
+import { Archive, Briefcase, ChevronsLeft, ChevronsRight, Clock, Home, MessageSquare, Network, ReceiptText, ShieldCheck, SlidersHorizontal, Sprout, Users } from 'lucide-react';
 import { NAV, NAV_EXTRA, NAV_HORYU, NAV_KANRI, findNav } from '@/lib/nav';
 import { APP_NAME } from '@/lib/app';
 import type { ModuleKey } from '@/lib/theme';
@@ -20,7 +20,7 @@ import { LiveIndicator } from './Live';
 import { useMePages } from './MePages';
 import { horyuVisible } from '@/lib/horyu-access';
 
-const MODULE_ICON: Record<ModuleKey, typeof Users> = { jinji: Users, roumu: Clock, eigyo: Briefcase, keiri: ReceiptText };
+const MODULE_ICON: Record<ModuleKey, typeof Users> = { jinji: Users, roumu: Clock, eigyo: Briefcase, keiri: ReceiptText, jinzai: Sprout };
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
