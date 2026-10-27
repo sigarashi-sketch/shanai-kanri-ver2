@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react';
 
-// 名前の小窓の「基本情報」タブ（10-25 shoya）。基本情報フォームの回答（健康・連絡先・住所・生年月日は出さない）を読むだけ
-//   読むのは /api/live/basic-info（今の GET basic-info?action=detail&health=0 を小窓用に削ったもの）。タブを開いたときだけ読む
+// 名前の小窓の「基本情報」タブ（10-25 shoya）。基本情報フォームの回答を読むだけ（生年月日・住所・既往歴も出す＝10-27 shoya。電話・メール・緊急連絡先は出さない）
+//   読むのは /api/live/basic-info（今の GET basic-info?action=detail を小窓用に削ったもの）。タブを開いたときだけ読む
 //   名前は URL に出さない（POST・10-25）。見られるのは管理者と採用の担当だけ（ほかは理由の文が返る）
 type Res = {
   answered?: boolean; facts?: [string, string][]; analysis?: { label: string; value: string }[];
+  health?: { label: string; value: string }[]; healthError?: string;
   work?: { company: string; from: string; to: string; emp: string; job: string; description: string }[]; note?: string; error?: string;
 };
 
@@ -33,6 +34,18 @@ export function PersonBasic({ name, live, person }: { name: string; live: boolea
         <dl className="grid grid-cols-2 gap-x-5 gap-y-2.5">
           {res.facts.map(([k, v]) => <div key={k} className="min-w-0"><dt className="text-xs text-faint">{k}</dt><dd className="whitespace-pre-wrap break-words">{v}</dd></div>)}
         </dl>
+      )}
+      {(!!res.health?.length || !!res.healthError) && (
+        <section>
+          <div className="mb-1.5 text-sm font-bold text-muted">健康状況（既往歴）</div>
+          {res.healthError
+            ? <div className="text-sm text-bad">読めませんでした（{res.healthError}）</div>
+            : (
+              <dl className="flex flex-col gap-2">
+                {res.health!.map((h, i) => <div key={i} className="rounded-lg bg-soft px-3 py-2"><dt className="text-xs text-faint">{h.label}</dt><dd className="mt-0.5 whitespace-pre-wrap break-words text-sm">{h.value}</dd></div>)}
+              </dl>
+            )}
+        </section>
       )}
       {!!res.analysis?.length && (
         <section>
