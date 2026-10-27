@@ -8,7 +8,7 @@ import { CAN_KEYS, moveBefore, newId, NO_ROLE, unitAndChildren, unitOwnPerms, ty
 import type { RoleCanRow } from '@/lib/role-can';
 import { AddName, DND_ROLE, DND_TITLE, hasType, NameEdit, type Ctl } from './shared';
 
-// ロールの定義（区分 × 見ない/見る/直す/承認 ＋ 権限管理ができる・区分は lib/kubun.ts＝今のいけどんと同じ）と、役職の選択肢。どちらもドラッグで並び替え。
+// ロールの定義（区分 × 見ない/見る/直す/承認 ＋ 権限管理ができる・区分は lib/kubun.ts＝左メニューの分類）と、役職の選択肢。どちらもドラッグで並び替え。
 // 組織ごとの権限（10-26 shoya）：部署・チームにもロールと同じ形で段階を付ける＝中の人全員に付く（部署の分はチームの人にも）
 // 名前の小窓で見られるもの（チャット・要約・基本情報・単価額面）もロール・部署/チームに付ける（10-26 権限管理のロールごとの表をやめてここへ）
 export function RolesEditor({ ctl }: { ctl: Ctl }) {

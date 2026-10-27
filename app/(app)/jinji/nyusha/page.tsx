@@ -1,20 +1,21 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Check, ExternalLink, FileSpreadsheet } from 'lucide-react';
+import { Check, ExternalLink, FileSpreadsheet, Search } from 'lucide-react';
 import { LiveBanner } from '@/components/Live';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { PersonName } from '@/components/Person';
 import { PageTitle, SkeletonRows } from '@/components/ui';
 import { NyushaMarks } from '@/components/jinji/NyushaMarks';
 import { useLiveRoute } from '@/lib/live/use-live-route';
-import { SHEET_HEADER, SHEET_TAB, SHEET_URL, fmtSheetDate, rowKind, sortSheetRows, type NyushaSheetLive, type SheetFilter, type SheetRow } from '@/lib/live/nyusha';
+import { nyushaQuery, SHEET_HEADER, SHEET_TAB, SHEET_URL, fmtSheetDate, rowKind, sortSheetRows, type NyushaSheetLive, type SheetFilter, type SheetRow } from '@/lib/live/nyusha';
 
 // 入社手続き（人事管理）＝労務の「freee送信管理」スプシの「参画決定者」タブと同じ列・同じ名前（A〜L）。
 //   ・freee送信☑の人は「freee送信済み（送信日）」。未送信の人を上に。辞退・入社取消の行はグレー
 //   ・絞り込み：すべて／未送信／送信済み／辞退・取消
 //   ・本物（/api/live/nyusha）はまず労務のスプシそのもの（今の nyusha-progress?action=sheet・10-25）を読み、全部の列をスプシのまま出す。
 //     スプシが読めなかったとき（Google の不調など）だけ、今のシステムの材料から組み立てる＝メール・freee送信・送信日・メモ・辞退/入社取消は「—」にして、スプシへのリンクを出す
+//   ・検索：氏名・よみがな（ひらがな/カタカナどちらでも）・メール・メモで探す。下の「入社手続きの印」も同じ言葉で絞る（10-27）
 //   ?p=<社員id> でその人の行に印を付けて送る（社員ページから）
 //   ★見本は出さない。読み込み中は「読み込み中」、読めなかったときはエラーだけ（10-26）
 const FILTERS: SheetFilter[] = ['すべて', '未送信', '送信済み', '辞退・取消'];
@@ -30,12 +31,14 @@ export default function NyushaPage() {
   const rows: SheetRow[] = useMemo(() => (live ? mk.keep(lv.data!.rows || [], 'name') : []), [live, lv.data, mk]);
   const [filter, setFilter] = useState<SheetFilter>('すべて');
   const [focus, setFocus] = useState<string | null>(null);
+  const [q, setQ] = useState('');
+  const hit = nyushaQuery(q);
 
   useEffect(() => { const p = new URLSearchParams(window.location.search).get('p'); if (p) setFocus(p); }, []);
   useEffect(() => { if (focus) document.getElementById(`ny-${focus}`)?.scrollIntoView({ block: 'center' }); }, [focus, rows.length]);
 
   const count = (f: SheetFilter) => (f === 'すべて' ? rows.length : rows.filter((r) => rowKind(r) === f).length);
-  const shown = sortSheetRows(filter === 'すべて' ? rows : rows.filter((r) => rowKind(r) === filter));
+  const shown = sortSheetRows((filter === 'すべて' ? rows : rows.filter((r) => rowKind(r) === filter)).filter((r) => hit(r.name, r.kana, r.email, r.memo)));
   const unsent = count('未送信');
 
   return (
@@ -64,6 +67,7 @@ export default function NyushaPage() {
           {!full ? <><b>{rows.length}人</b><span className="ml-2 text-muted">参画決定が 10/1 以降（9月決定で10月以降に入場の人を含む）</span></>
             : <><b>freee 未送信 {unsent}人</b><span className="ml-2 text-muted">送信済み {count('送信済み')}人・辞退/取消 {count('辞退・取消')}人</span></>}
         </div>
+        <label className="flex min-h-9 min-w-[200px] flex-1 items-center gap-2 rounded-[10px] border border-field bg-surface px-3 text-faint sm:max-w-[280px]"><Search size={15} /><input value={q} onChange={(e) => setQ(e.target.value)} aria-label="入社手続きを検索" placeholder="名前・よみがな・メール・メモ" className="min-w-0 flex-1 bg-transparent text-body text-ink outline-none" /></label>
         <div className="ml-auto flex flex-wrap gap-1.5">
           {FILTERS.map((f) => {
             const off = !full && f !== 'すべて';
@@ -85,7 +89,7 @@ export default function NyushaPage() {
               {SHEET_HEADER.map((h, i) => <th key={h} className={`whitespace-nowrap py-2.5 font-semibold ${i === 0 ? 'px-4' : 'px-2'}`}>{h}</th>)}
             </tr></thead>
             <tbody>
-              {shown.length === 0 && <tr><td colSpan={SHEET_HEADER.length} className="px-4 py-10 text-center text-muted">{rows.length === 0 ? 'まだ誰も載っていません' : `「${filter}」の人はいません`}</td></tr>}
+              {shown.length === 0 && <tr><td colSpan={SHEET_HEADER.length} className="px-4 py-10 text-center text-muted">{rows.length === 0 ? 'まだ誰も載っていません' : q.trim() ? `「${q.trim()}」に当たる人はいません` : `「${filter}」の人はいません`}</td></tr>}
               {shown.map((r, i) => {
                 const grey = !!r.except;
                 const na = <span className="text-faint" title={SHEET_ONLY}>—</span>;
@@ -119,7 +123,7 @@ export default function NyushaPage() {
       </div>
       </>}
       {/* 入社手続きの印（今の入社手続きの画面と同じ・選んだらすぐ保存・10-25） */}
-      <NyushaMarks />
+      <NyushaMarks q={q} />
       <p className="text-xs text-faint">
         スプシは今の社内システムが15分ごとに書き足しています（参画決定日・氏名・よみがな・メール・入社日・入場日・賃金・辞退は空欄だけ自動で埋める）。
         freee送信の☑・送信日・メモ・入社取消は労務がスプシで付けます。雇用契約・社会保険などの手続きの要否や期限の最終判断は社労士に確認してください。

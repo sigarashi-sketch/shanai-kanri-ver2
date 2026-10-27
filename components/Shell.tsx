@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
-import { Archive, Briefcase, ChevronsLeft, ChevronsRight, Clock, Home, MessageSquare, Network, ReceiptText, ShieldCheck, SlidersHorizontal, Sprout, Users } from 'lucide-react';
-import { NAV, NAV_EXTRA, NAV_HORYU, NAV_KANRI, findNav } from '@/lib/nav';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { Archive, Briefcase, ChevronDown, Clock, Home, MessageSquare, Network, Pin, PinOff, ReceiptText, ShieldCheck, SlidersHorizontal, Sprout, Users } from 'lucide-react';
+import { NAV, NAV_EXTRA, NAV_HORYU, NAV_KANRI, findNav, type NavGroup, type NavItem } from '@/lib/nav';
 import { APP_NAME } from '@/lib/app';
 import type { ModuleKey } from '@/lib/theme';
 import { useColors } from './ColorProvider';
@@ -30,14 +30,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
   // 保留のメニューは今の社内システムのページ権限で出し分ける（見られない人には出さない・10-26）。読めないあいだは全部出す
   const { pa } = useMePages();
   const horyu = NAV_HORYU.filter((it) => canOpen(it.href) && horyuVisible(it.href, pa));
-  const [open, setOpen] = useState(true);
   const module = group?.module ?? 'home';
   // 区分ごと（10-26）：見ない区分の画面はメニューに出さない。かな西エリアだけの人には要員の画面を「かな西」の印つきで出す
   //   媒体アイパス管理のように今のシステムが特別に絞る画面は、今のページ権限でも絞る（horyuVisible・台帳に無い画面は素通り）
   const visible = NAV.map((g) => ({ ...g, items: g.items.filter((it) => canOpen(it.href) && horyuVisible(it.href, pa)) })).filter((g) => g.items.length);
   // 今のシステムのページ権限で開けない画面（経理管理など）も、中で forbidden を出さずに「権限がありません」にする（10-26）
   const legacyBlocked = !!group && !horyuVisible(group.items.find((it) => pathname === it.href || pathname.startsWith(it.href + '/'))?.href ?? pathname, pa);
-  const blocked = !canOpen(pathname) || legacyBlocked;   // 保留の画面も、まだ出していない間は閉じる（PRE_LAUNCH）。分類に入っていない画面（ホーム・設定）は開く
+  const blocked = !canOpen(pathname) || legacyBlocked;   // 分類に入っていない画面（ホーム・設定）は開く。保留も PRE_LAUNCH の間は閉じる
   // 右から出るパネル（連絡・スキシ）が上のバーに重ならないよう、バーの実際の高さを --hdr に入れる（狭い画面では折り返して高くなる）
   const hdr = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -54,74 +53,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <YoyakuProvider>
       <AlertProvider>
       <div data-module={module} className="flex min-h-screen">
-        <nav aria-label="メニュー" className={`sticky top-0 flex h-screen shrink-0 flex-col gap-3 overflow-y-auto side px-2.5 py-3.5 text-body transition-[width] duration-[260ms] ${open ? 'w-[240px]' : 'w-[64px]'}`}>
-          <div className="flex items-center gap-2.5 px-2 pb-1.5 pt-1">
-            <div aria-hidden className="flex size-7 shrink-0 items-center justify-center rounded-lg side-logo text-md font-extrabold">S</div>
-            {open && <b className="side-strong whitespace-nowrap text-md">{APP_NAME}</b>}
-            <button onClick={() => setOpen(!open)} aria-label={open ? 'メニューをたたむ' : 'メニューを開く'} className="side-muted side-hover ml-auto rounded-md p-1">
-              {open ? <ChevronsLeft size={16} /> : <ChevronsRight size={16} />}
-            </button>
-          </div>
-          <Link href="/" className={`side-hover flex items-center gap-2.5 rounded-lg px-2.5 py-2 ${pathname === '/' ? 'side-on font-semibold' : ''}`}>
-            <Home size={18} strokeWidth={1.8} />{open && 'ホーム'}
-          </Link>
-          {visible.map((g) => {
-            const Icon = MODULE_ICON[g.module];
-            return (
-              <div key={g.module} className="flex flex-col gap-px">
-                <div className="side-strong flex items-center gap-2 px-2.5 py-1 text-sm font-semibold">
-                  <span className="flex size-5 shrink-0 items-center justify-center rounded-md" style={{ background: `var(--c-${g.module})`, color: `var(--o-${g.module})` }}><Icon size={13} strokeWidth={2.2} /></span>
-                  {open && g.label}
-                </div>
-                {open && g.items.map((it) => {
-                  const active = pathname === it.href || pathname.startsWith(it.href + '/');
-                  return (
-                    <Link key={it.href} href={it.href}
-                      className={`side-hover flex items-center justify-between rounded-lg py-1.5 pl-[38px] pr-2.5 ${active ? 'side-on font-semibold' : ''} ${it.built ? '' : 'opacity-60'}`}
-                      style={active ? { boxShadow: `inset 3px 0 0 var(--side-bar, var(--c-${g.module}))` } : undefined}>
-                      <span className="truncate">{it.label}</span>
-                      {canOpen(it.href) === 'kanawest' && <span className="rounded px-1 side-muted side-ring text-xs ring-1" title="かな西エリア：神奈川要員だけ">かな西</span>}
-                    </Link>
-                  );
-                })}
-              </div>
-            );
-          })}
-          {/* 保留（あとで決める）＝今の画面を写しただけで、置き場所をまだ決めていないもの（lib/nav.ts NAV_HORYU） */}
-          {horyu.length > 0 && (
-            <div className="flex flex-col gap-px">
-              <div className="side-strong flex items-center gap-2 px-2.5 py-1 text-sm font-semibold">
-                <span className="side-ring flex size-5 shrink-0 items-center justify-center rounded-md ring-1"><Archive size={12} strokeWidth={2.2} /></span>
-                {open && '保留（あとで決める）'}
-              </div>
-              {open && horyu.map((it) => {
-                const active = pathname === it.href || pathname.startsWith(it.href + '/');
-                return (
-                  <Link key={it.href} href={it.href} className={`side-hover flex items-center rounded-lg py-1.5 pl-[38px] pr-2.5 ${active ? 'side-on font-semibold' : ''}`}>
-                    <span className="truncate">{it.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-          <div className="side-line mt-auto flex flex-col gap-px border-t pt-2.5">
-            {NAV_EXTRA.map((it) => (
-              <Link key={it.href} href={it.href} className={`side-hover flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 ${pathname === it.href ? 'side-on' : ''}`}>
-                {it.href === '/renraku' ? <MessageSquare size={17} strokeWidth={1.8} /> : <SlidersHorizontal size={17} strokeWidth={1.8} />}{open && it.label}
-              </Link>
-            ))}
-            {manageAccess && (
-              <>
-                {open && <div className="px-2.5 pb-0.5 pt-2 text-xs font-semibold text-faint">管理</div>}
-                {NAV_KANRI.map((it) => (
-                  <Link key={it.href} href={it.href} className={`side-hover flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 ${pathname === it.href ? 'side-on' : ''}`}>
-                    {it.href === '/settings/access' ? <ShieldCheck size={17} strokeWidth={1.8} /> : <Network size={17} strokeWidth={1.8} />}{open && it.label}
-                  </Link>
-                ))}
-              </>
-            )}
-          </div>
-        </nav>
+        <SideNav pathname={pathname} visible={visible} horyu={horyu} manageAccess={manageAccess} kanawestOf={(href) => canOpen(href) === 'kanawest'} />
 
         <div className="flex min-w-0 flex-1 flex-col">
           <header ref={hdr} className="sticky top-0 z-30 flex min-h-[58px] flex-wrap items-center gap-3.5 topbar border-b border-line px-6 backdrop-blur">
@@ -149,6 +81,139 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </AlertProvider>
       </YoyakuProvider>
     </MotivationProvider>
+  );
+}
+
+// ---- 左メニュー（10-27 shoya「旧いけどんみたいにマウス合わせたらメニュー表示」「クリックするとページ遷移先が出るように」「押した時のリッチなアニメーション」） ----
+//   ・ふだんは分類のアイコンだけの細い帯。マウスを合わせる（キーボードで入る）と、画面の上に重ねて広がる（今のシステムの shell.css .ike-sidebar と同じ）
+//   ・「固定」を押すと広げたままにして、画面を右へずらす（この端末に覚える）
+//   ・分類の見出しを押すと、その分類の画面が下に開く（いくつでも開ける・開いた分類はこの端末に覚える。いま開いている画面の分類は必ず開く）
+//   ・動きはモーション図鑑の語彙だけ：見出しのアイコン＝mo-spring-in＋mo-ring／開いた画面＝mo-axis を順に／押した画面＝mo-scale-in＋mo-ring
+const RAIL = 64, WIDE = 248;
+const PIN_KEY = 'v2_side_pin', OPEN_KEY = 'v2_side_open';
+type SideGroup = { key: string; label: string; icon: typeof Users; color?: string; on?: string; items: NavItem[] };
+const isOn = (pathname: string, href: string) => pathname === href || pathname.startsWith(href + '/');
+
+function SideNav({ pathname, visible, horyu, manageAccess, kanawestOf }: { pathname: string; visible: NavGroup[]; horyu: NavItem[]; manageAccess: boolean; kanawestOf: (href: string) => boolean }) {
+  const groups: SideGroup[] = [
+    ...visible.map((g) => ({ key: g.module, label: g.label, icon: MODULE_ICON[g.module], color: `var(--c-${g.module})`, on: `var(--o-${g.module})`, items: g.items })),
+    ...(horyu.length ? [{ key: 'horyu', label: '保留（あとで決める）', icon: Archive, items: horyu }] : []),
+  ];
+  const [pinned, setPinned] = useState(false);
+  const [hover, setHover] = useState(false);
+  const [opened, setOpened] = useState<string[]>([]);
+  const [bump, setBump] = useState<Record<string, number>>({}); // 押した見出し（アイコンの動きをもう一度流す）
+  const [pressed, setPressed] = useState<string | null>(null); // 押した画面（移るまでのあいだも選んだ形にする）
+  const navRef = useRef<HTMLElement>(null);
+  const wide = pinned || hover;
+  const current = groups.find((g) => g.items.some((it) => isOn(pathname, it.href)))?.key;
+
+  useEffect(() => {
+    try {
+      setPinned(localStorage.getItem(PIN_KEY) === '1');
+      const o = JSON.parse(localStorage.getItem(OPEN_KEY) || '[]');
+      if (Array.isArray(o)) setOpened(o.filter((x) => typeof x === 'string'));
+    } catch { /* この端末に無ければ初めの形 */ }
+  }, []);
+  const saveOpened = (next: string[]) => { setOpened(next); try { localStorage.setItem(OPEN_KEY, JSON.stringify(next)); } catch { /* noop */ } };
+  // いま開いている画面の分類は開く。移り終わったら「押した」印を消し、タッチの端末では帯に戻す
+  useEffect(() => {
+    setPressed(null);
+    if (current) setOpened((o) => (o.includes(current) ? o : [...o, current]));
+    if (typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches) setHover(false);
+  }, [pathname, current]);
+  // タッチで広げたときは、外を押したら帯に戻す
+  useEffect(() => {
+    if (!hover || pinned) return;
+    const off = (e: PointerEvent) => { if (navRef.current && !navRef.current.contains(e.target as Node)) setHover(false); };
+    document.addEventListener('pointerdown', off);
+    return () => document.removeEventListener('pointerdown', off);
+  }, [hover, pinned]);
+
+  const toggle = (k: string) => {
+    setBump((b) => ({ ...b, [k]: (b[k] ?? 0) + 1 }));
+    if (!wide) { setHover(true); if (!opened.includes(k)) saveOpened([...opened, k]); return; } // 帯のアイコンを押したら広げて開く
+    saveOpened(opened.includes(k) ? opened.filter((x) => x !== k) : [...opened, k]);
+  };
+  const pin = () => { const v = !pinned; setPinned(v); if (!v) setHover(false); try { localStorage.setItem(PIN_KEY, v ? '1' : '0'); } catch { /* noop */ } };
+  const lbl = `whitespace-nowrap transition-[opacity,transform] duration-200 ${wide ? 'opacity-100 translate-x-0' : 'pointer-events-none -translate-x-1 opacity-0'}`;
+
+  return (
+    <div className="relative shrink-0 transition-[width] duration-[260ms] ease-[cubic-bezier(.22,1,.36,1)]" style={{ width: pinned ? WIDE : RAIL }}>
+      <nav ref={navRef} aria-label="メニュー"
+        onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
+        onFocus={() => setHover(true)} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setHover(false); }}
+        className={`side fixed left-0 top-0 z-40 flex h-screen flex-col gap-2 overflow-y-auto overflow-x-hidden px-2.5 py-3.5 text-body transition-[width,box-shadow] duration-[260ms] ease-[cubic-bezier(.22,1,.36,1)] ${hover && !pinned ? 'shadow-[0_16px_48px_rgba(24,24,27,.28)]' : ''}`}
+        style={{ width: wide ? WIDE : RAIL }}>
+        <div className="flex items-center gap-2.5 px-2 pb-1.5 pt-1">
+          <div aria-hidden className="flex size-7 shrink-0 items-center justify-center rounded-lg side-logo text-md font-extrabold">S</div>
+          <b className={`side-strong text-md ${lbl}`}>{APP_NAME}</b>
+          <button onClick={pin} aria-pressed={pinned} aria-label={pinned ? 'メニューの固定をやめる' : 'メニューを広げたまま固定する'} title={pinned ? '固定をやめる（マウスを合わせたときだけ広げる）' : '広げたまま固定する'}
+            className={`side-muted side-hover ml-auto rounded-md p-1 ${lbl}`}>
+            {pinned ? <PinOff size={15} /> : <Pin size={15} />}
+          </button>
+        </div>
+        <Link href="/" className={`side-hover flex items-center gap-2.5 rounded-lg px-2.5 py-2 ${pathname === '/' ? 'side-on font-semibold' : ''}`}>
+          <Home size={18} strokeWidth={1.8} className="shrink-0" /><span className={lbl}>ホーム</span>
+        </Link>
+        {groups.map((g) => {
+          const open = opened.includes(g.key);
+          const show = wide && open;
+          const Icon = g.icon;
+          const here = current === g.key;
+          return (
+            <div key={g.key} className="flex flex-col">
+              <button type="button" onClick={() => toggle(g.key)} aria-expanded={show} title={wide ? undefined : g.label}
+                className={`side-hover flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm font-semibold ${here ? 'side-strong' : ''}`}>
+                <span key={bump[g.key] ?? 0} className={`flex size-6 shrink-0 items-center justify-center rounded-md ${g.color ? '' : 'side-ring ring-1'}`}
+                  style={{ ...(g.color ? { background: g.color, color: g.on } : {}), ...(bump[g.key] ? { animation: 'mo-spring-in 520ms cubic-bezier(.34,1.56,.64,1) both, mo-ring 700ms ease-out both', ['--a' as string]: g.color ?? 'var(--side-fg)' } : {}) } as CSSProperties}>
+                  <Icon size={14} strokeWidth={2.2} />
+                </span>
+                <span className={`min-w-0 flex-1 truncate ${lbl}`}>{g.label}</span>
+                <ChevronDown size={15} className={`side-muted shrink-0 transition-transform duration-[260ms] ease-[cubic-bezier(.34,1.56,.64,1)] ${open ? 'rotate-180' : ''} ${lbl}`} />
+              </button>
+              {/* 開くときは高さを伸ばし、中の画面を上から順に出す */}
+              <div className={`grid transition-[grid-template-rows,opacity] duration-[280ms] ease-[cubic-bezier(.22,1,.36,1)] ${show ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+                <div className="min-h-0 overflow-hidden">
+                  <div className="side-line ml-[19px] mt-0.5 flex flex-col gap-px border-l py-0.5 pl-2">
+                    {g.items.map((it, i) => {
+                      const active = pressed ? pressed === it.href : isOn(pathname, it.href);
+                      const justPressed = pressed === it.href;
+                      return (
+                        <Link key={`${it.href}:${show ? 1 : 0}`} href={it.href} onClick={() => { if (!isOn(pathname, it.href)) setPressed(it.href); }} tabIndex={show ? 0 : -1}
+                          className={`relative flex items-center justify-between rounded-lg px-2.5 py-1.5 ${show ? 'mo-axis' : ''} ${active ? 'side-on font-semibold' : 'side-hover'} ${it.built ? '' : 'opacity-60'}`}
+                          style={{ ['--i' as string]: i, ...(active && g.color ? { boxShadow: `inset 3px 0 0 var(--side-bar, ${g.color})` } : {}) } as CSSProperties}>
+                          {justPressed && <span aria-hidden className="pointer-events-none absolute inset-0 rounded-lg" style={{ animation: 'mo-scale-in 240ms cubic-bezier(.22,1,.36,1) both, mo-ring 800ms ease-out both', ['--a' as string]: g.color ?? 'var(--side-fg)' } as CSSProperties} />}
+                          <span className="truncate">{it.label}</span>
+                          {kanawestOf(it.href) && <span className="rounded px-1 side-muted side-ring text-xs ring-1" title="かな西エリア：神奈川要員だけ">かな西</span>}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        <div className="side-line mt-auto flex flex-col gap-px border-t pt-2.5">
+          {NAV_EXTRA.map((it) => (
+            <Link key={it.href} href={it.href} className={`side-hover flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 ${pathname === it.href ? 'side-on' : ''}`}>
+              {it.href === '/renraku' ? <MessageSquare size={17} strokeWidth={1.8} className="shrink-0" /> : <SlidersHorizontal size={17} strokeWidth={1.8} className="shrink-0" />}<span className={lbl}>{it.label}</span>
+            </Link>
+          ))}
+          {manageAccess && (
+            <>
+              <div className={`px-2.5 pb-0.5 pt-2 text-xs font-semibold text-faint ${lbl}`}>管理</div>
+              {NAV_KANRI.map((it) => (
+                <Link key={it.href} href={it.href} className={`side-hover flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 ${pathname === it.href ? 'side-on' : ''}`}>
+                  {it.href === '/settings/access' ? <ShieldCheck size={17} strokeWidth={1.8} className="shrink-0" /> : <Network size={17} strokeWidth={1.8} className="shrink-0" />}<span className={lbl}>{it.label}</span>
+                </Link>
+              ))}
+            </>
+          )}
+        </div>
+      </nav>
+    </div>
   );
 }
 

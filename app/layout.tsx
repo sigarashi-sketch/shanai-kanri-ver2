@@ -8,7 +8,7 @@ import './globals.css';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 
-export const metadata: Metadata = { title: `${APP_NAME}（本番前）`, robots: { index: false } };
+export const metadata: Metadata = { title: APP_NAME, robots: { index: false } };
 // 携帯で開いても PC と同じ表示にする（10-23 shoya「iPhone から見るから PC と同じ表示」）。幅 1280 の画面として描いて縮めて見せる。
 //   携帯向けの並びを作るときはここを 'device-width' に戻す
 export const viewport: Viewport = { width: 1280, initialScale: undefined };
