@@ -8,7 +8,7 @@ import { CountUp, RemainRing, useMotivation } from '@/components/Motivation';
 import { LiveBanner, useIke, type LiveState } from '@/components/Live';
 import { postLive } from '@/lib/live/post';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
-import { toArari, wageParts, type ArariLive, type KintaiParts, type LiveArariRow } from '@/lib/live/chingin';
+import { hoursGap, toArari, wageParts, type ArariLive, type KintaiParts, type LiveArariRow } from '@/lib/live/chingin';
 import { PersonName } from '@/components/Person';
 import { savedPdfUrl, stampedPdfUrl } from '@/lib/live/seikyu-store';
 import { ChinginPl } from './pl';
@@ -62,7 +62,9 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
   const rows = mk.keep(toArari(d), 'name');
   const [client, setClient] = useState('すべて');
   const [shozoku, setShozoku] = useState('すべて');
-  const shown = rows.filter((r) => (client === 'すべて' || r.company === client) && (shozoku === 'すべて' || r.shozoku === shozoku)).sort((a, b) => a.rate - b.rate);
+  const [gapOnly, setGapOnly] = useState(false);
+  const gapped = rows.filter((r) => Math.abs(hoursGap(r) ?? 0) >= GAP_H);
+  const shown = rows.filter((r) => (client === 'すべて' || r.company === client) && (shozoku === 'すべて' || r.shozoku === shozoku) && (!gapOnly || gapped.includes(r))).sort((a, b) => a.rate - b.rate);
   const sum = shown.reduce((s, r) => ({ billed: s.billed + r.sales, cost: s.cost + r.salary + r.fare + r.welfare, gross: s.gross + r.gross }), { billed: 0, cost: 0, gross: 0 });
   const temp = rows.filter((r) => r.temp);
   // 締め方（10-26 shoya）：freee 勤怠の仮締め（勤怠×単価、送った freee 請求書がある人はその額）／請求書締め（先方に出した押印ずみ PDF＝格納した請求書の額）
@@ -119,15 +121,18 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
           <label className="flex items-center gap-1.5 text-muted">所属
             <select value={shozoku} onChange={(e) => setShozoku(e.target.value)} className="min-h-8 rounded-lg border border-field bg-surface px-2 text-ink">{['すべて', ...uniq(rows.map((r) => r.shozoku))].map((c) => <option key={c}>{c}</option>)}</select>
           </label>
+          <label className="flex items-center gap-1.5 text-muted" title={`現場勤怠（上位に請求する時間）と freee 勤怠（給与の元）が ${GAP_H}h 以上ちがう人だけ`}>
+            <input type="checkbox" checked={gapOnly} onChange={(e) => setGapOnly(e.target.checked)} />freee と現場の差がある人だけ（{gapped.length}人）
+          </label>
           <span className="ml-auto text-faint">{shown.length}人・粗利率の低い順</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1040px] border-collapse text-body">
+          <table className="w-full min-w-[1140px] border-collapse text-body">
             <thead><tr className="th-row text-left">
-              <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">取引先・所属</th><th className="px-2 py-2.5 text-right font-semibold">勤怠（freee）</th><th className="px-2 py-2.5 text-right font-semibold">売上（税込）</th><th className="px-2 py-2.5 font-semibold">請求書</th><th className="px-2 py-2.5 text-right font-semibold">給与</th><th className="px-2 py-2.5 text-right font-semibold">交通費</th><th className="px-2 py-2.5 text-right font-semibold">法定福利</th><th className="px-2 py-2.5 text-right font-semibold">粗利</th><th className="px-4 py-2.5 text-right font-semibold">粗利率</th>
+              <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">取引先・所属</th><th className="px-2 py-2.5 text-right font-semibold">勤怠（freee）</th><th className="px-2 py-2.5 text-right font-semibold" title="上位に請求する時間（勤務表勤怠表で手で入れた時間＞勤務表から読んだ時間）。粗利の計算には使いません">現場勤怠・差</th><th className="px-2 py-2.5 text-right font-semibold">売上（税込）</th><th className="px-2 py-2.5 font-semibold">請求書</th><th className="px-2 py-2.5 text-right font-semibold">給与</th><th className="px-2 py-2.5 text-right font-semibold">交通費</th><th className="px-2 py-2.5 text-right font-semibold">法定福利</th><th className="px-2 py-2.5 text-right font-semibold">粗利</th><th className="px-4 py-2.5 text-right font-semibold">粗利率</th>
             </tr></thead>
             <tbody>
-              {shown.length === 0 && <tr><td colSpan={10} className="px-4 py-8 text-center text-sm text-muted">この月の請求書がまだありません（または絞り込みに当たる人がいません）。</td></tr>}
+              {shown.length === 0 && <tr><td colSpan={11} className="px-4 py-8 text-center text-sm text-muted">この月の請求書がまだありません（または絞り込みに当たる人がいません）。</td></tr>}
               {shown.map((r, i) => {
                 const t = rateTone(r.rate);
                 return (
@@ -135,6 +140,7 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
                     <td className="px-4 py-2.5"><PersonName name={r.name} className="font-semibold underline-offset-2 hover:underline" />{r.temp && <div><span className="chip" title="給与・交通費の欄に本当の値を入れると片づきます" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)' }}>仮の値あり</span></div>}{r.warn.map((w) => <div key={w} className="text-xs text-bad">{w}</div>)}</td>
                     <td className="px-2 py-2.5">{r.company}<div className="text-xs text-faint">{r.shozoku}</div></td>
                     <td className="num px-2 py-2.5 text-right"><KintaiCell k={r.kintai} /></td>
+                    <td className="num px-2 py-2.5 text-right"><SiteCell r={r} /></td>
                     <td className="num px-2 py-2.5 text-right">{yen(taxIn(r.sales))}<div className="whitespace-nowrap text-xs text-faint">税抜 {yen(r.sales)}</div>{r.fromYms.length > 0 && <div className="whitespace-nowrap text-xs text-faint" title="後の月の請求書に「◯月稼働分」として載っていた分を、締めの月で入れています">{r.fromYms.map((m) => `${Number(m.slice(5))}月`).join('・')}の請求書から</div>}</td>
                     <td className="w-44 max-w-44 px-2 py-2.5 text-xs">{r.files.length === 0 ? <span className="text-faint">なし</span> : r.files.map((f) => (
                       <div key={f.id} className="mb-1 min-w-0">
@@ -386,6 +392,21 @@ function KariShime({ tabs }: { tabs: React.ReactNode }) {
 }
 
 // 勤怠の欄：総労働（有給のみなし込み）と残業・欠勤（今の想定賃金の計算の値をそのまま）
+// 現場勤怠（上位に請求する時間）と freee 勤怠（給与の元）の差（10-27 shoya「freee 勤怠と現場勤怠の差を示して」）。差＝現場 − freee
+const GAP_H = 1;   // これ以上ちがうと色を付けて「差がある人」に数える
+function SiteCell({ r }: { r: LiveArariRow }) {
+  if (!r.site) return <span className="text-faint" title="勤務表の時間が読めていない・手で入れていない">—</span>;
+  const g = hoursGap(r);
+  const r1 = (n: number) => Math.round(n * 10) / 10;
+  return (
+    <>
+      {r1(r.site.hours)}h
+      <div className="whitespace-nowrap text-xs text-faint">{r.site.src === 'manual' ? '手で入れた時間' : '勤務表から'}</div>
+      {g != null && <div className={`whitespace-nowrap text-xs ${Math.abs(g) >= GAP_H ? 'font-semibold text-warn' : 'text-faint'}`} title="現場勤怠 − freee 勤怠">差 {g > 0 ? '+' : g < 0 ? '−' : '±'}{r1(Math.abs(g))}h</div>}
+    </>
+  );
+}
+
 function KintaiCell({ k }: { k: KintaiParts | null | undefined }) {
   if (!k || k.hours == null) return <span className="text-faint">—</span>;
   const r1 = (n: number) => Math.round(n * 10) / 10;

@@ -9,6 +9,7 @@ export type ArariPersonLive = {
   fare: number; fareManual: boolean; fareSrc: 'manual' | 'keihi' | 'default'; fareNote: string; welfare: number; gross: number;
   files: unknown[]; warn: string[];
   salesSrc?: 'ikedon' | 'stamp'; stampSales?: number;
+  siteHours?: number | null; siteHoursSrc?: 'manual' | 'sheet';   // 現場勤怠（上位に請求する時間・10-27〜）
 };
 export type ArariLive = {
   ok?: boolean; ym: string; months: string[]; people: ArariPersonLive[];
@@ -40,8 +41,15 @@ export type LiveArariRow = {
   salaryManual: boolean; fareManual: boolean; kintai: KintaiParts | null; salaryFromKintai: boolean;
   salesSrc: 'ikedon' | 'stamp' | '';   // 売上の出どころ：請求書づくりの下書き／格納した押印PDF
   files: Array<{ id: string; label: string; amount: number; fromYm?: string; saved: boolean; rows: Array<{ d: string; a: number }> }>;   // saved＝いけどんで作った請求書（押印前の保存した版・10月分〜）   // rows＝まとめた請求書でもその人の分の行だけ   // 格納した請求書（売上の右にリンクで出す・10-26 shoya）
+  site: { hours: number; src: 'manual' | 'sheet' } | null;   // 現場勤怠（勤務表勤怠表で手で入れた時間＞勤務表から読んだ時間）。freee 勤怠との差を見せるだけ（粗利には使わない・10-27 shoya）
   fromYms: string[];   // 後の月の請求書に載っていた分（「8月稼働分」などを締めの月で振り分けた）の請求書の月
 };
+
+/** 現場勤怠 − freee 勤怠（時間）。どちらかが無ければ null */
+export function hoursGap(r: Pick<LiveArariRow, 'site' | 'kintai'>): number | null {
+  if (!r.site || r.kintai?.hours == null) return null;
+  return Math.round((r.site.hours - r.kintai.hours) * 100) / 100;
+}
 
 export function toArari(j: ArariLive | null): LiveArariRow[] {
   return (j?.people || []).map((p) => ({
@@ -53,6 +61,7 @@ export function toArari(j: ArariLive | null): LiveArariRow[] {
     salaryManual: !!p.salaryManual, fareManual: p.fareSrc === 'manual', kintai: p.kintai || null, salaryFromKintai: p.salarySrc === 'kintai',
     salesSrc: p.salesSrc || '',
     files: (p.files as Array<{ id: string; number?: string; fileName?: string; amount?: number; fromYm?: string; rows?: Array<{ d?: string; a?: number }>; pdf?: string }>).map((f) => ({ id: f.id, saved: f.pdf === 'saved', label: f.number || f.fileName || '請求書', amount: Number(f.amount) || 0, ...(f.fromYm ? { fromYm: f.fromYm } : {}), rows: (f.rows || []).map((x) => ({ d: String(x.d || ''), a: Number(x.a) || 0 })) })),
+    site: p.siteHours != null ? { hours: p.siteHours, src: p.siteHoursSrc === 'manual' ? 'manual' : 'sheet' } : null,
     fromYms: [...new Set((p.files as Array<{ fromYm?: string }>).map((f) => f.fromYm).filter((x): x is string => !!x))],
   }));
 }
