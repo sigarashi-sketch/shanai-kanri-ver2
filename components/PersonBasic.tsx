@@ -35,14 +35,14 @@ export function PersonBasic({ name, live, person }: { name: string; live: boolea
           {res.facts.map(([k, v]) => <div key={k} className="min-w-0"><dt className="text-xs text-faint">{k}</dt><dd className="whitespace-pre-wrap break-words">{v}</dd></div>)}
         </dl>
       )}
-      {(!!res.health?.length || !!res.healthError) && (
+      {res.health && (
         <section>
           <div className="mb-1.5 text-sm font-bold text-muted">健康状況（既往歴）</div>
           {res.healthError
             ? <div className="text-sm text-bad">読めませんでした（{res.healthError}）</div>
-            : (
+            : !res.health.length ? <div className="text-sm text-faint">回答がありません</div> : (
               <dl className="flex flex-col gap-2">
-                {res.health!.map((h, i) => <div key={i} className="rounded-lg bg-soft px-3 py-2"><dt className="text-xs text-faint">{h.label}</dt><dd className="mt-0.5 whitespace-pre-wrap break-words text-sm">{h.value}</dd></div>)}
+                {res.health.map((h, i) => <div key={i} className="rounded-lg bg-soft px-3 py-2"><dt className="text-xs text-faint">{h.label}</dt><dd className="mt-0.5 whitespace-pre-wrap break-words text-sm">{h.value}</dd></div>)}
               </dl>
             )}
         </section>
