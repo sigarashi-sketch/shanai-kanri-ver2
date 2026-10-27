@@ -50,14 +50,32 @@ const SC = (COS * 1000) / (WORLD / 360);   // 地図の単位（ピンの大き�
 const X0 = mx(BOX.w), Y0 = my(BOX.n), X1 = mx(BOX.e), Y1 = my(BOX.s);
 export const MAP_W = Math.round((X1 - X0) * SC), MAP_H = Math.round((Y1 - Y0) * SC);
 export const xy = (lat: number, lng: number) => ({ x: (mx(lng) - X0) * SC, y: (my(lat) - Y0) * SC });
+/** タイルの位置（％）は有効数字6桁に丸める（ブラウザが style を丸めるので、そろえないとサーバとの食い違いの警告が出る） */
+const r6 = (n: number) => Number(n.toPrecision(6));
 /** 背景の地図タイル（Google マップ・日本語・高解像度 scale=2）。位置は地図の枠に対する％。サーバは mt0〜3 に振り分ける */
 export const TILES = (() => {
   const out: { src: string; left: number; top: number; w: number; h: number }[] = [];
   for (let tx = Math.floor(X0 / 256); tx <= Math.floor(X1 / 256); tx++)
     for (let ty = Math.floor(Y0 / 256); ty <= Math.floor(Y1 / 256); ty++)
-      out.push({ src: `https://mt${(tx + ty) % 4}.google.com/vt/lyrs=m&hl=ja&gl=JP&scale=2&x=${tx}&y=${ty}&z=${Z}`, left: ((tx * 256 - X0) / (X1 - X0)) * 100, top: ((ty * 256 - Y0) / (Y1 - Y0)) * 100, w: (256 / (X1 - X0)) * 100, h: (256 / (Y1 - Y0)) * 100 });
+      out.push({ src: `https://mt${(tx + ty) % 4}.google.com/vt/lyrs=m&hl=ja&gl=JP&scale=2&x=${tx}&y=${ty}&z=${Z}`, left: r6(((tx * 256 - X0) / (X1 - X0)) * 100), top: r6(((ty * 256 - Y0) / (Y1 - Y0)) * 100), w: r6((256 / (X1 - X0)) * 100), h: r6((256 / (Y1 - Y0)) * 100) });
   return out;
 })();
+/** 拡大したときの細かいタイル。k＝拡大率（1＝枠ぜんぶ）・cw＝地図の幅（px）・窓は地図の単位（vx,vy から vw×vh）。地図を拡大・移動できるようにした（10-27 shoya「拡大とかできない」） */
+export function detailTiles(k: number, cw: number, vx: number, vy: number, vw: number, vh: number) {
+  const z = Math.min(18, Z + Math.max(0, Math.round(Math.log2((k * cw) / (X1 - X0)))));
+  if (z <= Z) return { z, tiles: [] as typeof TILES };
+  const f = 2 ** (z - Z), wx = (u: number) => (X0 + u / SC) * f, wy = (u: number) => (Y0 + u / SC) * f;
+  const out: typeof TILES = [];
+  for (let tx = Math.floor(wx(vx) / 256); tx <= Math.floor(wx(vx + vw) / 256); tx++)
+    for (let ty = Math.floor(wy(vy) / 256); ty <= Math.floor(wy(vy + vh) / 256); ty++)
+      out.push({ src: `https://mt${(tx + ty) % 4}.google.com/vt/lyrs=m&hl=ja&gl=JP&scale=2&x=${tx}&y=${ty}&z=${z}`, left: r6((((tx * 256) / f - X0) / (X1 - X0)) * 100), top: r6((((ty * 256) / f - Y0) / (Y1 - Y0)) * 100), w: r6((256 / f / (X1 - X0)) * 100), h: r6((256 / f / (Y1 - Y0)) * 100) });
+  return { z, tiles: out };
+}
+/** xy の逆（地図の単位 → 緯度経度）。「Google マップで開く」の真ん中に使う */
+export const latLng = (x: number, y: number) => {
+  const wx = X0 + x / SC, wy = Y0 + y / SC, n = Math.PI - (2 * Math.PI * wy) / WORLD;
+  return { lat: (Math.atan(Math.sinh(n)) * 180) / Math.PI, lng: (wx / WORLD) * 360 - 180 };
+};
 
 // ---- 通勤時間の目安（今の cases-map と同じ式）----
 export function kmBetween(a: Station, b: Station) {

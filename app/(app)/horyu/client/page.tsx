@@ -8,7 +8,7 @@ import { DrawerPortal } from '@/components/DrawerPortal';
 import { errText, horyuPost } from '@/lib/horyu-post';
 import type { ClientList, ClientPerson, HistoryGroup, MatchRead } from '@/lib/types/keiri';
 import { HoryuNote } from '../HoryuNote';
-import { TileMap } from '@/components/TileMap';
+import { Pin, TileMap } from '@/components/TileMap';
 import { BOX, xy } from '@/lib/live/map';
 
 // 客先向けの画面（保留）。今の社内システムの客先の画面（client.html「ご紹介可能なメンバー」）を写したもの。
@@ -213,11 +213,11 @@ export default function ClientPage() {
               <div className="text-[12.5px] text-muted">駅ごとのメンバー・地図表示 <b className="text-ink">{onMap}</b>名{onMap < Object.values(byEki).reduce((a, b) => a + b.length, 0) && '（地図の外・駅の場所が分からない人は下の一覧だけ）'}</div>
               {pins.length > 0 && <TileMap onBg={() => setMapPick(null)}>
                 {pins.map(({ eki, list, c }) => { const p = xy(c[0], c[1]), r = Math.min(8 + list.length * 1.5, 20), on = mapPick === eki; return (
-                  <g key={eki} className="cursor-pointer" onClick={(e) => { e.stopPropagation(); setMapPick(on ? null : eki); }}>
-                    <circle cx={p.x} cy={p.y} r={r} fill={on ? 'var(--ad)' : 'var(--a)'} fillOpacity={on ? 1 : 0.8} stroke="var(--color-surface)" strokeWidth={2} />
-                    <text x={p.x} y={p.y + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--ao)">{list.length}</text>
-                    {(on || list.length >= 3) && <text x={p.x} y={p.y - r - 4} textAnchor="middle" fontSize={10.5} fontWeight={700} fill="var(--color-ink)">{eki}</text>}
-                  </g>); })}
+                  <Pin key={eki} x={p.x} y={p.y} className="cursor-pointer" onClick={(e) => { e.stopPropagation(); setMapPick(on ? null : eki); }}>
+                    <circle r={r} fill={on ? 'var(--ad)' : 'var(--a)'} fillOpacity={on ? 1 : 0.8} stroke="var(--color-surface)" strokeWidth={2} />
+                    <text y={4} textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--ao)">{list.length}</text>
+                    {(on || list.length >= 3) && <text y={-r - 4} textAnchor="middle" fontSize={10.5} fontWeight={700} fill="var(--color-ink)">{eki}</text>}
+                  </Pin>); })}
               </TileMap>}
             </>);
           })()}

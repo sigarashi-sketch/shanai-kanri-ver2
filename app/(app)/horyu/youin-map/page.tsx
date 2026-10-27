@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Check, MapPin, RefreshCw, Search, Train, X } from 'lucide-react';
 import { stationOf, xy } from '@/lib/live/map';
-import { TileMap, pct } from '@/components/TileMap';
+import { Pin, TileMap, pct } from '@/components/TileMap';
 import type { Youin } from '@/lib/live/map';
 import { liveYouin, type MapData } from '@/lib/live/map';
 import { PageTitle } from '@/components/ui';
@@ -137,16 +137,16 @@ export default function YouinMapPage() {
             </div>); })()}>
             {CASES_.filter((c) => !hidden[c.kNo]).flatMap((c, ci) => c.stations.map((st) => {
               const s = at(st); if (!s) return null; const p = xy(s.lat, s.lng), on = focus === c.kNo || selCase === c.kNo;
-              return <g key={c.kNo + st} transform={`translate(${p.x + 12 + (ci % 3) * 5},${p.y - 10 - (ci % 2) * 5})`} onClick={(e) => { e.stopPropagation(); setFocus(c.kNo); }} className="cursor-pointer">
+              return <Pin key={c.kNo + st} x={p.x} y={p.y} onClick={(e) => { e.stopPropagation(); setFocus(c.kNo); }} className="cursor-pointer"><g transform={`translate(${12 + (ci % 3) * 5},${-10 - (ci % 2) * 5})`}>
                 <title>{`${c.kNo}（${st}）${c.remote ? ' リモート併用' : ''}\n${c.content}`}</title>
-                {on && <circle r={13} fill="var(--tone-warn-bg)" className="mo-pulse" />}<circle r={7} fill="var(--tone-warn-fg)" stroke="var(--color-surface)" strokeWidth={2} /></g>;
+                {on && <circle r={13} fill="var(--tone-warn-bg)" className="mo-pulse" />}<circle r={7} fill="var(--tone-warn-fg)" stroke="var(--color-surface)" strokeWidth={2} /></g></Pin>;
             }))}
             {Object.entries(byStation).map(([st, list]) => {
               const s = at(st)!, p = xy(s.lat, s.lng), r = Math.min(9 + list.length * 1.5, 22), picked = list.some((y) => members.includes(y.id));
-              return <g key={st} onClick={(e) => { e.stopPropagation(); setPop(st); }} className="cursor-pointer">
+              return <Pin key={st} x={p.x} y={p.y} onClick={(e) => { e.stopPropagation(); setPop(st); }} className="cursor-pointer">
                 <title>{`${st} ${list.length}`}</title>
-                <circle cx={p.x} cy={p.y} r={r} fill="var(--tone-info-fg)" fillOpacity={0.85} stroke={picked ? 'var(--a)' : 'var(--color-surface)'} strokeWidth={picked ? 4 : 2} />
-                <text x={p.x} y={p.y + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--color-surface)">{list.length}</text></g>;
+                <circle r={r} fill="var(--tone-info-fg)" fillOpacity={0.85} stroke={picked ? 'var(--a)' : 'var(--color-surface)'} strokeWidth={picked ? 4 : 2} />
+                <text y={4} textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--color-surface)">{list.length}</text></Pin>;
             })}
           </BaseMap>
           <p className="mt-1.5 text-[11.5px] text-faint">要員は営業用リストの最寄駅、案件は Slack に流れた案件の現場の駅に出します。駅の丸を押すと名前が出ます。チェックで宛先に入れ、案件を1件選んで「転記＆配信先設定」。</p>
