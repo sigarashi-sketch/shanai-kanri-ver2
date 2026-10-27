@@ -50,6 +50,7 @@ const DEFAULT_JUMPS: Record<string, string[]> = {
   '/jinji/shift': ['/jinji/today', '/jinji/staff'],
   '/keiri/seikyu-make': ['/keiri/kakunou', '/keiri/seikyu-zukuri'],
   '/keiri/kakunou': ['/keiri/seikyu-make', '/keiri/seikyu-zukuri'],
+  '/keiri/mitsumori': ['/keiri/seikyu-make', '/keiri/seikyu'],
 };
 const SPLIT_DEFAULTS = ['/eigyo/proper', '/eigyo/progress', '/jinji/staff', '/jinji/today'];
 

@@ -23,6 +23,7 @@
 - 要員リスト `/eigyo/proper`：タブで プロパー（スキシ作成）／営業共有リスト／従業員名簿（人事を見る人だけ）／ライバーリスト（全体管理者だけ）
 - 連絡（チャット・配信・手動配信）は各画面の右上（`components/Renraku.tsx`）。人事＝インフォメーション、それ以外＝あおい。送信は長押し
 - **人財管理**（10-27・5つ目の分類・緑）：それゆけ未経験（saiyou-app）を中身ごと移した（同日 shoya「それゆけを ver2 にぶちこんで」）。画面 `components/sy`・処理 `app/api/sy/s/*`（それゆけ app/api/s の写し）・`lib/sy`（それゆけ lib の写し）。**それゆけのサーバは呼ばない**＝saiyou スキーマを service role で直接読み書きし、LINE「インフォメーション」にも ver2 から送る。ログインは ver2 のトークン（`lib/sy/auth.ts`）、それゆけの4段階の権限・内勤一般は見るだけ（`lib/sy/api.ts`・proxy.ts が x-sa-method を渡す）もそのまま。★ver2 の Vercel に鍵が要る：IKEIKE_SERVICE_ROLE・LINE_CHANNEL_ACCESS_TOKEN・LINE_CHANNEL_SECRET・SESSION_SECRET（どれもそれゆけと同じ値）。要員向け（LINE Webhook・/m・/k bdsh・/f 回答ページ・cron）は URL を配ってあるのでそれゆけに残す。ver2 にもうあった コミュニティ・離職率・資格手当・採用・bdsh は人事管理から移しただけ（区分はそのまま）。プロパーリストは営業の要員リストと同じ画面、たまげたポンを回す画面は今のシステムの bikkura.html を /ik で。**それゆけ側の lib・API を直したら lib/sy・app/api/sy/s も同じに**
+- **見積書作成** `/keiri/mitsumori`（10-27 shoya「経理管理に見積書つくるタブ・請求書作成と同じような実装で」）：今のシステムに見積書の画面は無いので ver2 で作った。見本は請求書作成（seikyu-make.html）の A4 の雛形と同じ位置・大きさ、PDF はブラウザの印刷。発行元の候補は請求書作成と同じ `/ik/api/seikyu?action=issuers`。保存は saiyou.settings の `v2_mitsumori:<id>`（`app/api/live/mitsumori`・`lib/mitsumori.ts`・直す/消すは経理管理の「直す」以上）
 - 案件進捗は単独（LINEグループに直接投げた案件も回収する）。カスタム（列・並べ方・判断の絞り込み・自分のタブ）は10-27に入れた＝この端末に覚える
 - 案件・要員マップは 営業 `/eigyo/map` と 人事 `/jinji/map` の両方のメニューにある（同じ画面・10-27 shoya）
 
