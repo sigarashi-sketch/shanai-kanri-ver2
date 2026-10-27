@@ -4,8 +4,8 @@ import { createContext, useContext } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Lock } from 'lucide-react';
-import { atLeast, LEVELS, modulePerms, type Level, type Member, type Perms } from '@/lib/access';
-import { kubunOfPath, pageAccess, pageGranted, preLaunchClosed, type KPerms } from '@/lib/kubun';
+import { atLeast, canSeeHoryu, homeHrefOf, inMikeikenUnit, isAdminMember, LEVELS, modulePerms, type Level, type Member, type Perms } from '@/lib/access';
+import { isKanawest, kubunOfPath, pageAccess, pageGranted, preLaunchClosed, type KPerms } from '@/lib/kubun';
 export { pageAccess };
 import type { ModuleKey } from '@/lib/theme';
 
@@ -14,8 +14,10 @@ import type { ModuleKey } from '@/lib/theme';
 //   ★can は「いま開いている画面の区分」の段階で答える（呼ぶ側は分類を渡したままでよい）。区分に振っていない画面（ホームなど）では分類の段階
 //   ★かな西エリアだけで開いている要員の画面（kanawestOnly）は「見る」まで＝書く操作は出さない
 //   ★区分が「見ない」でも、画面ごとの「見るだけ」（pages・組織表で付ける）が付いた画面は開ける。その画面の can は「見る」まで
+//   ★保留（/horyu）は shoya だけ・設定（/settings）は管理者だけ（10-27）。どちらも open が null を返す＝メニューにも出ず、開くと「権限がありません」
+//   ★たまげたポン（ホームの下）は未経験事業部の人だけ。home＝左の「ホーム」の行き先（営業→ホーム営業・人事→ホーム人事・lib/access.ts homeHrefOf）
 //   ★open(href) はメニュー・右クリック・画面の出し分けに使う（区分の段階＋まだ出していない分類＝lib/kubun.ts PRE_LAUNCH）
-type Ctx = { me: Member; perms: Perms; kperms: KPerms; manageAccess: boolean; kanawestOnly: boolean; can: (m: ModuleKey, need: Level) => boolean; open: (href: string) => 'all' | 'kanawest' | null };
+type Ctx = { me: Member; perms: Perms; kperms: KPerms; pages: string[]; manageAccess: boolean; admin: boolean; home: string; kanawestOnly: boolean; can: (m: ModuleKey, need: Level) => boolean; open: (href: string) => 'all' | 'kanawest' | null };
 const PermsCtx = createContext<Ctx | null>(null);
 
 export function PermsProvider({ me, kperms, pages = [], manageAccess, children }: { me: Member; kperms: KPerms; pages?: string[]; manageAccess: boolean; children: React.ReactNode }) {
@@ -25,8 +27,16 @@ export function PermsProvider({ me, kperms, pages = [], manageAccess, children }
   const kanawestOnly = pageAccess(kperms, pathname, pages) === 'kanawest';
   const here: Level | null = k ? (kperms[k] !== 'none' ? kperms[k] : pageGranted(pages, pathname) ? 'view' : 'none') : null;
   const can = (m: ModuleKey, need: Level) => (kanawestOnly ? atLeast('view', need) : here ? atLeast(here, need) : atLeast(perms[m], need));
-  const open = (href: string) => (preLaunchClosed(href, me.role === 'owner') ? null : pageAccess(kperms, href, pages));
-  return <PermsCtx.Provider value={{ me, perms, kperms, manageAccess, kanawestOnly, can, open }}>{children}</PermsCtx.Provider>;
+  const admin = isAdminMember(me, manageAccess);
+  const open = (href: string) => {
+    if (preLaunchClosed(href, me.role === 'owner')) return null;
+    if ((href === '/horyu' || href.startsWith('/horyu/')) && !canSeeHoryu(me)) return null;
+    if (href === '/settings' && !admin) return null;
+    if ((href === '/jinzai/pon' || href.startsWith('/jinzai/pon/')) && (!inMikeikenUnit(me) || isKanawest(kperms))) return null;
+    return pageAccess(kperms, href, pages);
+  };
+  const home = homeHrefOf(me, open);
+  return <PermsCtx.Provider value={{ me, perms, kperms, pages, manageAccess, admin, home, kanawestOnly, can, open }}>{children}</PermsCtx.Provider>;
 }
 
 export function usePerms(): Ctx {

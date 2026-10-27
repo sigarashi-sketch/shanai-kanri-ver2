@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { NAV, NAV_EXTRA, NAV_HORYU, NAV_KANRI } from '@/lib/nav';
+import { NAV, NAV_EXTRA, NAV_HOME, NAV_HORYU, NAV_KANRI } from '@/lib/nav';
 import { horyuVisible } from '@/lib/horyu-access';
 import { usePerms } from './Perms';
 import { useMePages } from './MePages';
@@ -78,12 +78,13 @@ function iconSvg(n: string) {
 
 /** この人に見える画面（Shell のメニューと同じ決め方）。右クリックの行き先とスプリットの候補に使う */
 export function useCtxPages(): { pages: CtxPage[]; ready: boolean } {
-  const { manageAccess, open } = usePerms();
+  const { manageAccess, open, home } = usePerms();
   const { pa, ready } = useMePages();
-  const out: CtxPage[] = [{ t: 'ホーム', href: '/', g: 'ホーム' }];
+  const out: CtxPage[] = [{ t: 'ホーム', href: home, g: 'ホーム' }];
+  NAV_HOME.forEach((it) => { if (open(it.href)) out.push({ t: it.label, href: it.href, g: 'ホーム' }); });
   NAV.forEach((g) => g.items.forEach((it) => { if (open(it.href) && horyuVisible(it.href, pa)) out.push({ t: it.label, href: it.href, g: g.label }); }));
   NAV_HORYU.forEach((it) => { if (open(it.href) && horyuVisible(it.href, pa)) out.push({ t: it.label, href: it.href, g: '保留' }); });
-  NAV_EXTRA.forEach((it) => out.push({ t: it.label, href: it.href, g: 'そのほか' }));
+  NAV_EXTRA.forEach((it) => open(it.href) && out.push({ t: it.label, href: it.href, g: 'そのほか' }));
   if (manageAccess) NAV_KANRI.forEach((it) => out.push({ t: it.label, href: it.href, g: '管理' }));
   return { pages: out, ready };
 }

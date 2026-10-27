@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { Archive, Briefcase, ChevronDown, Clock, Home, MessageSquare, Network, Pin, PinOff, ReceiptText, ShieldCheck, SlidersHorizontal, Sprout, Users } from 'lucide-react';
-import { NAV, NAV_EXTRA, NAV_HORYU, NAV_KANRI, findNav, type NavGroup, type NavItem } from '@/lib/nav';
+import { Archive, Briefcase, Gift, ChevronDown, Clock, Home, MessageSquare, Network, Pin, PinOff, ReceiptText, ShieldCheck, SlidersHorizontal, Sprout, Users } from 'lucide-react';
+import { GuideHost } from './Guide';
+import { NAV, NAV_EXTRA, NAV_HOME, NAV_HORYU, NAV_KANRI, findNav, type NavGroup, type NavItem } from '@/lib/nav';
 import { APP_NAME } from '@/lib/app';
 import type { ModuleKey } from '@/lib/theme';
 import { useColors } from './ColorProvider';
@@ -26,7 +27,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { group } = findNav(pathname);
   const { notes } = useColors();
-  const { me, manageAccess, kanawestOnly, open: canOpen } = usePerms();
+  const { me, manageAccess, home, kanawestOnly, open: canOpen } = usePerms();
   // 保留のメニューは今の社内システムのページ権限で出し分ける（見られない人には出さない・10-26）。読めないあいだは全部出す
   const { pa } = useMePages();
   const horyu = NAV_HORYU.filter((it) => canOpen(it.href) && horyuVisible(it.href, pa));
@@ -53,7 +54,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <YoyakuProvider>
       <AlertProvider>
       <div data-module={module} className="flex min-h-screen">
-        <SideNav pathname={pathname} visible={visible} horyu={horyu} manageAccess={manageAccess} kanawestOf={(href) => canOpen(href) === 'kanawest'} />
+        <SideNav pathname={pathname} visible={visible} horyu={horyu} manageAccess={manageAccess} kanawestOf={(href) => canOpen(href) === 'kanawest'} canOpen={(href) => !!canOpen(href)} home={home} />
 
         <div className="flex min-w-0 flex-1 flex-col">
           <header ref={hdr} className="sticky top-0 z-30 flex min-h-[58px] flex-wrap items-center gap-3.5 topbar border-b border-line px-6 backdrop-blur">
@@ -62,6 +63,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <LiveIndicator />
             {notes.length > 0 && <span role="status" className="mo-fade-in rounded-lg border border-warn-line bg-warn-soft px-2.5 py-1.5 text-sm text-warn">{notes.join('／')}</span>}
             <div className="ml-auto flex items-center gap-3">
+              <GuideHost groups={visible} />
               <TodayPill />
               <ThemeSwitch />
               <RenrakuButton key={module} module={module as ModuleKey | 'home'} />
@@ -94,7 +96,7 @@ const PIN_KEY = 'v2_side_pin', OPEN_KEY = 'v2_side_open';
 type SideGroup = { key: string; label: string; icon: typeof Users; color?: string; on?: string; items: NavItem[] };
 const isOn = (pathname: string, href: string) => pathname === href || pathname.startsWith(href + '/');
 
-function SideNav({ pathname, visible, horyu, manageAccess, kanawestOf }: { pathname: string; visible: NavGroup[]; horyu: NavItem[]; manageAccess: boolean; kanawestOf: (href: string) => boolean }) {
+function SideNav({ pathname, visible, horyu, manageAccess, kanawestOf, canOpen, home }: { pathname: string; visible: NavGroup[]; horyu: NavItem[]; manageAccess: boolean; kanawestOf: (href: string) => boolean; canOpen: (href: string) => boolean; home: string }) {
   const groups: SideGroup[] = [
     ...visible.map((g) => ({ key: g.module, label: g.label, icon: MODULE_ICON[g.module], color: `var(--c-${g.module})`, on: `var(--o-${g.module})`, items: g.items })),
     ...(horyu.length ? [{ key: 'horyu', label: '保留（あとで決める）', icon: Archive, items: horyu }] : []),
@@ -153,9 +155,15 @@ function SideNav({ pathname, visible, horyu, manageAccess, kanawestOf }: { pathn
             {pinned ? <PinOff size={15} /> : <Pin size={15} />}
           </button>
         </div>
-        <Link href="/" className={`side-hover flex items-center gap-2.5 rounded-lg px-2.5 py-2 ${pathname === '/' ? 'side-on font-semibold' : ''}`}>
+        {/* ホーム＝その人のホーム（営業→ホーム営業・人事→ホーム人事・10-27）。下にたまげたポン（未経験事業部の人だけ） */}
+        <Link href={home} className={`side-hover flex items-center gap-2.5 rounded-lg px-2.5 py-2 ${pathname === home || pathname === '/' ? 'side-on font-semibold' : ''}`}>
           <Home size={18} strokeWidth={1.8} className="shrink-0" /><span className={lbl}>ホーム</span>
         </Link>
+        {NAV_HOME.filter((it) => canOpen(it.href)).map((it) => (
+          <Link key={it.href} href={it.href} title={wide ? undefined : it.label} className={`side-hover -mt-1.5 flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 ${isOn(pathname, it.href) ? 'side-on font-semibold' : ''}`}>
+            <Gift size={18} strokeWidth={1.8} className="shrink-0" /><span className={lbl}>{it.label}</span>
+          </Link>
+        ))}
         {groups.map((g) => {
           const open = opened.includes(g.key);
           const show = wide && open;
@@ -196,7 +204,7 @@ function SideNav({ pathname, visible, horyu, manageAccess, kanawestOf }: { pathn
           );
         })}
         <div className="side-line mt-auto flex flex-col gap-px border-t pt-2.5">
-          {NAV_EXTRA.map((it) => (
+          {NAV_EXTRA.filter((it) => canOpen(it.href)).map((it) => (
             <Link key={it.href} href={it.href} className={`side-hover flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 ${pathname === it.href ? 'side-on' : ''}`}>
               {it.href === '/renraku' ? <MessageSquare size={17} strokeWidth={1.8} className="shrink-0" /> : <SlidersHorizontal size={17} strokeWidth={1.8} className="shrink-0" />}<span className={lbl}>{it.label}</span>
             </Link>
