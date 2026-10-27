@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { ikeFetch, ikeToken } from '@/lib/ike';
+import { ikeFetchCached, ikeToken } from '@/lib/ike';
 import { livePerson, type LivePersonView, type PersonCandidate, type PersonRes } from '@/lib/live/person';
 import { cellsOf, normName as eNorm, type EngineerRow, type EngineerRows } from '@/lib/live/eigyo-common';
 import { MIKEIKEN_PATH, isMikeiken, mikeikenSetOf } from '@/lib/live/mikeiken';
@@ -14,11 +14,14 @@ import { buildStaffList, isLiveStaffId, staffIdMatches, normName as sNorm, type 
 //   ・同姓同名は実在する（10-21）。名前で当たった人を全部 candidates で返し、小窓で選ぶ（採用担当・所属・最寄駅で見分ける）
 //     id（社員＝r…／要員＝プロパーリストの行の id）が来たらその人だけ
 //   ・単価・額面などは組織表で伏せる（lib/live/role.ts myCan）。can で「チャット・基本情報・単価」を見てよいかを返す
+//   ・6本の一覧は全員ぶんで重いので、同じ人の60秒以内は控えを返す（lib/cache.ts・人ごと。10-27 shoya「名前クリックの読み込みが遅い」）
+//     押すたびに今のシステムから全部読み直していたのが遅さの元。名前にマウスが乗ったときの先読み（Person.tsx）もこの控えに入る
 class AuthGone extends Error {}
+const LIST_TTL = 60_000;
 async function getJson<T>(path: string): Promise<T | null> {
-  const r = await ikeFetch(path);
+  const r = await ikeFetchCached<T>(path, LIST_TTL);
   if (r.status === 401) throw new AuthGone();
-  return r.ok ? ((await r.json()) as T) : null;
+  return r.ok ? r.data : null;
 }
 const soft = <T,>(p: Promise<T | null>) => p.catch((e) => { if (e instanceof AuthGone) throw e; return null; });
 const v = (s?: string) => (s && s !== '—' ? s : '');

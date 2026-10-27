@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import type { PersonCandidate, PersonRes } from '@/lib/live/person';
@@ -19,10 +19,33 @@ import { SkeletonRows } from './ui';
 //   ・見せてよい中身はロールで決まる（チャット・基本情報＝管理者と採用だけ・単価＝管理者と営業だけ。サーバー側で伏せる）
 //   ・窓ではなく画面の一番上（ヘッダーのすぐ下・全幅）に出す section（10-26）
 
+// 読み込みの体感を速くする（10-27 shoya「名前クリックの読み込み体感少し遅い」）
+//   ・名前にマウスが乗って少し止まったら（またはキーで選んだら）先に読み始める。押したときはその読みかけを待つだけ
+//   ・同じ人の答えは60秒手元に持つ（閉じてすぐ開き直しても待たない）。サーバー側も一覧を60秒控える（app/api/live/person）
+type Loaded = { status: number; j: Partial<PersonRes> & { error?: string } };
+const PERSON_TTL = 60_000;
+const loads = new Map<string, { at: number; p: Promise<Loaded> }>();
+function loadPerson(name: string, id?: string): Promise<Loaded> {
+  const k = `${name}|${id || ''}`;
+  const now = Date.now();
+  const hit = loads.get(k);
+  if (hit && now - hit.at < PERSON_TTL) return hit.p;
+  const p = fetch('/api/live/person', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, id }) })
+    .then(async (r) => ({ status: r.status, j: (await r.json().catch(() => ({}))) as Loaded['j'] }));
+  loads.set(k, { at: now, p });
+  // 失敗した答えは持たない（次に押したら読み直す）
+  p.then((x) => { if (x.status !== 200 || !x.j.ok) loads.delete(k); }, () => loads.delete(k));
+  return p;
+}
+
 export function PersonName({ name, id, className, children }: { name: string; id?: string; className?: string; children?: React.ReactNode }) {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   if (!name || name === '—') return <>{children ?? name}</>;
+  const pre = () => { if (!timer.current) timer.current = setTimeout(() => { void loadPerson(name, id).catch(() => {}); }, 120); };
+  const cancel = () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; } };
   return (
-    <button type="button" onClick={(e) => { e.stopPropagation(); window.dispatchEvent(new CustomEvent('person:open', { detail: { name, id } })); }}
+    <button type="button" onPointerEnter={pre} onPointerLeave={cancel} onFocus={pre} onBlur={cancel}
+      onClick={(e) => { e.stopPropagation(); cancel(); window.dispatchEvent(new CustomEvent('person:open', { detail: { name, id } })); }}
       data-ctx-name={name} data-ctx-key={id || undefined}
       title="押すとこの人の情報（右クリックでほかの画面で開く）" className={className ?? 'font-semibold underline-offset-2 hover:underline'} style={className ? undefined : { color: 'var(--ad)' }}>
       {children ?? name}
@@ -50,10 +73,9 @@ export function PersonHost() {
       setGot({ name, id, live: false });
       window.scrollTo({ top: 0, behavior: 'smooth' });
       try {
-        const r = await fetch('/api/live/person', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, id }) });
-        const j = (await r.json().catch(() => ({}))) as Partial<PersonRes> & { error?: string };
-        const v: Got = r.status === 401 && j.error === 'not_logged_in' ? { name, id, live: false, error: LOGIN_AGAIN }
-          : !r.ok || !j.ok ? { name, id, live: true, error: j.error || `読めませんでした（${r.status}）` }
+        const { status, j } = await loadPerson(name, id);
+        const v: Got = status === 401 && j.error === 'not_logged_in' ? { name, id, live: false, error: LOGIN_AGAIN }
+          : status !== 200 || !j.ok ? { name, id, live: true, error: j.error || `読めませんでした（${status}）` }
           : { name, id, live: true, res: j as PersonRes };
         setGot((g) => (same(g) ? v : g));
       } catch (er) { setGot((g) => (same(g) ? { name, id, live: true, error: (er as Error).message } : g)); }
