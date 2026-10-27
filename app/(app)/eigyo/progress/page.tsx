@@ -15,12 +15,13 @@ import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { gidOfRow, liveDirectRows, liveProgress, type DirectData } from '@/lib/live/progress';
 import { matchGroupName, mdhm, type ProgressData, type ProgressReply } from '@/lib/live/eigyo-common';
 import { PersonName } from '@/components/Person';
+import { ColumnPicker, useColumns, type ColDef } from '@/components/jinji/ColumnPicker';
 
 // 案件進捗（単独の画面・2026-10-23 shoya）。
 //   ・送った案件 … あおい／グループ直接／手動配信 のどれで送った分も1本で並べる。返信・OK/NG は経路に関係なく同じ扱い
 //   ・回収候補 … 内勤がグループに直接書いた「案件らしい発言」。一番近い案件を当てて、内勤が✓で確定したものだけ載せる
 //     どの案件か迷うものは「チャットで前後を見る」でグループのやりとりを確かめてから決める
-//   列・並び・タブを自分で変える「カスタム」はあとで決める（10-23 shoya）
+//   カスタム（10-27）：列（出す・並び）・並べ方・判断での絞り込み・自分のタブ（いまの絞り込みに名前を付けて残す）。どれもこの端末に覚える
 //   本物（ログイン中）：今の /api/proxy?action=getProgressData と getProgressReplies（直近7日の送信）。
 //     OK/NG は今の📮判断と同じ口（/api/live/eigyo judge → markSlackForwarded。OK は確認のうえ Slack の案件スレッドへ・NG は取り消せる）
 //     回収候補＝/api/roster?op=eigyo&action=direct（内勤のグループ発言から拾う・10-26 足した）。✓で載せた分は「グループ直接」で送った案件に並ぶ
@@ -38,6 +39,31 @@ const Chip = ({ s, children }: { s: { bg: string; fg: string }; children: React.
 const scoreTone = (n: number) => (n >= 85 ? 'var(--color-ok)' : n >= 70 ? 'var(--color-warn)' : 'var(--color-bad)');
 
 type TabKey = 'sent' | 'collect';
+type DecF = 'すべて' | '返信待ち' | '未判断' | 'OK' | 'NG';
+type SortK = 'new' | 'old' | 'reply' | 'undecided' | 'case' | 'person';
+type MyTab = { name: string; via: Via | 'すべて'; dec: DecF; sort: SortK };
+const COLS: ColDef[] = [
+  { k: 'case', t: '案件' }, { k: 'person', t: '要員' }, { k: 'via', t: '送った経路' }, { k: 'sent', t: '送った日時' },
+  { k: 'reply', t: '返信' }, { k: 'decision', t: '判断' }, { k: 'chat', t: 'チャット' },
+];
+const COL_DEFAULT = COLS.map((c) => c.k);
+const SORTS: [SortK, string][] = [['new', '送った日時が新しい順'], ['old', '送った日時が古い順'], ['reply', '返信が新しい順'], ['undecided', '未判断を上に'], ['case', '案件No順'], ['person', '要員の名前順']];
+const DECS: DecF[] = ['すべて', '返信待ち', '未判断', 'OK', 'NG'];
+const MYTAB_KEY = 'v2_progress_tabs';
+const PREF_KEY = 'v2_progress_prefs';
+const tsOfId = (id: string) => Number(id.split(':').pop()) || 0;
+const decOk = (r: ProgressRow, d: DecF) => d === 'すべて' || (d === '返信待ち' ? !r.reply : d === '未判断' ? !!r.reply && r.decision === '未判断' : r.decision === d);
+function sortRows(rows: ProgressRow[], k: SortK): ProgressRow[] {
+  const a = [...rows];
+  if (k === 'old') a.sort((x, y) => tsOfId(x.id) - tsOfId(y.id));
+  else if (k === 'reply') a.sort((x, y) => (y.replyAt || '').localeCompare(x.replyAt || '') || tsOfId(y.id) - tsOfId(x.id));
+  else if (k === 'undecided') a.sort((x, y) => Number(!!y.reply && y.decision === '未判断') - Number(!!x.reply && x.decision === '未判断') || tsOfId(y.id) - tsOfId(x.id));
+  else if (k === 'case') a.sort((x, y) => x.caseNo.localeCompare(y.caseNo, 'ja', { numeric: true }) || tsOfId(y.id) - tsOfId(x.id));
+  else if (k === 'person') a.sort((x, y) => x.person.localeCompare(y.person, 'ja') || tsOfId(y.id) - tsOfId(x.id));
+  return a;   // new は元の並び（新しい順）のまま
+}
+function readLs<T>(key: string): T | null { try { const v = localStorage.getItem(key); return v ? (JSON.parse(v) as T) : null; } catch { return null; } }
+function writeLs(key: string, v: unknown) { try { localStorage.setItem(key, JSON.stringify(v)); } catch { /* 残せなくても画面は動く */ } }
 type ChatOpen = { group: string; thread: ChatMsg[]; focus?: string; cand?: Candidate; gid?: string };
 
 export default function ProgressPage() {
@@ -77,12 +103,36 @@ export default function ProgressPage() {
   const [pick, setPick] = useState<Record<string, string>>({}); // 候補ごとに内勤が選び直した案件No
   const [flash, setFlash] = useState<string | null>(null);
   const [chat, setChat] = useState<ChatOpen | null>(null);
-  const [via, setVia] = useState<Via | 'すべて'>('すべて');
+  const [via, setViaRaw] = useState<Via | 'すべて'>('すべて');
+  const [dec, setDecRaw] = useState<DecF>('すべて');
+  const [sort, setSortRaw] = useState<SortK>('new');
+  const [myTabs, setMyTabs] = useState<MyTab[]>([]);
+  const [myOn, setMyOn] = useState<number | null>(null);   // いま当てている自分のタブ（絞り込みを変えたら外れる）
+  const cols = useColumns('v2_progress_cols', COLS, COL_DEFAULT);
+  useEffect(() => {
+    const t = readLs<MyTab[]>(MYTAB_KEY);
+    if (Array.isArray(t)) setMyTabs(t.filter((x) => x && typeof x.name === 'string'));
+    const p = readLs<{ sort?: SortK }>(PREF_KEY);
+    if (p?.sort && SORTS.some(([k]) => k === p.sort)) setSortRaw(p.sort);
+  }, []);
+  const setVia = (v: Via | 'すべて') => { setViaRaw(v); setMyOn(null); };
+  const setDec = (d: DecF) => { setDecRaw(d); setMyOn(null); };
+  const setSort = (k: SortK) => { setSortRaw(k); setMyOn(null); writeLs(PREF_KEY, { sort: k }); };
+  const saveTabs = (t: MyTab[]) => { setMyTabs(t); writeLs(MYTAB_KEY, t); };
+  const applyMy = (i: number) => { const t = myTabs[i]; if (!t) return; setViaRaw(t.via); setDecRaw(t.dec); setSortRaw(t.sort); setMyOn(i); setTab('sent'); window.history.replaceState(null, '', '/eigyo/progress'); };
+  const addMy = () => {
+    const def = [via !== 'すべて' ? via : '', dec !== 'すべて' ? dec : ''].filter(Boolean).join('・') || SORTS.find(([k]) => k === sort)![1];
+    const name = window.prompt('いまの絞り込みと並べ方に名前を付けて、タブに残します（この端末に覚えます）', def)?.trim();
+    if (!name) return;
+    const next = [...myTabs, { name: name.slice(0, 20), via, dec, sort }];
+    saveTabs(next); setMyOn(next.length - 1);
+  };
+  const delMy = (i: number) => { if (!window.confirm(`タブ「${myTabs[i].name}」を消します`)) return; saveTabs(myTabs.filter((_, j) => j !== i)); setMyOn(null); };
   const total = live ? lp.cands.length : 0;
 
   const [tab, setTab] = useState<TabKey>('sent');
   const [rowFlash, setRowFlash] = useState<string | null>(null);
-  const go = (k: TabKey) => { setTab(k); window.history.replaceState(null, '', `/eigyo/progress${k === 'sent' ? '' : '?tab=collect'}`); };
+  const go = (k: TabKey) => { setTab(k); setMyOn(null); window.history.replaceState(null, '', `/eigyo/progress${k === 'sent' ? '' : '?tab=collect'}`); };
   // ?tab=collect で始める。クエリは useEffect で読む
   useEffect(() => { const q = new URLSearchParams(window.location.search); if (q.get('tab') === 'collect') setTab('collect'); }, []);
 
@@ -137,7 +187,12 @@ export default function ProgressPage() {
     }
   };
 
-  const shown = rows.filter((r) => via === 'すべて' || r.via === via);
+  const shown = sortRows(rows.filter((r) => (via === 'すべて' || r.via === via) && decOk(r, dec)), sort);
+  const head: Record<string, React.ReactNode> = {
+    case: <th key="case" className="px-4 py-2.5 font-semibold">案件</th>, person: <th key="person" className="px-2 py-2.5 font-semibold">要員</th>,
+    via: <th key="via" className="px-2 py-2.5 font-semibold">送った経路</th>, sent: <th key="sent" className="px-2 py-2.5 font-semibold">送った日時</th>,
+    reply: <th key="reply" className="px-2 py-2.5 font-semibold">返信</th>, decision: <th key="decision" className="px-2 py-2.5 font-semibold">判断</th>, chat: <th key="chat" className="px-4 py-2.5" />,
+  };
   const kpi = [
     { label: '直近7日に送った', n: rows.length, sub: `グループ直接 ${rows.filter((r) => r.via === 'グループ直接').length}件` },
     { label: '返信待ち', n: rows.filter((r) => !r.reply).length, sub: '要員からの返事がまだ' },
@@ -163,40 +218,56 @@ export default function ProgressPage() {
 
       <div role="tablist" className="mo-fade-up flex flex-wrap gap-1 border-b border-line" style={{ ['--i' as string]: 2 }}>
         {([['sent', '送った案件'], ['collect', '回収候補']] as [TabKey, string][]).map(([k, l]) => (
-          <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)} className="tab">
+          <button key={k} role="tab" aria-selected={tab === k && myOn === null} onClick={() => go(k)} className="tab">
             {l}{k === 'collect' && cands.length > 0 && <span className="num ml-1.5 rounded-full bg-bad px-1.5 text-xs font-bold text-white">{cands.length}</span>}
           </button>
         ))}
-        <span className="ml-auto self-center text-xs text-faint">列・並び・タブを自分で変えるのは、あとで決めます</span>
+        {myTabs.map((t, i) => (
+          <span key={i} className="inline-flex items-center">
+            <button role="tab" aria-selected={myOn === i} onClick={() => applyMy(i)} className="tab" title={`経路 ${t.via}・判断 ${t.dec}・${SORTS.find(([k]) => k === t.sort)?.[1] ?? ''}`}>{t.name}</button>
+            {myOn === i && <button aria-label={`タブ「${t.name}」を消す`} onClick={() => delMy(i)} className="-ml-1 mr-1 rounded p-0.5 text-faint hover:text-bad"><X size={13} /></button>}
+          </span>
+        ))}
+        {tab === 'sent' && <button onClick={addMy} className="ml-auto self-center inline-flex items-center gap-1 text-sm text-muted hover:text-ink"><Plus size={14} />いまの絞り込みをタブに</button>}
       </div>
 
       <div key={tab} className={`mo-axis ${chat ? 'xl:pr-[444px]' : ''}`}>
         {tab === 'sent' ? (
           <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {(['すべて', 'あおい', 'グループ直接', '手動配信'] as const).map((v) => (
                 <button key={v} onClick={() => setVia(v)} aria-pressed={via === v} className="fchip">
                   {v} <span className="num">{v === 'すべて' ? rows.length : rows.filter((r) => r.via === v).length}</span>
                 </button>
               ))}
+              <span className="mx-1 h-5 w-px bg-line" />
+              {DECS.map((d) => (
+                <button key={d} onClick={() => setDec(d)} aria-pressed={dec === d} className="fchip">
+                  {d === 'すべて' ? '判断すべて' : d} <span className="num">{rows.filter((r) => (via === 'すべて' || r.via === via) && decOk(r, d)).length}</span>
+                </button>
+              ))}
+              <span className="ml-auto inline-flex items-center gap-2">
+                <select aria-label="並べ方" value={sort} onChange={(e) => setSort(e.target.value as SortK)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-body text-ink">
+                  {SORTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+                </select>
+                <ColumnPicker all={COLS} keys={cols.keys} onChange={(k) => cols.save(k.length ? k : ['case'])} onReset={cols.reset} />
+              </span>
             </div>
             <div className="overflow-hidden rounded-xl border border-line bg-surface">
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[980px] border-collapse text-body">
-                  <thead><tr className="th-row text-left">
-                    <th className="px-4 py-2.5 font-semibold">案件</th><th className="px-2 py-2.5 font-semibold">要員</th><th className="px-2 py-2.5 font-semibold">送った経路</th><th className="px-2 py-2.5 font-semibold">送った日時</th><th className="px-2 py-2.5 font-semibold">返信</th><th className="px-2 py-2.5 font-semibold">判断</th><th className="px-4 py-2.5" />
-                  </tr></thead>
+                  <thead><tr className="th-row text-left">{cols.keys.filter((k) => head[k]).map((k) => head[k])}</tr></thead>
                   <tbody>
                     {shown.map((r, i) => {
                       const c = caseOf(r.caseNo);
-                      return (
-                        <tr key={r.id} className={`mo-fade-in border-t border-line-soft ${rowFlash === r.id ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
-                          <td className="px-4 py-2.5"><div className="font-semibold">{c?.name ?? r.caseNo}</div><div className="text-xs text-faint">{r.caseNo}{c?.price && ` ・ ${c.price}`}</div></td>
-                          <td className="px-2 py-2.5"><PersonName name={r.person} /></td>
-                          <td className="whitespace-nowrap px-2 py-2.5"><Chip s={VIA_STYLE[r.via]}>{r.via}</Chip>{r.via !== 'あおい' && <span className="ml-1.5 text-xs text-muted">{r.sender}</span>}</td>
-                          <td className="num whitespace-nowrap px-2 py-2.5">{r.sentAt}</td>
-                          <td className="max-w-[240px] px-2 py-2.5">{r.reply ? <><span className="line-clamp-1">{r.reply}</span><span className="text-xs text-faint">{r.replyAt}</span></> : <span className="text-sm font-semibold text-bad">返信待ち</span>}</td>
-                          <td className="whitespace-nowrap px-2 py-2.5">
+                      const cell: Record<string, React.ReactNode> = {
+                        case: <td key="case" className="px-4 py-2.5"><div className="font-semibold">{c?.name ?? r.caseNo}</div><div className="text-xs text-faint">{r.caseNo}{c?.price && ` ・ ${c.price}`}</div></td>,
+                        person: <td key="person" className="px-2 py-2.5"><PersonName name={r.person} /></td>,
+                        via: <td key="via" className="whitespace-nowrap px-2 py-2.5"><Chip s={VIA_STYLE[r.via]}>{r.via}</Chip>{r.via !== 'あおい' && <span className="ml-1.5 text-xs text-muted">{r.sender}</span>}</td>,
+                        sent: <td key="sent" className="num whitespace-nowrap px-2 py-2.5">{r.sentAt}</td>,
+                        reply: <td key="reply" className="max-w-[240px] px-2 py-2.5">{r.reply ? <><span className="line-clamp-1">{r.reply}</span><span className="text-xs text-faint">{r.replyAt}</span></> : <span className="text-sm font-semibold text-bad">返信待ち</span>}</td>,
+                        decision: (
+                          <td key="decision" className="whitespace-nowrap px-2 py-2.5">
                             {r.reply && r.decision === '未判断' ? (
                               <span className="inline-flex gap-1">
                                 {(['OK', 'NG'] as const).map((d) => (
@@ -206,13 +277,20 @@ export default function ProgressPage() {
                             ) : <Chip s={DEC_STYLE[r.decision]}>{r.decision}</Chip>}
                             {r.slack && <span className="ml-1.5 text-xs text-muted">📮営業へ</span>}
                           </td>
-                          <td className="px-4 py-2.5 text-right">
+                        ),
+                        chat: (
+                          <td key="chat" className="px-4 py-2.5 text-right">
                             <button onClick={() => setChat({ group: r.group, thread: lp.threads[r.id] ?? [] })} className="inline-flex min-h-8 items-center whitespace-nowrap gap-1.5 rounded-lg border px-2.5 text-sm font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><MessageSquareText size={14} />チャット</button>
                           </td>
+                        ),
+                      };
+                      return (
+                        <tr key={r.id} className={`mo-fade-in border-t border-line-soft ${rowFlash === r.id ? 'mo-flash' : 'row'}`} style={{ ['--i' as string]: i }}>
+                          {cols.keys.filter((k) => cell[k]).map((k) => cell[k])}
                         </tr>
                       );
                     })}
-                    {shown.length === 0 && <tr><td colSpan={7} className="px-4 py-10 text-center text-body text-muted">{pd.state === 'loading' ? '読み込み中…' : pd.state === 'error' ? '案件進捗を読み込めませんでした' : via === 'すべて' ? '送った案件はまだありません' : `「${via}」で送った案件はまだありません`}</td></tr>}
+                    {shown.length === 0 && <tr><td colSpan={Math.max(1, cols.keys.length)} className="px-4 py-10 text-center text-body text-muted">{pd.state === 'loading' ? '読み込み中…' : pd.state === 'error' ? '案件進捗を読み込めませんでした' : via === 'すべて' && dec === 'すべて' ? '送った案件はまだありません' : 'この絞り込みに当たる案件はありません'}</td></tr>}
                   </tbody>
                 </table>
               </div>
