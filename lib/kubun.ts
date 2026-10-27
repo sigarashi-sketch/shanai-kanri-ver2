@@ -21,6 +21,14 @@ export const kubunLabel = (k: KubunKey) => KUBUN.find((x) => x.key === k)!.label
 
 /** ver2 の画面 → 区分（＝左メニューの分類） */
 export const KUBUN_OF_HREF: Record<string, KubunKey> = Object.fromEntries(NAV.flatMap((g) => g.items.map((it) => [it.href, g.module])));
+// 営業から先に出す（10-27 shoya「営業からやっちゃいたい」）。PRE_LAUNCH を true にすると、全体管理者でない人には
+//   PRE_LAUNCH_CLOSED の下の画面を出さない（メニューにも出ない・開くと「権限がありません」）＝営業（/home/eigyo・/eigyo/）とホーム・設定だけ
+//   ★同日「もう本番」（ほかの分類も使っている人がいる）なので false にしてある。営業だけにしたいときは true
+export const PRE_LAUNCH = false;
+export const PRE_LAUNCH_CLOSED = ['/home/jinji', '/jinji', '/jinzai', '/roumu', '/keiri', '/horyu'] as const;
+export const preLaunchClosed = (pathname: string, owner: boolean) =>
+  PRE_LAUNCH && !owner && PRE_LAUNCH_CLOSED.some((h) => pathname === h || pathname.startsWith(h + '/'));
+
 /** かな西エリアで開ける画面（神奈川要員だけに絞る）。連絡パネルのチャットも同じ扱い */
 export const KANAWEST_HREFS = ['/eigyo/proper', '/eigyo/mendan', '/eigyo/progress'] as const;
 

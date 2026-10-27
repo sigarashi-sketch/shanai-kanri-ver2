@@ -1,7 +1,7 @@
 import type { ModuleKey } from './theme';
 
 // 左メニュー。4つの分類（色を持つ）＋ 連絡・設定。
-//   built=false の画面は「これから作る」ページに落ちる（ver2 は全部そろってから本番に出す）。
+//   built=false の画面は「これから作る」ページに落ちる。営業から先に出す（10-27・まだ出さない分類は lib/kubun.ts PRE_LAUNCH）。
 export type NavItem = { href: string; label: string; built?: boolean };
 // 件数のバッジは、本物の件数がつながるまで出さない（10-25 見た目の整理：見本の数字だったため）。メニューの名前は短く（説明のかっこは付けない）
 export type NavGroup = { module: ModuleKey; label: string; items: NavItem[] };
@@ -19,6 +19,7 @@ export const NAV: NavGroup[] = [
       { href: '/jinji/sankyu', label: '産休・育休', built: true },
       { href: '/jinji/ocr', label: '身分証の読み取り', built: true },
       { href: '/jinji/ippass', label: '媒体アイパス管理', built: true }, // 保留から人事へ（10-26 shoya）。開ける人は今のシステムの ippass と同じ（lib/horyu-access.ts）
+      { href: '/jinji/map', label: '案件・要員マップ', built: true }, // 営業の /eigyo/map と同じ画面（10-27 shoya「案件MAPは人事のメニューにも同じの」）
     ],
   },
   {

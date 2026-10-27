@@ -9,7 +9,7 @@ import { APP_NAME } from '@/lib/app';
 import type { ModuleKey } from '@/lib/theme';
 import { useColors } from './ColorProvider';
 import { MotivationProvider, TodayPill } from './Motivation';
-import { NoAccess, pageAccess, usePerms } from './Perms';
+import { NoAccess, usePerms } from './Perms';
 import { RenrakuButton } from './Renraku';
 import { PersonHost } from './Person';
 import { CtxMenu } from './CtxMenu';
@@ -26,17 +26,17 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { group } = findNav(pathname);
   const { notes } = useColors();
-  const { me, kperms, manageAccess, kanawestOnly } = usePerms();
+  const { me, manageAccess, kanawestOnly, open: canOpen } = usePerms();
   // 保留のメニューは今の社内システムのページ権限で出し分ける（見られない人には出さない・10-26）。読めないあいだは全部出す
   const { pa } = useMePages();
-  const horyu = NAV_HORYU.filter((it) => horyuVisible(it.href, pa));
+  const horyu = NAV_HORYU.filter((it) => canOpen(it.href) && horyuVisible(it.href, pa));
   const module = group?.module ?? 'home';
   // 区分ごと（10-26）：見ない区分の画面はメニューに出さない。かな西エリアだけの人には要員の画面を「かな西」の印つきで出す
   //   媒体アイパス管理のように今のシステムが特別に絞る画面は、今のページ権限でも絞る（horyuVisible・台帳に無い画面は素通り）
-  const visible = NAV.map((g) => ({ ...g, items: g.items.filter((it) => pageAccess(kperms, it.href) && horyuVisible(it.href, pa)) })).filter((g) => g.items.length);
+  const visible = NAV.map((g) => ({ ...g, items: g.items.filter((it) => canOpen(it.href) && horyuVisible(it.href, pa)) })).filter((g) => g.items.length);
   // 今のシステムのページ権限で開けない画面（経理管理など）も、中で forbidden を出さずに「権限がありません」にする（10-26）
   const legacyBlocked = !!group && !horyuVisible(group.items.find((it) => pathname === it.href || pathname.startsWith(it.href + '/'))?.href ?? pathname, pa);
-  const blocked = (!!group && !pageAccess(kperms, pathname)) || legacyBlocked;
+  const blocked = !canOpen(pathname) || legacyBlocked;   // 分類に入っていない画面（ホーム・設定）は開く。保留も PRE_LAUNCH の間は閉じる
   // 右から出るパネル（連絡・スキシ）が上のバーに重ならないよう、バーの実際の高さを --hdr に入れる（狭い画面では折り返して高くなる）
   const hdr = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -53,7 +53,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <YoyakuProvider>
       <AlertProvider>
       <div data-module={module} className="flex min-h-screen">
-        <SideNav pathname={pathname} visible={visible} horyu={horyu} manageAccess={manageAccess} kanawestOf={(href) => pageAccess(kperms, href) === 'kanawest'} />
+        <SideNav pathname={pathname} visible={visible} horyu={horyu} manageAccess={manageAccess} kanawestOf={(href) => canOpen(href) === 'kanawest'} />
 
         <div className="flex min-w-0 flex-1 flex-col">
           <header ref={hdr} className="sticky top-0 z-30 flex min-h-[58px] flex-wrap items-center gap-3.5 topbar border-b border-line px-6 backdrop-blur">
@@ -72,7 +72,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           {/* 名前を押した人は、画面の一番上に出す（右でも小窓でもない・10-26 shoya「上に表示しろ」） */}
           <PersonHost />
           {kanawestOnly && !blocked && <div role="status" className="mx-6 mt-3 rounded-lg border border-line bg-soft px-3 py-2 text-sm text-muted">かな西エリア：神奈川要員の人だけを出しています（見るだけ）</div>}
-          {blocked ? <NoAccess label={findNav(pathname).item?.label ?? group!.label} legacy={legacyBlocked} /> : children}
+          {blocked ? <NoAccess label={findNav(pathname).item?.label ?? group?.label ?? 'この画面'} legacy={legacyBlocked} /> : children}
         </div>
         <div id="drawer-root" />
         {/* 全画面共通の右クリックメニュー（今のいけどんの ctx-menu.js をそのまま・10-26） */}
