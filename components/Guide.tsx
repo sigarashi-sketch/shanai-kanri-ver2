@@ -49,23 +49,23 @@ function useTourSteps(groups: NavGroup[]): TourStep[] {
   const n = groups.reduce((a, g) => a + g.items.length, 0);
   const homeLabel = home === '/home/eigyo' ? 'ホーム営業' : home === '/home/jinji' ? 'ホーム人事' : 'ホーム';
   const out: TourStep[] = [
-    { key: 'hello', target: 'sidenav', title: `${me.name}さん、ようこそ`, text: `実際の画面を開きながら、あなたが使える画面（${groups.length}つの分類・${n}画面）を順に案内します。\n\n左がメニューです。ふだんはアイコンだけの細い帯で、マウスを合わせると広がります。上のピンで広げたまま固定できます。\n\n「次へ」か →キーで進み、「×」か Esc でいつでも終われます。あとから右上の「使い方」でもう一度見られます。` },
-    { key: 'home', path: home, target: 'home', showPage: true, title: 'ホーム', text: home === '/home/eigyo' ? '「ホーム」を押すと ホーム営業 が開きます。上のタブで「成約・売上」（担当営業ごとの成約数・売上・粗利）と「フィード」（担当の要員の動きをインスタのように）を切り替えます。' : home === '/home/jinji' ? '「ホーム」を押すと ホーム人事 が開きます。未経験の要員の動き（承諾・参画・面談・退社など）がインスタのように流れてきます。' : `「ホーム」を押すと ${homeLabel} が開きます。いま対応が要るものと件数をまとめて見られます。` },
+    { key: 'hello', section: 'はじめに', target: 'sidenav', title: `${me.name}さん、ようこそ`, text: `実際の画面を開きながら、あなたが使える画面（${groups.length}つの分類・${n}画面）を順に案内します。\n\n左がメニューです。ふだんはアイコンだけの細い帯で、マウスを合わせると広がります。上のピンで広げたまま固定できます。\n\n「次へ」か →キーで進み、「×」か Esc でいつでも終われます。あとから右上の「使い方」でもう一度見られます。` },
+    { key: 'home', section: 'はじめに', path: home, target: 'home', showPage: true, title: 'ホーム', text: home === '/home/eigyo' ? '「ホーム」を押すと ホーム営業 が開きます。上のタブで「成約・売上」（担当営業ごとの成約数・売上・粗利）と「フィード」（担当の要員の動きをインスタのように）を切り替えます。' : home === '/home/jinji' ? '「ホーム」を押すと ホーム人事 が開きます。未経験の要員の動き（承諾・参画・面談・退社など）がインスタのように流れてきます。' : `「ホーム」を押すと ${homeLabel} が開きます。いま対応が要るものと件数をまとめて見られます。` },
   ];
-  for (const it of NAV_HOME) if (open(it.href)) out.push({ key: it.href, path: it.href, target: `nav-${it.href}`, showPage: true, title: it.label, entry: GUIDE[it.href] });
+  for (const it of NAV_HOME) if (open(it.href)) out.push({ key: it.href, section: 'はじめに', path: it.href, target: `nav-${it.href}`, showPage: true, title: it.label, entry: GUIDE[it.href] });
   groups.forEach((g, gi) => {
     const start = out.length;
     const lv = kw ? '見るだけ（神奈川要員だけ）' : kperms[g.module] !== 'none' ? `「${LEVELS.find((x) => x.key === kperms[g.module])!.label}」の権限` : '一部の画面だけ「見る」';
-    out.push({ key: `grp-${g.module}`, target: `grp-${g.module}`, group: g.module, mod: g.module, title: g.label, text: `見出しを押すと、この分類の画面が下に開きます。あなたは${lv}で、${g.items.length}画面を使えます。\n\nこれから1つずつ実際に開きます。` });
-    for (const it of g.items) out.push({ key: it.href, path: it.href, target: `nav-${it.href}`, showPage: true, group: g.module, mod: g.module, title: it.label, level: levelOf(g, it), entry: GUIDE[it.href], text: GUIDE[it.href] ? undefined : '説明はまだありません' });
+    out.push({ key: `grp-${g.module}`, section: g.label, target: `grp-${g.module}`, group: g.module, mod: g.module, title: g.label, text: `見出しを押すと、この分類の画面が下に開きます。あなたは${lv}で、${g.items.length}画面を使えます。\n\nこれから1つずつ実際に開きます。` });
+    for (const it of g.items) out.push({ key: it.href, section: g.label, path: it.href, target: `nav-${it.href}`, showPage: true, group: g.module, mod: g.module, title: it.label, level: levelOf(g, it), entry: GUIDE[it.href], text: GUIDE[it.href] ? undefined : '説明はまだありません' });
     void gi;
     const end = out.length;
     for (let k = start; k < end; k++) out[k].skipTo = end;
   });
   out.push(
-    { key: 'renraku', target: 'renraku', title: '連絡', text: 'どの画面でも右上の「連絡」から、チャット・配信・手動配信を開けます（人事の画面＝インフォメーション、それ以外＝あおい）。送信は長押しです。' },
-    { key: 'theme', target: 'theme', title: '見た目とチャットの色', text: '「見た目」で画面の着せ替えと、チャットの色（こちら＝送った側・相手 の吹き出し）を選べます。チャットの色はあなたの分として保存するので、どの端末でも同じです。' },
-    { key: 'guide', target: 'guide', title: 'このガイド', text: 'これで終わりです。右上の「使い方」から、いつでもこの案内をもう一度見られます。吹き出しの「一覧で見る」で、全部の画面の説明を一覧でも見られます。\n\nほかにも：人の名前を押すとその人の情報が上に出る・右クリックで画面を移る／並べる・片づけたあとは「取り消す」で戻せます。' },
+    { key: 'renraku', section: 'おわりに（連絡・見た目）', target: 'renraku', title: '連絡', text: 'どの画面でも右上の「連絡」から、チャット・配信・手動配信を開けます（人事の画面＝インフォメーション、それ以外＝あおい）。送信は長押しです。' },
+    { key: 'theme', section: 'おわりに（連絡・見た目）', target: 'theme', title: '見た目とチャットの色', text: '「見た目」で画面の着せ替えと、チャットの色（こちら＝送った側・相手 の吹き出し）を選べます。チャットの色はあなたの分として保存するので、どの端末でも同じです。' },
+    { key: 'guide', section: 'おわりに（連絡・見た目）', target: 'guide', title: 'このガイド', text: 'これで終わりです。右上の「使い方」から、いつでもこの案内をもう一度見られます。吹き出しの「一覧で見る」で、全部の画面の説明を一覧でも見られます。\n\nほかにも：人の名前を押すとその人の情報が上に出る・右クリックで画面を移る／並べる・片づけたあとは「取り消す」で戻せます。' },
   );
   return out;
 }

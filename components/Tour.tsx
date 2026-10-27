@@ -28,6 +28,8 @@ export type TourStep = {
   level?: { l: Level; note?: string };
   entry?: GuideEntry;
   text?: string;
+  /** 吹き出しの「飛ぶ」の欄に出す区切り（はじめに・分類の名前・おわりに） */
+  section?: string;
   /** 「この分類をとばす」で飛ぶ先（次の分類の最初の段） */
   skipTo?: number;
 };
@@ -61,7 +63,9 @@ export function Tour({ steps, onClose, onList }: { steps: TourStep[]; onClose: (
   const [t, setT] = useState<Box | null>(null);
   const [page, setPage] = useState<Box | null>(null);
   const [vw, setVw] = useState({ w: 1280, h: 800 });
-  const scrolled = useRef('');
+  const bubble = useRef<HTMLDivElement>(null);
+  const [bh, setBh] = useState(300);
+  const sections = steps.reduce<{ name: string; at: number }[]>((a, st, n) => (st.section && !a.some((x) => x.name === st.section) ? [...a, { name: st.section, at: n }] : a), []);
   const s = steps[Math.min(i, steps.length - 1)];
 
   // 段が変わったら：メニューを広げて分類を開き、画面を移る
@@ -76,7 +80,16 @@ export function Tour({ steps, onClose, onList }: { steps: TourStep[]; onClose: (
     let raf = 0;
     const tick = () => {
       const el = document.querySelector<HTMLElement>(`[data-tour="${CSS.escape(s.target)}"]`);
-      if (el && scrolled.current !== s.key) { scrolled.current = s.key; el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+      // 左のメニューの中だけ動かして見えるところへ（scrollIntoView は画面ごと動かしてしまう）
+      //   分類が開き切るまで項目の位置が動くので、見えるところに来るまで毎フレーム合わせる
+      if (el) {
+        const nav = el.closest<HTMLElement>('[data-tour="sidenav"]');
+        if (nav && nav !== el) {
+          const er = el.getBoundingClientRect(), nr = nav.getBoundingClientRect();
+          if (er.top < nr.top + 8 || er.bottom > nr.bottom - 8) nav.scrollTop += er.top - nr.top - nr.height / 3;
+        }
+      }
+      if (bubble.current) setBh(bubble.current.offsetHeight);
       setT(rectOf(s.target));
       setPage(s.showPage ? rectOf('col') : null);
       setVw({ w: window.innerWidth, h: window.innerHeight });
@@ -99,9 +112,9 @@ export function Tour({ steps, onClose, onList }: { steps: TourStep[]; onClose: (
 
   const holes = [t, page].filter((b): b is Box => !!b && b.w > 0 && b.h > 0);
   // 吹き出しの置き場：画面の中身を見せる段は右下の隅。それ以外は狙う場所の右（入らなければ下）
-  const bh = 300;
+  // 吹き出しは測った高さで置く（はみ出して「次へ」が見えなくならないように）
   let bx: number, by: number;
-  if (s.showPage || !t) { bx = vw.w - BW - 20; by = Math.max(80, vw.h - bh - 24); }
+  if (s.showPage || !t) { bx = vw.w - BW - 20; by = Math.max(12, vw.h - bh - 16); }
   else if (t.x + t.w + 20 + BW < vw.w) { bx = t.x + t.w + 20; by = Math.min(Math.max(12, t.y - 20), vw.h - bh - 12); }
   else { bx = Math.min(Math.max(12, t.x + t.w - BW), vw.w - BW - 12); by = Math.min(t.y + t.h + 14, vw.h - bh - 12); }
   const px = t ? t.x + Math.min(t.w - 14, Math.max(18, t.w * 0.7)) : vw.w / 2;
@@ -136,12 +149,19 @@ export function Tour({ steps, onClose, onList }: { steps: TourStep[]; onClose: (
         <MousePointer2 key={`p${s.key}`} size={30} strokeWidth={1.6} className="relative drop-shadow-[0_2px_4px_rgba(0,0,0,.45)]" style={{ fill: '#fff', color: '#18181B', animation: 'tour-tap 1100ms 650ms ease-in-out infinite' }} />
       </div>
 
-      <div key={`b${s.key}`} role="dialog" aria-label={`使い方ガイド ${i + 1}/${steps.length}`} className="mo-fade-up absolute flex max-h-[min(70vh,520px)] flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-[0_24px_64px_rgba(0,0,0,.35)]"
+      <div key={`b${s.key}`} role="dialog" aria-label={`使い方ガイド ${i + 1}/${steps.length}`} ref={bubble} className="mo-fade-up absolute flex max-h-[calc(100vh-28px)] flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-[0_24px_64px_rgba(0,0,0,.35)]"
         style={{ left: bx, top: by, width: BW }}>
         <div className="h-1 shrink-0" style={{ background: color }} />
         <div className="flex items-start gap-2 px-4 pt-3">
           <div className="min-w-0 flex-1">
-            <div className="text-xs text-faint">使い方ガイド {i + 1} / {steps.length}</div>
+            <div className="flex items-center gap-2 text-xs text-faint">使い方ガイド {i + 1} / {steps.length}
+              {sections.length > 1 && (
+                <select aria-label="飛ぶ" value={s.section ?? ''} onChange={(e) => { const x = sections.find((y) => y.name === e.target.value); if (x) go(x.at); }}
+                  className="rounded-md border border-field bg-surface px-1.5 py-0.5 text-xs text-ink">
+                  {sections.map((x) => <option key={x.name} value={x.name}>{x.name}へ飛ぶ</option>)}
+                </select>
+              )}
+            </div>
             <h2 className="flex flex-wrap items-center gap-2 text-md font-bold">{s.title}
               {s.level && s.level.l !== 'none' && <span className="chip" style={{ background: color, color: s.mod ? `var(--o-${s.mod})` : 'var(--ao)' }}>{levelText(s.level.l)}{s.level.note ? `・${s.level.note}` : ''}</span>}
             </h2>
