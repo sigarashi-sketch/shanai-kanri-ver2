@@ -12,8 +12,19 @@
 - いまは見本データ（`lib/sample.ts`）。いまの人は上のバーの「見え方」で切り替え（cookie v2_viewer・ログインをつないだら消す）
 - 画面のルール：ses/docs/ver2/UIの型.md ／ 見た目の見本：https://claude.ai/artifact/6nLiR9H8CNZYqqgegPBUE1
 - 画面にブランド名（いけいけどんどん／いけどん）は出さない
-- 権限：分類ごとに 見ない/見る/直す/承認（付いていなければ見ない）＋ロール（全体管理者・管理者・全体を見る）。`lib/access.ts`・権限管理 `/settings/access`。手元の名簿は data/members.json
+- 権限：区分＝**左メニューの分類**（人事管理・人財管理・労務/営業管理・営業・経理管理）＋かな西エリア（`lib/kubun.ts`・10-27 shoya「左のメニュー依存に」）ごとに 見ない/見る/直す/承認（付いていなければ見ない）＋ロール（全体管理者・管理者・全体を見る）。2つの分類で見せたい画面は メニューに別の href で複製する。`lib/access.ts`・付けるのは組織表 `/settings/org`
+- 左メニュー（`components/Shell.tsx` SideNav）：ふだんはアイコンの帯、マウスを合わせると重ねて広がる（今のシステムと同じ）。ピンで広げたまま固定。分類の見出しを押すと画面の一覧が開く
 - 要員リスト `/eigyo/proper`：タブで プロパー（スキシ作成）／営業共有リスト／従業員名簿（人事を見る人だけ）／ライバーリスト（全体管理者だけ）
 - 連絡（チャット・配信・手動配信）は各画面の右上（`components/Renraku.tsx`）。人事＝インフォメーション、それ以外＝あおい。送信は長押し
 - **人財管理**（10-27・5つ目の分類・緑）：それゆけ未経験（saiyou-app）の画面を移した。それゆけにしか無かった画面（従業員名簿・チャット・配信・定期面談・月次アンケート・イベント出欠・アンケート作成・粗利LTV・リッチメニュー・たまげたポンの設定）は `components/sy`（それゆけの写しを ver2 の部品・色で）、データはそれゆけの API を `/api/sy/*` で読み書き（`lib/soreyuke.ts`・同じログインのトークンを sa_access に入れる＝権限・保存の決まりはそれゆけのまま）。ver2 にもうあった コミュニティ・離職率・資格手当・採用・bdsh は人事管理から移しただけ（区分はそのまま）。プロパーリストは営業の要員リストと同じ画面、たまげたポンを回す画面は今のシステムの bikkura.html を /ik で
 - 案件進捗は単独。作り込みはあとで（LINEグループに直接投げた案件も回収する）
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

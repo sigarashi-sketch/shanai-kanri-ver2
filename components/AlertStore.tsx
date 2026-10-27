@@ -6,7 +6,7 @@ import type { Level } from '@/lib/types/base';
 
 // アラート設定を全画面で1つにする置き場（アラート設定・残業・有給・現場契約・当日の出勤状況が同じものを読む）。
 //   本物（10-26 shoya「入ってない本番データもぶちこんで」）：今の社内システムの app_settings（v2_alerts）に全員で1つ。
-//     読む＝GET /api/live/jinji?what=kv-alerts／書く＝POST {action:'kv-save', key:'alerts'}（勤怠の区分を「承認」で持つ人だけ・今のシステムでもロールを見る）
+//     読む＝GET /api/live/jinji?what=kv-alerts／書く＝POST {action:'kv-save', key:'alerts'}（労務/営業管理を「承認」で持つ人だけ・今のシステムでもロールを見る）
 //   ログインしていない・読めないときは、この端末の控え（localStorage）で動く。保存に失敗したら saved に理由を出す
 //   ★ここは決まり（段階・宛先・届け方）を持つだけ。これを見て人に送る仕組みはまだ無い（送らない）
 const KEY = 'v2_alerts';

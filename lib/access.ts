@@ -1,11 +1,11 @@
 // 入れる人と権限（ver2 で作り直し・2026-10-22〜23 shoya）
 //   ① 入れるのは未経験事業部の内勤だけ。それ以外は営業共有リスト（/shared）だけ … これは変えない
-//   ② 内勤の中は 分類（人事・労務・営業・経理）ごとに「見る／直す／承認」の3段階
+//   ② 内勤の中は 区分（＝左メニューの分類・lib/kubun.ts）ごとに「見る／直す／承認」の3段階
 //      何も付いていない分類は「見ない」＝メニューにも出ない
 //   ③ まとめて広く持てる「ロール」もある。その人の分類ごとの段階は「ロールの段階」と「個別に付けた段階」の高いほう
 //   ④ 権限管理（誰に何を付けるか）を触れるのは、それを持つロールの人だけ
 import type { ModuleKey } from './theme';
-import { K_NONE, kAll, kMax, kubunsOfModule, toKPerms, type KPerms } from './kubun';
+import { K_NONE, kAll, kMax, toKPerms, type KPerms } from './kubun';
 
 export type Level = 'none' | 'view' | 'edit' | 'approve';
 export const LEVELS: { key: Level; label: string; hint: string }[] = [
@@ -16,13 +16,11 @@ export const LEVELS: { key: Level; label: string; hint: string }[] = [
 ];
 const RANK: Record<Level, number> = { none: 0, view: 1, edit: 2, approve: 3 };
 export const atLeast = (l: Level, need: Level) => RANK[l] >= RANK[need];
-const max = (a: Level, b: Level): Level => (RANK[a] >= RANK[b] ? a : b);
 
-/** 分類ごとの段階（メニューの見出しと、画面の外で使う can(分類)。区分の段階から作る＝その分類の画面が入っている区分の一番高いもの） */
+/** 分類ごとの段階（メニューの見出しと、画面の外で使う can(分類)）。区分＝左メニューの分類なので そのまま（10-27） */
 export type Perms = Record<ModuleKey, Level>;
 export function modulePerms(k: KPerms): Perms {
-  const m = (mod: ModuleKey) => kubunsOfModule(mod).reduce<Level>((acc, x) => max(acc, k[x]), 'none');
-  return { jinji: m('jinji'), roumu: m('roumu'), eigyo: m('eigyo'), keiri: m('keiri'), jinzai: m('jinzai') };
+  return { jinji: k.jinji, roumu: k.roumu, eigyo: k.eigyo, keiri: k.keiri, jinzai: k.jinzai };
 }
 
 export type RoleKey = 'owner' | 'manager' | 'viewer_all' | 'none';
@@ -65,8 +63,8 @@ export const canManageAccess = (m: Member) => canUseApp(m) && (m.manage ?? !!ROL
 //   executive              → viewer_all（4分類すべて見る）
 //   sales_admin/staff_sales→ none ＋ 営業「直す」
 //   kanawest_sales         → none ＋ かな西エリア「見る」（神奈川要員だけ・10-26）
-//   staff_recruit          → none ＋ 人事「直す」
-//   applicant_support      → none ＋ 人事「見る」
+//   staff_recruit          → none ＋ 人事・人財「直す」
+//   applicant_support      → none ＋ 人事・人財「見る」
 //   keiri                  → none ＋ 経理「直す」
 //   staff / list_viewer / retired / そのほか → none（何も見ない。staff・list_viewer は営業共有リストだけ＝canUseApp も false）
 export function roleFromIke(ikeRole: string): { role: RoleKey; own: Partial<KPerms> } {
@@ -76,8 +74,8 @@ export function roleFromIke(ikeRole: string): { role: RoleKey; own: Partial<KPer
     case 'executive': return { role: 'viewer_all', own: {} };
     case 'sales_admin': case 'staff_sales': return { role: 'none', own: toKPerms({ eigyo: 'edit' }) };
     case 'kanawest_sales': return { role: 'none', own: { kanawest: 'view' } }; // かな西エリアだけ＝神奈川要員だけ（10-26）
-    case 'staff_recruit': return { role: 'none', own: toKPerms({ jinji: 'edit' }) };
-    case 'applicant_support': return { role: 'none', own: toKPerms({ jinji: 'view' }) };
+    case 'staff_recruit': return { role: 'none', own: toKPerms({ jinji: 'edit', jinzai: 'edit' }) };
+    case 'applicant_support': return { role: 'none', own: toKPerms({ jinji: 'view', jinzai: 'view' }) };
     case 'keiri': return { role: 'none', own: toKPerms({ keiri: 'edit' }) };
     default: return { role: 'none', own: {} };
   }

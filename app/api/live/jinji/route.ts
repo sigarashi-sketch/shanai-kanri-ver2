@@ -25,7 +25,7 @@ const WRITES = new Set([
   'jimu-lane',
   'seikyu', // 社員ページの請求タブ（請求書作成の控えとミンミカの請求書を読むだけ・10-26）
   'kintai', // 社員ページの勤怠タブ（DB に写した freee の勤怠を読むだけ・名前を URL に出さないため POST・10-26）
-  'kv-save', // アラート設定の保存（勤怠の区分を「承認」で持つ人だけ・下で確かめる）
+  'kv-save', // アラート設定の保存（労務/営業管理を「承認」で持つ人だけ・下で確かめる）
 ]);
 
 export async function GET(req: Request) {
@@ -49,12 +49,12 @@ export async function POST(req: Request) {
   const b = ((await req.json().catch(() => null)) || {}) as Record<string, unknown>;
   const action = typeof b.action === 'string' ? b.action : '';
   if (!WRITES.has(action)) return NextResponse.json({ error: '書く種類が違います' }, { status: 400 });
-  // アラート設定は ver2 の区分（勤怠）の「承認」の人だけ（画面と同じ決まり）。今のシステムでもロールで確かめる
+  // アラート設定は ver2 の区分（労務/営業管理＝アラート設定のある左メニュー）の「承認」の人だけ（画面と同じ決まり）。今のシステムでもロールで確かめる
   if (action === 'kv-save') {
     if (b.key !== 'alerts') return NextResponse.json({ error: '保存する設定が違います' }, { status: 400 });
     const got = await loadMe();
     if (!got.ok) return NextResponse.json({ error: 'ログインが切れました。もう一度ログインしてください' }, { status: 401 });
-    if (!atLeast(effectivePerms(got.me).kintai, 'approve')) return NextResponse.json({ error: 'アラート設定を変えられるのは、勤怠の区分を「承認」で持つ人だけです' }, { status: 403 });
+    if (!atLeast(effectivePerms(got.me).roumu, 'approve')) return NextResponse.json({ error: 'アラート設定を変えられるのは、労務/営業管理を「承認」で持つ人だけです' }, { status: 403 });
   }
   const rest = { ...b };
   delete rest.action;
