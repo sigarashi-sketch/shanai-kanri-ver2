@@ -8,6 +8,8 @@ import { DrawerPortal } from '@/components/DrawerPortal';
 import { errText, horyuPost } from '@/lib/horyu-post';
 import type { ClientList, ClientPerson, HistoryGroup, MatchRead } from '@/lib/types/keiri';
 import { HoryuNote } from '../HoryuNote';
+import { TileMap } from '@/components/TileMap';
+import { BOX, xy } from '@/lib/live/map';
 
 // 客先向けの画面（保留）。今の社内システムの客先の画面（client.html「ご紹介可能なメンバー」）を写したもの。
 //   ・鍵は客先向けリンクの URL の #k=…（サーバーには送らず、この画面が X-Client-Key で渡す＝今と同じ）。URL を貼っても開ける
@@ -202,7 +204,23 @@ export default function ClientPage() {
 
         {tab === 'map' && (<div className="flex flex-col gap-3">
           <input value={mapQ} onChange={(e) => setMapQ(e.target.value)} placeholder="イニシャル・駅・スキルで絞り込み" className={inp} />
-          <div className="text-[12.5px] text-muted">駅ごとのメンバー（地図はあとで入れます）・地図表示 <b className="text-ink">{Object.values(byEki).reduce((a, b) => a + b.length, 0)}</b>名</div>
+          {(() => {
+            // 地図（国土地理院の淡色地図）。今のシステムが返す駅の座標（coords）がある駅だけ丸を置く。丸を押すとその駅のメンバーが開く
+            const pins = Object.entries(byEki).map(([eki, list]) => ({ eki, list, c: d.coords?.[eki] ?? d.coords?.[eki.replace(/駅$/, '')] }))
+              .filter((x): x is { eki: string; list: ClientPerson[]; c: [number, number] } => !!x.c && x.c[0] <= BOX.n && x.c[0] >= BOX.s && x.c[1] >= BOX.w && x.c[1] <= BOX.e);
+            const onMap = pins.reduce((a, x) => a + x.list.length, 0);
+            return (<>
+              <div className="text-[12.5px] text-muted">駅ごとのメンバー・地図表示 <b className="text-ink">{onMap}</b>名{onMap < Object.values(byEki).reduce((a, b) => a + b.length, 0) && '（地図の外・駅の場所が分からない人は下の一覧だけ）'}</div>
+              {pins.length > 0 && <TileMap onBg={() => setMapPick(null)}>
+                {pins.map(({ eki, list, c }) => { const p = xy(c[0], c[1]), r = Math.min(8 + list.length * 1.5, 20), on = mapPick === eki; return (
+                  <g key={eki} className="cursor-pointer" onClick={(e) => { e.stopPropagation(); setMapPick(on ? null : eki); }}>
+                    <circle cx={p.x} cy={p.y} r={r} fill={on ? 'var(--ad)' : 'var(--a)'} fillOpacity={on ? 1 : 0.8} stroke="var(--color-surface)" strokeWidth={2} />
+                    <text x={p.x} y={p.y + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--ao)">{list.length}</text>
+                    {(on || list.length >= 3) && <text x={p.x} y={p.y - r - 4} textAnchor="middle" fontSize={10.5} fontWeight={700} fill="var(--color-ink)">{eki}</text>}
+                  </g>); })}
+              </TileMap>}
+            </>);
+          })()}
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">{Object.entries(byEki).sort((a, b) => b[1].length - a[1].length).map(([eki, list]) => (
             <div key={eki} className="rounded-xl border border-line bg-surface p-3 text-[12.5px]">
               <button className="flex w-full items-center gap-1.5 font-bold" onClick={() => setMapPick(mapPick === eki ? null : eki)}><Train size={13} />{eki}<span className="ml-auto chip" style={tone('info')}>{list.length}名</span></button>

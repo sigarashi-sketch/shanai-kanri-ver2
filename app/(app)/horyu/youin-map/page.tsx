@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import { Check, MapPin, RefreshCw, Search, Train, X } from 'lucide-react';
-import { BAY, MAP_H, MAP_W, RAILS, STATIONS, stationOf, xy } from '@/lib/map-geo';
+import { stationOf, xy } from '@/lib/live/map';
+import { TileMap, pct } from '@/components/TileMap';
 import type { Youin } from '@/lib/live/map';
 import { liveYouin, type MapData } from '@/lib/live/map';
 import { PageTitle } from '@/components/ui';
@@ -21,8 +22,7 @@ import { HoryuNote } from '../HoryuNote';
 //   ・「案件を更新」＝ Slack から案件を取り直す（今の proxy?action=syncSlackCache・/api/live/horyu/sync-slack）
 //   ・「転記＆配信先設定」は今は配信ページの中に埋め込んだときだけ動く。ver2 では配信ページにつなぐ先がまだ無いので、案件文と名前を写すだけ
 //   ・人は未経験の人だけ。名前を押すと人の小窓（PersonName）
-//   ・地図は簡易な地図（SVG）。座標が枠の外の駅は一覧だけ
-const pct = (lat: number, lng: number) => { const p = xy(lat, lng); return { left: `${(p.x / MAP_W) * 100}%`, top: `${(p.y / MAP_H) * 100}%` }; };
+//   ・地図は国土地理院の淡色地図タイル（components/TileMap・営業の案件・要員マップと同じ）。座標が枠の外の駅は一覧だけ
 const ghost = 'inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border border-line bg-surface px-2.5 text-[12px] font-semibold disabled:opacity-40';
 
 type Detail = {
@@ -30,21 +30,7 @@ type Detail = {
   gakumen?: string; priceHidden?: boolean; sukishi?: string; availability?: { items?: { label: string; val: string }[]; updatedAt?: string }; error?: string;
 };
 
-function BaseMap({ children, overlay, onBg }: { children: React.ReactNode; overlay?: React.ReactNode; onBg?: () => void }) {
-  const pts = (list: [number, number][]) => list.map(([a, b]) => { const p = xy(a, b); return `${p.x},${p.y}`; }).join(' ');
-  return (
-    <div className="relative overflow-hidden rounded-lg border border-line-soft">
-      <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} className="block h-auto w-full" style={{ background: 'var(--color-soft)' }} role="img" aria-label="地図" onClick={onBg}>
-        <polygon points={pts(BAY)} fill="var(--tone-info-bg)" />
-        {RAILS.map((r, i) => <polyline key={i} points={pts(r.map((n) => { const s = stationOf(n)!; return [s.lat, s.lng] as [number, number]; }))} fill="none" stroke="var(--color-line)" strokeWidth={2.2} />)}
-        {STATIONS.map((s) => { const p = xy(s.lat, s.lng); return <g key={s.name}><circle cx={p.x} cy={p.y} r={2.4} fill="var(--color-surface)" stroke="var(--color-faint)" /><text x={p.x + 5} y={p.y + 12} fontSize={9.5} fill="var(--color-faint)">{s.name}</text></g>; })}
-        {children}
-      </svg>
-      {overlay}
-      <span className="pointer-events-none absolute bottom-1.5 right-2 text-[10.5px] text-faint">簡易な地図です（地図タイルはあとで入れます）</span>
-    </div>
-  );
-}
+const BaseMap = TileMap;
 
 /** タグの札（今の map.html の色分けをそのまま言葉で） */
 function Tag({ t }: { t: string }) {

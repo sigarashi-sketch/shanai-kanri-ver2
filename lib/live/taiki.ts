@@ -2,7 +2,7 @@
 //   ＋ /api/roster?action=getEngineerRows（最寄駅・希望・採用担当）→ この画面の形。
 //   ・待機中＝名簿の「待機」にチェックがある人（退社の人は外す）。待機に入った日は今のシステムに残っていない
 //   ・もうすぐ待機＝「待機の予約」の日が先にある人（その日の朝に待機へ自動で切り替わる）
-//   ・担当営業（成約者）・状態（案件を探す〜）は今のシステムに無い＝ver2 で足すもの
+//   ・担当営業（成約者）・状態（案件を探す〜）は ver2 で足した（/api/roster?op=eigyo&action=taiki・画面は app/(app)/eigyo/taiki）
 import type { Taiki } from '../types/eigyo';
 import { skillsIn } from './cases';
 import { cellsOf, normName, ymdJst, type EngineerRows } from './eigyo-common';

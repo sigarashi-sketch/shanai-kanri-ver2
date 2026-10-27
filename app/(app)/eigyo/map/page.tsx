@@ -13,10 +13,11 @@ import { useCaseSend } from '@/components/CaseSendDialog';
 import { postLive } from '@/lib/live/post';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import {
-  CAT_TONE, CATS, MAP_H, MAP_W, MODES, SRC_LABEL, STATIONS, TILES, estimateAt, liveJobs, liveYouin, stationOf, xy,
+  CAT_TONE, CATS, MODES, SRC_LABEL, STATIONS, estimateAt, liveJobs, liveYouin, stationOf, xy,
   type Cat, type CasesMapList, type Job, type MapData, type Youin,
 } from '@/lib/live/map';
 import { PersonName } from '@/components/Person';
+import { TileMap, pct } from '@/components/TileMap';
 
 // 案件・要員マップ（営業）。今の社内システムの「案件マップ」と「要員マップ」を1画面の2つのタブにしたもの。中身・操作・言葉は今の画面どおり。
 //   案件マップ：マップ／案件入力（案件文を貼る → AI が欄を埋める）／充足・終了。出発駅を選ぶと通勤の目安で並ぶ（実経路は出さない）
@@ -26,7 +27,6 @@ import { PersonName } from '@/components/Person';
 //     ピンは行の座標（lat/lng）で置く。登録（読み取り→確認→#未経験-案件共有にも流れる）・充足・予約・終了・再掲載・同期は今の /api/cases-map と同じ口
 //     要員マップの「案件を更新」＝今の syncSlackCache、「転記＆配信先設定」＝確認の窓のあと選んだ要員の LINE グループに案件を送る（今の配信画面と同じ口）
 const ymdPlus = (ymd: string, n: number) => { const d = new Date(`${ymd}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
-const pct = (lat: number, lng: number) => { const p = xy(lat, lng); return { left: `${(p.x / MAP_W) * 100}%`, top: `${(p.y / MAP_H) * 100}%` }; };
 const fmt = (s?: string) => { const m = s?.match(/\d{4}-(\d{2})-(\d{2})/); return m ? `${+m[1]}/${+m[2]}` : s ?? ''; };
 const localToday = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const catFg = (c: Cat) => `var(--tone-${CAT_TONE[c]}-fg)`;
@@ -34,25 +34,7 @@ const catBg = (c: Cat) => `var(--tone-${CAT_TONE[c]}-bg)`;
 const sel = 'min-h-9 rounded-[10px] border border-field bg-surface px-2 text-body text-ink';
 const ghost = 'inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-lg border border-line bg-surface px-2.5 text-sm font-semibold disabled:opacity-40';
 
-/** 地図（国土地理院の淡色地図タイルを敷く）。上に children でピンを重ねる。タイルは決まった枠を全部読むだけ（場所は外へ送らない） */
-function BaseMap({ children, overlay, onBg }: { children: React.ReactNode; overlay?: React.ReactNode; onBg?: () => void }) {
-  return (
-    <div className="relative overflow-hidden rounded-lg border border-line-soft" style={{ background: 'var(--color-soft)' }}>
-      <div className="pointer-events-none absolute inset-0" aria-hidden>
-        {TILES.map((t) => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img key={t.src} src={t.src} alt="" referrerPolicy="no-referrer" loading="lazy" draggable={false} className="absolute max-w-none select-none"
-            style={{ left: `${t.left}%`, top: `${t.top}%`, width: `${t.w}%`, height: `${t.h}%` }} />
-        ))}
-      </div>
-      <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} className="relative block h-auto w-full" role="img" aria-label="地図" onClick={onBg}>
-        {children}
-      </svg>
-      {overlay}
-      <a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener noreferrer" className="absolute bottom-1 right-1.5 rounded bg-surface/80 px-1 text-xs text-faint">出典：国土地理院</a>
-    </div>
-  );
-}
+const BaseMap = TileMap;
 
 export default function MapPage() {
   const [tab, setTab] = useState<'cases' | 'youin'>('cases');

@@ -7,6 +7,8 @@ import { CountUp, RemainRing } from '@/components/Motivation';
 import { LiveBanner, useIke } from '@/components/Live';
 import { PersonName } from '@/components/Person';
 import { useMikeiken } from '@/components/Mikeiken';
+import { useMotivation } from '@/components/Motivation';
+import { loadShared, saveShared, type Goals } from '@/lib/org';
 import { SHUSSHA_LABEL, fareOverMax, grossIsRough, grossOf, manOf, rate, repFromIkeLines, yen, type HeLine, type HeRep, type HeRepPrev, type IkePlReps } from '@/lib/live/home-eigyo';
 
 // ホーム営業（10-25 shoya「当月の営業に属する人たちの成約数・売上・粗利」「営業は自分の成約してる人だけ見れる。関係ない人は見ない」）。
@@ -14,6 +16,7 @@ import { SHUSSHA_LABEL, fareOverMax, grossIsRough, grossOf, manOf, rate, repFrom
 //   ・下：担当営業ひとりの「成約した人」。営業の人は自分の分だけ／管理者は担当を選んで見る／それ以外は出さない
 //   ・ログイン中は今のシステムの GET /api/nippo?action=pl-reps（10-25 足した口・駅すぱあとは呼ばない＝交通費は辞書にある分だけ）。
 //     担当ごとの合計は全員分、成約した人の明細は super_admin・admin は全員分／ほかは自分の分だけ（今のシステムが絞って返す）
+//   ・今月の目標（10-27）＝担当ごとの成約数。全員で共有する設定（v2-settings の goals）に置き、決めるのは全体管理者だけ（毎月同じ数）
 type SortKey = 'count' | 'uriage' | 'gross';
 const SORTS: { k: SortKey; label: string }[] = [{ k: 'count', label: '成約数' }, { k: 'uriage', label: '売上' }, { k: 'gross', label: '見込み粗利' }];
 const ymLabel = (ym: string) => `${Number(ym.slice(5))}月`;
@@ -28,6 +31,10 @@ export default function EigyoHome() {
   const [preview, setPreview] = useState('');           // 管理者が「営業の人の見え方」を試す
   const [sort, setSort] = useState<SortKey>('count');
   const [picked, setPicked] = useState('');
+  const [goals, setGoals] = useState<Goals>({});
+  const [canGoal, setCanGoal] = useState(false);
+  const { toast } = useMotivation();
+  useEffect(() => { let dead = false; loadShared().then((s) => { if (dead || s.state !== 'live') return; setGoals(s.value?.goals ?? {}); setCanGoal(s.canSave); }); return () => { dead = true; }; }, []);
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -72,7 +79,17 @@ export default function EigyoHome() {
 
   const me1 = shown ? reps.find((r) => r.tantou === shown)! : null;
   const lines = shown ? ALL.filter((l) => l.tantou === shown) : [];
-  const goal = 0;   // 目標は今のシステムに無い（出さない）
+  const goal = shown ? Math.max(0, Math.floor(goals.eigyoCount?.[shown] ?? 0)) : 0;
+  const setGoal = async () => {
+    if (!shown || !canGoal) return;
+    const v = window.prompt(`${shown}さんの毎月の成約数の目標（件）。0 で目標なし（全員に効きます）`, String(goal || ''));
+    if (v === null) return;
+    const n = Math.max(0, Math.floor(Number(v.replace(/[^\d]/g, '')) || 0));
+    const next: Goals = { ...goals, eigyoCount: { ...(goals.eigyoCount ?? {}), [shown]: n } };
+    const r = await saveShared('goals', next);
+    if (r.ok) { setGoals(next); toast({ text: n ? `${shown}さんの目標を ${n}件 にしました` : `${shown}さんの目標をなしにしました`, sub: '→ ホーム営業の残りリングに出ます（全員に効きます）' }); }
+    else toast({ text: '目標を保存できませんでした', sub: r.error });
+  };
 
   if (liveBad || (ike.live && mk.state === 'error')) return (
     <main className="flex flex-col gap-3.5 px-6 pb-12 pt-[22px]">
@@ -166,6 +183,7 @@ export default function EigyoHome() {
               <h2 className="text-md font-bold">{shown}さんが成約した人 <span className="num text-muted">{lines.length}</span></h2>
               <div className="text-sm text-muted">{!goal ? `成約 ${me1.count}件` : me1.count >= goal ? `今月の目標 ${goal}件に届きました` : `今月の目標 ${goal}件まで あと${goal - me1.count}件`}{asRep ? '・ほかの担当の人は出しません' : ''}</div>
             </div>
+            {canGoal && <button onClick={() => { void setGoal(); }} className="btn-secondary btn-sm" title="毎月の成約数の目標（全員に効きます・全体管理者だけ）">{goal ? `目標 ${goal}件を変える` : '目標を決める'}</button>}
             {isAdmin && !asRep && (
               <select aria-label="担当営業" value={picked} onChange={(e) => setPicked(e.target.value)} className="rounded-lg border border-field bg-surface px-2 py-1.5 text-sm">
                 {REPS.map((r) => <option key={r} value={r}>{r}</option>)}
