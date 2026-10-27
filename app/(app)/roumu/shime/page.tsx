@@ -126,8 +126,8 @@ export default function ShimePage() {
             {[...(ike.data?.months || [])].sort().reverse().map((m) => <option key={m} value={m}>{ymLabel(m)}{m >= (ike.data?.currentYm || '') ? '（月の途中）' : ''}</option>)}
           </select>
         )}
-        <Link href="/roumu/approval" className="btn-secondary">申請の承認へ</Link>
-        <Link href="/roumu/today" className="btn-secondary">当日の出勤状況へ</Link>
+        <Link href="/keiri/approval" className="btn-secondary">申請の承認へ</Link>
+        <Link href="/jinji/today" className="btn-secondary">当日の出勤状況へ</Link>
       </PageTitle>
       <LiveBanner state={ike.live && !ike.data?.ok ? 'error' : ike.state} error={ike.error || ike.data?.error} onReload={ike.reload} note="締める・開け直すは本物に書きます（押すと確認の窓が出ます）。打刻の直しのお願いなどは今の社内システムから" />
       <MikeikenNote mk={mk} live={live} />

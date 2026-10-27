@@ -53,6 +53,12 @@ function allowedGet(api: string, rest: string[], sp: URLSearchParams): boolean {
   if (api === 'seikyu') return SEIKYU_GET.has(action);
   if (api === 'auth') return action === 'me';
   if (api === 'live') return [...sp.keys()].every((k) => k === 'since') && /^\d*$/.test(sp.get('since') || '');
+  // 3D の出勤ボード（attendance-3d.html・当日の出勤状況のタブ・10-27）が読む口。送る（chat send・recipients）は POST なので通らない＝見るだけ
+  if (api === 'attendance-board') return ['', 'absence', 'habits', 'rev', 'recipient'].includes(action);
+  if (api === 'office') return action === 'state';
+  if (api === 'proxy') return action === 'getRosterStatus';
+  if (api === 'shared-kv') return [...sp.keys()].every((k) => k === 'scope');
+  if (api === 'bikkura') return action === 'me';   // たまげたポン（人財管理）の残高・設定
   return false;
 }
 
@@ -101,12 +107,15 @@ export async function POST(req: Request, ctx: { params: Promise<{ path: string[]
   const { path } = await ctx.params;
   const url = new URL(req.url);
   const action = url.searchParams.get('action') || '';
-  if (path.length !== 1 || path[0] !== 'seikyu' || url.searchParams.getAll('action').length !== 1 || !SEIKYU_POST.has(action)) return blocked();
+  // たまげたポン（人財管理・10-27）：本人がまわす（draw）・自分の作業を申告する（manual）だけ。マイル・確率・上限は今のシステムが決める
+  const BIKKURA_POST = new Set(['draw', 'manual']);
+  const okPost = path.length === 1 && url.searchParams.getAll('action').length === 1 && ((path[0] === 'seikyu' && SEIKYU_POST.has(action)) || (path[0] === 'bikkura' && BIKKURA_POST.has(action)));
+  if (!okPost) return blocked();
   if (!sameSite(req)) return NextResponse.json({ ok: false, success: false, error: 'この画面の外からは保存できません' }, { status: 403 });
   const token = await ikeToken();
   if (!token) return NextResponse.json({ ok: false, error: 'ログインしてください' }, { status: 401 });
   try {
-    const r = await fetch(`${IKE_ORIGIN}/api/seikyu${url.search}`, {
+    const r = await fetch(`${IKE_ORIGIN}/api/${path[0]}${url.search}`, {
       method: 'POST', cache: 'no-store', redirect: 'manual', signal: AbortSignal.timeout(295000),
       headers: { Authorization: `Bearer ${token}`, Cookie: `sb_access=${token}`, 'Content-Type': req.headers.get('content-type') || 'application/json', Accept: req.headers.get('accept') || '*/*' },
       body: await req.arrayBuffer(),

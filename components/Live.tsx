@@ -119,11 +119,10 @@ export function LiveBanner({ state, error, note, onReload }: { state: LiveState;
       {error?.includes('ログイン') ? <a href="/api/ike-auth/start" className="ml-auto font-semibold underline">もう一度ログインする</a> : onReload && <button onClick={onReload} className="ml-auto font-semibold underline">もう一度</button>}
     </div>
   );
-  return (
-    <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
-      {!hosted && <span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}><Check size={11} />本物のデータ</span>}
-      {note ?? 'ここからは変えられません（見るだけ）。操作は今の社内システムの画面から'}
-    </div>
+  // 読めたときの説明（note）は出さない（10-27 shoya「こういう説明いらない 極力スッキリ」）。出すのは読めない・ログイン切れのときだけ
+  void note;
+  return hosted ? null : (
+    <div className="flex items-center text-xs"><span className="chip" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}><Check size={11} />本物のデータ</span></div>
   );
 }
 

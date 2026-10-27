@@ -39,19 +39,19 @@ function personLinks(p: Person): Link[] {
 }
 // 「よく行く画面」の既定（ver2 には画面操作の記録がまだ無いので決め打ち・今のいけどんの多かった順に合わせた）
 const DEFAULT_JUMPS: Record<string, string[]> = {
-  '/': ['/eigyo/proper', '/eigyo/progress', '/roumu/today', '/jinji/staff'],
+  '/': ['/eigyo/proper', '/eigyo/progress', '/jinji/today', '/jinji/staff'],
   '/eigyo/proper': ['/eigyo/progress', '/eigyo/skillsheet', '/jinji/staff', '/eigyo/mendan'],
   '/eigyo/progress': ['/eigyo/proper', '/eigyo/cases'],
   '/eigyo/cases': ['/eigyo/progress', '/eigyo/proper'],
   '/eigyo/skillsheet': ['/eigyo/proper', '/eigyo/progress'],
   '/eigyo/mendan': ['/eigyo/proper', '/eigyo/progress'],
-  '/jinji/staff': ['/eigyo/proper', '/roumu/today'],
-  '/roumu/today': ['/roumu/shift', '/jinji/staff'],
-  '/roumu/shift': ['/roumu/today', '/jinji/staff'],
+  '/jinji/staff': ['/eigyo/proper', '/jinji/today'],
+  '/jinji/today': ['/jinji/shift', '/jinji/staff'],
+  '/jinji/shift': ['/jinji/today', '/jinji/staff'],
   '/keiri/seikyu-make': ['/keiri/kakunou', '/keiri/seikyu-zukuri'],
   '/keiri/kakunou': ['/keiri/seikyu-make', '/keiri/seikyu-zukuri'],
 };
-const SPLIT_DEFAULTS = ['/eigyo/proper', '/eigyo/progress', '/jinji/staff', '/roumu/today'];
+const SPLIT_DEFAULTS = ['/eigyo/proper', '/eigyo/progress', '/jinji/staff', '/jinji/today'];
 
 // メニューの絵（lucide と同じ線の形・名前は ctx-menu.js が使うもの）
 const P: Record<string, string> = {

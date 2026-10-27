@@ -50,7 +50,7 @@ export const DEFAULT_RULES: Rule[] = [
     ],
   },
   {
-    key: 'nopunch', module: 'roumu', name: '未打刻（出勤）', page: '/roumu/today', mode: '送る',
+    key: 'nopunch', module: 'roumu', name: '未打刻（出勤）', page: '/jinji/today', mode: '送る',
     desc: 'シフトがあるのに出勤の打刻が無い人。シフトが空欄の日は休み扱いで知らせない',
     sample: 'おはようございます。今日の出勤の打刻がまだのようです。打刻をお願いします。',
     stages: [

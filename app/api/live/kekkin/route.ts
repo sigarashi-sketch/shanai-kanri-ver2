@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { ikeWrite } from '@/lib/ike-write';
 import { EVIDENCE_MAX_BYTES, EVIDENCE_TYPES, KEKKIN_NOTE_MAX } from '@/lib/live/kekkin';
 
-// 欠勤管理（/roumu/kekkin）の書く口（10-25）。今の POST /api/roster?op=kekkin&action=… にだけ書く。
+// 欠勤管理（/jinji/today?tab=kekkin）の書く口（10-25）。今の POST /api/roster?op=kekkin&action=… にだけ書く。
 //   save     {date,name,reason?,note?}       … 理由・メモ（理由は今のシステムの選択肢だけ。今のシステムも確かめる）
 //   uploadUrl {filename,contentType,size}    … エビデンスの上げ先（署名付きURL）を今のシステムにもらう。ファイルの中身は ver2 を通らない
 //   attach   {date,name,path,filename}       … 上げ終わったファイルを行に付ける（実体があるかは今のシステムが Storage で確かめる）

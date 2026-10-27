@@ -27,7 +27,7 @@ import { InfoHaishin } from './renraku/InfoHaishin';
 //   ・送ると取り消せないので、送信は「長押しで送る」（Hold To Confirm 0.9秒）。人数が分かる送信は進み具合を出す
 //   ・手動配信・案内配信は窮屈なので「大きく開く」で広い表示にできる
 export type Account = 'インフォメーション' | 'あおい';
-export const accountFor = (m: ModuleKey | 'home'): Account => (m === 'jinji' ? 'インフォメーション' : 'あおい');
+export const accountFor = (m: ModuleKey | 'home'): Account => (m === 'jinji' || m === 'jinzai' ? 'インフォメーション' : 'あおい');
 
 type Tab = 'chat' | 'case' | 'manual' | 'annai';
 const TABS: [Tab, string][] = [['chat', 'チャット'], ['case', '案件配信'], ['manual', '手動配信'], ['annai', '案内配信']];

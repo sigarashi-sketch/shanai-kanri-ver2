@@ -3,7 +3,7 @@
 //   黄（jinjer 寄りの黄×黒）だけは上に乗る文字を黒にする（on）。
 
 export type ColorKey = 'indigo' | 'teal' | 'yellow' | 'orange' | 'violet' | 'rose' | 'blue' | 'green';
-export type ModuleKey = 'jinji' | 'roumu' | 'eigyo' | 'keiri';
+export type ModuleKey = 'jinji' | 'roumu' | 'eigyo' | 'keiri' | 'jinzai';
 
 export type Swatch = {
   name: string;
@@ -30,6 +30,7 @@ export const MODULES: { key: ModuleKey; label: string; short: string; def: Color
   { key: 'roumu', label: '労務/営業管理', short: '労務/営業', def: 'teal' },
   { key: 'eigyo', label: '営業', short: '営業', def: 'yellow' },
   { key: 'keiri', label: '経理管理', short: '経理', def: 'violet' },
+  { key: 'jinzai', label: '人財管理', short: '人財', def: 'green' },   // それゆけ未経験から移した画面（10-27 shoya）
 ];
 
 export type ColorChoice = Partial<Record<ModuleKey, ColorKey>>;

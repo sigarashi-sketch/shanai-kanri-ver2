@@ -22,7 +22,7 @@ const max = (a: Level, b: Level): Level => (RANK[a] >= RANK[b] ? a : b);
 export type Perms = Record<ModuleKey, Level>;
 export function modulePerms(k: KPerms): Perms {
   const m = (mod: ModuleKey) => kubunsOfModule(mod).reduce<Level>((acc, x) => max(acc, k[x]), 'none');
-  return { jinji: m('jinji'), roumu: m('roumu'), eigyo: m('eigyo'), keiri: m('keiri') };
+  return { jinji: m('jinji'), roumu: m('roumu'), eigyo: m('eigyo'), keiri: m('keiri'), jinzai: m('jinzai') };
 }
 
 export type RoleKey = 'owner' | 'manager' | 'viewer_all' | 'none';

@@ -12,29 +12,43 @@ export const NAV: NavGroup[] = [
       { href: '/home/jinji', label: 'ホーム人事', built: true },
       { href: '/jinji/staff', label: '社員一覧', built: true },
       { href: '/jinji/yoyaku', label: '変更の予約', built: true },
+      { href: '/jinji/today', label: '当日の出勤状況', built: true }, // 労務から人事へ（10-27 shoya）。出勤の記録・欠勤管理・3D の出勤ボードはこの画面のタブ
+      { href: '/jinji/shift', label: 'シフト表', built: true }, // 労務から人事へ（10-27 shoya）。提出状況・当月の実績はタブ
       { href: '/jinji/nyusha', label: '入社手続き', built: true },
       { href: '/jinji/jimu', label: '参画決定者の手続き', built: true },
-      { href: '/jinji/shikaku', label: '資格手当', built: true },
       { href: '/jinji/sankyu', label: '産休・育休', built: true },
-      { href: '/jinji/rishoku', label: '離職リスク・離職率', built: true },
-      { href: '/jinji/community', label: 'コミュニティ', built: true },
-      { href: '/jinji/bdsh', label: 'bdsh', built: true }, // それゆけ未経験の bdsh（教育コンテンツの内勤画面）を開く（10-26 shoya「それゆけで押した時と同じ感じで」）
-      { href: '/jinji/saiyou', label: '採用', built: true },
       { href: '/jinji/ocr', label: '身分証の読み取り', built: true },
-      { href: '/jinji/ippass', label: '媒体アイパス管理', built: true },
-      { href: '/jinji/map', label: '案件・要員マップ', built: true }, // 営業の /eigyo/map と同じ画面（10-27 shoya「案件MAPは人事のメニューにも同じの」） // 保留から人事へ（10-26 shoya）。開ける人は今のシステムの ippass と同じ（lib/horyu-access.ts）
+      { href: '/jinji/ippass', label: '媒体アイパス管理', built: true }, // 保留から人事へ（10-26 shoya）。開ける人は今のシステムの ippass と同じ（lib/horyu-access.ts）
+      { href: '/jinji/map', label: '案件・要員マップ', built: true }, // 営業の /eigyo/map と同じ画面（10-27 shoya「案件MAPは人事のメニューにも同じの」）
+    ],
+  },
+  {
+    // 人財管理（10-27 shoya「それゆけ未経験も移管しちゃおう ページは人財管理ってメニューで」「すでにはいっちゃってるのはそのままそこにうつせばいい」）。
+    //   それゆけにしかなかった画面は ver2 に移した（画面 components/sy・処理 app/api/sy/s と lib/sy＝それゆけの写し）。ver2 にもうあった画面は人事管理からここへ
+    module: 'jinzai', label: '人財管理', items: [
+      { href: '/jinzai/roster', label: '従業員名簿', built: true },
+      { href: '/jinzai/chat', label: 'チャット', built: true },
+      { href: '/jinzai/broadcast', label: '配信', built: true },
+      { href: '/jinzai/teiki', label: '定期面談', built: true },
+      { href: '/jinzai/survey', label: '月次アンケート', built: true },
+      { href: '/jinzai/community', label: 'コミュニティ', built: true },
+      { href: '/jinzai/events', label: 'イベント出欠', built: true },
+      { href: '/jinzai/enquete', label: 'アンケート作成', built: true },
+      { href: '/jinzai/saiyou', label: '採用', built: true },
+      { href: '/jinzai/proper', label: 'プロパーリスト', built: true }, // 営業の要員リストと同じ画面
+      { href: '/jinzai/shikaku', label: '資格手当', built: true },
+      { href: '/jinzai/rishoku', label: '離職リスク・離職率', built: true },
+      { href: '/jinzai/ltv', label: '粗利・LTV', built: true },
+      { href: '/jinzai/bdsh', label: 'bdsh', built: true }, // それゆけ未経験の bdsh（教育コンテンツの内勤画面）を開く（10-26 shoya「それゆけで押した時と同じ感じで」）
+      { href: '/jinzai/richmenu', label: 'リッチメニュー', built: true },
+      { href: '/jinzai/pon', label: 'たまげたポン', built: true },
     ],
   },
   {
     module: 'roumu', label: '労務/営業管理', items: [
-      { href: '/roumu/today', label: '当日の出勤状況', built: true },
-      { href: '/roumu/approval', label: '申請の承認', built: true },
       { href: '/roumu/overtime', label: '残業・36協定・有給', built: true },
       { href: '/roumu/shime', label: '勤怠の締め', built: true },
-      { href: '/roumu/shift', label: 'シフト表', built: true },
-      { href: '/roumu/kekkin', label: '欠勤管理', built: true },
       { href: '/roumu/contracts', label: '派遣契約', built: true },
-      { href: '/roumu/timesheet', label: '勤務表の届き具合', built: true },
       { href: '/roumu/alerts', label: 'アラート設定', built: true },
       { href: '/roumu/kb', label: '労務法務ナレッジ', built: true },
     ],
@@ -59,6 +73,7 @@ export const NAV: NavGroup[] = [
   },
   {
     module: 'keiri', label: '経理管理', items: [
+      { href: '/keiri/approval', label: '申請の承認', built: true }, // 労務から経理へ（10-27 shoya）
       { href: '/keiri/keihi', label: '交通費・経費', built: true },
       { href: '/keiri/check', label: '交通費チェック', built: true },
       { href: '/keiri/kintai-shogo', label: '勤怠の照合', built: true }, // 上位から届いた勤務表 × freee を要員ごと・日ごとに（読むだけ・締めは労務の勤怠の締め・10-26）

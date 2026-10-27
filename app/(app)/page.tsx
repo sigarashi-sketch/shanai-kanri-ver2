@@ -86,7 +86,7 @@ export default function HomePage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/jinji/yoyaku?new=1" className="btn-secondary btn">変更を予約</Link>
-          <Link href="/roumu/approval" className="btn bg-sumi text-white">上から順に片づける</Link>
+          <Link href="/keiri/approval" className="btn bg-sumi text-white">上から順に片づける</Link>
         </div>
       </div>
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Users } from 'lucide-react';
-import { MIKEIKEN_NOTE, isMikeiken, mikeikenSetOf, onlyMikeiken, type MikeikenSet } from '@/lib/live/mikeiken';
+import { isMikeiken, mikeikenSetOf, onlyMikeiken, type MikeikenSet } from '@/lib/live/mikeiken';
 import type { EngineerRows } from '@/lib/live/eigyo-common';
 
 // 画面で「未経験の人だけ」に絞る道具（正＝今のプロパーリストに入っている人・全エリア・lib/live/mikeiken.ts）。
@@ -55,9 +55,8 @@ export function useMikeiken(): Mikeiken {
 
 /** 本物のときに画面の上に出す一言（LiveBanner の下）。ログインしていないときは出さない */
 export function MikeikenNote({ mk, live }: { mk: Mikeiken; live: boolean }) {
-  if (!live || mk.state === 'none') return null;
-  const text = mk.state === 'ready' ? MIKEIKEN_NOTE
-    : mk.state === 'loading' ? '未経験の人（今のプロパーリストに入っている人）を確かめています…'
+  if (!live || mk.state === 'none' || mk.state === 'ready') return null;   // 絞れたときの説明は出さない（10-27 shoya「極力スッキリ」）
+  const text = mk.state === 'loading' ? '未経験の人（今のプロパーリストに入っている人）を確かめています…'
       : `未経験の人に絞れないので、人の行は出していません（${mk.error}）`;
   return (
     <div className="flex items-center gap-1.5 text-xs text-faint" style={mk.state === 'error' ? { color: 'var(--tone-bad-fg)' } : undefined}>
