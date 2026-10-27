@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { IKE_ORIGIN, ikeToken } from '@/lib/ike';
-import { ASSET_TYPES, IK_PAGES, LOGIN_NOTICE, embedHtml, noticeHtml, rewritePaths } from '../embed';
+import { ASSET_TYPES, IK_PAGES, LOGIN_NOTICE, embedHtml, noticeHtml, rewriteAsset } from '../embed';
 
 // 今の社内システムの画面を ver2 と同じ origin の /ik/… から出す（お手本：それゆけ app/ik/[...path]/route.ts）。
 //   /ik/seikyu.html      … 請求書づくり（現場マスタ・取引先マスタなど）
@@ -44,7 +44,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ path: string[] 
     if (!r.ok) return new NextResponse('not found', { status: r.status === 404 ? 404 : 502, headers: { 'cache-control': 'no-store' } });
     const headers = { 'content-type': type, 'cache-control': 'public, max-age=300' };
     // コード（JS・CSS）は行き先だけ書き換える。画像・字体はそのまま
-    if (ext === 'js' || ext === 'css') return new NextResponse(rewritePaths(await r.text()), { headers });
+    if (ext === 'js' || ext === 'css') return new NextResponse(rewriteAsset(name, await r.text()), { headers });
     return new NextResponse(r.body, { headers });
   } catch {
     return new NextResponse('upstream error', { status: 502 });

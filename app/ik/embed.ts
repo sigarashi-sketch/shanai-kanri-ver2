@@ -25,6 +25,13 @@ export function rewritePaths(src: string): string {
     .replace(/(['"`(=])\/(?!\/|ik\/|api\/)([A-Za-z0-9_][A-Za-z0-9_.\-/]*\.(?:js|css|html|png|svg|jpe?g|webp|ico|woff2?))(?=[?#'"`)\s])/g, '$1/ik/$2');
 }
 
+/** 今の画面のコードを ver2 用に少しだけ変える。auth-guard.js の日報の締めの寄せ（平日18時）は止める＝ver2 の外枠が寄せる（components/NippoMust.tsx）。
+ *  iframe の中で寄せると 日報の画面（/ik/nippo.html は '/nippo.html' と別の名前）でも開き直しを繰り返し、ほかの画面では iframe の中だけが日報になるため */
+export function rewriteAsset(name: string, src: string): string {
+  if (name === 'auth-guard.js') src = src.replace("if (!nippoBlocked && path !== '/nippo.html')", 'if (false)');
+  return rewritePaths(src);
+}
+
 // 文字の書き換えで拾えない組み立て方（変数で /api/ を作るなど）の保険。fetch / XHR / sendBeacon の行き先を /ik/api/ に向ける
 const PATCH = `<script>(function(){var O=location.origin;function P(u){try{if(typeof u!=='string')return u;if(u.indexOf('/api/')===0)return '/ik'+u;if(u.indexOf(O+'/api/')===0)return O+'/ik'+u.slice(O.length)}catch(e){}return u}
 var f=window.fetch;if(f)window.fetch=function(i,o){if(typeof i==='string')i=P(i);else if(i&&typeof URL!=='undefined'&&i instanceof URL)i=P(i.href);return f.call(this,i,o)};

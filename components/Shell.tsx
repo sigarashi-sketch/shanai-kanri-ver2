@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Archive, Briefcase, Gift, ChevronDown, Clock, Home, MessageSquare, Network, Pin, PinOff, ReceiptText, ShieldCheck, SlidersHorizontal, Sprout, Users } from 'lucide-react';
 import { GuideHost } from './Guide';
@@ -20,6 +20,7 @@ import { AlertProvider } from './AlertStore';
 import { LiveIndicator } from './Live';
 import { useMePages } from './MePages';
 import { horyuVisible } from '@/lib/horyu-access';
+import { NIPPO_HREF, useNippoMust } from './NippoMust';
 
 export const MODULE_ICON: Record<ModuleKey, typeof Users> = { jinji: Users, roumu: Clock, eigyo: Briefcase, keiri: ReceiptText, jinzai: Sprout };
 
@@ -38,6 +39,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
   // 今のシステムのページ権限で開けない画面（経理管理など）も、中で forbidden を出さずに「権限がありません」にする（10-26）
   const legacyBlocked = !!group && !horyuVisible(group.items.find((it) => pathname === it.href || pathname.startsWith(it.href + '/'))?.href ?? pathname, pa);
   const blocked = !canOpen(pathname) || legacyBlocked;   // 分類に入っていない画面（ホーム・設定）は開く。保留も PRE_LAUNCH の間は閉じる
+  // 平日18時を過ぎて今日の成約日報を出していない人は、出すまで成約日報から動けない（10-27 shoya・components/NippoMust.tsx）。日報を開けない人は対象外
+  const router = useRouter();
+  const nippoMust = useNippoMust(me.email, canOpen(NIPPO_HREF) === 'all' && horyuVisible(NIPPO_HREF, pa));
+  const away = nippoMust && !isOn(pathname, NIPPO_HREF);
+  useEffect(() => { if (away) router.replace(NIPPO_HREF + '?must=1'); }, [away, router]);
   // 右から出るパネル（連絡・スキシ）が上のバーに重ならないよう、バーの実際の高さを --hdr に入れる（狭い画面では折り返して高くなる）
   const hdr = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -74,7 +80,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           {/* 名前を押した人は、画面の一番上に出す（右でも小窓でもない・10-26 shoya「上に表示しろ」） */}
           <PersonHost />
           {kanawestOnly && !blocked && <div role="status" className="mx-6 mt-3 rounded-lg border border-line bg-soft px-3 py-2 text-sm text-muted">かな西エリア：神奈川要員の人だけを出しています（見るだけ）</div>}
-          {blocked ? <NoAccess label={findNav(pathname).item?.label ?? group?.label ?? 'この画面'} legacy={legacyBlocked} /> : children}
+          {away ? null : blocked ? <NoAccess label={findNav(pathname).item?.label ?? group?.label ?? 'この画面'} legacy={legacyBlocked} /> : children}
         </div>
         <div id="drawer-root" />
         {/* 全画面共通の右クリックメニュー（今のいけどんの ctx-menu.js をそのまま・10-26） */}
