@@ -51,8 +51,14 @@ body{padding-top:0!important;padding-bottom:0!important}
 const PANE = (pane: 'make' | 'store') => `<script>(function(){var n=0;function go(){var b=document.querySelector('.ptabs [data-pane="${pane}"]');if(!b){if(n++<100)setTimeout(go,100);return}b.click();var t=document.querySelector('.ptabs');if(t)t.style.display='none'}
 if(document.readyState!=='loading')go();else document.addEventListener('DOMContentLoaded',go)})();</script>`;
 
+// 請求書作成のファイル名（PDF・保存とも fileNameOf）を「宛先御中_請求書_番号」にする（10-27 shoya「人財ＢＡＮＫ株式会社御中_請求書_MKTB-0000000011 この名前で保存」）。
+//   今の画面は「宛先御中_件名_請求書_番号」。件名だけ外す。取引先マスタの「ファイル名の形」（file_name_fmt）がある会社はそちらのまま
+//   ★今の画面の書き方が変わって見つからなければ何もしない（今のままの名前になる）
+const FILE_NAME_OLD = "[(inv.partner || '宛先未定') + '御中', inv.subject, '請求書', inv.number || ymLabel(data.ym)]";
+const FILE_NAME_NEW = "[(inv.partner || '宛先未定') + '御中', '請求書', inv.number || ymLabel(data.ym)]";
+
 export function embedHtml(html: string, opts?: { pane?: 'make' | 'store' }): string {
-  let out = rewritePaths(html);
+  let out = rewritePaths(html).replace(FILE_NAME_OLD, FILE_NAME_NEW);
   if (opts?.pane) out = out.includes('</body>') ? out.replace('</body>', PANE(opts.pane) + '</body>') : out + PANE(opts.pane);
   // 保険の script は <head> のいちばん先（今の画面の script より前）に置く
   out = /<head[^>]*>/i.test(out) ? out.replace(/<head[^>]*>/i, (m) => m + PATCH) : PATCH + out;
