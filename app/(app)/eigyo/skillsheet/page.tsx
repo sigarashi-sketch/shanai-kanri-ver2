@@ -8,6 +8,7 @@ import { needText, usePerms } from '@/components/Perms';
 import { RemainRing, useMotivation } from '@/components/Motivation';
 import { DrawerPortal } from '@/components/DrawerPortal';
 import { PersonName } from '@/components/Person';
+import { SukishiFiles } from '@/components/SukishiFiles';
 
 // スキルシート作成（人事管理）＝今の「基本情報」画面（legacy/public/basic-info.html）の写し。仕様は変えず見た目だけ ver2 に合わせた。
 //   ・基本情報フォームの回答者の一覧。検索・絞り込み・件数・並びは全部サーバが返す（20件ずつ）
@@ -148,6 +149,9 @@ export default function SkillsheetPage() {
     setBusy(null);
     const ls = lines(j, kind);
     if (j.ok && ls.length) {
+      // 一覧のその行にも新しい URL を入れる（今の basic-info.html と同じ）
+      const patch: Partial<SsRow> = kind === 'pdf' ? { ...(j.pdfUrl && { pdf_url: j.pdfUrl }), ...(j.pdfAnonUrl && { pdf_anon_url: j.pdfAnonUrl }) } : { ...(j.xlsxUrl && { xlsx_url: j.xlsxUrl }), ...(j.xlsxAnonUrl && { xlsx_anon_url: j.xlsxAnonUrl }) };
+      setData((d) => (d ? { ...d, rows: d.rows.map((x) => (x.rosterId === row.rosterId ? { ...x, ...patch } : x)) } : d));
       setDone({ name: row.name, title: kind === 'pdf' ? 'PDFを出しました' : 'Excelを出しました', lines: ls, notes: j.warning ? [j.warning] : [] });
       hit();
     } else setDone({ name: row.name, title: kind === 'pdf' ? 'PDFを出せませんでした' : 'Excelを出せませんでした', lines: [], notes: [j.error || 'わけが分かりませんでした'], bad: true });
@@ -269,6 +273,7 @@ export default function SkillsheetPage() {
                         {hasSs && <button disabled={!canEdit || !!busy} title={denied} onClick={() => exportAs(r, 'pdf')} className="inline-flex min-h-7 items-center gap-1 whitespace-nowrap rounded-lg border border-field bg-surface px-2 text-xs font-semibold disabled:opacity-40"><FileText size={12} />{mine && busy.what === 'pdf' ? 'PDFを出しています…' : 'PDF出力'}</button>}
                         {hasSs && <button disabled={!canEdit || !!busy} title={denied ?? '本名版とイニシャル版のExcelを出します（URLは変わりません）'} onClick={() => exportAs(r, 'xlsx')} className="inline-flex min-h-7 items-center gap-1 whitespace-nowrap rounded-lg border border-field bg-surface px-2 text-xs font-semibold disabled:opacity-40"><FileSpreadsheet size={12} />{mine && busy.what === 'xlsx' ? 'Excelを出しています…' : 'Excel出力'}</button>}
                       </div>
+                      {(r.pdf_url || r.pdf_anon_url || r.xlsx_url || r.xlsx_anon_url) && <div className="mt-1.5"><SukishiFiles files={{ pdfUrl: r.pdf_url, pdfAnonUrl: r.pdf_anon_url, xlsxUrl: r.xlsx_url, xlsxAnonUrl: r.xlsx_anon_url }} canMake={hasSs} /></div>}
                     </td>
                   </tr>
                 );

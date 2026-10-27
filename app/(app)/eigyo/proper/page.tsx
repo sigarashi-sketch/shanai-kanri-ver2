@@ -14,6 +14,8 @@ import { liveProperRows, type LiverList, type LiveProper, type PartnerList } fro
 import { ProperList } from '@/components/ProperList';
 import type { EngineerRows } from '@/lib/live/eigyo-common';
 import { PersonName } from '@/components/Person';
+import { SukishiFiles } from '@/components/SukishiFiles';
+import { fileUrlsOf } from '@/lib/live/eigyo-common';
 
 // 要員（プロパー）＋スキシ作成（2026-10-23 shoya「プロパーリストの中にスキシ作成をマージ」）。
 //   スキシは客先に出す紙：本名は載せずイニシャル、経歴は古い順、稼働開始に健康情報らしい値は載せない（今のシステムと同じ決まり）。
@@ -31,6 +33,7 @@ function ProperTab({ data, reload, live }: { data: EngineerRows | null; reload: 
   // ?sukishi=<id> でそのスキシを開いた状態から始める
   const [openId, setOpenId] = useState<string | null>(null);
   const open = openId ? byId.get(openId) ?? null : null;
+  const openRow = openId ? data?.rows.find((r) => r.row === openId) : undefined;
   useEffect(() => { const id = new URLSearchParams(window.location.search).get('sukishi'); if (id) setOpenId(id); }, []);
 
   return (
@@ -65,6 +68,12 @@ function ProperTab({ data, reload, live }: { data: EngineerRows | null; reload: 
                 ))}
               </ol>
             </div>
+            {openRow && (
+              <div>
+                <div className="mb-1.5 text-sm font-semibold text-muted">ファイル（本名版／イニシャル版＝客先送付用）</div>
+                <div className="rounded-[10px] border border-line px-3 py-2"><SukishiFiles files={fileUrlsOf(openRow)} row={openRow.row} name={openRow.name} canMake={!!open.sukishiUrl} live={live} onMade={reload} /></div>
+              </div>
+            )}
             <p className="text-xs text-faint">出どころ：基本情報（氏名・年齢・最寄駅・資格）／経歴フォーム／プロパーの稼働開始。本名・健康に関する内容は載せません。</p>
           </div>
           <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">

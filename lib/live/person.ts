@@ -6,12 +6,14 @@
 //   ・チャットグループ … /api/chat?action=groups のグループ名に、この人の氏名が入っているもの（今の chat.html と同じ当て方：
 //                    グループ名を畳んで、名簿の全員の氏名のうち一番長く当たる人がこの人なら、この人のグループ）
 //                    → /api/chat?action=groupThread&groupId=…
-import { cellsOf, matchGroupName, normName, properStatus, type EngineerRows } from './eigyo-common';
+import { cellsOf, fileUrlsOf, matchGroupName, normName, properStatus, type EngineerRows, type SukishiFileUrls } from './eigyo-common';
 import type { LiverList, PartnerList } from './proper';
 import type { LiveStaff } from './staff';
 
 export type Fact = [string, string];
-export type LivePersonView = { id: string; name: string; status: string; facts: Fact[]; summary: string; career: string; sukishiUrl: string; source: 'プロパー' | '営業共有リスト' | 'ライバー' };
+export type LivePersonView = { id: string; name: string; status: string; facts: Fact[]; summary: string; career: string; sukishiUrl: string; source: 'プロパー' | '営業共有リスト' | 'ライバー';
+  /** プロパーだけ：プロパーリストの行の id（PDF・Excel の出力先）とスキシのファイル */
+  row?: string; files?: SukishiFileUrls };
 
 const v = (s?: string | null) => (s && String(s).trim()) || '—';
 const yn = (s?: string) => (s === 'true' ? '可' : s === 'false' ? '不可' : v(s));
@@ -30,7 +32,7 @@ export function livePerson(id: string, er: EngineerRows | null, pl: PartnerList 
     const c = cellsOf(er, r);
     return {
       id, name: r.name, status: properStatus(r, c), source: 'プロパー', summary: c.summary || '', career: c.zenshoku || '',
-      sukishiUrl: /^https?:/.test(c.sukishi || '') ? c.sukishi : '',
+      sukishiUrl: /^https?:/.test(c.sukishi || '') ? c.sukishi : '', row: r.row, files: fileUrlsOf(r),
       facts: [
         ['最寄駅', v(c.eki)], ['希望職種', v(c.kibou_shokushu)], ['採用担当', v(c.tantou)], ['所属', v(c.shozoku)],
         ['稼働できる日', v(c.shoudaku_nyusha_bi || c.kadou)], ['額面', v(c.gakumen)], ['シフト', yn(c.shift)], ['夜勤', yn(c.yakin)],

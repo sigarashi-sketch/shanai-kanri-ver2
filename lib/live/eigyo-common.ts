@@ -10,6 +10,9 @@ export type EngineerRow = {
   cells: (string | boolean)[]; beforeSales?: boolean; dropout?: boolean; dropoutAt?: string; dropoutPhase?: string; hearingDue?: boolean;
   pdfUrl?: string; pdfAnonUrl?: string; xlsxUrl?: string; xlsxAnonUrl?: string;
 };
+/** スキシのファイル（本名版／イニシャル版 × PDF／Excel）の URL。行（EngineerRow）からそのまま取る */
+export type SukishiFileUrls = { pdfUrl?: string; pdfAnonUrl?: string; xlsxUrl?: string; xlsxAnonUrl?: string };
+export const fileUrlsOf = (r: SukishiFileUrls): SukishiFileUrls => ({ pdfUrl: r.pdfUrl, pdfAnonUrl: r.pdfAnonUrl, xlsxUrl: r.xlsxUrl, xlsxAnonUrl: r.xlsxAnonUrl });
 export type EngineerRows = { columns: EngineerCol[]; rows: EngineerRow[]; total: number };
 
 /** 列名 → 値（文字）。bool 列は 'true'/'' */

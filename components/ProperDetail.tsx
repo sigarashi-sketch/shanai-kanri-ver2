@@ -23,7 +23,8 @@ import { useCaseSend } from '@/components/CaseSendDialog';
 import { usePerms } from '@/components/Perms';
 import { liveStock } from '@/lib/live/cases';
 import { blockReason, type ProgressData } from '@/lib/live/eigyo-common';
-import type { EngineerRows } from '@/lib/live/eigyo-common';
+import type { EngineerRows, SukishiFileUrls } from '@/lib/live/eigyo-common';
+import { SukishiFiles } from '@/components/SukishiFiles';
 import type { LiverList, PartnerList } from '@/lib/live/proper';
 import {
   CAN_ALL, memoOf, contactsOf, groupBubbles, groupsOf, livePerson, logView, memberOf, threadBubbles,
@@ -33,7 +34,7 @@ import {
 // 社員ページ（StaffDetail）と同じ型のタブ（10-25 shoya「写真で出したやつにして」）。チャットは一番右
 const TABS = ['基本情報', '希望条件', 'スキシ・サマリ', '送った案件', '面談メモ', 'チャット'] as const;
 type Tab = (typeof TABS)[number];
-type View = { id: string; name: string; status: string; facts: Fact[]; summary: string; career: string; sukishiUrl: string; source: string };
+type View = { id: string; name: string; status: string; facts: Fact[]; summary: string; career: string; sukishiUrl: string; source: string; row?: string; files?: SukishiFileUrls };
 
 /** 名前の小窓が /api/live/person で読んだ分 */
 export type ProperInitial = { view: LivePersonView; everyone: string[]; can: PersonCan };
@@ -170,6 +171,11 @@ function Sukishi({ p, liver, ext }: { p: View; liver: boolean; ext: { target?: s
       <Card title="前職・経歴">
         {p.career ? <pre className="whitespace-pre-wrap break-words font-sans text-body leading-relaxed">{p.career}</pre> : <p className="text-body text-muted">—</p>}
       </Card>
+      {p.row && (
+        <Card title="スキルシートのファイル" sub="本名版とイニシャル版（客先送付用）の PDF・Excel。今のプロパーリストの PDF 列と同じ。客先にはイニシャル版の PDF を（スプレッドシートをブラウザで印刷すると崩れます）">
+          <SukishiFiles files={p.files ?? {}} row={p.row} name={p.name} canMake={!!p.sukishiUrl} size="md" />
+        </Card>
+      )}
       <div className="flex flex-wrap gap-2">
         {p.sukishiUrl && <a href={p.sukishiUrl} target="_blank" rel="noreferrer" className="btn-secondary btn">スキルシートを開く</a>}
         <Link href={`/eigyo/skillsheet?q=${encodeURIComponent(p.name)}`} {...ext} className="btn-secondary btn">スキルシートの画面で見る</Link>
