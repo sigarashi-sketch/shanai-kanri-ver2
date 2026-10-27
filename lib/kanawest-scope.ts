@@ -1,15 +1,12 @@
 import 'server-only';
-import { headers } from 'next/headers';
 import { effectivePerms } from './access';
 import { cached, userKey } from './cache';
-import { isKanawestOnly, pageAccess } from './kubun';
+import { isKanawest } from './kubun';
 import { matchGroupName, normName, type EngineerRows, type ProgressData, type ProgressReply } from './live/eigyo-common';
 
 // かな西エリア（10-26 shoya「神奈川西エリアは神奈川要員だけみれるように・ロール振られた人はね」「神奈川要員チェックの人」）。
 //   ・神奈川要員＝今のシステムのプロパーリストの「神奈川要員」チェックが付いている人（稼働中もふくむ＝行の kanagawa の印と同じ）
-//   ・絞るのは「かな西エリアで開いている」とき：
-//       かな西エリアだけを持つ人（ほかの区分が全部「見ない」）→ いつも
-//       ほかの区分も持つ人 → 要員の画面をかな西エリアで開いているとき（呼んだ画面の Referer で見る）
+//   ・絞るのは かな西エリアが付いた人のとき いつも（ほかの区分を持っていても・10-27）
 //   ・ver2 から今のシステムを読む口は全部 lib/ike.ts の ikeFetch を通る。そこで ① 下の READS にある読み口だけ通し ② 中身を神奈川要員だけに絞る。
 //     READS に無い読み口・書き込みは全部断る（知らない形の中身は絞れないので出さない）
 //   ★今のシステムを読めない・名簿が読めないときは何も出さない（人を見せる側に倒さない）
@@ -17,15 +14,10 @@ import { matchGroupName, normName, type EngineerRows, type ProgressData, type Pr
 export type Scope = 'all' | 'kanagawa';
 type Raw = (path: string) => Promise<{ ok: boolean; status: number; data: unknown }>;
 
-/** いまの人が、この呼び出しで神奈川要員に絞られるか */
+/** いまの人が、この呼び出しで神奈川要員に絞られるか＝かな西エリアが付いていれば いつも（10-27 shoya「全部見れるようにしたけど神奈川要員だけにしてね」） */
 export async function scopeOf(token: string, loadPerms: () => Promise<ReturnType<typeof effectivePerms> | null>): Promise<Scope> {
   const { v: k } = await cached(`${userKey(token)}|kperms`, 30_000, loadPerms);
-  if (!k) return 'all';
-  if (isKanawestOnly(k)) return 'kanagawa';
-  if (k.kanawest === 'none') return 'all';
-  let path = '';
-  try { const ref = (await headers()).get('referer'); if (ref) path = new URL(ref).pathname; } catch { /* 画面の外から（サーバーの中）は絞らない */ }
-  return path && pageAccess(k, path) === 'kanawest' ? 'kanagawa' : 'all';
+  return k && isKanawest(k) ? 'kanagawa' : 'all';
 }
 
 /** 神奈川要員の名前（名寄せした形）と、グループ名を当てるための全員の名前。読めなければ null */
