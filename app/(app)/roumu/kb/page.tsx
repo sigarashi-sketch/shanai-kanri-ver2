@@ -1,17 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search, Sparkles, ThumbsUp } from 'lucide-react';
+import { OctagonAlert, Search, Sparkles, ThumbsUp } from 'lucide-react';
 import { PageTitle } from '@/components/ui';
 import { useMotivation } from '@/components/Motivation';
 import { LiveBanner, useIke } from '@/components/Live';
 import { setMark, useMarks } from '@/lib/live/roumu';
 import { KbPdf } from './pdf';
-import { kbParas, type IkeKbGet, type IkeKbList, type IkeKbSearch } from '@/lib/live/kb';
+import { kbDont, kbParas, type IkeKbGet, type IkeKbList, type IkeKbSearch } from '@/lib/live/kb';
 
 // 労務法務ナレッジ（労務/営業管理）＝内勤がよく聞かれる労務・契約の質問を検索して読む Q&A。
 //   ・カテゴリのチップと検索（質問・答え・タグを探す）。?q= で検索語を入れて開ける
-//   ・偽装請負・多重派遣は「やってはいけない」を赤い枠ではっきり出す
+//   ・偽装請負・多重派遣などは「やってはいけない」を赤い枠ではっきり出す（タグ「やってはいけない」「禁止」か題名で見分ける＝lib/live/kb.ts kbDont）
 //   ・本物の「役に立った」は今のシステムの印（roumu_marks kind=kb-helpful・記事ごとに1つ・もう一度押すと外す・10-26）
 //   ・「AIに聞く」は bot と同じ検索で拾う記事を出す。各回答の下に「最終判断は社労士・法務に」
 export default function KbPage() {
@@ -75,9 +75,11 @@ export default function KbPage() {
           {lrows.map((k, i) => {
             const open = lopen === k.id;
             const a = open && art.data?.ok ? art.data.article : null;
+            const dont = kbDont(k);
             return (
-              <article key={k.id} className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: Math.min(i, 20) + 2 }}>
+              <article key={k.id} className={`mo-fade-up overflow-hidden rounded-xl border bg-surface ${dont ? 'border-2' : 'border-line'}`} style={{ ['--i' as string]: Math.min(i, 20) + 2, ...(dont ? { borderColor: 'var(--color-bad)' } : {}) }}>
                 <button onClick={() => setLopen(open ? null : k.id)} className="flex w-full items-center gap-2 px-4 py-3 text-left" aria-expanded={open}>
+                  {dont && <span className="chip inline-flex items-center gap-1 font-bold" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}><OctagonAlert size={12} />やってはいけない</span>}
                   <span className="text-body font-bold">{k.title}</span>
                   {!k.published && <span className="chip" style={{ background: 'var(--tone-caution-bg)', color: 'var(--tone-caution-fg)' }}>下書き</span>}
                   <span className="chip ml-auto" style={{ background: 'var(--al)', color: 'var(--ad)' }}>{k.category}</span>

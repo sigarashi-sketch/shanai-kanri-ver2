@@ -24,7 +24,7 @@ import { FLAG_NAME, flagsForClaim, type FlagKind, type KeihiFlag, type KeihiFlag
 //     ICカードの利用履歴から選ぶのは作れない（LINE の中のウェブ画面からは交通系 IC の履歴を読めない・モバイルSuica の履歴を外から取る口も無い）
 //   本物（ログイン中）：今の GET /api/keihi?action=adminList&status=申請中 を読む。承認・差し戻しは /api/live/keihi → 今の POST decide（本人の LINE に届く・確認の窓つき）
 //   勤怠の印（10-25 shoya「打刻漏れ シフト表未提出 欠勤報告などあれば示して欲しい」）：申請の人 × 申請の月に
-//     打刻漏れ・シフト表の未提出/下書き・欠勤の報告・勤務表とのずれ があれば印で出す。押すと日付が開く
+//     打刻漏れ・シフト表の未提出/下書き・欠勤の報告・遅刻/早退の連絡（10-27）・勤務表とのずれ があれば印で出す。押すと日付が開く
 //     本物は /api/live/keihi-flags（読むだけの GET をまとめる・freee は呼ばない）
 //   見本データは出さない（10-26）：読み込み中は「読み込み中…」、読めなければ上の LiveBanner のエラー
 const yen = (n: number) => `¥${n.toLocaleString('ja-JP')}`;
@@ -162,7 +162,7 @@ function CheckTab({ claims, done, setDone, live, flags, reload }: { claims: Clai
         <RemainRing remain={pending.length} total={claims.length} />
         <div className="text-body"><b>承認待ち {pending.length}件</b><span className="ml-2 num text-muted">{yen(pending.reduce((s, c) => s + c.amount, 0))}</span>
           <div className="text-sm text-muted">勤怠の打刻・ICカードの履歴・定期の期間・現場の予約を先に照らしています。{!permApprove && <span className="text-bad"> {needText('approve')}</span>}</div>
-          {flags.ready && flagged > 0 && <div className="text-sm" style={{ color: 'var(--tone-warn-fg)' }}>打刻漏れ・シフト・欠勤などの勤怠の印がついた申請 {flagged}件（印を押すと日付が出ます）</div>}
+          {flags.ready && flagged > 0 && <div className="text-sm" style={{ color: 'var(--tone-warn-fg)' }}>打刻漏れ・シフト・欠勤・遅刻などの勤怠の印がついた申請 {flagged}件（印を押すと日付が出ます）</div>}
           {flags.unread.length > 0 && <div className="text-xs text-faint">{flags.unread.map((k) => FLAG_NAME[k]).join('・')} は読めなかったので確かめられていません（印が無い＝問題なし、ではありません）</div>}
           {flags.error && <div className="text-xs text-faint">勤怠の印を読めませんでした（{flags.error}）</div>}
         </div>
