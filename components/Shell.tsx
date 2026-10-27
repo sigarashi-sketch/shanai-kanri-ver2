@@ -56,8 +56,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <div data-module={module} className="flex min-h-screen">
         <SideNav pathname={pathname} visible={visible} horyu={horyu} manageAccess={manageAccess} kanawestOf={(href) => canOpen(href) === 'kanawest'} canOpen={(href) => !!canOpen(href)} home={home} />
 
-        <div className="flex min-w-0 flex-1 flex-col">
-          <header ref={hdr} className="sticky top-0 z-30 flex min-h-[58px] flex-wrap items-center gap-3.5 topbar border-b border-line px-6 backdrop-blur">
+        <div data-tour="col" className="flex min-w-0 flex-1 flex-col">
+          <header ref={hdr} data-tour="header" className="sticky top-0 z-30 flex min-h-[58px] flex-wrap items-center gap-3.5 topbar border-b border-line px-6 backdrop-blur">
             {group && <span className="inline-flex items-center gap-1.5 text-body font-semibold" style={{ color: 'var(--ad)' }}><i className="size-2 rounded-full" style={{ background: 'var(--a)' }} />{group.label}</span>}
             {/* 全体検索（⌘K）と通知のベルは、中身ができるまで出さない（10-25 見た目の整理：押しても何も起きない飾りだったため） */}
             <LiveIndicator />
@@ -65,8 +65,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <div className="ml-auto flex items-center gap-3">
               <GuideHost groups={visible} />
               <TodayPill />
-              <ThemeSwitch />
-              <RenrakuButton key={module} module={module as ModuleKey | 'home'} />
+              <span data-tour="theme" className="inline-flex"><ThemeSwitch /></span>
+              <span data-tour="renraku" className="inline-flex"><RenrakuButton key={module} module={module as ModuleKey | 'home'} /></span>
               <span className="max-w-[190px] truncate text-sm text-muted" title={me.email}>{me.name}</span>
               <button onClick={() => { void fetch('/api/ike-auth/logout', { method: 'POST' }).finally(() => window.location.reload()); }} className="text-sm text-muted hover:underline">ログアウト</button>
             </div>
@@ -107,7 +107,14 @@ function SideNav({ pathname, visible, horyu, manageAccess, kanawestOf, canOpen, 
   const [bump, setBump] = useState<Record<string, number>>({}); // 押した見出し（アイコンの動きをもう一度流す）
   const [pressed, setPressed] = useState<string | null>(null); // 押した画面（移るまでのあいだも選んだ形にする）
   const navRef = useRef<HTMLElement>(null);
-  const wide = pinned || hover;
+  // 使い方ガイドの間は広げたままにして、案内している分類を開く（components/Tour.tsx tourNav）
+  const [tour, setTour] = useState(false);
+  useEffect(() => {
+    const on = (e: Event) => { const d = (e as CustomEvent<{ on: boolean; group?: string }>).detail; setTour(!!d?.on); if (d?.group) setOpened((o) => (o.includes(d.group!) ? o : [...o, d.group!])); };
+    window.addEventListener('v2-tour', on);
+    return () => window.removeEventListener('v2-tour', on);
+  }, []);
+  const wide = pinned || hover || tour;
   const current = groups.find((g) => g.items.some((it) => isOn(pathname, it.href)))?.key;
 
   useEffect(() => {
@@ -142,7 +149,7 @@ function SideNav({ pathname, visible, horyu, manageAccess, kanawestOf, canOpen, 
 
   return (
     <div className="relative shrink-0 transition-[width] duration-[260ms] ease-[cubic-bezier(.22,1,.36,1)]" style={{ width: pinned ? WIDE : RAIL }}>
-      <nav ref={navRef} aria-label="メニュー"
+      <nav ref={navRef} data-tour="sidenav" aria-label="メニュー"
         onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}
         onFocus={() => setHover(true)} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setHover(false); }}
         className={`side fixed left-0 top-0 z-40 flex h-screen flex-col gap-2 overflow-y-auto overflow-x-hidden px-2.5 py-3.5 text-body transition-[width,box-shadow] duration-[260ms] ease-[cubic-bezier(.22,1,.36,1)] ${hover && !pinned ? 'shadow-[0_16px_48px_rgba(24,24,27,.28)]' : ''}`}
@@ -156,11 +163,11 @@ function SideNav({ pathname, visible, horyu, manageAccess, kanawestOf, canOpen, 
           </button>
         </div>
         {/* ホーム＝その人のホーム（営業→ホーム営業・人事→ホーム人事・10-27）。下にたまげたポン（未経験事業部の人だけ） */}
-        <Link href={home} className={`side-hover flex items-center gap-2.5 rounded-lg px-2.5 py-2 ${pathname === home || pathname === '/' ? 'side-on font-semibold' : ''}`}>
+        <Link href={home} data-tour="home" className={`side-hover flex items-center gap-2.5 rounded-lg px-2.5 py-2 ${pathname === home || pathname === '/' ? 'side-on font-semibold' : ''}`}>
           <Home size={18} strokeWidth={1.8} className="shrink-0" /><span className={lbl}>ホーム</span>
         </Link>
         {NAV_HOME.filter((it) => canOpen(it.href)).map((it) => (
-          <Link key={it.href} href={it.href} title={wide ? undefined : it.label} className={`side-hover -mt-1.5 flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 ${isOn(pathname, it.href) ? 'side-on font-semibold' : ''}`}>
+          <Link key={it.href} href={it.href} data-tour={`nav-${it.href}`} title={wide ? undefined : it.label} className={`side-hover -mt-1.5 flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 ${isOn(pathname, it.href) ? 'side-on font-semibold' : ''}`}>
             <Gift size={18} strokeWidth={1.8} className="shrink-0" /><span className={lbl}>{it.label}</span>
           </Link>
         ))}
@@ -171,7 +178,7 @@ function SideNav({ pathname, visible, horyu, manageAccess, kanawestOf, canOpen, 
           const here = current === g.key;
           return (
             <div key={g.key} className="flex flex-col">
-              <button type="button" onClick={() => toggle(g.key)} aria-expanded={show} title={wide ? undefined : g.label}
+              <button type="button" data-tour={`grp-${g.key}`} onClick={() => toggle(g.key)} aria-expanded={show} title={wide ? undefined : g.label}
                 className={`side-hover flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm font-semibold ${here ? 'side-strong' : ''}`}>
                 <span key={bump[g.key] ?? 0} className={`flex size-6 shrink-0 items-center justify-center rounded-md ${g.color ? '' : 'side-ring ring-1'}`}
                   style={{ ...(g.color ? { background: g.color, color: g.on } : {}), ...(bump[g.key] ? { animation: 'mo-spring-in 520ms cubic-bezier(.34,1.56,.64,1) both, mo-ring 700ms ease-out both', ['--a' as string]: g.color ?? 'var(--side-fg)' } : {}) } as CSSProperties}>
@@ -188,7 +195,7 @@ function SideNav({ pathname, visible, horyu, manageAccess, kanawestOf, canOpen, 
                       const active = pressed ? pressed === it.href : isOn(pathname, it.href);
                       const justPressed = pressed === it.href;
                       return (
-                        <Link key={`${it.href}:${show ? 1 : 0}`} href={it.href} onClick={() => { if (!isOn(pathname, it.href)) setPressed(it.href); }} tabIndex={show ? 0 : -1}
+                        <Link key={`${it.href}:${show ? 1 : 0}`} href={it.href} data-tour={`nav-${it.href}`} onClick={() => { if (!isOn(pathname, it.href)) setPressed(it.href); }} tabIndex={show ? 0 : -1}
                           className={`relative flex items-center justify-between rounded-lg px-2.5 py-1.5 ${show ? 'mo-axis' : ''} ${active ? 'side-on font-semibold' : 'side-hover'} ${it.built ? '' : 'opacity-60'}`}
                           style={{ ['--i' as string]: i, ...(active && g.color ? { boxShadow: `inset 3px 0 0 var(--side-bar, ${g.color})` } : {}) } as CSSProperties}>
                           {justPressed && <span aria-hidden className="pointer-events-none absolute inset-0 rounded-lg" style={{ animation: 'mo-scale-in 240ms cubic-bezier(.22,1,.36,1) both, mo-ring 800ms ease-out both', ['--a' as string]: g.color ?? 'var(--side-fg)' } as CSSProperties} />}

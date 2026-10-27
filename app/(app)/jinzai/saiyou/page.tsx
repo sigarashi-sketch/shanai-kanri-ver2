@@ -33,7 +33,7 @@ export default function SaiyouPage() {
   const canEdit = usePerms().can('jinji', 'edit');
   // 本物：今の社内システムの承諾者（決着前の人）と兆しの材料（返信の日数・フォーム・入社日）を1本で読む（/api/live/saiyou-signals・10-25）
   //   承諾者の一覧は未経験の人だけに絞って、決着までの人数・中央値も絞ったあとの人で数え直してある（サーバー側）
-  //   フォロー面談は今のシステムに無いので出さない（入れる・済みにするも無し）
+  //   フォロー面談は今のシステムの v2_jinji_mendan（/api/live/jinji・10-26）。下の fm
   const sg = useLiveRoute<SaiyouSignalsLive>('/api/live/saiyou-signals');
   const live = sg.live;
   const mk = useMikeiken();

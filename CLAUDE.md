@@ -16,7 +16,7 @@
 - 画面のルール：ses/docs/ver2/UIの型.md ／ 見た目の見本：https://claude.ai/artifact/6nLiR9H8CNZYqqgegPBUE1
 - 画面にブランド名（いけいけどんどん／いけどん）は出さない
 - 権限：区分＝**左メニューの分類**（人事管理・人財管理・労務/営業管理・営業・経理管理）＋かな西エリア（`lib/kubun.ts`・10-27 shoya「左のメニュー依存に」。**かな西エリアが付いた人は ほかの区分を持っていても いつも神奈川要員だけ**＝開けるのは要員リスト・面談管理・案件進捗とチャットだけ・見るだけ・同日「全部見れるようにしたけど神奈川要員だけにしてね」）ごとに 見ない/見る/直す/承認（付いていなければ見ない）＋ロール（全体管理者・管理者・全体を見る）。区分は見ないのまま **画面を1つずつ「見るだけ」で開ける**（ロール・部署/チームのカード右のメニューの見本を押す・`pages`＝href の並び・`lib/kubun.ts` pageGranted・10-27 shoya「ところどころ横断して閲覧だけ」）。2つの分類で見せたい画面は メニューに別の href で複製する。`lib/access.ts`・付けるのは組織表 `/settings/org`
-- **使い方ガイド**（10-27）：はじめて開いたときに1回だけ自動で出る（この端末に覚える）・あとは右上の「使い方」。その人が開ける画面だけ、画面ごとに 押すと見られるもの・見え方・できること（`components/Guide.tsx`・中身は `lib/guide.ts`＝**メニューに画面を足したら ここにも1つ足す**。（直す）（承認）の付いた操作は段階が足りないと鍵つきで薄く出る）
+- **使い方ガイド**（10-27）：はじめて開いたときに1回だけ自動で出る（この端末に覚える）・あとは右上の「使い方」。**実際の画面で案内する**（同日 shoya「ポインタとか強調表示で」＝`components/Tour.tsx`：画面を順に開き、左メニューのその画面をポインタで指して光らせ、画面の中身も明るく残す・吹き出しに説明。狙う場所は Shell の `data-tour`＝sidenav/home/grp-<分類>/nav-<href>/col/header/guide/theme/renraku・ツアーの間は window の 'v2-tour' でメニューを広げたまま）。吹き出しの「一覧」で前の一覧の窓。その人が開ける画面だけ、画面ごとに 押すと見られるもの・見え方・できること（`components/Guide.tsx`・中身は `lib/guide.ts`＝**メニューに画面を足したら ここにも1つ足す**。（直す）（承認）の付いた操作は段階が足りないと鍵つきで薄く出る）
 - **チャットの色**（10-27 shoya「相手とこちら側の色を任意で」）：上のバーの「見た目」→「チャットの色」。人ごとに保存＝どの端末でも同じ（`/api/live/my-prefs`＝saiyou.settings の `v2_prefs:<メール>`・localStorage は控え・`lib/chat-colors.ts`＝html の --chat-out-bg/-fg・--chat-in-bg/-fg。吹き出しは `components/ChatLog.tsx` と `components/sy/ChatBubble.tsx`（globals.css の ig-bubble-*）が読む）
 - **ホーム**（10-27 shoya）：左の「ホーム」は 営業の人→ホーム営業（タブ＝成約・売上／フィード＝インスタ風の要員の動き）・人事の人→ホーム人事（フィードだけ）・両方見る人→今のホーム（`lib/access.ts` homeHrefOf＝所属の名前→開けるホーム）。その下に **たまげたポン（未経験事業部の人だけ）**。**保留は shoya（s.igarashi@）だけ**・**設定は管理者（権限管理あり・全体管理者・管理者）だけ**（どちらも `components/Perms.tsx` open）
 - 左メニュー（`components/Shell.tsx` SideNav）：ふだんはアイコンの帯、マウスを合わせると重ねて広がる（今のシステムと同じ）。ピンで広げたまま固定。分類の見出しを押すと画面の一覧が開く
@@ -24,7 +24,7 @@
 - 連絡（チャット・配信・手動配信）は各画面の右上（`components/Renraku.tsx`）。人事＝インフォメーション、それ以外＝あおい。送信は長押し
 - **人財管理**（10-27・5つ目の分類・緑）：それゆけ未経験（saiyou-app）を中身ごと移した（同日 shoya「それゆけを ver2 にぶちこんで」）。画面 `components/sy`・処理 `app/api/sy/s/*`（それゆけ app/api/s の写し）・`lib/sy`（それゆけ lib の写し）。**それゆけのサーバは呼ばない**＝saiyou スキーマを service role で直接読み書きし、LINE「インフォメーション」にも ver2 から送る。ログインは ver2 のトークン（`lib/sy/auth.ts`）、それゆけの4段階の権限・内勤一般は見るだけ（`lib/sy/api.ts`・proxy.ts が x-sa-method を渡す）もそのまま。★ver2 の Vercel に鍵が要る：IKEIKE_SERVICE_ROLE・LINE_CHANNEL_ACCESS_TOKEN・LINE_CHANNEL_SECRET・SESSION_SECRET（どれもそれゆけと同じ値）。要員向け（LINE Webhook・/m・/k bdsh・/f 回答ページ・cron）は URL を配ってあるのでそれゆけに残す。ver2 にもうあった コミュニティ・離職率・資格手当・採用・bdsh は人事管理から移しただけ（区分はそのまま）。プロパーリストは営業の要員リストと同じ画面、たまげたポンを回す画面は今のシステムの bikkura.html を /ik で。**それゆけ側の lib・API を直したら lib/sy・app/api/sy/s も同じに**
 - **見積書作成** `/keiri/mitsumori`（10-27 shoya「経理管理に見積書つくるタブ・請求書作成と同じような実装で」）：今のシステムに見積書の画面は無いので ver2 で作った。見本は請求書作成（seikyu-make.html）の A4 の雛形と同じ位置・大きさ、PDF はブラウザの印刷。発行元の候補は請求書作成と同じ `/ik/api/seikyu?action=issuers`。保存は saiyou.settings の `v2_mitsumori:<id>`（`app/api/live/mitsumori`・`lib/mitsumori.ts`・直す/消すは経理管理の「直す」以上）
-- 案件進捗は単独。作り込みはあとで（LINEグループに直接投げた案件も回収する）
+- 案件進捗は単独（LINEグループに直接投げた案件も回収する）。カスタム（列・並べ方・判断の絞り込み・自分のタブ）は10-27に入れた＝この端末に覚える
 - 案件・要員マップは 営業 `/eigyo/map` と 人事 `/jinji/map` の両方のメニューにある（同じ画面・10-27 shoya）
 
 <!-- BEGIN:nextjs-agent-rules -->
