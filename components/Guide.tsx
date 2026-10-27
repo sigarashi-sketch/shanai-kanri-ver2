@@ -26,8 +26,8 @@ export function GuideHost({ groups }: { groups: NavGroup[] }) {
   const close = () => { setOpen(false); try { localStorage.setItem(GUIDE_SEEN_KEY, new Date().toISOString()); } catch { /* noop */ } };
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-1 text-sm text-muted hover:underline" title="使い方ガイド（あなたが開ける画面の説明）">
-        <CircleHelp size={15} />使い方
+      <button type="button" onClick={() => setOpen(true)} className="flex min-h-10 items-center gap-1.5 rounded-[10px] border border-line px-2.5 text-sm font-semibold text-ink hover:bg-soft" title="使い方ガイド（あなたが開ける画面の説明）">
+        <CircleHelp size={16} strokeWidth={1.8} />使い方
       </button>
       {open && <GuideDialog groups={groups} onClose={close} />}
     </>
@@ -120,6 +120,8 @@ function Intro({ home, homeItems, groups, kanawest }: { home: string; homeItems:
           <li>右クリック：画面の一覧から移る・スプリット（2〜4画面を並べる）。</li>
           <li>人の名前を押すと、その人の情報が画面の上に出ます。</li>
           <li>何かを片づけると下に知らせが出て、「取り消す」で戻せます。</li>
+          <li>右上の「見た目」：画面の着せ替えと、<b className="text-ink">チャットの色</b>（こちら＝送った側・相手 の吹き出しの色）を選べます。好きな色は「＋」から。どのチャット（連絡・人の詳細・人財管理のチャット）にも効き、あなたの分として保存するので どの端末でも同じ色です。「元の色に戻す」でいつでも戻せます。</li>
+          <li>このガイドは右上の「使い方」からいつでも開けます。</li>
         </ul>
       </section>
     </div>

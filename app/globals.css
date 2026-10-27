@@ -342,6 +342,11 @@ html.in-split nav[aria-label="メニュー"], html.in-split header.topbar { disp
   --color-ig-ok: var(--color-ok);
   --color-ig-warn: var(--color-warn);
   --color-ig-stop: #8134af;
+  /* チャットの吹き出し（人ごとに変えられる・lib/chat-colors.ts） */
+  --color-ig-bubble-out: var(--chat-out-bg, var(--a));
+  --color-ig-bubble-out-fg: var(--chat-out-fg, var(--ao));
+  --color-ig-bubble-in: var(--chat-in-bg, var(--color-sunken));
+  --color-ig-bubble-in-fg: var(--chat-in-fg, var(--color-ink));
 }
 @keyframes ig-pop { 0% { transform: scale(.6); opacity: 0 } 60% { transform: scale(1.08); opacity: 1 } 100% { transform: scale(1) } }
 @keyframes ig-rise { from { transform: translateY(8px); opacity: 0 } to { transform: none; opacity: 1 } }
