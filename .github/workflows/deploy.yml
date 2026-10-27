@@ -6,6 +6,8 @@ name: deploy
 on:
   push:
     branches: ['claude/**']
+  # 手で流し直す（Actions の画面の「Run workflow」で claude/… のブランチを選ぶ）
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -33,6 +35,7 @@ jobs:
           MSG: ${{ github.event.head_commit.message }}
         run: |
           if [ -z "$VERCEL_TOKEN" ]; then echo "VERCEL_TOKEN が無いので出さない（Mac の見張り役に任せる）"; echo "go=0" >> "$GITHUB_OUTPUT"; exit 0; fi
+          [ -n "$MSG" ] || MSG="$(git log -1 --format=%s 2>/dev/null || true)"
           case "$MSG" in wip:*|WIP:*|Wip:*) echo "wip: なので出さない"; echo "go=0" >> "$GITHUB_OUTPUT"; exit 0 ;; esac
           # Mac の見張り役に「こちらが出す」と知らせる（付いていなければ1回だけ）
           git init -q . && git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
