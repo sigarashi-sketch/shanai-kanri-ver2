@@ -57,8 +57,19 @@ if(document.readyState!=='loading')go();else document.addEventListener('DOMConte
 const FILE_NAME_OLD = "[(inv.partner || '宛先未定') + '御中', inv.subject, '請求書', inv.number || ymLabel(data.ym)]";
 const FILE_NAME_NEW = "[(inv.partner || '宛先未定') + '御中', '請求書', inv.number || ymLabel(data.ym)]";
 
-export function embedHtml(html: string, opts?: { pane?: 'make' | 'store' }): string {
+// 請求書の書類（PDF・保存・印刷）にはメールの透かし（今の watermark.js の #ike-wm）を入れない（10-27 shoya「書類に透かしいれないで」）。
+//   画面に出る透かしはそのまま。印刷（PDFに）では隠し、保存の PDF（html2pdf）は写す対象から外す
+//   ★今の画面の書き方が変わって見つからなければ 保存の方は何もしない（印刷で隠すのは CSS なのでいつも効く）
+const NO_WM_PRINT = `<style id="v2-nowm-print">@media print{#ike-wm{display:none!important}}</style>`;
+const PDF_OPT_OLD = "html2canvas: { scale: 2, backgroundColor: '#ffffff'";
+const PDF_OPT_NEW = "html2canvas: { scale: 2, ignoreElements: function (e) { return e.id === 'ike-wm'; }, backgroundColor: '#ffffff'";
+
+export function embedHtml(html: string, opts?: { pane?: 'make' | 'store'; noWatermarkDocs?: boolean }): string {
   let out = rewritePaths(html).replace(FILE_NAME_OLD, FILE_NAME_NEW);
+  if (opts?.noWatermarkDocs) {
+    out = out.split(PDF_OPT_OLD).join(PDF_OPT_NEW);
+    out = out.includes('</head>') ? out.replace('</head>', NO_WM_PRINT + '</head>') : NO_WM_PRINT + out;
+  }
   if (opts?.pane) out = out.includes('</body>') ? out.replace('</body>', PANE(opts.pane) + '</body>') : out + PANE(opts.pane);
   // 保険の script は <head> のいちばん先（今の画面の script より前）に置く
   out = /<head[^>]*>/i.test(out) ? out.replace(/<head[^>]*>/i, (m) => m + PATCH) : PATCH + out;
