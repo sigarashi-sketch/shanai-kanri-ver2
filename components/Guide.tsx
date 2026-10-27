@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Check, CircleHelp, Lock, X } from 'lucide-react';
 import { Dialog } from './Dialog';
+import { Tour, type TourStep } from './Tour';
 import { usePerms } from './Perms';
 import { Z_MODAL } from '@/lib/layers';
 import { LEVELS, atLeast, type Level } from '@/lib/access';
@@ -14,24 +15,59 @@ import { NAV_HOME, type NavGroup, type NavItem } from '@/lib/nav';
 //   ・出すのは その人が開ける画面だけ（左メニューと同じ決め方＝Shell が渡す visible）。画面ごとに 押すと見られるもの・見え方・できること（lib/guide.ts）
 //   ・できることのうち（直す）（承認）の付いた操作は、その人の段階で足りなければ薄くして「この権限ではできません」
 //   ・はじめて開いたときに1回だけ自動で出す（この端末に覚える・GUIDE_SEEN_KEY）。あとは右上の「使い方」からいつでも
+//   ・10-27 shoya「実際の画面でポインタとか強調表示で」＝ふだんは実際の画面で案内する形（components/Tour.tsx）。この一覧の窓は その吹き出しの「一覧で見る」から
 export const GUIDE_SEEN_KEY = 'v2_guide_seen_v1';
 const NEED: Record<string, Level> = { '（直す）': 'edit', '（承認）': 'approve' };
 const levelText = (l: Level) => LEVELS.find((x) => x.key === l)!.label;
 
 export function GuideHost({ groups }: { groups: NavGroup[] }) {
-  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<'tour' | 'list' | null>(null);
+  const steps = useTourSteps(groups);
   useEffect(() => {
-    try { if (!localStorage.getItem(GUIDE_SEEN_KEY)) setOpen(true); } catch { /* 覚えられない端末では自動では出さない */ }
+    try { if (!localStorage.getItem(GUIDE_SEEN_KEY)) setMode('tour'); } catch { /* 覚えられない端末では自動では出さない */ }
   }, []);
-  const close = () => { setOpen(false); try { localStorage.setItem(GUIDE_SEEN_KEY, new Date().toISOString()); } catch { /* noop */ } };
+  const close = () => { setMode(null); try { localStorage.setItem(GUIDE_SEEN_KEY, new Date().toISOString()); } catch { /* noop */ } };
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="flex min-h-10 items-center gap-1.5 rounded-[10px] border border-line px-2.5 text-sm font-semibold text-ink hover:bg-soft" title="使い方ガイド（あなたが開ける画面の説明）">
+      <button type="button" data-tour="guide" onClick={() => setMode('tour')} className="flex min-h-10 items-center gap-1.5 rounded-[10px] border border-line px-2.5 text-sm font-semibold text-ink hover:bg-soft" title="使い方ガイド（実際の画面で順に案内します）">
         <CircleHelp size={16} strokeWidth={1.8} />使い方
       </button>
-      {open && <GuideDialog groups={groups} onClose={close} />}
+      {mode === 'tour' && <Tour steps={steps} onClose={close} onList={() => setMode('list')} />}
+      {mode === 'list' && <GuideDialog groups={groups} onClose={close} />}
     </>
   );
+}
+
+/** 実際の画面で案内する段（components/Tour.tsx）。その人が開ける画面だけ・メニューの並びのまま */
+function useTourSteps(groups: NavGroup[]): TourStep[] {
+  const { me, kperms, pages, home, open } = usePerms();
+  const kw = kperms.kanawest !== 'none';
+  const levelOf = (gr: NavGroup, it: NavItem): { l: Level; note?: string } =>
+    open(it.href) === 'kanawest' ? { l: 'view', note: '神奈川要員だけ' }
+      : kperms[gr.module] !== 'none' ? { l: kperms[gr.module] }
+      : pages.includes(it.href) ? { l: 'view', note: 'この画面だけ' } : { l: 'none' };
+  const n = groups.reduce((a, g) => a + g.items.length, 0);
+  const homeLabel = home === '/home/eigyo' ? 'ホーム営業' : home === '/home/jinji' ? 'ホーム人事' : 'ホーム';
+  const out: TourStep[] = [
+    { key: 'hello', target: 'sidenav', title: `${me.name}さん、ようこそ`, text: `実際の画面を開きながら、あなたが使える画面（${groups.length}つの分類・${n}画面）を順に案内します。\n\n左がメニューです。ふだんはアイコンだけの細い帯で、マウスを合わせると広がります。上のピンで広げたまま固定できます。\n\n「次へ」か →キーで進み、「×」か Esc でいつでも終われます。あとから右上の「使い方」でもう一度見られます。` },
+    { key: 'home', path: home, target: 'home', showPage: true, title: 'ホーム', text: home === '/home/eigyo' ? '「ホーム」を押すと ホーム営業 が開きます。上のタブで「成約・売上」（担当営業ごとの成約数・売上・粗利）と「フィード」（担当の要員の動きをインスタのように）を切り替えます。' : home === '/home/jinji' ? '「ホーム」を押すと ホーム人事 が開きます。未経験の要員の動き（承諾・参画・面談・退社など）がインスタのように流れてきます。' : `「ホーム」を押すと ${homeLabel} が開きます。いま対応が要るものと件数をまとめて見られます。` },
+  ];
+  for (const it of NAV_HOME) if (open(it.href)) out.push({ key: it.href, path: it.href, target: `nav-${it.href}`, showPage: true, title: it.label, entry: GUIDE[it.href] });
+  groups.forEach((g, gi) => {
+    const start = out.length;
+    const lv = kw ? '見るだけ（神奈川要員だけ）' : kperms[g.module] !== 'none' ? `「${LEVELS.find((x) => x.key === kperms[g.module])!.label}」の権限` : '一部の画面だけ「見る」';
+    out.push({ key: `grp-${g.module}`, target: `grp-${g.module}`, group: g.module, mod: g.module, title: g.label, text: `見出しを押すと、この分類の画面が下に開きます。あなたは${lv}で、${g.items.length}画面を使えます。\n\nこれから1つずつ実際に開きます。` });
+    for (const it of g.items) out.push({ key: it.href, path: it.href, target: `nav-${it.href}`, showPage: true, group: g.module, mod: g.module, title: it.label, level: levelOf(g, it), entry: GUIDE[it.href], text: GUIDE[it.href] ? undefined : '説明はまだありません' });
+    void gi;
+    const end = out.length;
+    for (let k = start; k < end; k++) out[k].skipTo = end;
+  });
+  out.push(
+    { key: 'renraku', target: 'renraku', title: '連絡', text: 'どの画面でも右上の「連絡」から、チャット・配信・手動配信を開けます（人事の画面＝インフォメーション、それ以外＝あおい）。送信は長押しです。' },
+    { key: 'theme', target: 'theme', title: '見た目とチャットの色', text: '「見た目」で画面の着せ替えと、チャットの色（こちら＝送った側・相手 の吹き出し）を選べます。チャットの色はあなたの分として保存するので、どの端末でも同じです。' },
+    { key: 'guide', target: 'guide', title: 'このガイド', text: 'これで終わりです。右上の「使い方」から、いつでもこの案内をもう一度見られます。吹き出しの「一覧で見る」で、全部の画面の説明を一覧でも見られます。\n\nほかにも：人の名前を押すとその人の情報が上に出る・右クリックで画面を移る／並べる・片づけたあとは「取り消す」で戻せます。' },
+  );
+  return out;
 }
 
 function GuideDialog({ groups, onClose }: { groups: NavGroup[]; onClose: () => void }) {
