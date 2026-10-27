@@ -212,7 +212,7 @@ function SideNav({ pathname, visible, horyu, manageAccess, kanawestOf, canOpen, 
         })}
         <div className="side-line mt-auto flex flex-col gap-px border-t pt-2.5">
           {NAV_EXTRA.filter((it) => canOpen(it.href)).map((it) => (
-            <Link key={it.href} href={it.href} className={`side-hover flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 ${pathname === it.href ? 'side-on' : ''}`}>
+            <Link key={it.href} href={it.href} data-tour={`nav-${it.href}`} className={`side-hover flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 ${pathname === it.href ? 'side-on' : ''}`}>
               {it.href === '/renraku' ? <MessageSquare size={17} strokeWidth={1.8} className="shrink-0" /> : <SlidersHorizontal size={17} strokeWidth={1.8} className="shrink-0" />}<span className={lbl}>{it.label}</span>
             </Link>
           ))}

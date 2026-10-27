@@ -43,6 +43,9 @@ export function GuideHost({ groups }: { groups: NavGroup[] }) {
 
 // 連絡の窓を開く・閉じる（右上の「連絡」ボタンを押すのと同じ。ツアーの段に入ったときだけ）
 const openRenraku = () => { if (!document.querySelector('[data-tour="renraku-tabs"]')) document.querySelector<HTMLButtonElement>('[data-tour="renraku"] button')?.click(); };
+// 「見た目」の欄を開く・閉じる（右上の「見た目」ボタンを押すのと同じ）
+const openTheme = () => { if (!document.querySelector('[data-tour="theme-menu"]')) document.querySelector<HTMLButtonElement>('[data-tour="theme"] button')?.click(); };
+const closeTheme = () => { if (document.querySelector('[data-tour="theme-menu"]')) document.querySelector<HTMLButtonElement>('[data-tour="theme"] button')?.click(); };
 const closeRenraku = () => { document.querySelector<HTMLButtonElement>('aside[aria-label^="連絡"] button[aria-label="閉じる"]')?.click(); };
 
 /** 実際の画面で案内する段（components/Tour.tsx）。その人が開ける画面だけ・メニューの並びのまま */
@@ -73,8 +76,11 @@ function useTourSteps(groups: NavGroup[]): TourStep[] {
     { key: 'renraku', section: 'おわりに（連絡・見た目）', target: 'renraku', onEnter: closeRenraku, title: '連絡', text: 'どの画面でも右上の「連絡」から、LINE のチャットと配信を開けます。人事の画面＝インフォメーション、それ以外＝あおい の公式アカウントです。右上の数は 返事を待っている人の数です。' },
     { key: 'renraku-tabs', section: 'おわりに（連絡・見た目）', target: 'renraku-tabs', onEnter: openRenraku, title: '連絡の4つのタブ', text: '・チャット：1:1 とグループのトーク。相手を選ぶとやり取りが出て、下の欄から返信できます（送信は長押し＝間違えて送らないため）\n・案件配信：営業リストから送った案件と、送った人数・日時・OK／NG\n・手動配信：宛先を選んでまとめて送る\n・案内配信：件名・本文・回答ボタンつきで送って、進み具合を見る\n\n手動配信・案内配信は「大きく開く」で広く使えます。' },
     { key: 'summary', section: 'おわりに（連絡・見た目）', target: 'summary', fallback: 'renraku-tabs', onEnter: openRenraku, title: '要約ボタン', text: 'チャットで相手（人・グループ）を選ぶと、右上に「要約」が出ます。押すと、直近のやり取りを AI が まとめます（ひとこと・起きたこと・待っていること・気をつけること）。\n\n横の「3日／7日」で、どこまでさかのぼってまとめるかを選べます。押した人にだけ出て、相手には届きません。人の詳細のチャットにも同じボタンがあります。' },
-    { key: 'theme', section: 'おわりに（連絡・見た目）', target: 'theme', onEnter: closeRenraku, title: '見た目とチャットの色', text: '「見た目」で画面の着せ替えと、チャットの色（こちら＝送った側・相手 の吹き出し）を選べます。チャットの色はあなたの分として保存するので、どの端末でも同じです。' },
-    { key: 'guide', section: 'おわりに（連絡・見た目）', target: 'guide', title: 'このガイド', text: 'これで終わりです。右上の「使い方」から、いつでもこの案内をもう一度見られます。吹き出しの「一覧で見る」で、全部の画面の説明を一覧でも見られます。\n\nほかにも：人の名前を押すとその人の情報が上に出る・右クリックで画面を移る／並べる・片づけたあとは「取り消す」で戻せます。' },
+    { key: 'theme', section: 'おわりに（連絡・見た目）', target: 'theme', onEnter: closeRenraku, title: '見た目（着せ替え）', text: '右上の「見た目」で、画面の見た目を自分好みに変えられます。押すと選ぶ欄が開きます。' },
+    { key: 'theme-menu', section: 'おわりに（連絡・見た目）', target: 'theme-list', fallback: 'theme', onEnter: openTheme, title: '着せ替えを選ぶ', text: '上の一覧から選ぶと、すぐ画面全体の雰囲気が変わります（深い宝石色・墨と金・白黒＋色は点だけ・夜のダーク など）。\n\n分類ごとの色（人事＝青・営業＝黄 など）は、どれを選んでも そのまま残ります。何度でも選び直せます。' },
+    { key: 'chat-colors', section: 'おわりに（連絡・見た目）', target: 'chat-colors', fallback: 'theme', onEnter: openTheme, title: 'チャットの色', text: '下の「チャットの色」で、吹き出しの色を こちら（送った側）と相手 で別々に選べます。丸を押すか、「＋」で好きな色。見本の吹き出しで すぐ見え方が分かります。\n\n字の色（白か黒）は自動で読みやすい方になります。あなたの分として保存するので どの端末でも同じ色、「元の色に戻す」でいつでも戻せます。' },
+    ...(open('/settings') ? [{ key: 'settings', section: 'おわりに（連絡・見た目）', path: '/settings', target: 'nav-/settings', showPage: true, onEnter: closeTheme, title: '設定（分類ごとの色）', text: '左下の「設定」（管理者だけ）では、見た目の着せ替えに加えて、分類ごとの色（人事管理・営業 など）を選べます。ほかの分類が使っている色は選べません（色がかぶらないように）。「最初の色に戻す」で元に戻せます。\n\nこの色はこの端末に覚えます。' } as TourStep] : []),
+    { key: 'guide', section: 'おわりに（連絡・見た目）', target: 'guide', onEnter: closeTheme, title: 'このガイド', text: 'これで終わりです。右上の「使い方」から、いつでもこの案内をもう一度見られます。吹き出しの「一覧で見る」で、全部の画面の説明を一覧でも見られます。\n\nほかにも：人の名前を押すとその人の情報が上に出る・右クリックで画面を移る／並べる・片づけたあとは「取り消す」で戻せます。' },
   );
   return out;
 }
@@ -170,7 +176,7 @@ function Intro({ home, homeItems, groups, kanawest }: { home: string; homeItems:
           <li>チャットの「要約」：相手（人・グループ）を選ぶと右上に出ます。直近のやり取りを AI がまとめます（ひとこと・起きたこと・待っていること・気をつけること）。横の「3日／7日」でさかのぼる日数を選べます。押した人にだけ出ます。</li>
           <li>人の名前を押すと、その人の情報が画面の上に出ます。</li>
           <li>何かを片づけると下に知らせが出て、「取り消す」で戻せます。</li>
-          <li>右上の「見た目」：画面の着せ替えと、<b className="text-ink">チャットの色</b>（こちら＝送った側・相手 の吹き出しの色）を選べます。好きな色は「＋」から。どのチャット（連絡・人の詳細・人財管理のチャット）にも効き、あなたの分として保存するので どの端末でも同じ色です。「元の色に戻す」でいつでも戻せます。</li>
+          <li>右上の「見た目」：画面の着せ替え（8種類・分類の色はそのまま）と、<b className="text-ink">チャットの色</b>（こちら＝送った側・相手 の吹き出しの色）を選べます。好きな色は「＋」から。どのチャット（連絡・人の詳細・人財管理のチャット）にも効き、あなたの分として保存するので どの端末でも同じ色です。「元の色に戻す」でいつでも戻せます。</li>
           <li>このガイドは右上の「使い方」からいつでも開けます。</li>
         </ul>
       </section>

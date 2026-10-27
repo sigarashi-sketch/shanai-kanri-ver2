@@ -26,7 +26,8 @@ export function ThemeSwitch() {
         <Palette size={16} strokeWidth={1.8} /><span className="hidden xl:inline">見た目</span><Swatches sw={cur.sw} size={7} />
       </button>
       {open && (
-        <div role="menu" className="mo-scale-in absolute right-0 top-12 z-40 max-h-[calc(100vh-80px)] w-[280px] overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-[0_14px_36px_rgba(15,20,38,.18)]">
+        <div role="menu" data-tour="theme-menu" className="mo-scale-in absolute right-0 top-12 z-40 max-h-[calc(100vh-80px)] w-[280px] overflow-y-auto rounded-xl border border-line bg-surface p-1.5 shadow-[0_14px_36px_rgba(15,20,38,.18)]">
+          <div data-tour="theme-list">
           {THEMES.map((t) => (
             <button key={t.key} role="menuitemradio" aria-checked={theme === t.key} onClick={() => { setTheme(t.key); setOpen(false); }}
               className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-body hover:bg-soft">
@@ -35,6 +36,7 @@ export function ThemeSwitch() {
               {theme === t.key && <Check size={15} strokeWidth={3} style={{ color: 'var(--a)' }} />}
             </button>
           ))}
+          </div>
           <ChatColorPick c={chat} />
         </div>
       )}
@@ -66,7 +68,7 @@ function ChatColorPick({ c }: { c: ChatColors }) {
     </div>
   );
   return (
-    <div className="mt-1.5 flex flex-col gap-2 border-t border-line-soft px-2.5 pb-1.5 pt-2.5">
+    <div data-tour="chat-colors" className="mt-1.5 flex flex-col gap-2 border-t border-line-soft px-2.5 pb-1.5 pt-2.5">
       <div className="flex items-center gap-1.5 text-sm font-bold"><MessageCircle size={14} />チャットの色<span className="text-xs font-normal text-muted">あなたの分として保存</span></div>
       <div className="flex flex-col gap-1 rounded-lg bg-soft p-2 text-sm">
         <div className="flex"><span className="rounded-[14px] rounded-bl-md border border-line px-2.5 py-1" style={{ background: 'var(--chat-in-bg, var(--color-surface))', color: 'var(--chat-in-fg, var(--color-ink))' }}>相手の吹き出し</span></div>
