@@ -3,6 +3,7 @@ import { PermsProvider } from '@/components/Perms';
 import { SplitHost } from '@/components/CtxMenu';
 import { canManageAccess, canUseApp, effectivePages, effectivePerms } from '@/lib/access';
 import { loadMe } from '@/lib/members-store';
+import Watermark from '@/components/Watermark';
 
 export const metadata = { title: 'スプリット' };
 
@@ -17,6 +18,7 @@ export default async function Page() {
   return (
     <PermsProvider me={me} kperms={effectivePerms(me)} pages={effectivePages(me)} manageAccess={canManageAccess(me)}>
       <SplitHost />
+      <Watermark email={me.email} />
     </PermsProvider>
   );
 }

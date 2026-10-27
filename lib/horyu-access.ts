@@ -40,6 +40,7 @@ export const HORYU_PAGE_KEY: Record<string, string> = {
   '/keiri/seikyu-zukuri': 'seikyu',
   '/keiri/seikyu-make': 'seikyu-make',
   '/keiri/kakunou': 'seikyu-make',
+  '/keiri/mitsumori': 'seikyu-make',    // 発行元の候補を seikyu の issuers から読む（保存は ver2）
   '/keiri/chingin': 'seikyu-arari',     // seikyu の arari（ARARI_ACTIONS）
 };
 

@@ -3,6 +3,7 @@ import { canUseApp } from '@/lib/access';
 import { loadMembers } from '@/lib/members-store';
 import { getViewer } from '@/lib/viewer';
 import { SharedLive } from './SharedLive';
+import Watermark from '@/components/Watermark';
 
 // 営業共有リスト。内勤以外の人が見られるのはここだけ。
 export default async function SharedListPage() {
@@ -21,6 +22,7 @@ export default async function SharedListPage() {
         <h1 className="mo-fade-up text-xl font-bold">いま提案できる要員</h1>
         <SharedLive />
       </main>
+      <Watermark email={me.email} />
     </div>
   );
 }
