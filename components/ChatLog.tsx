@@ -5,6 +5,7 @@ import type { Bubble } from '@/lib/live/person';
 
 // トークの表示（10-25 shoya「チャットの見た目みずらい」「開いたら最新から開くように」）。
 //   ・LINE と同じ並び：自分たち（送った側）は右・色つき、相手は左・白。日付が変わるところに区切り
+//   ・吹き出しの色は人ごとに変えられる（lib/chat-colors.ts の --chat-out-* / --chat-in-*）
 //   ・時刻は吹き出しの横に小さく。グループは送った人の名前を吹き出しの上に
 //   ・開いたら一番下（最新）から。新しい書き込みが来たら、下の方を見ているときだけ下までついていく
 export function ChatLog({ bubbles, className, children, resetKey }: { bubbles: Bubble[]; className?: string; children?: React.ReactNode; resetKey?: string }) {
@@ -46,8 +47,8 @@ export function ChatLog({ bubbles, className, children, resetKey }: { bubbles: B
                 <div className={`flex items-end gap-1.5 ${b.out ? 'flex-row-reverse' : ''}`}>
                   <div className="whitespace-pre-wrap break-words rounded-[18px] px-3.5 py-2 text-body leading-[1.6]"
                     style={b.out
-                      ? { background: 'var(--a)', color: 'var(--ao)', borderBottomRightRadius: 6 }
-                      : { background: 'var(--color-surface)', color: 'var(--color-ink)', border: '1px solid var(--color-line)', borderBottomLeftRadius: 6 }}>
+                      ? { background: 'var(--chat-out-bg, var(--a))', color: 'var(--chat-out-fg, var(--ao))', borderBottomRightRadius: 6 }
+                      : { background: 'var(--chat-in-bg, var(--color-surface))', color: 'var(--chat-in-fg, var(--color-ink))', border: '1px solid var(--color-line)', borderBottomLeftRadius: 6 }}>
                     {b.text}
                   </div>
                   <span className="shrink-0 pb-0.5 text-xs text-faint">{time}</span>
