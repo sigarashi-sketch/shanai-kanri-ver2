@@ -35,7 +35,7 @@ export function ChatSummary({ kind, id, name, live }: { kind: 'user' | 'group'; 
 
   return (
     <>
-      <span className="inline-flex items-center overflow-hidden rounded-[10px] border border-field text-sm font-semibold">
+      <span data-tour="summary" className="inline-flex items-center overflow-hidden rounded-[10px] border border-field text-sm font-semibold">
         <button type="button" onClick={() => run(days)} title={`直近${days}日のやり取りを要約`} className="inline-flex min-h-8 items-center gap-1 px-2.5" style={{ color: 'var(--ad)' }}><Sparkles size={13} />要約</button>
         <select aria-label="要約する日数" value={days} onChange={(e) => setDays(Number(e.target.value) === 7 ? 7 : 3)} className="min-h-8 border-l border-field bg-transparent px-1.5 text-muted">
           <option value={3}>3日</option><option value={7}>7日</option>

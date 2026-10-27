@@ -18,6 +18,10 @@ export type TourStep = {
   path?: string;
   /** ポインタで指して光らせる場所（data-tour の値） */
   target: string;
+  /** 狙う場所が今の画面に無いときに代わりに指す場所 */
+  fallback?: string;
+  /** その段に入ったときにすること（連絡を開く・閉じる など） */
+  onEnter?: () => void;
   /** 画面の中身（data-tour="col"）も明るく残すか */
   showPage?: boolean;
   /** 左のメニューで開いておく分類 */
@@ -56,10 +60,10 @@ function rectOf(name: string): Box | null {
 }
 export const tourNav = (on: boolean, group?: string) => void window.dispatchEvent(new CustomEvent('v2-tour', { detail: { on, group } }));
 
-export function Tour({ steps, onClose, onList }: { steps: TourStep[]; onClose: () => void; onList: () => void }) {
+export function Tour({ steps, start = 0, onClose, onList }: { steps: TourStep[]; start?: number; onClose: () => void; onList: () => void }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [i, setI] = useState(0);
+  const [i, setI] = useState(start);
   const [t, setT] = useState<Box | null>(null);
   const [page, setPage] = useState<Box | null>(null);
   const [vw, setVw] = useState({ w: 1280, h: 800 });
@@ -73,6 +77,7 @@ export function Tour({ steps, onClose, onList }: { steps: TourStep[]; onClose: (
     tourNav(true, s.group);
     if (s.path && pathname !== s.path) router.push(s.path);
   }, [s, pathname, router]);
+  useEffect(() => { s.onEnter?.(); }, [s]);
   useEffect(() => () => { tourNav(false); }, []);
 
   // 狙う場所を毎フレーム追いかける（画面の読み込み・メニューの開き・スクロールに付いていく）
@@ -90,7 +95,7 @@ export function Tour({ steps, onClose, onList }: { steps: TourStep[]; onClose: (
         }
       }
       if (bubble.current) setBh(bubble.current.offsetHeight);
-      setT(rectOf(s.target));
+      setT(rectOf(s.target) ?? (s.fallback ? rectOf(s.fallback) : null));
       setPage(s.showPage ? rectOf('col') : null);
       setVw({ w: window.innerWidth, h: window.innerHeight });
       raf = requestAnimationFrame(tick);
@@ -116,6 +121,7 @@ export function Tour({ steps, onClose, onList }: { steps: TourStep[]; onClose: (
   let bx: number, by: number;
   if (s.showPage || !t) { bx = vw.w - BW - 20; by = Math.max(12, vw.h - bh - 16); }
   else if (t.x + t.w + 20 + BW < vw.w) { bx = t.x + t.w + 20; by = Math.min(Math.max(12, t.y - 20), vw.h - bh - 12); }
+  else if (t.x - 20 - BW > 0 && t.y > 70) { bx = t.x - 20 - BW; by = Math.min(Math.max(12, t.y - 20), vw.h - bh - 12); } // 右の窓（連絡）の中を指すときは左に
   else { bx = Math.min(Math.max(12, t.x + t.w - BW), vw.w - BW - 12); by = Math.min(t.y + t.h + 14, vw.h - bh - 12); }
   const px = t ? t.x + Math.min(t.w - 14, Math.max(18, t.w * 0.7)) : vw.w / 2;
   const py = t ? t.y + t.h / 2 : vw.h / 2;

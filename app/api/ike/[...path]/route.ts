@@ -37,8 +37,7 @@ const ALLOW: Record<string, readonly string[]> = {
   // 10-25 プロパーリストの列（フォーム回答＝回答済みの氏名だけ／通勤エリア＝一覧と1人ぶん）。どちらも GET は SELECT だけ
   'basic-info': ['names'],
   'commute-area': ['list', ''],
-  // 面談可能日の承認・案件掲載/応募/反応（10-25 確認：どれも GET は SELECT だけ。書くのは /api/live/availability・/api/live/case-admin の POST）
-  availability: ['candidates', 'list'],
+  // 案件掲載/応募/反応（10-25 確認：どれも GET は SELECT だけ。書くのは /api/live/case-admin の POST）。面談可能日の承認（availability）は 10-27 に画面ごと外したので通さない
   'case-admin': ['list', 'applications', 'get'],
   'case-stats': [''],
   // 10-25 労務・経理の移し替え（どれも今のシステムで GET は読むだけ＝SELECT と freee の読み取り・freee の写しの入れ直しだけ）

@@ -58,7 +58,7 @@ export const NAV: NavGroup[] = [
       { href: '/eigyo/cases', label: '案件', built: true },
       { href: '/eigyo/progress', label: '案件進捗', built: true }, // 単独のまま。作り込み（カスタム）はあとで詰める（10-23 shoya）
       { href: '/eigyo/mendan', label: '面談管理', built: true }, // 今の面談管理（カンバン・カレンダーにも書く・10-25）
-      { href: '/eigyo/availability', label: '面談可能日の承認', built: true },
+      // 面談可能日の承認（/eigyo/availability）は 10-27 shoya「DBだけ保持してページから消して」で画面ごと外した（データは今のシステムに残っている）
       { href: '/eigyo/keisai', label: '案件掲載・応募', built: true }, // 掲載する／応募管理／案件ページの反応 をタブで
       { href: '/eigyo/proper', label: '要員リスト', built: true },
       { href: '/eigyo/sales-list', label: '営業リスト一覧', built: true }, // 今の sales.html（読むだけ・10-25）
