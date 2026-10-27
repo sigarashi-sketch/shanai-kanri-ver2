@@ -43,6 +43,8 @@ export type Member = {
   /** 組織表で決まった段階と権限管理（lib/members-store.ts が組織表から入れる・10-26 組織表が正）。あればこちらを使う */
   kperms?: KPerms;
   manage?: boolean;
+  /** 組織表で付いた画面ごとの「見るだけ」（左メニューの href・lib/kubun.ts pageGranted） */
+  kpages?: string[];
 };
 
 export function canUseApp(m: Member): boolean {
@@ -55,6 +57,8 @@ export function effectivePerms(m: Member): KPerms {
   if (m.kperms) return m.kperms;
   return kMax(ROLES[m.role]?.perms ?? K_NONE, m.own);
 }
+/** 区分は見ないのまま「見る」で開ける画面（組織表で付いたもの） */
+export const effectivePages = (m: Member): string[] => (canUseApp(m) ? m.kpages ?? [] : []);
 export const canManageAccess = (m: Member) => canUseApp(m) && (m.manage ?? !!ROLES[m.role]?.manageAccess);
 
 // 今の社内システムのロール → ver2 のロール（共有の設定にその人が載っていないときの初めの値・10-26）

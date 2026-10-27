@@ -4,15 +4,16 @@
 //     保存できるのは全体管理者（super_admin）だけ。この端末の localStorage は控え（ログインしていない・読めないときはこれで動く）。JSON で書き出し／読み込みも残す
 //   ・今の社内システムのロール（staff など）は参考に出すだけ。変えない
 import { LEVELS, ROLES, type Level, type Member } from './access';
-import { K_NONE, KUBUN, kMax, toKPerms, type KPerms } from './kubun';
+import { K_NONE, KUBUN, cleanPages, kMax, toKPerms, type KPerms } from './kubun';
 import { ALL_CAN, CAN_KEYS, NO_CAN, fixCan, orCan, type RoleCanRow } from './role-can';
 
 /** can＝名前の小窓で見られるもの（チャット・要約・基本情報・単価額面。10-26 権限管理の表をやめてここへ） */
-export type OrgRole = { id: string; label: string; perms: KPerms; manageAccess: boolean; can?: Partial<RoleCanRow> };
+/** pages＝区分は見ないのまま「見る」で開ける画面（左メニューの href・10-27 lib/kubun.ts pageGranted） */
+export type OrgRole = { id: string; label: string; perms: KPerms; manageAccess: boolean; can?: Partial<RoleCanRow>; pages?: string[] };
 /** 部署（parent=null）とチーム（parent=部署の id）。並びは配列の順。headId は長。
  *  own・manageAccess＝その組織に付けた権限（10-26 shoya「組織ごとに権限付与したい」・「ロールと役職」の画面で付ける）。
  *  中の人全員に付く（部署に付けた分はチームの人にも付く） */
-export type Unit = { id: string; name: string; parent: string | null; headId?: string; own?: Partial<KPerms>; manageAccess?: boolean; can?: Partial<RoleCanRow> };
+export type Unit = { id: string; name: string; parent: string | null; headId?: string; own?: Partial<KPerms>; manageAccess?: boolean; can?: Partial<RoleCanRow>; pages?: string[] };
 export type Title = { id: string; label: string };
 /** 人ごとに持つのはこれだけ（キーは今のシステムの userId） */
 export type Assign = { unit?: string; title?: string; role?: string; own?: Partial<KPerms> };
@@ -57,9 +58,9 @@ export function parseOrg(raw: unknown): OrgState | null {
   // 段階は区分の形にそろえる（10-26 より前に保存した4分類 人事/労務/営業/経理 の値は、その分類の画面が入っている区分に開く・lib/kubun.ts toKPerms）
   // 名前の小窓（can）が無いのは 10-26 より前に保存したロール＝初めのロールは初めの値・作ったロールは何も見ない
   const roles = o.roles.filter((r) => r && typeof r.id === 'string' && typeof r.label === 'string' && r.perms)
-    .map((r) => ({ ...r, perms: kMax(K_NONE, toKPerms(r.perms)), can: r.can && typeof r.can === 'object' ? r.can : defaultRoleCan(r.id) }));
-  if (!roles.some((r) => r.id === NO_ROLE)) roles.push({ id: NO_ROLE, label: ROLES.none.label, perms: { ...ROLES.none.perms }, manageAccess: false, can: {} });
-  const units = o.units.filter((u) => u && typeof u.id === 'string').map((u) => (u.own ? { ...u, own: toKPerms(u.own) } : u));
+    .map((r) => ({ ...r, perms: kMax(K_NONE, toKPerms(r.perms)), can: r.can && typeof r.can === 'object' ? r.can : defaultRoleCan(r.id), pages: cleanPages(r.pages) }));
+  if (!roles.some((r) => r.id === NO_ROLE)) roles.push({ id: NO_ROLE, label: ROLES.none.label, perms: { ...ROLES.none.perms }, manageAccess: false, can: {}, pages: [] });
+  const units = o.units.filter((u) => u && typeof u.id === 'string').map((u) => ({ ...(u.own ? { ...u, own: toKPerms(u.own) } : u), pages: cleanPages(u.pages) }));
   const people = Object.fromEntries(Object.entries(o.people as Record<string, Assign>).map(([k, a]) => [k, a && a.own ? { ...a, own: toKPerms(a.own) } : a]));
   return { v: 1, units, titles: o.titles.filter((t) => t && typeof t.id === 'string'), roles, people };
 }
@@ -123,10 +124,14 @@ export function unitPerms(s: OrgState, unitId?: string): KPerms {
 export function orgPerms(s: OrgState, a?: Assign): KPerms {
   return kMax(kMax(roleOf(s, a).perms, a?.own ?? {}), unitPerms(s, a?.unit));
 }
+/** 「見るだけ」で開ける画面＝ロールと所属（部署・チーム）に付いた分を合わせたもの */
+export function orgPages(s: OrgState, a?: Assign): string[] {
+  return [...new Set([...(roleOf(s, a).pages ?? []), ...unitChain(s, a?.unit).flatMap((u) => u.pages ?? [])])];
+}
 /** 組織表でその人に何か付いているか（ロール・個別・所属のどれか）。付いていなければ組織表では決めない */
 export const orgAssigned = (s: OrgState, a?: Assign) => !!a && (!!(a.role && a.role !== NO_ROLE) || !!(a.unit && s.units.some((u) => u.id === a.unit)) || Object.values(a.own ?? {}).some((l) => l && l !== 'none'));
 /** 組織表でこのシステムに入れる人か＝ロール・個別・所属（部署とチーム）のどれかで、どこかの区分に「見る」以上か権限管理が付いている（10-26 shoya「組織表でロールを割り振った内勤だけ」） */
-export const orgGrants = (s: OrgState, a?: Assign) => orgAssigned(s, a) && (Object.values(orgPerms(s, a)).some((l) => l && l !== 'none') || orgManage(s, a));
+export const orgGrants = (s: OrgState, a?: Assign) => orgAssigned(s, a) && (Object.values(orgPerms(s, a)).some((l) => l && l !== 'none') || orgManage(s, a) || orgPages(s, a).length > 0);
 export { KUBUN };
 /** 権限管理ができるか＝本人のロールか、所属の組織のロールで持っている */
 /** 初めのロールの名前の小窓（全体管理者・管理者・全体を見る＝全部／ロールなし・作ったロール＝なし） */

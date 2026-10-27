@@ -40,11 +40,21 @@ export function kubunOfPath(pathname: string): KubunKey | null {
 }
 export const isKanawestHref = (pathname: string) => KANAWEST_HREFS.some((h) => pathname === h || pathname.startsWith(h + '/'));
 
-/** その画面を開けるか。'all'＝区分で開ける／'kanawest'＝かな西エリアだけで開ける（神奈川要員だけ）／null＝開けない。区分に振っていない画面は 'all' */
-export function pageAccess(kperms: KPerms, pathname: string): 'all' | 'kanawest' | null {
+// 画面ごとの「見るだけ」（10-27 shoya「ところどころ横断して閲覧だけしたいのがある」）。
+//   区分は「見ない」のまま、左メニューの画面を1つずつ「見る」で開ける。ロール・部署/チームに付ける（組織表の「ロールと役職」・右のメニューの見本を押す）。
+//   持っているのは href の並びだけ＝その画面（と下の階層）は「見る」まで（直す・承認は区分で付ける）
+export const NAV_HREFS: ReadonlySet<string> = new Set(Object.keys(KUBUN_OF_HREF));
+/** 保存してある「見るだけ」の画面を確かめる（左メニューに無い href は捨てる） */
+export const cleanPages = (raw: unknown): string[] => (Array.isArray(raw) ? [...new Set(raw.filter((h): h is string => typeof h === 'string' && NAV_HREFS.has(h)))] : []);
+/** その画面が「見るだけ」で開いているか */
+export const pageGranted = (pages: readonly string[], pathname: string) => pages.some((h) => pathname === h || pathname.startsWith(h + '/'));
+
+/** その画面を開けるか。'all'＝区分か「見るだけ」で開ける／'kanawest'＝かな西エリアだけで開ける（神奈川要員だけ）／null＝開けない。区分に振っていない画面は 'all' */
+export function pageAccess(kperms: KPerms, pathname: string, pages: readonly string[] = []): 'all' | 'kanawest' | null {
   const k = kubunOfPath(pathname);
   if (!k) return 'all';
   if (kperms[k] !== 'none') return 'all';
+  if (pageGranted(pages, pathname)) return 'all';
   if (isKanawestHref(pathname) && kperms.kanawest !== 'none') return 'kanawest';
   return null;
 }

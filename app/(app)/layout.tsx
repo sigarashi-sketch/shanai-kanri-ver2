@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { Shell } from '@/components/Shell';
 import { PermsProvider } from '@/components/Perms';
-import { canManageAccess, canUseApp, effectivePerms } from '@/lib/access';
+import { canManageAccess, canUseApp, effectivePages, effectivePerms } from '@/lib/access';
 import { APP_NAME } from '@/lib/app';
 import { loadMe } from '@/lib/members-store';
 
@@ -17,7 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const me = got.me;
   if (!canUseApp(me)) redirect('/shared');
   return (
-    <PermsProvider me={me} kperms={effectivePerms(me)} manageAccess={canManageAccess(me)}>
+    <PermsProvider me={me} kperms={effectivePerms(me)} pages={effectivePages(me)} manageAccess={canManageAccess(me)}>
       <Shell>{children}</Shell>
     </PermsProvider>
   );

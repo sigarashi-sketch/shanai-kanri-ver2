@@ -3,13 +3,15 @@
 import { useState } from 'react';
 import { Eye, GripVertical, KeyRound, Network, Trash2 } from 'lucide-react';
 import { LEVELS, atLeast, type Level } from '@/lib/access';
-import { K_NONE, KUBUN } from '@/lib/kubun';
+import { K_NONE, KUBUN, kMax } from '@/lib/kubun';
 import { CAN_KEYS, moveBefore, newId, NO_ROLE, unitAndChildren, unitOwnPerms, type OrgRole, type Title, type Unit } from '@/lib/org';
 import type { RoleCanRow } from '@/lib/role-can';
+import { MenuPreview } from './MenuPreview';
 import { AddName, DND_ROLE, DND_TITLE, hasType, NameEdit, type Ctl } from './shared';
 
 // ロールの定義（区分 × 見ない/見る/直す/承認 ＋ 権限管理ができる・区分は lib/kubun.ts＝左メニューの分類）と、役職の選択肢。どちらもドラッグで並び替え。
 // 組織ごとの権限（10-26 shoya）：部署・チームにもロールと同じ形で段階を付ける＝中の人全員に付く（部署の分はチームの人にも）
+// 右にメニューの見本（その人たちの左メニュー）。区分が見ないの画面を押すと、その画面だけ「見るだけ」で足せる（10-27 shoya「ところどころ横断して閲覧だけ」）
 // 名前の小窓で見られるもの（チャット・要約・基本情報・単価額面）もロール・部署/チームに付ける（10-26 権限管理のロールごとの表をやめてここへ）
 export function RolesEditor({ ctl }: { ctl: Ctl }) {
   const { org, commit, flash } = ctl;
@@ -67,7 +69,8 @@ function RoleCard({ r, n, flash, ctl, patchRole }: { r: OrgRole; n: number; flas
           </button>
         )}
       </div>
-      <div className="mt-3 flex flex-col gap-2">
+      <div className="mt-3 flex flex-wrap items-start gap-4">
+      <div className="flex min-w-0 flex-col gap-2">
         {KUBUN.map((m) => (
           <div key={m.key} className="flex items-center gap-3 text-sm">
             <span className="w-[100px] shrink-0 font-semibold"><span style={{ color: `var(--c-${m.mod})` }}>●</span> {m.label}</span>
@@ -89,6 +92,8 @@ function RoleCard({ r, n, flash, ctl, patchRole }: { r: OrgRole; n: number; flas
           <KeyRound size={13} />権限管理ができる（組織表・ロール・権限を変えられる）
         </label>
         <CanBoxes name={r.label} can={r.can} disabled={fixed} onChange={(can, text) => patchRole(r.id, { can }, text)} />
+      </div>
+      <div className="ml-auto"><MenuPreview name={r.label} perms={r.perms} pages={r.pages ?? []} disabled={fixed} onPages={(pages, text) => patchRole(r.id, { pages }, text)} /></div>
       </div>
     </div>
   );
@@ -156,7 +161,8 @@ function UnitCard({ u, ctl }: { u: Unit; ctl: Ctl }) {
         <span className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>{parent ? 'チーム' : '部署'}</span>
         <span className="text-xs text-faint">{n}人</span>
       </div>
-      <div className="mt-3 flex flex-col gap-2">
+      <div className="mt-3 flex flex-wrap items-start gap-4">
+      <div className="flex min-w-0 flex-col gap-2">
         {KUBUN.map((m) => {
           const lo: Level = floor?.[m.key] ?? 'none';
           const cur: Level = atLeast(mine[m.key], lo) ? mine[m.key] : lo;
@@ -184,6 +190,8 @@ function UnitCard({ u, ctl }: { u: Unit; ctl: Ctl }) {
           <KeyRound size={13} />権限管理ができる（組織表・ロール・権限を変えられる）{parent?.manageAccess && <span className="text-xs text-faint">（部署で付いています）</span>}
         </label>
         <CanBoxes name={u.name} can={u.can} base={parent?.can} onChange={(can, text) => patch({ can }, text)} />
+      </div>
+      <div className="ml-auto"><MenuPreview name={u.name} perms={floor ? kMax(floor, mine) : mine} pages={u.pages ?? []} base={parent?.pages} onPages={(pages, text) => patch({ pages }, text)} /></div>
       </div>
     </div>
   );
