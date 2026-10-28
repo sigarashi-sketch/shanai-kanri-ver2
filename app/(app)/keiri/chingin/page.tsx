@@ -59,7 +59,16 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
   // 未経験の人だけ（今のプロパーリストに入っている人）。売上・原価・粗利の合計も絞った人で出す（計算そのものは今の答えのまま）
   const mk = useMikeiken();
   const canEdit = usePerms().can('keiri', 'edit');
-  const rows = mk.keep(toArari(d), 'name');
+  // 交通費は 申請が来ている人をその額に（手で直した値がある人はそのまま・10-28）。粗利・粗利率はこの差だけ出し直す（法定福利は給与にだけ掛かる）
+  const { kh, fares } = useAppliedFares(d.ym);
+  const rows = mk.keep(toArari(d), 'name').map((r) => {
+    const f = r.fareManual ? undefined : fares.get(nk(r.name));
+    if (!f) return r;
+    const fare = f.ike + f.mf;
+    const gross = r.gross + r.fare - fare;
+    return { ...r, fare, gross, rate: r.sales ? gross / r.sales : 0, fareLabel: `${fareNoteOf(f)}（承認前も）`, temp: r.temp && r.salaryLabel.startsWith('仮'), fareApplied: true };
+  });
+  const fareN = rows.filter((r) => 'fareApplied' in r).length;
   const [client, setClient] = useState('すべて');
   const [shozoku, setShozoku] = useState('すべて');
   const [gapOnly, setGapOnly] = useState(false);
@@ -110,6 +119,7 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
           <div className="text-sm"><b>仮の値が残る {temp.length}人</b><div className="text-muted">給与・交通費の欄に本当の値を入れると片づきます</div></div>
         </div>
       </div>
+      {(fareN > 0 || kh.state === 'error') && <div className="text-xs text-faint">交通費は 申請が来ている {fareN}人をその額に（承認前・差し戻しも含む・取下げは除く・手で直した人はそのまま）{kh.state === 'error' && <span className="text-warn">・いけどんの申請が読めませんでした</span>}</div>}
       <MfFareImport rows={rows} ym={d.ym} canEdit={canEdit} onDone={reload} />
       {d.unknown?.length > 0 && <div className="rounded-xl border px-4 py-2.5 text-sm" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)', borderColor: 'var(--tone-warn-bar)' }}>誰の分か決まらない請求書が {d.unknown.length}件あります（粗利に入っていません）。今の請求書作成の「格納」で人を選んでください。</div>}
 
@@ -253,6 +263,25 @@ function MfFareImport({ rows, ym, canEdit, onDone }: { rows: LiveArariRow[]; ym:
   );
 }
 
+// 申請が来た交通費（10-26 仮締め・10-28 請求書締めにも shoya「想定粗利に交通費ぶちこんで 申請きたもの」）：
+//   いけどん＝取下げ以外の申請（申請中・差し戻し・承認・支払済）の通勤費／マネフォ＝取消し以外の合計 を人ごとに足す。承認を待たない
+function useAppliedFares(ym: string) {
+  const kh = useIke<KeihiAdminList>(`keihi?action=adminList&status=all&ym=${ym}`);
+  const mf = useLiveRoute<MfKeihi>(`/api/live/keihi-mf?ym=${ym}`);
+  const fares = new Map<string, { ike: number; mf: number }>();
+  for (const c of kh.live && kh.data?.claims ? kh.data.claims : []) {
+    if (c.ym !== ym || c.status === '取下げ' || !(Number(c.commute_yen) > 0)) continue;
+    const k = nk(c.linked_name || ''); if (!k) continue;
+    const t = fares.get(k) || { ike: 0, mf: 0 }; t.ike += Number(c.commute_yen); fares.set(k, t);
+  }
+  for (const x of mf.live && mf.data?.ym === ym ? mf.data.rows : []) {
+    if (!MF_USE.has(x.status)) continue;
+    const t = fares.get(nk(x.name)) || { ike: 0, mf: 0 }; t.mf += x.amount; fares.set(nk(x.name), t);
+  }
+  return { kh, fares };
+}
+const fareNoteOf = (f: { ike: number; mf: number }) => [f.ike ? 'いけどんの申請' : '', f.mf ? 'マネフォ' : ''].filter(Boolean).join('＋');
+
 // 給与・交通費の欄（10-26）：入れて離れたら（Enter でも）保存。空にすると元に戻す。取り消しは前の値（手で直していなければ元）に戻す
 function EditYen({ r, kind, ym, canEdit, onSaved }: { r: LiveArariRow; kind: 'salary' | 'fare'; ym: string; canEdit: boolean; onSaved: () => void }) {
   const { hit, toast } = useMotivation();
@@ -302,23 +331,12 @@ function KariShime({ tabs }: { tabs: React.ReactNode }) {
   const [shozoku, setShozoku] = useState('すべて');
   // 交通費（10-26 shoya「承認してない申請も一旦交通費に」）：今の仮締めは全員一律（設定の月額）なので、
   //   その月の申請（いけどん：取下げ以外の通勤費・マネフォ：取消し以外の合計）がある人だけ、その額に置きかえて粗利を出し直す
-  const kh = useIke<KeihiAdminList>(`keihi?action=adminList&status=all&ym=${ym}`);
-  const mf = useLiveRoute<MfKeihi>(`/api/live/keihi-mf?ym=${ym}`);
-  const fares = new Map<string, { ike: number; mf: number }>();
-  for (const c of kh.live && kh.data?.claims ? kh.data.claims : []) {
-    if (c.ym !== ym || c.status === '取下げ' || !(Number(c.commute_yen) > 0)) continue;
-    const k = nk(c.linked_name || ''); if (!k) continue;
-    const t = fares.get(k) || { ike: 0, mf: 0 }; t.ike += Number(c.commute_yen); fares.set(k, t);
-  }
-  for (const x of mf.live && mf.data?.ym === ym ? mf.data.rows : []) {
-    if (!MF_USE.has(x.status)) continue;
-    const t = fares.get(nk(x.name)) || { ike: 0, mf: 0 }; t.mf += x.amount; fares.set(nk(x.name), t);
-  }
+  const { kh, fares } = useAppliedFares(ym);
   const all: (KariRow & { fareNote?: string })[] = (r.data?.ok && r.data.rows ? mk.keep(r.data.rows, 'name').filter((x) => x.eligible) : []).map((x) => {
     const f = fares.get(nk(x.name));
     if (!f) return x;
     const fare = f.ike + f.mf;
-    return { ...x, fare, grossNet: x.grossNet + x.fare - fare, fareNote: [f.ike ? 'いけどんの申請' : '', f.mf ? 'マネフォ' : ''].filter(Boolean).join('＋') };
+    return { ...x, fare, grossNet: x.grossNet + x.fare - fare, fareNote: fareNoteOf(f) };
   });
   const fareN = all.filter((x) => x.fareNote).length;
   const rate = (x: KariRow) => (x.sales ? x.grossNet / x.sales : 0);
