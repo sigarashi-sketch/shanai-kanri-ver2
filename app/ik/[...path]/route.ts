@@ -3,7 +3,7 @@ import { IKE_ORIGIN, ikeToken } from '@/lib/ike';
 import { ASSET_TYPES, IK_PAGES, LOGIN_NOTICE, embedHtml, noticeHtml, rewriteAsset } from '../embed';
 
 // 今の社内システムの画面を ver2 と同じ origin の /ik/… から出す（お手本：それゆけ app/ik/[...path]/route.ts）。
-//   /ik/seikyu.html      … 請求書づくり（現場マスタ・取引先マスタなど）
+//   /ik/seikyu.html      … 請求書づくり（ver2 では「マスタ」・現場マスタ・取引先マスタなど）
 //   /ik/seikyu-make.html … 請求書作成（作成・格納）
 //   /ik/shell.js など    … その画面が読むコード（今のものを毎回そのまま取る・行き先だけ /ik/ に向け直す）
 //   ★画面のコードもデータも今のシステムが正。ver2 は写しを持たない＝本番を切り替えても同じデータ・同じ計算
@@ -32,6 +32,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ path: string[] 
       return html(embedHtml(await r.text(), {
         pane: name === 'seikyu-make.html' && (pane === 'make' || pane === 'store') ? pane : undefined,
         noWatermarkDocs: name === 'seikyu-make.html' || name === 'seikyu.html',   // 請求書の書類に透かしを入れない
+        noFlowTabs: name === 'seikyu.html',   // 締めの流れ・下書き・答え合わせのタブを出さない（10-28）
       }));
     } catch (e) {
       return html(noticeHtml('読めませんでした', `今の社内システムから画面を読めませんでした（${(e as Error).message}）。`), 502);

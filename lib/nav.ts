@@ -77,7 +77,7 @@ export const NAV: NavGroup[] = [
       { href: '/keiri/check', label: '交通費チェック', built: true },
       { href: '/keiri/kintai-shogo', label: '勤怠の照合', built: true }, // 上位から届いた勤務表 × freee を要員ごと・日ごとに（読むだけ・締めは労務の勤怠の締め・10-26）
       { href: '/keiri/seikyu', label: '請求書', built: true },
-      { href: '/keiri/seikyu-zukuri', label: '請求書づくり', built: true }, // 今の画面をそのまま（app/ik・データは今のシステム）
+      { href: '/keiri/seikyu-zukuri', label: 'マスタ', built: true }, // 今の /seikyu.html をそのまま（app/ik・データは今のシステム）。10-28 shoya「請求書づくり→マスタ」
       { href: '/keiri/seikyu-make', label: '請求書作成', built: true },
       { href: '/keiri/mitsumori', label: '見積書作成', built: true }, // ver2 で作った（今のシステムに無い・見た目は請求書作成の雛形・10-27 shoya）
       { href: '/keiri/kakunou', label: '請求書・勤務表の格納', built: true }, // 今の請求書作成の「格納」タブ（10-25）
