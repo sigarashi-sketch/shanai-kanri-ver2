@@ -38,7 +38,7 @@ export const LEGACY_COLUMNS: readonly ProperColDef[] = [
   { field: 'sankaku_kettei', label: '参画決定', type: 'bool' },
   { field: 'kadou_chu', label: '稼働中', type: 'bool' },
   { field: 'sai_assign', label: '再アサイン', type: 'bool' },
-  { field: 'eigyo_teishi', label: '営業停止', type: 'bool' },
+  { field: 'eigyo_teishi', label: '提案禁止', type: 'bool' }, // 今のシステムの「営業停止」（ver2 での名前・10-28）
   { field: 'kanagawa', label: '神奈川要員', type: 'bool' },
   { field: 'needs_review', label: '要確認', type: 'bool' },
   { field: 'application_id', label: 'application_id', type: 'text' },
