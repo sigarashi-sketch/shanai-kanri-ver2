@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { Archive, Briefcase, Gift, ChevronDown, Menu, X, Clock, Home, MessageSquare, Network, Pin, PinOff, ReceiptText, ShieldCheck, SlidersHorizontal, Sprout, Users } from 'lucide-react';
+import { Archive, Briefcase, Gift, ChevronDown, LogOut, Menu, X, Clock, Home, MessageSquare, Network, Pin, PinOff, ReceiptText, ShieldCheck, SlidersHorizontal, Sprout, Users } from 'lucide-react';
 import { GuideHost } from './Guide';
 import { NAV, NAV_EXTRA, NAV_HOME, NAV_HORYU, NAV_KANRI, findNav, type NavGroup, type NavItem } from '@/lib/nav';
 import { APP_NAME } from '@/lib/app';
@@ -21,10 +21,10 @@ import { LiveIndicator } from './Live';
 import { useMePages } from './MePages';
 import { horyuVisible } from '@/lib/horyu-access';
 import { NIPPO_HREF, useNippoMust } from './NippoMust';
+import { LogoutButton, logout } from './Logout';
 
 export const MODULE_ICON: Record<ModuleKey, typeof Users> = { jinji: Users, roumu: Clock, eigyo: Briefcase, keiri: ReceiptText, jinzai: Sprout };
 
-const logout = () => { void fetch('/api/ike-auth/logout', { method: 'POST' }).finally(() => window.location.reload()); };
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -79,7 +79,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <span data-tour="theme" className="inline-flex"><ThemeSwitch /></span>
               <span data-tour="renraku" className="inline-flex"><RenrakuButton key={module} module={module as ModuleKey | 'home'} /></span>
               <span className="max-w-[190px] truncate text-sm text-muted max-md:hidden" title={me.email}>{me.name}</span>
-              <button onClick={logout} className="text-sm text-muted hover:underline max-md:hidden">ログアウト</button>
+              <LogoutButton className="rounded-md px-2 py-1 text-sm text-muted hover:bg-soft hover:text-ink max-md:hidden" />
             </div>
           </header>
           {/* 名前を押した人は、画面の一番上に出す（右でも小窓でもない・10-26 shoya「上に表示しろ」） */}
@@ -251,8 +251,12 @@ function SideNav({ me, drawer, setDrawer, pathname, visible, horyu, manageAccess
           {/* 携帯は上のバーに名前とログアウトを置かないので、ここに出す */}
           <div className="side-line mt-2 flex items-center gap-2 border-t px-2.5 pt-2.5 md:hidden">
             <span className="side-muted min-w-0 flex-1 truncate text-sm" title={me.email}>{me.name}</span>
-            <button onClick={logout} className="side-hover rounded-md px-2 py-1 text-sm">ログアウト</button>
+            <LogoutButton className="side-hover rounded-md px-2 py-1 text-sm" />
           </div>
+          {/* PC も左メニューのいちばん下にログアウト（10-28 shoya「すべての画面に」・帯のときはアイコンだけ） */}
+          <button type="button" onClick={logout} title="ログアウト" className="side-hover flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 max-md:hidden">
+            <LogOut size={17} strokeWidth={1.8} className="shrink-0" /><span className={lbl}>ログアウト</span>
+          </button>
         </div>
       </nav>
     </div>

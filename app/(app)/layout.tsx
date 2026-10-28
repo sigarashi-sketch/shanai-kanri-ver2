@@ -5,6 +5,7 @@ import { canManageAccess, canUseApp, effectivePages, effectivePerms } from '@/li
 import { APP_NAME } from '@/lib/app';
 import { loadMe } from '@/lib/members-store';
 import Watermark from '@/components/Watermark';
+import { LogoutButton } from '@/components/Logout';
 
 // 入口（10-26 見本データをなくした）。
 //   ・ログインしていない（トークンが無い・切れた）ときは、メニューも画面も出さず「会社のアカウントでログイン」だけ
@@ -35,7 +36,7 @@ function LoginGate({ error }: { error: string }) {
           ? <p role="alert" className="mt-2 text-body text-bad">{error}</p>
           : <p className="mt-2 text-body text-muted">ログインしてください</p>}
         <a href="/api/ike-auth/start" className="btn mt-6 inline-flex bg-sumi text-white">会社のアカウントでログイン</a>
-        {error && <div className="mt-3"><a href="" className="text-sm font-semibold underline">もう一度読む</a></div>}
+        {error && <div className="mt-3 flex items-center justify-center gap-4"><a href="" className="text-sm font-semibold underline">もう一度読む</a><LogoutButton className="text-sm font-semibold underline" label="ログアウト（別のアカウントで入る）" /></div>}
       </div>
     </main>
   );

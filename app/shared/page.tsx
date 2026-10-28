@@ -4,6 +4,7 @@ import { loadMembers } from '@/lib/members-store';
 import { getViewer } from '@/lib/viewer';
 import { SharedLive } from './SharedLive';
 import Watermark from '@/components/Watermark';
+import { LogoutButton } from '@/components/Logout';
 
 // 営業共有リスト。内勤以外の人が見られるのはここだけ。
 export default async function SharedListPage() {
@@ -15,7 +16,7 @@ export default async function SharedListPage() {
         <div aria-hidden className="flex size-7 items-center justify-center rounded-lg bg-sumi text-md font-extrabold text-white">S</div>
         <b className="text-md">営業共有リスト</b>
         <span className="text-sm text-muted">{me.name}{canUseApp(me) ? '' : '・この画面だけ見られます'}</span>
-        <div className="ml-auto"><ViewerSwitch members={members} current={me.id} /></div>
+        <div className="ml-auto flex items-center gap-2"><ViewerSwitch members={members} current={me.id} /><LogoutButton className="rounded-md px-2 py-1 text-sm text-muted hover:bg-soft hover:text-ink" /></div>
       </header>
       <main className="mx-auto flex max-w-[1200px] flex-col gap-4 px-3 py-6 sm:px-6">
         {canUseApp(me) && <a href="/" className="text-body font-semibold" style={{ color: 'var(--ad)' }}>← 戻る</a>}

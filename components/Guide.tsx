@@ -154,7 +154,7 @@ function Intro({ home, homeItems, groups, kanawest }: { home: string; homeItems:
         <h3 className="text-md font-bold">左のメニュー</h3>
         <ul className="mt-1.5 flex list-disc flex-col gap-1 pl-5 text-muted">
           <li>ふだんはアイコンだけの細い帯です。マウスを合わせると広がり、分類の見出しを押すと画面の一覧が開きます。上のピンで広げたまま固定できます。</li>
-          <li>携帯では帯を出さず、左上の <b className="text-ink">≡</b> を押すとメニューが左から出ます（画面を選ぶか、外を押すと閉じます）。名前とログアウトはメニューのいちばん下です。</li>
+          <li>携帯では帯を出さず、左上の <b className="text-ink">≡</b> を押すとメニューが左から出ます（画面を選ぶか、外を押すと閉じます）。名前とログアウトはメニューのいちばん下です（PC は 右上と 左メニューのいちばん下）。</li>
           <li>「ホーム」を押すと <b className="text-ink">{homeLabel}</b> が開きます。{homeItems.length > 0 && <>その下の「{homeItems.map((x) => x.label).join('・')}」もここから。</>}</li>
           <li>メニューに出ているのは、あなたが開ける画面だけです（{groups.length}つの分類・{groups.reduce((n, g) => n + g.items.length, 0)}画面）。左の目次から、分類ごとの説明を見られます。</li>
         </ul>
