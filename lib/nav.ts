@@ -39,7 +39,7 @@ export const NAV: NavGroup[] = [
       { href: '/jinzai/shikaku', label: '資格手当', built: true },
       { href: '/jinzai/rishoku', label: '離職リスク・離職率', built: true },
       { href: '/jinzai/ltv', label: '粗利・LTV', built: true },
-      { href: '/jinzai/bdsh', label: 'bdsh', built: true }, // それゆけ未経験の bdsh（教育コンテンツの内勤画面）を開く（10-26 shoya「それゆけで押した時と同じ感じで」）
+      { href: '/jinzai/bdsh', label: 'bdsh', built: true }, // bdsh（教育コンテンツの内勤画面）。10-28 にそれゆけ /kyouiku を中身ごと移した（components/sy/kyouiku）
       { href: '/jinzai/richmenu', label: 'リッチメニュー', built: true },
     ],
   },
