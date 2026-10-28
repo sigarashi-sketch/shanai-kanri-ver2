@@ -29,6 +29,8 @@ export type LiveGroupsRes = { groups: LiveGroup[]; segmentAvailable?: boolean; e
 export type ChatRow = {
   id: string; kind: 'one' | 'group'; name: string; sub?: string; last: string; at: string; atMs: number;
   ball: boolean; waitMs: number; unread: number; seg: ChatSeg; reason: string; blocked?: boolean;
+  /** 1:1 だけ：営業リストの氏名に紐付いているか・紐付けた氏名（10-28 紐付けの窓が使う） */
+  linked?: boolean; linkedName?: string;
 };
 
 const ms = (v?: string | null) => { const t = v ? Date.parse(v) : 0; return Number.isFinite(t) ? t : 0; };
@@ -68,6 +70,7 @@ export function contactRows(d: LiveContactsRes | null, nowMs = Date.now()): Chat
       last: c.is_blocked ? '（ブロックされています）' : c.last_message_preview || '', at: shortAt(c.last_message_at, nowMs), atMs: ms(c.last_message_at),
       ball: ballOn(c), waitMs: ms(c.last_in_at), unread: Number(c.unread_count) || 0, seg: (c.segment || 'other') as ChatSeg,
       reason: linked ? reasonLabel(c.segment_reason, 'one', true) : '未紐付け', blocked: !!c.is_blocked,
+      linked, linkedName: linked ? (c.linked_name || '').trim() : '',
     };
   });
 }
@@ -85,11 +88,13 @@ export function groupRows(d: LiveGroupsRes | null, nowMs = Date.now()): ChatRow[
  *   ・タブ（営業中/稼働中/その他）で分ける。振り分けの材料が無い（segmentAvailable=false）ときは全件
  *   ・「要対応のみ」と検索はタブをまたぐ（未返信はタブに散らばるため）。要対応は待たせている順（古い受信が上）
  */
-export function filterChat(rows: ChatRow[], o: { seg: ChatSeg; segAvailable: boolean; ballOnly: boolean; q: string }): ChatRow[] {
+export function filterChat(rows: ChatRow[], o: { seg: ChatSeg; segAvailable: boolean; ballOnly: boolean; q: string; unlinkedOnly?: boolean }): ChatRow[] {
   const q = normName(o.q).toLowerCase();
-  const cross = o.ballOnly || !!q;
+  const cross = o.ballOnly || !!q || !!o.unlinkedOnly;
   let out = rows.filter((r) => (cross || !o.segAvailable ? true : r.seg === o.seg));
   if (o.ballOnly) out = out.filter((r) => r.ball);
+  // 未紐付けのみ（今の chat.html と同じ：1:1 だけ・ブロック中は紐付けても届かないので外す・タブをまたぐ）
+  if (o.unlinkedOnly) out = out.filter((r) => r.kind === 'one' && !r.linked && !r.blocked);
   if (q) out = out.filter((r) => normName(r.name).toLowerCase().includes(q) || normName(r.sub || '').toLowerCase().includes(q) || r.last.toLowerCase().includes(q));
   return o.ballOnly ? [...out].sort((a, b) => a.waitMs - b.waitMs) : [...out].sort((a, b) => b.atMs - a.atMs);
 }

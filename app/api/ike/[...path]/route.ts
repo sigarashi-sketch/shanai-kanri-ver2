@@ -33,7 +33,7 @@ const ALLOW: Record<string, readonly string[]> = {
   'progress-stats': [''],
   'progress-live': [''],   // 案件進捗の 依頼者（ikouRequesters＝だれの依頼で送った案件か）。今の progress.html が15秒ごとに読む口（Supabase を読むだけ・GAS は叩かない）・10-28
   'my-activity': ['today'],   // 上のバーの「今日の処理」（本人の操作の記録を数えるだけ・GET は SELECT だけ・10-26 base）
-  chat: ['contacts', 'groups', 'thread', 'groupThread', 'infoContacts', 'infoThread', 'infoBroadcasts'],
+  chat: ['contacts', 'groups', 'thread', 'groupThread', 'infoContacts', 'infoThread', 'infoBroadcasts', 'rosterNames', 'suggest'],   // rosterNames・suggest＝紐付けの候補（どちらも SELECT だけ・10-28）
   'ikou-requests': ['history', 'pending'],
   // 10-25 プロパーリストの列（フォーム回答＝回答済みの氏名だけ／通勤エリア＝一覧と1人ぶん）。どちらも GET は SELECT だけ
   'basic-info': ['names'],
