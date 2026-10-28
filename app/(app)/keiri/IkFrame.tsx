@@ -2,7 +2,7 @@ import { ikeToken } from '@/lib/ike';
 
 // 今の社内システムの画面（/ik/…）を ver2 の外枠の中にそのまま出す。高さは上のバー（58px）を除いた画面いっぱい。
 //   ★データ・計算・見た目は今の画面のまま（ver2 では作り直さない）。保存・PDF・格納は今の画面と同じ口だけ通す（app/ik/api の SEIKYU_POST・10-26）
-export async function IkFrame({ src, title }: { src: string; title: string }) {
+export async function IkFrame({ src, title, height = 'calc(100vh - 58px)' }: { src: string; title: string; height?: string }) {
   if (!(await ikeToken())) {
     return (
       <div className="flex min-h-[calc(100vh-58px)] flex-col items-center justify-center gap-3 p-6 text-center">
@@ -12,5 +12,5 @@ export async function IkFrame({ src, title }: { src: string; title: string }) {
       </div>
     );
   }
-  return <iframe src={src} title={title} className="block w-full border-0" style={{ height: 'calc(100vh - 58px)' }} />;
+  return <iframe src={src} title={title} className="block w-full border-0" style={{ height }} />;
 }
