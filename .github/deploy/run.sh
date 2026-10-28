@@ -105,8 +105,12 @@ $out"
 $(echo "$out" | tail -10)"
     return 1
   fi
-  # 中身が見えない環境変数（Vercel の Sensitive）はビルドのときだけ空になる。動くときは Vercel が入れるので、知らせるだけ（VERCEL_GIT_… など Vercel が自分で入れるものは数えない）
-  warn="$(grep -E '^[A-Z0-9_]+=""?$' .vercel/.env.production.local 2>/dev/null | cut -d= -f1 | grep -v '^VERCEL_' | tr '\n' ' ')"
+  # 中身が見えない環境変数（Vercel の Sensitive）は 持ってくると空か "[SENSITIVE]" という文字になる（10-28 それゆけの next.config の
+  #   転送先 URL にその文字が入ってビルドが落ちた）。その行は外して コードの既定値で組む（動くときは Vercel が本物を入れる）。外した名前は知らせる
+  #   （VERCEL_GIT_… など Vercel が自分で入れるものは数えない）
+  f=.vercel/.env.production.local
+  warn="$(grep -E '^[A-Za-z0-9_]+=("?\[SENSITIVE\]"?|""|)$' "$f" 2>/dev/null | cut -d= -f1 | grep -v '^VERCEL_' | tr '\n' ' ')"
+  [ -f "$f" ] && sed -i -E '/^[A-Za-z0-9_]+=("?\[SENSITIVE\]"?|""|)$/d' "$f"
   if ! out="$("${VC[@]}" build --prod --yes 2>&1)"; then
     report failed "$sha" "ビルド（next build）が落ちたので止めた。main も本番も前のまま。
 $(echo "$out" | tail -30)"
@@ -131,7 +135,7 @@ $(echo "$out" | tail -15)"
   status "待機中（最後に出したのは ${sha:0:7}）"
   report ok "$sha" "本番に出した。https://$PROD_HOST （${url}）
 取り込み: $branch (${sha:0:7}) → main (${merged:0:7})${warn:+
-ビルドのときに中身が空だった環境変数（Sensitive）: $warn}"
+ビルドのときに中身が見えなかった環境変数（Sensitive・コードの既定値で組んだ）: $warn}"
   return 0
 }
 
