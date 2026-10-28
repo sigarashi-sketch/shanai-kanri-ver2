@@ -69,8 +69,23 @@ const PDF_OPT_NEW = "html2canvas: { scale: 2, ignoreElements: function (e) { ret
 const PRINT_TITLE = `<script>(function(){var p=window.print;if(!p||window.top===window)return;window.print=function(){var t=null,d=null;try{d=window.top.document;t=d.title;d.title=document.title}catch(e){d=null}
 try{return p.apply(window,arguments)}finally{if(d)setTimeout(function(){d.title=t},500)}}})();</script>`;
 
-export function embedHtml(html: string, opts?: { pane?: 'make' | 'store'; noWatermarkDocs?: boolean }): string {
+// 請求書づくり（seikyu.html・ver2 の名前は「マスタ」）の「締めの流れ」「下書き」「答え合わせ」のタブは ver2 では出さない（10-28 shoya「この3ついらない・DBで持っててもいい」）。
+//   今の画面のコード・データ・計算は変えない（下書きは今までどおり作られる）。タブを隠して、はじめに開くのを「宛先と手入力」にするだけ
+//   ★今の画面の書き方が変わって見つからなくても、タブを隠す CSS と 開いたタブが隠したものなら「宛先と手入力」を押す保険は いつも効く
+const NO_FLOW_TABS = `<style id="v2-noflow">#tabs [data-t="flow"],#tabs [data-t="draft"],#tabs [data-t="check"]{display:none!important}</style>`;
+const NO_FLOW_GO = `<script>(function(){var n=0;function go(){var t=document.getElementById('tabs');var on=t&&t.querySelector('button.on');if(!on){if(n++<100)setTimeout(go,100);return}
+if(/^(flow|draft|check)$/.test(on.getAttribute('data-t')||'')){var b=t.querySelector('[data-t="rule"]');if(b)b.click()}}
+if(document.readyState!=='loading')go();else document.addEventListener('DOMContentLoaded',go)})();</script>`;
+
+export function embedHtml(html: string, opts?: { pane?: 'make' | 'store'; noWatermarkDocs?: boolean; noFlowTabs?: boolean }): string {
   let out = rewritePaths(html).replace(FILE_NAME_OLD, FILE_NAME_NEW);
+  if (opts?.noFlowTabs) {
+    out = out
+      .replace("var data = null, tab = 'flow',", "var data = null, tab = 'rule',")
+      .replace("if (t0) tab = t0;", "if (t0 && !/^(flow|draft|check)$/.test(t0)) tab = t0;");
+    out = out.includes('</head>') ? out.replace('</head>', NO_FLOW_TABS + '</head>') : NO_FLOW_TABS + out;
+    out = out.includes('</body>') ? out.replace('</body>', NO_FLOW_GO + '</body>') : out + NO_FLOW_GO;
+  }
   if (opts?.noWatermarkDocs) {
     out = out.split(PDF_OPT_OLD).join(PDF_OPT_NEW);
     out = out.includes('</head>') ? out.replace('</head>', NO_WM_PRINT + PRINT_TITLE + '</head>') : NO_WM_PRINT + PRINT_TITLE + out;
