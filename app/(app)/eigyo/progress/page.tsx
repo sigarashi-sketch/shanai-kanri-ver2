@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Clock, CornerUpLeft, LayoutList, MessageSquareText, Plus, Rows3, X } from 'lucide-react';
 import type { Candidate, Case, ChatMsg, ProgressRow, Via } from '@/lib/types/eigyo';
 import { PageTitle, PrimaryButton } from '@/components/ui';
@@ -10,7 +10,7 @@ import { DrawerPortal } from '@/components/DrawerPortal';
 import { LiveBanner, useIke } from '@/components/Live';
 import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
 import { postLive } from '@/lib/live/post';
-import { groupBubbles, type GroupThreadRes } from '@/lib/live/person';
+import { groupBubbles, threadBubbles, type GroupThreadRes, type ThreadRes } from '@/lib/live/person';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { gidOfRow, liveDirectRows, liveProgress, type DirectData } from '@/lib/live/progress';
 import { matchGroupName, mdhm, type ProgressData, type ProgressReply } from '@/lib/live/eigyo-common';
@@ -69,7 +69,7 @@ function sortRows(rows: ProgressRow[], k: SortK): ProgressRow[] {
 }
 function readLs<T>(key: string): T | null { try { const v = localStorage.getItem(key); return v ? (JSON.parse(v) as T) : null; } catch { return null; } }
 function writeLs(key: string, v: unknown) { try { localStorage.setItem(key, JSON.stringify(v)); } catch { /* 残せなくても画面は動く */ } }
-type ChatOpen = { group: string; thread: ChatMsg[]; focus?: string; cand?: Candidate; gid?: string; title?: string; row?: string };
+type ChatOpen = { group: string; thread: ChatMsg[]; focus?: string; cand?: Candidate; gid?: string; title?: string; row?: string; focusText?: string; focusLabel?: string };
 
 export default function ProgressPage() {
   const perm = usePerms().can('eigyo', 'edit');
@@ -126,7 +126,18 @@ export default function ProgressPage() {
   const setDec = (d: DecF) => { setDecRaw(d); setMyOn(null); };
   const setSort = (k: SortK) => { setSortRaw(k); setMyOn(null); writeLs(PREF_KEY, { sort: k, view }); };
   const setView = (v: ViewK) => { setViewRaw(v); writeLs(PREF_KEY, { sort, view: v }); };
-  const openChat = (r: ProgressRow) => setChat({ group: r.group, thread: lp.threads[r.id] ?? [], title: caseOf(r.caseNo)?.name ?? r.caseNo, row: r.id });
+  // 送った案件のやりとり：返信だけだと前後が分からないので、内勤・あおいの発言も入った そのグループ（1:1）のトークをそのまま読む（10-28 shoya）
+  //   この案件の配信（無ければ返信）を光らせて そこまで送る
+  const openChat = (r: ProgressRow) => {
+    const th = lp.threads[r.id] ?? [];
+    const send = th.find((m) => m.who === 'aoi');
+    setChat({ group: r.group, thread: th, title: caseOf(r.caseNo)?.name ?? r.caseNo, row: r.id, gid: gidOfRow(r.id) || undefined,
+      focusText: send?.text || r.reply, focusLabel: send ? '↑ この案件の配信' : '↑ この案件への返信' });
+  };
+  // だれの依頼で送った案件か：今の画面と同じく /api/progress-live の ikouRequesters（読めなければ getProgressData に入っている分）
+  const pl = useIke<{ ok?: boolean; ikouRequesters?: Record<string, string[]> }>(live ? 'progress-live' : null);
+  const reqOf = (no: string) => pl.data?.ikouRequesters?.[no] ?? pd.data?.ikouRequesters?.[no] ?? [];
+  const caseDateOf = (no: string) => { const c = pd.data?.cases?.find((x) => x.kNo === no); const t = parseFloat(c?.ts ?? ''); return t > 0 ? mdhm(t * 1000) : c?.date ?? ''; };
   const saveTabs = (t: MyTab[]) => { setMyTabs(t); writeLs(MYTAB_KEY, t); };
   const applyMy = (i: number) => { const t = myTabs[i]; if (!t) return; setViaRaw(t.via); setDecRaw(t.dec); setSortRaw(t.sort); setMyOn(i); setTab('sent'); window.history.replaceState(null, '', '/eigyo/progress'); };
   const addMy = () => {
@@ -269,7 +280,7 @@ export default function ProgressPage() {
               </span>
             </div>
             {view === 'send' ? (
-              <SendCards rows={shown} caseOf={caseOf} onChat={openChat} onDecide={decide} canEdit={canEdit} noEdit={noEdit} flashId={rowFlash}
+              <SendCards rows={shown} caseOf={caseOf} reqOf={reqOf} caseDateOf={caseDateOf} onChat={openChat} onDecide={decide} canEdit={canEdit} noEdit={noEdit} flashId={rowFlash}
                 empty={pd.state === 'loading' ? '読み込み中…' : pd.state === 'error' ? '案件進捗を読み込めませんでした' : via === 'すべて' && dec === 'すべて' ? '送った案件はまだありません' : 'この絞り込みに当たる案件はありません'} />
             ) : (
             <div className="overflow-hidden rounded-xl border border-line bg-surface">
@@ -379,7 +390,7 @@ export default function ProgressPage() {
               <button aria-label="閉じる" onClick={() => setChat(null)} className="flex size-[34px] items-center justify-center rounded-[10px] border border-line"><X size={16} /></button>
             </div>
             <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto bg-soft px-4 py-4">
-              {chat.gid && <LiveGroupThread gid={chat.gid} focusText={chat.thread[0]?.text ?? ''} />}
+              {chat.gid && <LiveGroupThread gid={chat.gid} focusText={chat.focusText ?? chat.thread[0]?.text ?? ''} focusLabel={chat.focusLabel ?? '↑ 案件として拾った発言'} />}
               {!chat.gid && chat.thread.map((m, i) => {
                 const mine = m.who !== 'person';
                 const focus = m.id === chat.focus;
@@ -436,8 +447,8 @@ const CHIP_STYLE: Record<ProgressRow['decision'], React.CSSProperties> = {
   その他: { background: 'var(--tone-purple-bg)', color: 'var(--tone-purple-fg)', borderColor: 'transparent' },
 };
 
-function SendCards({ rows, caseOf, onChat, onDecide, canEdit, noEdit, flashId, empty }: {
-  rows: ProgressRow[]; caseOf: (no: string) => Case | undefined; onChat: (r: ProgressRow) => void; onDecide: (r: ProgressRow, d: 'OK' | 'NG') => void;
+function SendCards({ rows, caseOf, reqOf, caseDateOf, onChat, onDecide, canEdit, noEdit, flashId, empty }: {
+  rows: ProgressRow[]; caseOf: (no: string) => Case | undefined; reqOf: (no: string) => string[]; caseDateOf: (no: string) => string; onChat: (r: ProgressRow) => void; onDecide: (r: ProgressRow, d: 'OK' | 'NG') => void;
   canEdit: boolean; noEdit: string; flashId: string | null; empty: string;
 }) {
   const [open, setOpen] = useState<Record<string, boolean>>({});
@@ -461,6 +472,8 @@ function SendCards({ rows, caseOf, onChat, onDecide, canEdit, noEdit, flashId, e
         const undec = all.filter((r) => r.reply && r.decision === '未判断').length;
         const replied = all.filter((r) => r.reply).length;
         const body = (c?.body ?? '').trim();
+        const reqs = reqOf(no);
+        const cdate = caseDateOf(no);
         return (
           <article key={no} className="mo-fade-up overflow-hidden rounded-xl border border-line bg-surface" style={{ ['--i' as string]: Math.min(i, 12) }}>
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-4 pt-3">
@@ -468,6 +481,8 @@ function SendCards({ rows, caseOf, onChat, onDecide, canEdit, noEdit, flashId, e
               <span className="min-w-0 font-bold">{c?.name ?? no}</span>
               {c?.price && <span className="text-sm text-muted">{c.price}</span>}
               {c?.place && <span className="text-sm text-muted">{c.place}</span>}
+              {cdate && <span className="num text-xs text-faint">案件 {cdate}</span>}
+              {reqs.length > 0 && <span className="chip" title="意向確認依頼を出した人（だれの依頼で送ったか）" style={{ background: 'var(--tone-info-bg)', color: 'var(--tone-info-fg)' }}>依頼 {reqs.join('・')}</span>}
               {undec > 0 && <span className="chip" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>未判断 {undec}</span>}
               <span className="ml-auto text-xs text-faint">送り先 <b className="num">{all.length}</b>・返信 <b className="num">{replied}</b></span>
             </div>
@@ -519,20 +534,30 @@ function SendCards({ rows, caseOf, onChat, onDecide, canEdit, noEdit, flashId, e
   );
 }
 
-// 回収候補の「チャットで前後を見る」（本物）：今のチャット画面と同じ口でグループのやりとりを読み、拾った発言を光らせる
-function LiveGroupThread({ gid, focusText }: { gid: string; focusText: string }) {
-  const gt = useIke<GroupThreadRes>(`chat?action=groupThread&groupId=${encodeURIComponent(gid)}&bc=1`);
-  if (gt.state === 'loading') return <p className="text-body text-muted">読み込み中…</p>;
-  if (gt.state === 'error') return <p className="text-body text-bad">{gt.error}</p>;
-  const key = focusText.slice(0, 40);
-  return (<>{groupBubbles(gt.data).map((m, i) => {
-    const focus = !!key && m.text.startsWith(key);
+// 「チャットで前後を見る」（本物）：今のチャット画面と同じ口でトークを読み、拾った発言・案件の配信を光らせて そこまで送る。
+//   送り先が U… は 1:1（chat?action=thread）、それ以外はグループ（groupThread）。内勤・あおいの発言も出る
+function LiveGroupThread({ gid, focusText, focusLabel }: { gid: string; focusText: string; focusLabel: string }) {
+  const one = gid.charAt(0) === 'U';
+  const gt = useIke<GroupThreadRes>(one ? null : `chat?action=groupThread&groupId=${encodeURIComponent(gid)}&bc=1`);
+  const th = useIke<ThreadRes>(one ? `chat?action=thread&userId=${encodeURIComponent(gid)}` : null);
+  const q = one ? th : gt;
+  const ref = useRef<HTMLDivElement | null>(null);
+  const bubbles = one ? threadBubbles(th.data) : groupBubbles(gt.data);
+  const key = focusText.replace(/\s+/g, '').slice(0, 30);
+  let fi = -1;
+  if (key) bubbles.forEach((m, i) => { if (m.text.replace(/\s+/g, '').startsWith(key)) fi = i; });   // 同じ文を何度か送っていたら いちばん新しいもの
+  useEffect(() => { if (fi >= 0) ref.current?.scrollIntoView({ block: 'center' }); }, [fi, q.state]);
+  if (q.state === 'loading') return <p className="text-body text-muted">読み込み中…</p>;
+  if (q.state === 'error') return <p className="text-body text-bad">{q.error}</p>;
+  if (!bubbles.length) return <p className="text-body text-muted">やりとりがありません</p>;
+  return (<>{bubbles.map((m, i) => {
+    const focus = i === fi;
     return (
-      <div key={m.key} className={`mo-fade-up flex flex-col ${m.out ? 'items-end' : 'items-start'}`} style={{ ['--i' as string]: Math.min(i, 12) }}>
+      <div key={m.key} ref={focus ? ref : undefined} className={`mo-fade-up flex flex-col ${m.out ? 'items-end' : 'items-start'}`} style={{ ['--i' as string]: Math.min(i, 12) }}>
         <div className="mb-0.5 text-xs text-faint">{m.who}{m.who && '・'}{m.at}</div>
         <div className={`max-w-[85%] whitespace-pre-line rounded-2xl px-3 py-2 text-body leading-relaxed ${focus ? 'mo-scale-in shadow-[0_0_0_3px_var(--al)]' : ''}`}
           style={m.out ? { background: focus ? 'var(--a)' : 'var(--color-surface)', color: focus ? 'var(--ao)' : 'var(--color-ink)', border: '1px solid var(--color-line)' } : { background: 'var(--tone-ok-bg)', color: 'var(--color-ink)' }}>{m.quoted && <Quote q={m.quoted} />}{m.text}</div>
-        {focus && <div className="mt-1 text-xs font-semibold" style={{ color: 'var(--ad)' }}>↑ 案件として拾った発言</div>}
+        {focus && <div className="mt-1 text-xs font-semibold" style={{ color: 'var(--ad)' }}>{focusLabel}</div>}
       </div>
     );
   })}</>);

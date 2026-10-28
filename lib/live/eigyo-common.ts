@@ -77,6 +77,7 @@ export type ProgressData = {
   cases?: ProgressCase[]; sends?: ProgressSend[];
   activity?: Record<string, { name: string; ts: number }>;
   slackForwarded?: Record<string, string>;   // 案件No + \x1f + 送り先ID → 'OK' | 'NG' | 'OTHER'
+  ikouRequesters?: Record<string, string[]>;   // 案件No → 意向確認依頼を出した人（今の画面の依頼者の札＝だれの依頼で送ったか）
   caseLabels?: Record<string, string>;
 };
 // ---- /api/proxy?action=getProgressReplies（返信。グループ＋1:1） ----
