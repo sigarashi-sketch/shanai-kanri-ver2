@@ -5,10 +5,12 @@ import { ChevronDown } from 'lucide-react';
 import { useIke } from '@/components/Live';
 import { PersonName } from '@/components/Person';
 import { useMikeiken } from '@/components/Mikeiken';
+import { MonthPicker, monthsUpTo } from './month';
 import { shiftMonthOf, type IkeShiftDetail, type IkeShiftList } from '@/lib/live/shift';
 
 // 当月の実績（シフト表のタブ・10-27 shoya「当月のシフトの実績がみれるリスト」）。
 //   今月（暦の月）に本人が入れたシフトを人ごとに：出勤の日数・時間・今日までに出た日（シフト上）・これから・休み・空欄。行を開くと日ごとの時間
+//   ・上で月を選べる（既定＝今月・過去12か月まで・10-28 shoya「過去分も」）。過去の月は「今日まで」が全部・「これから」は0
 //   ・材料はシフト表と同じ GET /api/shift-calendar?action=list&month=／detail（見るだけ）。打刻の実績は「当日の出勤状況」の「出勤の記録」
 const DOW = ['日', '月', '火', '水', '木', '金', '土'];
 const jstToday = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
@@ -18,10 +20,13 @@ const hrs = (s: string, e: string, over: boolean) => {
   return Math.max(0, (m(e) + (over || m(e) <= m(s) ? 1440 : 0) - m(s)) / 60);
 };
 
-export function JissekiTab() {
+export function JissekiTab({ last }: { last: string }) {
   const [today, setToday] = useState('');
   useEffect(() => setToday(jstToday()), []);
-  const month = today.slice(0, 7);
+  const thisMonth = today.slice(0, 7);
+  const options = useMemo(() => (thisMonth ? monthsUpTo(last && last > thisMonth ? last : thisMonth) : []), [last, thisMonth]);
+  const [picked, setPicked] = useState('');
+  const month = picked || thisMonth;
   const lq = useIke<IkeShiftList>(month ? `shift-calendar?action=list&month=${month}` : null);
   const mk = useMikeiken();
   const rows = useMemo(() => mk.keep(lq.data?.ok ? lq.data.rows : [], 'name'), [lq.data, mk]);
@@ -52,6 +57,7 @@ export function JissekiTab() {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3 text-sm text-muted">
+        {month && <MonthPicker value={month} options={options} onChange={(m) => { setPicked(m); setDetails({}); }} mark={thisMonth} markLabel="今月" />}
         <b className="text-body text-ink">{M.year}年{M.label}のシフトの実績</b>
         <span>{list.length}人・出勤 {tot.work}日（今日まで {tot.past}日）・{Math.round(tot.hours)}時間</span>
         <input aria-label="氏名で探す" placeholder="氏名で探す" value={q} onChange={(e) => setQ(e.target.value)} className="ml-auto min-h-9 w-48 rounded-[10px] border border-field bg-surface px-2.5 text-body" />

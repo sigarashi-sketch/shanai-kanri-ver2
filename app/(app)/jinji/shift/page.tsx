@@ -15,11 +15,13 @@ import { nnOf, nudge, nudgeSub, patternOf, useMarks, type IkeShiftPatterns, type
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { JissekiTab } from './jisseki';
 import { TeishutsuTab } from './teishutsu';
+import { MonthPicker, monthsUpTo } from './month';
 import { shiftMissingOf, shiftMonthOf, shiftPeopleOf, type IkeTodayTargets, type IkeShiftDetail, type IkeShiftList, type IkeShiftMonth } from '@/lib/live/shift';
 
 // シフト表（人事管理・10-27 労務から移した）＝シフト勤務の人の月のシフトを「日×人」のマスで見る・直す。
 //   ・マスは本人がスマホで入れたもの（ここからは直せない）。提出済みの月の空欄は休みとみなす（薄く「休」と出す）
 //   ・未提出・下書きの人には提出のお願いを送る（あおい・確認のあと）。残りの人数をリングで出す
+//   ・上で月を選べる（既定＝集めている月・過去12か月まで。過去の月はお願いを送らない）・氏名で探せる
 //   ・タブ「提出状況」＝勤務区分が平日でない人全員の提出（./teishutsu.tsx）・「当月の実績」＝今月のシフトを人ごとに（./jisseki.tsx）
 type View = 'grid' | 'teishutsu' | 'jisseki';
 const VIEWS: { key: View; label: string }[] = [{ key: 'grid', label: 'シフト表' }, { key: 'teishutsu', label: '提出状況' }, { key: 'jisseki', label: '当月の実績' }];
@@ -34,12 +36,21 @@ const STATE_STYLE: Record<ShiftState, { bg: string; fg: string }> = {
 export default function ShiftPage() {
   const [view, setView] = useState<View>('grid');
   useEffect(() => { const t = new URLSearchParams(window.location.search).get('tab'); if (VIEWS.some((v) => v.key === t)) setView(t as View); }, []);
-  const pick = (v: View) => { setView(v); window.history.replaceState(null, '', v === 'grid' ? window.location.pathname : `?tab=${v}`); };
+  const pick = (v: View) => { setView(v); setUrl(v, month); };
   const canEdit = usePerms().can('roumu', 'edit');
   const { hit, toast } = useMotivation();
   // 本物：開く月 → その月の一覧 → 1人ずつ日ごと（GET だけ・同時に6人まで）
   const mq = useIke<IkeShiftMonth>('shift-calendar?action=month');
-  const month = mq.live ? mq.data?.month || '' : '';
+  const cur = mq.live ? mq.data?.month || '' : '';
+  const last = mq.live ? [...(mq.data?.choices || []), cur].filter(Boolean).sort().pop() || cur : '';
+  const options = useMemo(() => (last ? monthsUpTo(last) : []), [last]);
+  const [picked, setPicked] = useState('');
+  useEffect(() => { const m = new URLSearchParams(window.location.search).get('month'); if (m && /^\d{4}-\d{2}$/.test(m)) setPicked(m); }, []);
+  const month = cur ? (picked && options.includes(picked) ? picked : cur) : '';
+  const past = !!cur && month < cur;
+  const setUrl = (v: View, m: string) => { const q = new URLSearchParams(); if (v !== 'grid') q.set('tab', v); if (m && m !== cur) q.set('month', m); window.history.replaceState(null, '', q.size ? `?${q}` : window.location.pathname); };
+  const pickMonth = (m: string) => { setPicked(m); setDetails({}); setUrl(view, m); };
+  const [q, setQ] = useState('');
   const lq = useIke<IkeShiftList>(month ? `shift-calendar?action=list&month=${month}` : null);
   // 未提出＝シフト提出が要る勤務区分（シフト・夜勤）の人のうち、この月に1日も入れていない人（今日の出勤状況の対象から）
   const tq = useIke<IkeTodayTargets>(month ? 'kintai-today?stale=1' : null);
@@ -63,9 +74,11 @@ export default function ShiftPage() {
     return () => { stop = true; };
   }, [live, lq.data, lrows, month]);
   const M = shiftMonthOf(month || new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 7));
-  const rowsP: (ShiftPerson & { times?: string[] })[] = live ? [...(tq.live ? shiftMissingOf(tq2, lq.data?.rows || [], month) : []), ...shiftPeopleOf(lq2, details, month)] : [];
-  const okEdit = canEdit;
-  const block = !canEdit ? needText('edit') : undefined;
+  const rowsP: (ShiftPerson & { times?: string[] })[] = (live ? [...(tq.live ? shiftMissingOf(tq2, lq.data?.rows || [], month) : []), ...shiftPeopleOf(lq2, details, month)] : [])
+    .filter((p) => !q || nnOf(p.name).includes(nnOf(q)));
+  // 過去の月は見るだけ（提出のお願いは集めている月だけ）
+  const okEdit = canEdit && !past;
+  const block = !canEdit ? needText('edit') : past ? '過去の月です（提出のお願いは集めている月だけ送れます）' : undefined;
   // 本物（10-26）：シフトの呼び名（shift_patterns）・提出のお願い（LINE・既定は送らない＝印だけ）
   const pq = useIke<IkeShiftPatterns>(live ? 'roster?op=roumu&action=shift-patterns' : null);
   const pats = pq.data?.ok ? pq.data.rows : [];
@@ -94,8 +107,15 @@ export default function ShiftPage() {
         <Link href="/jinji/today" className="btn-secondary">当日の出勤状況へ</Link>
       </PageTitle>
       <Tabs<View> tabs={VIEWS} value={view} onChange={pick} />
-      {view === 'teishutsu' && <TeishutsuTab targets={tq2} list={lq2} monthLabel={`${M.year}年${M.label}`} loading={!live || tq.state === 'loading'} askedOf={askedName} ask={(names) => ask(names.map((name) => ({ name })))} canEdit={okEdit && live} block={block} />}
-      {view === 'jisseki' && <JissekiTab />}
+      {view !== 'jisseki' && !!cur && (
+        <div className="flex flex-wrap items-center gap-2">
+          <MonthPicker value={month} options={options} onChange={pickMonth} mark={cur} />
+          {past && <span className="text-sm text-muted">過去の月（見るだけ）</span>}
+          <input aria-label="氏名で探す" placeholder="氏名で探す" value={q} onChange={(e) => setQ(e.target.value)} className="ml-auto min-h-9 w-48 rounded-[10px] border border-field bg-surface px-2.5 text-body" />
+        </div>
+      )}
+      {view === 'teishutsu' && <TeishutsuTab targets={tq2} list={lq2} monthLabel={`${M.year}年${M.label}`} loading={!live || tq.state === 'loading'} askedOf={askedName} ask={(names) => ask(names.map((name) => ({ name })))} canEdit={okEdit && live} block={block} q={q} />}
+      {view === 'jisseki' && <JissekiTab last={last} />}
       {view === 'grid' && <>
       <LiveBanner state={mq.live ? lq.state : mq.state} error={mq.error || lq.error} onReload={() => { mq.reload(); lq.reload(); }} note="シフトは本人がスマホで入れます（ここからは直せません）。提出のお願い（LINE）は確認のあとで送ります（送信を止めている間は印だけ）。呼び名は時間がぴったり合うシフトに付きます" />
       <MikeikenNote mk={mk} live={live} />
@@ -103,7 +123,7 @@ export default function ShiftPage() {
       {live && tq.state === 'loading' && <div className="text-sm text-faint">まだ出していない人（未提出）を探しています…</div>}
 
       <div className="mo-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3" style={{ ['--i' as string]: 1 }}>
-        <RemainRing remain={waiting.length} total={notSubmitted.length || 1} />
+        {!past && <RemainRing remain={waiting.length} total={notSubmitted.length || 1} />}
         <div className="text-body"><b>まだ出していない人 {notSubmitted.length}人</b>{live && <span className="ml-2 text-muted">未提出 {rowsP.filter((p) => p.state === '未提出').length}・下書き {rowsP.filter((p) => p.state === '下書き').length}</span>}<span className="ml-2 text-muted">お願いを送っていない人 {waiting.length}人</span>
           {!canEdit && <div className="text-sm text-bad">{needText('edit')}</div>}
         </div>
