@@ -11,7 +11,7 @@ import type { OrphansRes } from '@/lib/horyu';
 //   ・リスト外グループ … LINE グループのうち、営業リストの誰の名前も入っていないもの（一斉送信の宛先に出ない）
 //   ・未連携 … 営業リストにいるのに、名前の入った LINE グループが見つからない人（ぽあ・辞退・参画決定・稼働中・営業停止の人は下に）
 //   見るだけ。グループ名を直すのは LINE 側、名前を直すのはプロパーリスト
-const HIDE = ['ぽあ', '辞退', '参画決定', '稼働中', '営業停止'];
+const HIDE = ['ぽあ', '辞退', '参画決定', '稼働中', '営業停止']; // 今のシステムの値のまま（営業停止は画面では「提案禁止」と出す・10-28）
 
 export default function OrphansPage() {
   const h = useHoryu<OrphansRes>('orphans');
@@ -32,7 +32,7 @@ export default function OrphansPage() {
         {!d.groups.length && <div className="py-3 text-center text-sm text-faint">ありません</div>}
       </Panel>}
       {d && tab === 'unlinked' && <Panel title="グループが見つからない人" sub={`${d.unlinked.length}名`}>
-        <ul className="flex flex-col text-sm">{unl.map((r) => { const hide = r.status.some((s) => HIDE.includes(s)); return <li key={r.name} className={`flex flex-wrap items-center gap-2 border-t border-line-soft py-1.5 first:border-t-0 ${hide ? 'opacity-60' : ''}`}><PersonName name={r.name} />{r.status.map((s) => <span key={s} className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>{s}</span>)}</li>; })}</ul>
+        <ul className="flex flex-col text-sm">{unl.map((r) => { const hide = r.status.some((s) => HIDE.includes(s)); return <li key={r.name} className={`flex flex-wrap items-center gap-2 border-t border-line-soft py-1.5 first:border-t-0 ${hide ? 'opacity-60' : ''}`}><PersonName name={r.name} />{r.status.map((s) => <span key={s} className="chip" style={{ background: 'var(--tone-mute-bg)', color: 'var(--tone-mute-fg)' }}>{s === '営業停止' ? '提案禁止' : s}</span>)}</li>; })}</ul>
         {!unl.length && <div className="py-3 text-center text-sm text-faint">いません</div>}
       </Panel>}
     </main>
