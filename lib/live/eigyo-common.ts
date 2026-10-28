@@ -78,9 +78,10 @@ export type ProgressData = {
   activity?: Record<string, { name: string; ts: number }>;
   slackForwarded?: Record<string, string>;   // 案件No + \x1f + 送り先ID → 'OK' | 'NG' | 'OTHER'
   caseLabels?: Record<string, string>;
+  ikouRequesters?: Record<string, string[]>;   // 案件No → 意向確認依頼を出した人（今の画面の依頼者の札）
 };
 // ---- /api/proxy?action=getProgressReplies（返信。グループ＋1:1） ----
-export type ProgressReply = { ts: number; groupId: string; groupName: string; name: string; text: string };
+export type ProgressReply = { ts: number; groupId: string; groupName: string; name: string; text: string; quoted?: { caseNo?: string } | null };   // quoted＝引用リプライの引用元（案件の配信なら caseNo）
 export const FWD_SEP = String.fromCharCode(31);
 
 /** 案件の見出し（今の画面と同じ：手で付けた名前・自動の名前 → 無ければ本文の1行目） */

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Check, MessageSquareText, Plus, X } from 'lucide-react';
+import { Check, Clock, MessageSquareText, Plus, X } from 'lucide-react';
 import type { Candidate, ChatMsg, ProgressRow, Via } from '@/lib/types/eigyo';
 import { PageTitle, PrimaryButton } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
@@ -12,7 +12,7 @@ import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
 import { postLive } from '@/lib/live/post';
 import { groupBubbles, type GroupThreadRes } from '@/lib/live/person';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
-import { gidOfRow, liveDirectRows, liveProgress, type DirectData } from '@/lib/live/progress';
+import { directSends, gidOfRow, liveDirectRows, liveProgress, type DirectData } from '@/lib/live/progress';
 import { matchGroupName, mdhm, type ProgressData, type ProgressReply } from '@/lib/live/eigyo-common';
 import { PersonName } from '@/components/Person';
 import { ColumnPicker, useColumns, type ColDef } from '@/components/jinji/ColumnPicker';
@@ -41,6 +41,7 @@ const scoreTone = (n: number) => (n >= 85 ? 'var(--color-ok)' : n >= 70 ? 'var(-
 type TabKey = 'sent' | 'collect';
 type DecF = 'すべて' | '返信待ち' | '未判断' | 'OK' | 'NG';
 type SortK = 'new' | 'old' | 'reply' | 'undecided' | 'case' | 'person';
+type ViewK = 'haishin' | 'row';
 type MyTab = { name: string; via: Via | 'すべて'; dec: DecF; sort: SortK };
 const COLS: ColDef[] = [
   { k: 'case', t: '案件' }, { k: 'person', t: '要員' }, { k: 'via', t: '送った経路' }, { k: 'sent', t: '送った日時' },
@@ -74,9 +75,9 @@ export default function ProgressPage() {
   const live = pd.live;
   // 本物は未経験の人だけ：送り先のグループ名に、今のプロパーリストの人の名前が入っている行だけ（今の matchRosterName と同じ当て方）
   const mk = useMikeiken();
-  const lp0 = useMemo(() => liveProgress(pd.data, Array.isArray(pr.data) ? pr.data : null), [pd.data, pr.data]);
   const dd = useIke<DirectData>(live ? 'roster?op=eigyo&action=direct' : null);
   const ddata = dd.data?.ok ? dd.data : null;
+  const lp0 = useMemo(() => liveProgress(pd.data, Array.isArray(pr.data) ? pr.data : null, Date.now(), directSends(ddata)), [pd.data, pr.data, ddata]);
   // 判断を押した直後の値（読み直しが返るまで画面だけ先に変える）
   const [judged, setJudged] = useState<Record<string, ProgressRow['decision']>>({});
   const lp = useMemo(() => {
@@ -96,6 +97,7 @@ export default function ProgressPage() {
   const canEdit = perm && live;
   const noEdit = live ? needText('edit') : '案件進捗を読み込めていません';
   const caseOf = (no: string) => lp.cases.find((c) => c.no === no);
+  const reqOf = (no: string) => pd.data?.ikouRequesters?.[no] ?? [];   // だれの依頼で送った案件か
   const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
   const [gone, setGone] = useState<Record<string, boolean>>({});   // 本物：決めた直後に候補から消す（読み直しを待たない）
   const rows = live ? lp.rows : [];
@@ -106,18 +108,21 @@ export default function ProgressPage() {
   const [via, setViaRaw] = useState<Via | 'すべて'>('すべて');
   const [dec, setDecRaw] = useState<DecF>('すべて');
   const [sort, setSortRaw] = useState<SortK>('new');
+  const [view, setViewRaw] = useState<ViewK>('haishin');   // 配信ごと（今の案件進捗と同じ見え方・はじめはこれ）／1件ずつ（表）
   const [myTabs, setMyTabs] = useState<MyTab[]>([]);
   const [myOn, setMyOn] = useState<number | null>(null);   // いま当てている自分のタブ（絞り込みを変えたら外れる）
   const cols = useColumns('v2_progress_cols', COLS, COL_DEFAULT);
   useEffect(() => {
     const t = readLs<MyTab[]>(MYTAB_KEY);
     if (Array.isArray(t)) setMyTabs(t.filter((x) => x && typeof x.name === 'string'));
-    const p = readLs<{ sort?: SortK }>(PREF_KEY);
+    const p = readLs<{ sort?: SortK; view?: ViewK }>(PREF_KEY);
     if (p?.sort && SORTS.some(([k]) => k === p.sort)) setSortRaw(p.sort);
+    if (p?.view === 'row' || p?.view === 'haishin') setViewRaw(p.view);
   }, []);
   const setVia = (v: Via | 'すべて') => { setViaRaw(v); setMyOn(null); };
   const setDec = (d: DecF) => { setDecRaw(d); setMyOn(null); };
-  const setSort = (k: SortK) => { setSortRaw(k); setMyOn(null); writeLs(PREF_KEY, { sort: k }); };
+  const setSort = (k: SortK) => { setSortRaw(k); setMyOn(null); writeLs(PREF_KEY, { sort: k, view }); };
+  const setView = (v: ViewK) => { setViewRaw(v); writeLs(PREF_KEY, { sort, view: v }); };
   const saveTabs = (t: MyTab[]) => { setMyTabs(t); writeLs(MYTAB_KEY, t); };
   const applyMy = (i: number) => { const t = myTabs[i]; if (!t) return; setViaRaw(t.via); setDecRaw(t.dec); setSortRaw(t.sort); setMyOn(i); setTab('sent'); window.history.replaceState(null, '', '/eigyo/progress'); };
   const addMy = () => {
@@ -247,12 +252,22 @@ export default function ProgressPage() {
                 </button>
               ))}
               <span className="ml-auto inline-flex items-center gap-2">
+                <span role="group" aria-label="見え方" className="inline-flex overflow-hidden rounded-[10px] border border-field" data-tour="progress-view">
+                  {([['haishin', '配信ごと'], ['row', '1件ずつ']] as [ViewK, string][]).map(([k, l]) => (
+                    <button key={k} onClick={() => setView(k)} aria-pressed={view === k} className={`min-h-9 px-3 text-body font-semibold ${view === k ? 'bg-ink text-surface' : 'bg-surface text-muted hover:text-ink'}`}>{l}</button>
+                  ))}
+                </span>
                 <select aria-label="並べ方" value={sort} onChange={(e) => setSort(e.target.value as SortK)} className="min-h-9 rounded-[10px] border border-field bg-surface px-2 text-body text-ink">
                   {SORTS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
                 </select>
-                <ColumnPicker all={COLS} keys={cols.keys} onChange={(k) => cols.save(k.length ? k : ['case'])} onReset={cols.reset} />
+                {view === 'row' && <ColumnPicker all={COLS} keys={cols.keys} onChange={(k) => cols.save(k.length ? k : ['case'])} onReset={cols.reset} />}
               </span>
             </div>
+            {view === 'haishin' ? (
+              <ByHaishin rows={shown} rawOf={(no) => pd.data?.cases?.find((c) => c.kNo === no)} reqOf={reqOf} caseOf={caseOf}
+                canEdit={canEdit} noEdit={noEdit} rowFlash={rowFlash} decide={decide} openChat={(r) => setChat({ group: r.group, thread: lp.threads[r.id] ?? [] })}
+                empty={pd.state === 'loading' ? '読み込み中…' : pd.state === 'error' ? '案件進捗を読み込めませんでした' : via === 'すべて' && dec === 'すべて' ? '送った案件はまだありません' : 'この絞り込みに当たる案件はありません'} />
+            ) : (
             <div className="overflow-hidden rounded-xl border border-line bg-surface">
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[980px] border-collapse text-body">
@@ -261,7 +276,7 @@ export default function ProgressPage() {
                     {shown.map((r, i) => {
                       const c = caseOf(r.caseNo);
                       const cell: Record<string, React.ReactNode> = {
-                        case: <td key="case" className="px-4 py-2.5"><div className="font-semibold">{c?.name ?? r.caseNo}</div><div className="text-xs text-faint">{r.caseNo}{c?.price && ` ・ ${c.price}`}</div></td>,
+                        case: <td key="case" className="px-4 py-2.5"><div className="font-semibold">{c?.name ?? r.caseNo}</div><div className="text-xs text-faint">{r.caseNo}{c?.price && ` ・ ${c.price}`}{reqOf(r.caseNo).length > 0 && ` ・ 依頼 ${reqOf(r.caseNo).join('・')}`}</div></td>,
                         person: <td key="person" className="px-2 py-2.5"><PersonName name={r.person} /></td>,
                         via: <td key="via" className="whitespace-nowrap px-2 py-2.5"><Chip s={VIA_STYLE[r.via]}>{r.via}</Chip>{r.via !== 'あおい' && <span className="ml-1.5 text-xs text-muted">{r.sender}</span>}</td>,
                         sent: <td key="sent" className="num whitespace-nowrap px-2 py-2.5">{r.sentAt}</td>,
@@ -295,6 +310,7 @@ export default function ProgressPage() {
                 </table>
               </div>
             </div>
+            )}
           </div>
         ) : (
           <div className="flex flex-col gap-3">
@@ -406,4 +422,100 @@ function LiveGroupThread({ gid, focusText }: { gid: string; focusText: string })
       </div>
     );
   })}</>);
+}
+
+// ---- 配信ごと（今の案件進捗 progress.html と同じ見え方・10-28）----
+//   案件のカード → その中に「送信: 日時」の配信のかたまり → 送り先ごとのチップ（返信あり＝✓名前・返ってくるまでの時間／返信待ち＝◷名前・経った時間）
+//   返信ありで未判断のチップには その場で OK・NG。チップを押すと やりとり。カードの並びは いまの並べ方（いちばん上に来た行の順）
+const PAGE = 20;
+function replyBucket(ms: number) {
+  const h = ms / 3600000;
+  return h < 1 ? '1時間以内' : h < 3 ? '3時間以内' : h < 12 ? '12時間以内' : h < 24 ? '1日以内' : h < 48 ? '2日以内' : '3日以上';
+}
+function elapsed(ts: number) { const h = Math.max(0, Math.floor((Date.now() - ts) / 3600000)); return h < 24 ? `${h}時間経過` : `${Math.floor(h / 24)}日経過`; }
+type CaseInfo = { name: string; price: string } | undefined;
+function ByHaishin({ rows, rawOf, reqOf, caseOf, canEdit, noEdit, rowFlash, decide, openChat, empty }: {
+  rows: ProgressRow[]; rawOf: (no: string) => { content: string; ts: string; date: string } | undefined; reqOf: (no: string) => string[]; caseOf: (no: string) => CaseInfo; canEdit: boolean; noEdit: string;
+  rowFlash: string | null; decide: (r: ProgressRow, d: 'OK' | 'NG') => void; openChat: (r: ProgressRow) => void; empty: string;
+}) {
+  const [n, setN] = useState(PAGE);
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const cards = useMemo(() => {
+    const m = new Map<string, Map<string, ProgressRow[]>>();
+    for (const r of rows) {
+      const c = m.get(r.caseNo) ?? new Map<string, ProgressRow[]>();
+      const bk = `${tsOfId(r.id)}:${r.via}:${r.sender}`;
+      const b = c.get(bk) ?? []; b.push(r); c.set(bk, b);
+      m.set(r.caseNo, c);
+    }
+    return [...m].map(([no, bs]) => ({ no, blocks: [...bs.values()].sort((a, b) => tsOfId(b[0].id) - tsOfId(a[0].id)) }));
+  }, [rows]);
+  if (cards.length === 0) return <div className="rounded-xl border border-line bg-surface px-4 py-10 text-center text-body text-muted">{empty}</div>;
+  return (
+    <div className="flex flex-col gap-2.5">
+      {cards.slice(0, n).map(({ no, blocks }, i) => {
+        const c = caseOf(no);
+        const all = blocks.flat();
+        const undec = all.filter((r) => r.reply && r.decision === '未判断').length;
+        const replied = all.filter((r) => r.reply).length;
+        const raw = rawOf(no);
+        const text = raw?.content ?? '';
+        const reqs = reqOf(no);
+        const cdate = (() => { const t = parseFloat(raw?.ts ?? ''); return t > 0 ? mdhm(t * 1000) : raw?.date ?? ''; })();
+        const pre = text.replace(/\n/g, ' ').slice(0, 80);
+        return (
+          <article key={no} className="mo-fade-up rounded-xl border border-line bg-surface" style={{ ['--i' as string]: Math.min(i, 12) }}>
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-4 pt-3">
+              <span className="num rounded-md bg-soft px-1.5 py-0.5 text-xs font-bold text-muted">{no}</span>
+              <span className="font-semibold">{c?.name ?? no}</span>
+              {c?.price && <span className="text-sm text-muted">{c.price}</span>}
+              {cdate && <span className="num text-xs text-faint">案件 {cdate}</span>}
+              {reqs.length > 0 && <span className="chip" title="意向確認依頼を出した人" style={{ background: 'var(--tone-info-bg)', color: 'var(--tone-info-fg)' }}>依頼 {reqs.join('・')}</span>}
+              {undec > 0 && <span className="chip" style={{ background: DEC_STYLE['未判断'].bg, color: DEC_STYLE['未判断'].fg }}>未判断 {undec}</span>}
+              <span className="ml-auto text-xs text-faint">送り先 <b className="num">{all.length}</b>・返信 <b className="num">{replied}</b></span>
+            </div>
+            {text && (
+              <button onClick={() => setOpen((o) => ({ ...o, [no]: !o[no] }))} className="block w-full px-4 pt-1 text-left text-sm text-muted hover:text-ink" aria-expanded={!!open[no]}>
+                {open[no] ? <span className="mt-1 block whitespace-pre-line rounded-[10px] bg-soft px-3 py-2 text-body text-ink">{text}</span> : <span className="line-clamp-1">{pre}{text.length > 80 && '…'}</span>}
+              </button>
+            )}
+            <div className="mt-2 flex flex-col divide-y divide-line-soft border-t border-line-soft">
+              {blocks.map((b) => {
+                const h = b[0];
+                return (
+                  <div key={h.id} className="flex flex-col gap-1.5 px-4 py-2.5 lg:flex-row lg:items-start lg:gap-3">
+                    <div className="flex shrink-0 items-center gap-1.5 text-sm text-muted lg:w-[190px]">
+                      <span className="num whitespace-nowrap">送信: {h.sentAt}</span>
+                      <Chip s={VIA_STYLE[h.via]}>{h.via}</Chip>
+                      {h.via !== 'あおい' && <span className="truncate text-xs">{h.sender}</span>}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {b.map((r) => r.reply ? (
+                        <span key={r.id} className={`inline-flex items-center gap-1 rounded-full border py-0.5 pl-1 pr-1 text-sm ${rowFlash === r.id ? 'mo-flash' : ''}`}
+                          style={{ borderColor: r.decision === '未判断' ? 'var(--tone-bad-fg)' : 'var(--color-line)', background: r.decision === '未判断' ? 'var(--color-surface)' : DEC_STYLE[r.decision].bg }}>
+                          <button onClick={() => openChat(r)} title={`クリックでやりとり：${r.reply.slice(0, 60)}`} className="inline-flex items-center gap-1 rounded-full px-1.5 hover:underline">
+                            <Check size={13} className="text-ok" />{r.person}
+                            <span className="text-xs text-faint">{r.replyTs ? replyBucket(r.replyTs - tsOfId(r.id)) : r.replyAt}</span>
+                            <MessageSquareText size={12} className="text-faint" />
+                          </button>
+                          {r.decision === '未判断' ? (['OK', 'NG'] as const).map((d) => (
+                            <button key={d} onClick={() => decide(r, d)} disabled={!canEdit} title={!canEdit ? noEdit : `返事を見て「${d}」にする`} className="btn-secondary btn-sm !min-h-6 !rounded-full !px-2" style={d === 'OK' ? { color: 'var(--tone-ok-fg)' } : undefined}>{d}</button>
+                          )) : <span className="rounded-full px-1.5 text-xs font-bold" style={{ color: DEC_STYLE[r.decision].fg }}>{r.decision}{r.slack && '・📮営業へ'}</span>}
+                        </span>
+                      ) : (
+                        <span key={r.id} className="inline-flex items-center gap-1 rounded-full border border-line bg-soft px-2.5 py-0.5 text-sm text-muted">
+                          <Clock size={13} />{r.person}<span className="text-xs text-faint">{elapsed(tsOfId(r.id))}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </article>
+        );
+      })}
+      {cards.length > n && <button onClick={() => setN((x) => x + PAGE)} className="btn-secondary self-center">もっと見る（残り {cards.length - n}件）</button>}
+    </div>
+  );
 }

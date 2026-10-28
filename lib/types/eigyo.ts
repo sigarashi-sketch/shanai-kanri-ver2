@@ -31,7 +31,7 @@ export type Case = { no: string; name: string; place: string; price: string };
 export type ProgressRow = {
   id: string; caseNo: string; person: string; personId: string; group: string;
   via: Via; sentAt: string; sender: string;
-  reply: string; replyAt?: string; decision: Decision; slack?: boolean;
+  reply: string; replyAt?: string; replyTs?: number; decision: Decision; slack?: boolean;
 };
 /** グループのやりとり（前後を見る用）。who='staff' は内勤、'person' は要員、'aoi' はあおい */
 export type ChatMsg = { id: string; at: string; who: 'staff' | 'person' | 'aoi'; name: string; text: string };
