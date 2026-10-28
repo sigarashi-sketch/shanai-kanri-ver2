@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check } from 'lucide-react';
+import { Check, Search } from 'lucide-react';
 import { useIke } from '@/components/Live';
 import { useLiveRoute } from '@/lib/live/use-live-route';
 import type { MfKeihi } from '@/app/api/live/keihi-mf/route';
@@ -11,6 +11,7 @@ import { useMotivation } from '@/components/Motivation';
 import { PersonName } from '@/components/Person';
 import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
 import { postLive } from '@/lib/live/post';
+import { normName } from '@/lib/live/eigyo-common';
 
 // 交通費・経費の「月次」「稟議」タブ（10-25 今の keihi-admin.html から移し替え）。
 //   月次：GET /api/keihi?action=monthly&ym= … その月の承認・支払済を人ごとに合計（給与の振込みに載せる額）
@@ -22,6 +23,12 @@ import { postLive } from '@/lib/live/post';
 const yen = (n: number) => `¥${(Number(n) || 0).toLocaleString('ja-JP')}`;
 const jstYm = (back: number) => { const j = new Date(Date.now() + 9 * 3600e3); const d = new Date(Date.UTC(j.getUTCFullYear(), j.getUTCMonth() - back, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`; };
 const ymLabel = (ym: string) => `${ym.slice(0, 4)}年${Number(ym.slice(5))}月`;
+
+// 名前で探す（10-28 shoya「交通費申請のやつも名前検索できるように」）。空白・さん・異体字を寄せて 名前の一部で当てる
+export const nameHit = (name: string | null | undefined, q: string) => { const k = normName(q); return !k || normName(name).includes(k); };
+export function NameSearch({ q, setQ, className = '' }: { q: string; setQ: (v: string) => void; className?: string }) {
+  return <label className={`flex min-h-9 items-center gap-2 rounded-[10px] border border-field bg-surface px-3 text-faint ${className}`}><Search size={14} /><input value={q} onChange={(e) => setQ(e.target.value)} aria-label="名前で探す" placeholder="名前で探す" className="w-36 min-w-0 bg-transparent text-body text-ink outline-none" /></label>;
+}
 
 type MonthlyPerson = { name: string; claims: number; commute_yen: number; other_yen: number; total_yen: number; freee_employee_id?: string | null };
 type Monthly = { ok?: boolean; ym: string; people: MonthlyPerson[]; pending: number; error?: string };
@@ -38,8 +45,10 @@ export function KeihiMonthlyTab({ live, mk }: { live: boolean; mk: Mikeiken }) {
   const mfRows = mf.live && mf.data?.ym === ym ? mf.data.rows : [];
   const hasMf = mfRows.length > 0;
   const [src, setSrc] = useState<'ike' | 'mf'>('ike');
+  const [q, setQ] = useState('');
   const showMf = hasMf && src === 'mf';
-  const people: MonthlyPerson[] = live && ok && ike.data ? mk.keep(ike.data.people || [], 'name') : [];
+  const allPeople: MonthlyPerson[] = live && ok && ike.data ? mk.keep(ike.data.people || [], 'name') : [];
+  const people = allPeople.filter((p) => nameHit(p.name, q));
   const sum = people.reduce((s, p) => ({ c: s.c + p.commute_yen, o: s.o + p.other_yen, t: s.t + p.total_yen }), { c: 0, o: 0, t: 0 });
   return (
     <div className="flex flex-col gap-3">
@@ -56,8 +65,9 @@ export function KeihiMonthlyTab({ live, mk }: { live: boolean; mk: Mikeiken }) {
           {live && ok && (ike.data?.pending || 0) > 0 && <div className="text-sm text-warn">この月の申請中・差し戻し中が {ike.data!.pending}件あります（全員分の数）</div>}
         </div>}
         {live && mf.state === 'error' && <div className="text-sm text-bad">マネフォの分が読めませんでした（{mf.error}）</div>}
+        <NameSearch q={q} setQ={setQ} className="ml-auto" />
       </div>
-      {showMf ? <MfClaimsList rows={mfRows} /> : <>
+      {showMf ? <MfClaimsList rows={mfRows.filter((r) => nameHit(r.name, q))} /> : <>
       {live && ike.state === 'error' && <div className="rounded-xl px-4 py-2.5 text-sm" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>{ike.error}</div>}
       <div className="overflow-x-auto rounded-xl border border-line bg-surface">
         <table className="w-full min-w-[620px] border-collapse text-body">
@@ -73,7 +83,7 @@ export function KeihiMonthlyTab({ live, mk }: { live: boolean; mk: Mikeiken }) {
                 <td className="px-4 py-2.5 text-sm">{!live ? '—' : p.freee_employee_id ? <span className="text-ok">結び付き済み</span> : <span className="text-warn">未紐付け（手で確かめる）</span>}</td>
               </tr>
             ))}
-            {people.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-muted">{!live || ike.state === 'loading' ? '読み込み中…' : 'この月の承認済みの申請はありません'}</td></tr>}
+            {people.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-muted">{!live || ike.state === 'loading' ? '読み込み中…' : allPeople.length && q.trim() ? `「${q.trim()}」に当たる人はいません` : 'この月の承認済みの申請はありません'}</td></tr>}
           </tbody>
         </table>
       </div>
@@ -123,7 +133,7 @@ function MfClaimsList({ rows }: { rows: MfKeihi['rows'] }) {
                 <td className="num px-4 py-2 text-sm">{r.payOn ? r.payOn.slice(5).replace('-', '/') : '—'}</td>
               </tr>
             ))}
-            {shown.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-sm text-muted">この状態の申請はありません</td></tr>}
+            {shown.length === 0 && <tr><td colSpan={7} className="px-4 py-6 text-center text-sm text-muted">この状態・名前の申請はありません</td></tr>}
           </tbody>
         </table>
       </div>
@@ -142,7 +152,9 @@ export function KeihiRingiTab({ live, mk }: { live: boolean; mk: Mikeiken }) {
   // 見送りの理由はその都度手で打つ（本人の LINE に届く・10-25 shoya）
   const [why, setWhy] = useState<Record<string, string>>({});
   const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
-  const rows = (live && ike.data?.ringi ? mk.keep(ike.data.ringi, 'linked_name') : []).filter((r) => !done[r.id]);
+  const [q, setQ] = useState('');
+  const all = (live && ike.data?.ringi ? mk.keep(ike.data.ringi, 'linked_name') : []).filter((r) => !done[r.id]);
+  const rows = all.filter((r) => nameHit(r.linked_name, q));
   const decide = (r: Ringi, decision: 'approve' | 'reject', comment = '') => {
     const name = r.linked_name || '（氏名がまだ決まらない）';
     if (!live) return;
@@ -155,12 +167,14 @@ export function KeihiRingiTab({ live, mk }: { live: boolean; mk: Mikeiken }) {
   };
   return (
     <div className="flex flex-col gap-3">
-      <div className="rounded-xl border border-line bg-surface px-4 py-3 text-body"><b>判断待ちの稟議 {rows.length}件</b>
-        {!canApprove && <span className="ml-2 text-sm text-bad">{needText('approve')}</span>}
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-body"><b>判断待ちの稟議 {all.length}件</b>
+        {!canApprove && <span className="text-sm text-bad">{needText('approve')}</span>}
+        <NameSearch q={q} setQ={setQ} className="ml-auto" />
       </div>
       {live && ike.state === 'error' && <div className="rounded-xl px-4 py-2.5 text-sm" style={{ background: 'var(--tone-bad-bg)', color: 'var(--tone-bad-fg)' }}>{ike.error}</div>}
       {(!live || ike.state === 'loading') && <div className="rounded-xl border border-line bg-surface px-6 py-8 text-center text-sm text-muted">読み込み中…</div>}
-      {rows.length === 0 && live && ike.state !== 'loading' && (
+      {rows.length === 0 && all.length > 0 && <div className="rounded-xl border border-line bg-surface px-6 py-6 text-center text-sm text-muted">「{q.trim()}」に当たる稟議はありません</div>}
+      {all.length === 0 && live && ike.state !== 'loading' && (
         <div className="mo-scale-in rounded-xl border border-line bg-surface px-6 py-8 text-center"><Check className="mx-auto text-ok" size={24} /><div className="mt-2 text-body font-bold">判断待ちの稟議はありません</div></div>
       )}
       {rows.map((r) => (

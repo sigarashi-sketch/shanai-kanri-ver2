@@ -10,7 +10,7 @@ import { RemainRing, useMotivation } from '@/components/Motivation';
 import { LiveBanner, useIke } from '@/components/Live';
 import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
 import { postLive } from '@/lib/live/post';
-import { KeihiMonthlyTab, KeihiRingiTab } from './tabs';
+import { KeihiMonthlyTab, KeihiRingiTab, NameSearch, nameHit } from './tabs';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { toClaims, type KeihiAdminList } from '@/lib/live/keihi';
 import { PersonName } from '@/components/Person';
@@ -129,9 +129,10 @@ function CheckTab({ claims, done, setDone, live, flags, reload }: { claims: Clai
   const [ok, setOk] = useState<Record<string, boolean>>({});
   const [kind, setKind] = useState<string>('すべて');
   const [openId, setOpenId] = useState<string | null>(null);
+  const [q, setQ] = useState('');
 
   const pending = claims.filter((c) => !done[c.id]).sort((a, b) => ORDER.indexOf(toneOf(a.checks)) - ORDER.indexOf(toneOf(b.checks)) || a.filedAt.localeCompare(b.filedAt));
-  const rows = pending.filter((c) => kind === 'すべて' || c.kind === kind);
+  const rows = pending.filter((c) => (kind === 'すべて' || c.kind === kind) && nameHit(c.person, q));
   const okRows = rows.filter((c) => toneOf(c.checks) === 'ok');
   const kinds = ['すべて', ...Array.from(new Set(claims.map((c) => c.kind)))];
   const flagged = pending.filter((c) => (flags.by[c.id] || []).length).length;
@@ -182,7 +183,8 @@ function CheckTab({ claims, done, setDone, live, flags, reload }: { claims: Clai
               const n = k === 'すべて' ? pending.length : pending.filter((c) => c.kind === k).length;
               return <button key={k} onClick={() => setKind(k)} className={`min-h-8 rounded-full border px-3 text-sm ${kind === k ? 'font-semibold' : 'text-muted'}`} style={kind === k ? { borderColor: 'var(--a)', background: 'var(--al)', color: 'var(--ad)' } : { borderColor: 'var(--color-line)' }}>{k} {n}</button>;
             })}
-            <button onClick={() => okRows.length && settle(okRows, { result: '承認' })} disabled={!canApprove || okRows.length === 0} title={!canApprove ? lockText : undefined} className="btn-primary ml-auto btn-sm">問題なし {okRows.length}件をまとめて承認</button>
+            <NameSearch q={q} setQ={setQ} className="ml-auto" />
+            <button onClick={() => okRows.length && settle(okRows, { result: '承認' })} disabled={!canApprove || okRows.length === 0} title={!canApprove ? lockText : undefined} className="btn-primary btn-sm">問題なし {okRows.length}件をまとめて承認</button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] border-collapse text-body">
@@ -190,7 +192,7 @@ function CheckTab({ claims, done, setDone, live, flags, reload }: { claims: Clai
                 <th className="px-4 py-2.5 font-semibold">社員</th><th className="px-2 py-2.5 font-semibold">種類・中身</th><th className="px-2 py-2.5 text-right font-semibold">金額</th><th className="px-2 py-2.5 font-semibold">先に確かめたこと</th><th className="px-4 py-2.5 font-semibold">承認</th>
               </tr></thead>
               <tbody>
-                {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-muted">「{kind}」の承認待ちはありません。ほかの種類を選んでください。</td></tr>}
+                {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-muted">{q.trim() ? `「${q.trim()}」に当たる${kind === 'すべて' ? '' : `「${kind}」の`}承認待ちはありません` : `「${kind}」の承認待ちはありません。ほかの種類を選んでください。`}</td></tr>}
                 {rows.map((c, i) => {
                   const t = toneOf(c.checks);
                   const need = t === 'bad' && !ok[c.id];
