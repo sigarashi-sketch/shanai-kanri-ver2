@@ -28,6 +28,9 @@ import type { KeihiAdminList } from '@/lib/live/keihi';
 //     マネフォの月（10-26 shoya「MF の9月分の交通費は想定粗利にある人は写して」）：MF の申請（承認済み・承認待ち）を人ごとに足し、
 //     この表にいる人の交通費の欄へ同じ口（arari-fare＝手で直した値）でまとめて入れる。選んで確認の窓を出してから書く
 const WELFARE_RATE = 0.19; // 法定福利の率（今の API が rates.welfare を返さないときだけ使う）
+// 法定福利は 額面（内定の月給）× 19% の固定（10-28 shoya「1日だけ出勤しても満額」＝社会保険は月末に在籍していれば1か月分）。
+//   その月の給与（freee 勤怠＝残業・欠勤で動く）には掛けない。額面が分からない人は今の給与（手で直した値・仮 21万）に掛ける
+const fixedWelfare = (base: number, rate = WELFARE_RATE) => Math.round(Math.max(0, base) * rate);
 const yen = (n: number) => `${n < 0 ? '−' : ''}¥${Math.abs(n).toLocaleString('ja-JP')}`;
 const pct = (r: number) => `${(r * 100).toFixed(1)}%`;
 const rateTone = (r: number) => (r < 0.15 ? 'bad' : r < 0.25 ? 'warn' : 'ok');
@@ -61,7 +64,9 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
   const canEdit = usePerms().can('keiri', 'edit');
   // 交通費は 申請が来ている人をその額に（手で直した値がある人はそのまま・10-28）。粗利・粗利率はこの差だけ出し直す（法定福利は給与にだけ掛かる）
   const { kh, fares } = useAppliedFares(d.ym);
-  const rows = mk.keep(toArari(d), 'name').map((r) => {
+  const rows = mk.keep(toArari(d), 'name').map((r0) => {
+    const welfare = fixedWelfare(!r0.salaryManual && r0.kintai?.base != null ? r0.kintai.base : r0.salary, d.rates?.welfare ?? WELFARE_RATE);
+    const r = { ...r0, welfare, gross: r0.gross + r0.welfare - welfare, rate: r0.sales ? (r0.gross + r0.welfare - welfare) / r0.sales : 0 };
     const f = r.fareManual ? undefined : fares.get(nk(r.name));
     if (!f) return r;
     const fare = f.ike + f.mf;
@@ -174,7 +179,7 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
           </table>
         </div>
       </div>
-      <p className="text-xs text-faint">売上は格納した請求書（税抜）。10月分からは、いけどんで作った請求書（保存した最新の版）を押印前でも入れます。法定福利は給与の19%で見積もった概算です。給与・社会保険料・税の扱いの最終判断は社労士・税理士に確認してください。</p>
+      <p className="text-xs text-faint">売上は格納した請求書（税抜）。10月分からは、いけどんで作った請求書（保存した最新の版）を押印前でも入れます。法定福利は額面（内定の月給）の19%で固定（出勤日数・残業で変えない）の概算です。給与・社会保険料・税の扱いの最終判断は社労士・税理士に確認してください。</p>
       <ChinginPl live />
     </main>
   );
@@ -333,10 +338,12 @@ function KariShime({ tabs }: { tabs: React.ReactNode }) {
   //   その月の申請（いけどん：取下げ以外の通勤費・マネフォ：取消し以外の合計）がある人だけ、その額に置きかえて粗利を出し直す
   const { kh, fares } = useAppliedFares(ym);
   const all: (KariRow & { fareNote?: string })[] = (r.data?.ok && r.data.rows ? mk.keep(r.data.rows, 'name').filter((x) => x.eligible) : []).map((x) => {
-    const f = fares.get(nk(x.name));
-    if (!f) return x;
+    const shaho = fixedWelfare(x.base ?? x.wage);
+    const y = { ...x, shaho, grossNet: x.grossNet + x.shaho - shaho };
+    const f = fares.get(nk(y.name));
+    if (!f) return y;
     const fare = f.ike + f.mf;
-    return { ...x, fare, grossNet: x.grossNet + x.fare - fare, fareNote: fareNoteOf(f) };
+    return { ...y, fare, grossNet: y.grossNet + y.fare - fare, fareNote: fareNoteOf(f) };
   });
   const fareN = all.filter((x) => x.fareNote).length;
   const rate = (x: KariRow) => (x.sales ? x.grossNet / x.sales : 0);
