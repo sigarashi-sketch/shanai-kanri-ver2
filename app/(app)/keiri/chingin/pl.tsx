@@ -10,7 +10,7 @@ import { useMikeiken, type Mikeiken } from '@/components/Mikeiken';
 //   ・人は未経験の人だけで足し直す（合計に入る人＝eligible だけ。決まりは今のシステムのまま）
 //   ・損益分岐＝販管費 ÷ 1人あたりの粗利（直近3か月の確定した月の平均）。シナリオは人数と1人あたり粗利を選ぶだけ
 //   ★保存（販管費・損益分岐の入力・スプレッドシートへの書き出し）は今の社内システムから
-type SumRow = { key: string; name: string; eligible: boolean; sales: number; wage: number; shaho: number; fare: number; grossNet: number; issues: string[] };
+type SumRow = { key: string; name: string; eligible: boolean; sales: number; wage: number; shaho: number; fare: number; grossNet: number; issues: string[]; base?: number | null };
 type MonthSum = { ok?: boolean; summary?: { ym: string; label: string; provisional: boolean; through: string }; rows?: SumRow[]; error?: unknown };
 type Pl = { ok?: boolean; ym: string; inputs?: { sga: { label: string; amount: number | null }[] }; sgaSource?: { kind: string } | null };
 type M = { ym: string; provisional: boolean; n: number; sales: number; cost: number; gross: number; ok: boolean; loading: boolean; noRoster?: boolean };
@@ -24,7 +24,8 @@ const PER = [-20, -10, -5, 0, 5, 10, 20];
 
 function useMonth(ym: string, on: boolean, mk: Mikeiken): M {
   const r = useIke<MonthSum>(on ? `chingin?action=month-summary&ym=${ym}&rows=1` : null);
-  const rows = r.data?.ok && r.data.rows ? mk.keep(r.data.rows, 'name').filter((x) => x.eligible) : [];
+  // 法定福利は 額面 × 19% の固定に置きかえる（10-28・page.tsx の fixedWelfare と同じ）
+  const rows = (r.data?.ok && r.data.rows ? mk.keep(r.data.rows, 'name').filter((x) => x.eligible) : []).map((x) => ({ ...x, grossNet: x.grossNet + x.shaho - Math.round(Math.max(0, x.base ?? x.wage) * 0.19) }));
   const sales = rows.reduce((s, x) => s + (x.sales || 0), 0), gross = rows.reduce((s, x) => s + (x.grossNet || 0), 0);
   return { ym, provisional: !!r.data?.summary?.provisional, n: rows.length, sales, gross, cost: sales - gross, ok: !!r.data?.ok, loading: r.state === 'loading', noRoster: (r.data as { error?: { kind?: string } } | null)?.error?.kind === 'roster' };
 }
