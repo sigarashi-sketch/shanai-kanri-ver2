@@ -24,7 +24,7 @@ import { usePerms } from '@/components/Perms';
 import { liveStock } from '@/lib/live/cases';
 import { blockReason, type ProgressData } from '@/lib/live/eigyo-common';
 import type { EngineerRows, SukishiFileUrls } from '@/lib/live/eigyo-common';
-import { SukishiFiles } from '@/components/SukishiFiles';
+import { CopyBtn, SukishiFiles, SukishiLinks, SukishiPreview } from '@/components/SukishiFiles';
 import type { LiverList, PartnerList } from '@/lib/live/proper';
 import {
   CAN_ALL, memoOf, contactsOf, groupBubbles, groupsOf, livePerson, logView, memberOf, threadBubbles,
@@ -166,11 +166,18 @@ function Sukishi({ p, liver, ext }: { p: View; liver: boolean; ext: { target?: s
   return (
     <>
       <Card title="サマリ" sub="スキルシートのもとになる要約（今のプロパーリストのサマリ列）">
+        {p.summary && <div className="mb-2 flex justify-end"><CopyBtn text={p.summary} what={`${p.name}のサマリ`} label="サマリをコピー" /></div>}
         {p.summary ? <pre className="whitespace-pre-wrap break-words font-sans text-body leading-relaxed">{p.summary}</pre> : <p className="text-body text-muted">サマリはまだありません</p>}
       </Card>
       <Card title="前職・経歴">
         {p.career ? <pre className="whitespace-pre-wrap break-words font-sans text-body leading-relaxed">{p.career}</pre> : <p className="text-body text-muted">—</p>}
       </Card>
+      {p.sukishiUrl && <Card title="スキシの URL" sub="スプレッドシート単体の URL。コピーして送る・新しいタブで開く"><SukishiLinks url={p.sukishiUrl} name={p.name} /></Card>}
+      {(p.sukishiUrl || p.files?.pdfAnonUrl || p.files?.pdfUrl) && (
+        <Card title="スキシのプレビュー" sub="客先に出す PDF（イニシャル版）を先に。見えないときはドライブの共有を確かめてください">
+          <SukishiPreview files={p.files ?? {}} sheetUrl={p.sukishiUrl} className="h-[640px]" />
+        </Card>
+      )}
       {p.row && (
         <Card title="スキルシートのファイル" sub="本名版とイニシャル版（客先送付用）の PDF・Excel。今のプロパーリストの PDF 列と同じ。客先にはイニシャル版の PDF を（スプレッドシートをブラウザで印刷すると崩れます）">
           <SukishiFiles files={p.files ?? {}} row={p.row} name={p.name} canMake={!!p.sukishiUrl} size="md" />

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, Search, X } from 'lucide-react';
+import { AlertTriangle, PanelRightClose, PanelRightOpen, Search, X } from 'lucide-react';
 import type { Proper } from '@/lib/types/eigyo';
 import { StaffList } from '@/components/lists/StaffList';
 import { LiverLive } from '@/components/lists/LiverLive';
@@ -14,7 +14,7 @@ import { liveProperRows, type LiverList, type LiveProper, type PartnerList } fro
 import { ProperList } from '@/components/ProperList';
 import type { EngineerRows } from '@/lib/live/eigyo-common';
 import { PersonName } from '@/components/Person';
-import { SukishiFiles } from '@/components/SukishiFiles';
+import { CopyBtn, SukishiFiles, SukishiLinks, SukishiPreview } from '@/components/SukishiFiles';
 import { fileUrlsOf } from '@/lib/live/eigyo-common';
 
 // 要員（プロパー）＋スキシ作成（2026-10-23 shoya「プロパーリストの中にスキシ作成をマージ」）。
@@ -35,21 +35,30 @@ function ProperTab({ data, reload, live }: { data: EngineerRows | null; reload: 
   const open = openId ? byId.get(openId) ?? null : null;
   const openRow = openId ? data?.rows.find((r) => r.row === openId) : undefined;
   useEffect(() => { const id = new URLSearchParams(window.location.search).get('sukishi'); if (id) setOpenId(id); }, []);
+  // スキシのプレビュー（10-28 shoya「右側とかでいいからプレビュー」）：引き出しを広げて右半分に出す。出す/出さないはこの端末に覚える
+  const [pv, setPv] = useState(true);
+  useEffect(() => { try { if (localStorage.getItem('v2_sukishi_pv') === '0') setPv(false); } catch { /* 使えない */ } }, []);
+  const togglePv = () => setPv((v) => { try { localStorage.setItem('v2_sukishi_pv', v ? '0' : '1'); } catch { /* 使えない */ } return !v; });
+  const wide = !!open && pv;
 
   return (
     <div className="flex min-h-full">
-      <div className={`flex min-w-0 flex-1 flex-col gap-3.5 ${open ? 'xl:pr-[444px]' : ''}`}>
+      <div className={`flex min-w-0 flex-1 flex-col gap-3.5 ${wide ? '2xl:pr-[924px]' : open ? 'xl:pr-[444px]' : ''}`}>
         <ProperList data={data} live={live} reload={reload} onSukishi={setOpenId} sukishiDone={done} />
       </div>
 
       {open && (
         <DrawerPortal>
-        <aside key={open.id} aria-label="スキシ" className="mo-drawer drawer">
+        <aside key={open.id} aria-label="スキシ" className={`mo-drawer drawer ${wide ? 'lg:w-[min(920px,100vw)]' : ''}`}>
           <div className="flex items-start justify-between px-5 py-4">
             <div><div className="text-sm text-faint">スキルシート（客先に出す紙）</div><div className="text-lg font-bold"><PersonName name={open.name} id={open.id} className="underline-offset-2 hover:underline" /></div></div>
-            <button aria-label="閉じる" onClick={() => setOpenId(null)} className="flex size-[34px] items-center justify-center rounded-[10px] border border-line"><X size={16} /></button>
+            <div className="flex gap-1.5">
+              <button aria-label={pv ? 'プレビューを閉じる' : 'プレビューを出す'} title={pv ? 'プレビューを閉じる' : 'スキシのプレビューを右に出す'} onClick={togglePv} className="hidden size-[34px] items-center justify-center rounded-[10px] border border-line lg:flex">{pv ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}</button>
+              <button aria-label="閉じる" onClick={() => setOpenId(null)} className="flex size-[34px] items-center justify-center rounded-[10px] border border-line"><X size={16} /></button>
+            </div>
           </div>
-          <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-5 pb-4 text-body">
+          <div className="flex min-h-0 flex-1">
+          <div className={`flex flex-col gap-3 overflow-y-auto px-5 pb-4 text-body ${wide ? 'w-full lg:w-[440px] lg:shrink-0' : 'w-full'}`}>
             {open.sukishi.warn && <div role="alert" className="mo-shake flex gap-2 rounded-[10px] border border-bad-line bg-bad-soft px-3 py-2.5 text-bad"><AlertTriangle size={16} className="mt-0.5 shrink-0 text-bad" />{open.sukishi.warn}</div>}
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 rounded-[10px] bg-soft px-4 py-3">
               <div><dt className="text-xs text-faint">名前（イニシャル）</dt><dd className="font-semibold">{open.sukishi.initial || <span className="text-bad">空欄</span>}</dd></div>
@@ -58,7 +67,8 @@ function ProperTab({ data, reload, live }: { data: EngineerRows | null; reload: 
               <div><dt className="text-xs text-faint">稼働開始</dt><dd>{open.sukishi.start}</dd></div>
               <div className="col-span-2"><dt className="text-xs text-faint">資格</dt><dd>{open.sukishi.skills}</dd></div>
             </dl>
-            {open.summary && <div><div className="mb-1.5 text-sm font-semibold text-muted">サマリ（客先に貼る紹介文）</div><p className="whitespace-pre-line rounded-[10px] border border-line px-3 py-2 text-sm">{open.summary}</p></div>}
+            {open.sukishiUrl && <div><div className="mb-1.5 text-sm font-semibold text-muted">スキシの URL（スプレッドシート）</div><SukishiLinks url={open.sukishiUrl} name={open.name} /></div>}
+            {open.summary && <div><div className="mb-1.5 flex items-center gap-2 text-sm font-semibold text-muted">サマリ（客先に貼る紹介文）<CopyBtn text={open.summary} what={`${open.name}のサマリ`} label="コピー" className="ml-auto" /></div><p className="whitespace-pre-line rounded-[10px] border border-line px-3 py-2 text-sm">{open.summary}</p></div>}
             <div>
               <div className="mb-1.5 text-sm font-semibold text-muted">経歴（古い順）</div>
               {open.sukishi.history.length === 0 && <div className="rounded-[10px] bg-soft px-3 py-2 text-sm text-muted">経歴は スキルシート作成 の画面（基本情報フォームの回答）で見られます</div>}
@@ -75,6 +85,8 @@ function ProperTab({ data, reload, live }: { data: EngineerRows | null; reload: 
               </div>
             )}
             <p className="text-xs text-faint">出どころ：基本情報（氏名・年齢・最寄駅・資格）／経歴フォーム／プロパーの稼働開始。本名・健康に関する内容は載せません。</p>
+          </div>
+          {wide && <div className="hidden min-w-0 flex-1 border-l border-line p-3 lg:flex"><SukishiPreview files={openRow ? fileUrlsOf(openRow) : {}} sheetUrl={open.sukishiUrl} className="flex-1" /></div>}
           </div>
           <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
             {open.sukishiUrl && <a href={open.sukishiUrl} target="_blank" rel="noreferrer" className="btn-secondary">スプレッドシートを開く</a>}
