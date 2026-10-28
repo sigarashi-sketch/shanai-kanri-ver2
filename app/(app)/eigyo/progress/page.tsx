@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Clock, MessageSquareText, Plus, X } from 'lucide-react';
 import type { Candidate, ChatMsg, ProgressRow, Via } from '@/lib/types/eigyo';
 import { PageTitle, PrimaryButton } from '@/components/ui';
@@ -10,7 +10,7 @@ import { DrawerPortal } from '@/components/DrawerPortal';
 import { LiveBanner, useIke } from '@/components/Live';
 import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
 import { postLive } from '@/lib/live/post';
-import { groupBubbles, type GroupThreadRes } from '@/lib/live/person';
+import { groupBubbles, threadBubbles, type GroupThreadRes, type ThreadRes } from '@/lib/live/person';
 import { MikeikenNote, useMikeiken } from '@/components/Mikeiken';
 import { directSends, gidOfRow, liveDirectRows, liveProgress, type DirectData } from '@/lib/live/progress';
 import { matchGroupName, mdhm, type ProgressData, type ProgressReply } from '@/lib/live/eigyo-common';
@@ -65,7 +65,7 @@ function sortRows(rows: ProgressRow[], k: SortK): ProgressRow[] {
 }
 function readLs<T>(key: string): T | null { try { const v = localStorage.getItem(key); return v ? (JSON.parse(v) as T) : null; } catch { return null; } }
 function writeLs(key: string, v: unknown) { try { localStorage.setItem(key, JSON.stringify(v)); } catch { /* 残せなくても画面は動く */ } }
-type ChatOpen = { group: string; thread: ChatMsg[]; focus?: string; cand?: Candidate; gid?: string };
+type ChatOpen = { group: string; thread: ChatMsg[]; focus?: string; cand?: Candidate; gid?: string; focusText?: string; focusLabel?: string };
 
 export default function ProgressPage() {
   const perm = usePerms().can('eigyo', 'edit');
@@ -97,6 +97,13 @@ export default function ProgressPage() {
   const canEdit = perm && live;
   const noEdit = live ? needText('edit') : '案件進捗を読み込めていません';
   const caseOf = (no: string) => lp.cases.find((c) => c.no === no);
+  // 送った案件のやりとり：内勤・あおいの発言も入った そのグループ（1:1）のトークをそのまま読む（返信だけだと前後が分からない・10-28 shoya）
+  const openRowChat = (r: ProgressRow) => {
+    const th = lp.threads[r.id] ?? [];
+    const send = th.find((m) => m.id === 'send');
+    setChat({ group: r.group, thread: th, gid: gidOfRow(r.id) || undefined,
+      focusText: send?.text || r.reply, focusLabel: send ? '↑ この案件の配信' : r.reply ? '↑ この案件への返信' : undefined });
+  };
   const reqOf = (no: string) => pd.data?.ikouRequesters?.[no] ?? [];   // だれの依頼で送った案件か
   const [confirm, setConfirm] = useState<ConfirmSpec | null>(null);
   const [gone, setGone] = useState<Record<string, boolean>>({});   // 本物：決めた直後に候補から消す（読み直しを待たない）
@@ -265,7 +272,7 @@ export default function ProgressPage() {
             </div>
             {view === 'haishin' ? (
               <ByHaishin rows={shown} rawOf={(no) => pd.data?.cases?.find((c) => c.kNo === no)} reqOf={reqOf} caseOf={caseOf}
-                canEdit={canEdit} noEdit={noEdit} rowFlash={rowFlash} decide={decide} openChat={(r) => setChat({ group: r.group, thread: lp.threads[r.id] ?? [] })}
+                canEdit={canEdit} noEdit={noEdit} rowFlash={rowFlash} decide={decide} openChat={openRowChat}
                 empty={pd.state === 'loading' ? '読み込み中…' : pd.state === 'error' ? '案件進捗を読み込めませんでした' : via === 'すべて' && dec === 'すべて' ? '送った案件はまだありません' : 'この絞り込みに当たる案件はありません'} />
             ) : (
             <div className="overflow-hidden rounded-xl border border-line bg-surface">
@@ -295,7 +302,7 @@ export default function ProgressPage() {
                         ),
                         chat: (
                           <td key="chat" className="px-4 py-2.5 text-right">
-                            <button onClick={() => setChat({ group: r.group, thread: lp.threads[r.id] ?? [] })} className="inline-flex min-h-8 items-center whitespace-nowrap gap-1.5 rounded-lg border px-2.5 text-sm font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><MessageSquareText size={14} />チャット</button>
+                            <button onClick={() => openRowChat(r)} className="inline-flex min-h-8 items-center whitespace-nowrap gap-1.5 rounded-lg border px-2.5 text-sm font-semibold" style={{ borderColor: 'var(--al)', color: 'var(--ad)' }}><MessageSquareText size={14} />チャット</button>
                           </td>
                         ),
                       };
@@ -375,7 +382,7 @@ export default function ProgressPage() {
               <button aria-label="閉じる" onClick={() => setChat(null)} className="flex size-[34px] items-center justify-center rounded-[10px] border border-line"><X size={16} /></button>
             </div>
             <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto bg-soft px-4 py-4">
-              {chat.gid && <LiveGroupThread gid={chat.gid} focusText={chat.thread[0]?.text ?? ''} />}
+              {chat.gid && <LiveGroupThread gid={chat.gid} focusText={chat.focusText ?? chat.thread[0]?.text ?? ''} focusLabel={chat.focusLabel ?? '↑ 案件として拾った発言'} />}
               {!chat.gid && chat.thread.map((m, i) => {
                 const mine = m.who !== 'person';
                 const focus = m.id === chat.focus;
@@ -405,20 +412,29 @@ export default function ProgressPage() {
   );
 }
 
-// 回収候補の「チャットで前後を見る」（本物）：今のチャット画面と同じ口でグループのやりとりを読み、拾った発言を光らせる
-function LiveGroupThread({ gid, focusText }: { gid: string; focusText: string }) {
-  const gt = useIke<GroupThreadRes>(`chat?action=groupThread&groupId=${encodeURIComponent(gid)}&bc=1`);
-  if (gt.state === 'loading') return <p className="text-body text-muted">読み込み中…</p>;
-  if (gt.state === 'error') return <p className="text-body text-bad">{gt.error}</p>;
-  const key = focusText.slice(0, 40);
-  return (<>{groupBubbles(gt.data).map((m, i) => {
-    const focus = !!key && m.text.startsWith(key);
+// 「チャットで前後を見る」（本物）：今のチャット画面と同じ口でトークを読み、拾った発言・案件の配信を光らせてそこまで送る。
+//   送り先が U… は 1:1（chat?action=thread）、それ以外はグループ（groupThread）。内勤・あおいの発言も出る
+function LiveGroupThread({ gid, focusText, focusLabel }: { gid: string; focusText: string; focusLabel: string }) {
+  const one = gid.charAt(0) === 'U';
+  const gt = useIke<GroupThreadRes>(one ? null : `chat?action=groupThread&groupId=${encodeURIComponent(gid)}&bc=1`);
+  const th = useIke<ThreadRes>(one ? `chat?action=thread&userId=${encodeURIComponent(gid)}` : null);
+  const q = one ? th : gt;
+  const ref = useRef<HTMLDivElement | null>(null);
+  const bubbles = one ? threadBubbles(th.data) : groupBubbles(gt.data);
+  const key = focusText.replace(/\s+/g, '').slice(0, 30);
+  const fi = key ? bubbles.findIndex((m) => m.text.replace(/\s+/g, '').startsWith(key)) : -1;
+  useEffect(() => { if (fi >= 0) ref.current?.scrollIntoView({ block: 'center' }); }, [fi, q.state]);
+  if (q.state === 'loading') return <p className="text-body text-muted">読み込み中…</p>;
+  if (q.state === 'error') return <p className="text-body text-bad">{q.error}</p>;
+  if (!bubbles.length) return <p className="text-body text-muted">やりとりがありません</p>;
+  return (<>{bubbles.map((m, i) => {
+    const focus = i === fi;
     return (
-      <div key={m.key} className={`mo-fade-up flex flex-col ${m.out ? 'items-end' : 'items-start'}`} style={{ ['--i' as string]: Math.min(i, 12) }}>
+      <div key={m.key} ref={focus ? ref : undefined} className={`mo-fade-up flex flex-col ${m.out ? 'items-end' : 'items-start'}`} style={{ ['--i' as string]: Math.min(i, 12) }}>
         <div className="mb-0.5 text-xs text-faint">{m.who}{m.who && '・'}{m.at}</div>
         <div className={`max-w-[85%] whitespace-pre-line rounded-2xl px-3 py-2 text-body leading-relaxed ${focus ? 'mo-scale-in shadow-[0_0_0_3px_var(--al)]' : ''}`}
           style={m.out ? { background: focus ? 'var(--a)' : 'var(--color-surface)', color: focus ? 'var(--ao)' : 'var(--color-ink)', border: '1px solid var(--color-line)' } : { background: 'var(--tone-ok-bg)', color: 'var(--color-ink)' }}>{m.text}</div>
-        {focus && <div className="mt-1 text-xs font-semibold" style={{ color: 'var(--ad)' }}>↑ 案件として拾った発言</div>}
+        {focus && <div className="mt-1 text-xs font-semibold" style={{ color: 'var(--ad)' }}>{focusLabel}</div>}
       </div>
     );
   })}</>);
