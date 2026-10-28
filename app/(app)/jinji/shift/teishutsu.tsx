@@ -8,6 +8,7 @@ import type { IkeShiftList, IkeTodayTargets } from '@/lib/live/shift';
 // 提出状況（シフト表のタブ・10-27 shoya「勤務区分 平日以外のひと全員の名前があって そこに提出状況いれるタブ」）。
 //   勤務区分が「平日」でない人を全員（未設定もふくむ）並べて、集めている月のシフトを 提出済み／下書き／未提出 で出す。
 //   ・勤務区分は今のシステムの名簿（当日の出勤状況の対象＝kintai-today?stale=1）から。提出はシフト表と同じ shift-calendar?action=list
+//   ・月と氏名の絞り込みはシフト表の上（page.tsx）で選ぶ
 //   ・今のシステムで提出が要るのは シフト・夜勤 だけ（それ以外は「要」の印なし・お願いは送れる）
 const nn = (s: string) => s.replace(/[\s　]+/g, '');
 const REQUIRED = ['シフト', '夜勤'];
@@ -15,9 +16,9 @@ type St = '提出済み' | '下書き' | '未提出';
 const TONE: Record<St, string> = { 提出済み: 'ok', 下書き: 'caution', 未提出: 'bad' };
 const fmt = (s: string | null) => (s ? new Date(s).toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo', month: 'numeric', day: 'numeric' }) : '');
 
-export function TeishutsuTab({ targets, list, monthLabel, askedOf, ask, canEdit, block, loading }: {
+export function TeishutsuTab({ targets, list, monthLabel, askedOf, ask, canEdit, block, loading, q = '' }: {
   targets: IkeTodayTargets | null; list: IkeShiftList | null; monthLabel: string; loading: boolean;
-  askedOf: (name: string) => boolean; ask: (names: string[]) => void; canEdit: boolean; block?: string;
+  askedOf: (name: string) => boolean; ask: (names: string[]) => void; canEdit: boolean; block?: string; q?: string;
 }) {
   const byName = new Map((list?.rows || []).map((r) => [nn(r.name), r]));
   const seen = new Set<string>();
@@ -29,7 +30,7 @@ export function TeishutsuTab({ targets, list, monthLabel, askedOf, ask, canEdit,
   const kubuns = ['すべて', ...Array.from(new Set(people.map((p) => p.kubun)))];
   const [k, setK] = useState('すべて');
   const [st, setSt] = useState<'すべて' | St>('すべて');
-  const shown = people.filter((p) => (k === 'すべて' || p.kubun === k) && (st === 'すべて' || p.st === st))
+  const shown = people.filter((p) => (k === 'すべて' || p.kubun === k) && (st === 'すべて' || p.st === st) && (!q || nn(p.name).includes(nn(q))))
     .sort((a, b) => ['未提出', '下書き', '提出済み'].indexOf(a.st) - ['未提出', '下書き', '提出済み'].indexOf(b.st) || a.name.localeCompare(b.name, 'ja'));
   const cnt = (x: St) => people.filter((p) => (k === 'すべて' || p.kubun === k) && p.st === x).length;
   const waiting = shown.filter((p) => p.st !== '提出済み' && !askedOf(p.name));
