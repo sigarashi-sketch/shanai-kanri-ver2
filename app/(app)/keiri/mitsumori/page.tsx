@@ -206,8 +206,15 @@ export default function MitsumoriPage() {
       .catch(() => setEntries([]));
   }, []);
 
+  // ?id=<id> で その見積書を開く・&print=1 なら開いてすぐ印刷（格納の画面の「見積書」タブから来る・10-28）
+  const [autoPrint, setAutoPrint] = useState(false);
   useEffect(() => {
-    void load().then((docs) => setDoc((d) => (d.id || dirty ? d : { ...d, number: nextNumber(docs, d.date) })));
+    void load().then((docs) => {
+      const sp = new URLSearchParams(window.location.search);
+      const hit = docs.find((x) => x.id === sp.get('id'));
+      if (hit) { setDoc(structuredClone(hit)); setBase(hit.updatedAt || ''); setDirty(false); setAutoPrint(sp.get('print') === '1'); return; }
+      setDoc((d) => (d.id || dirty ? d : { ...d, number: nextNumber(docs, d.date) }));
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load]);
 
@@ -259,7 +266,7 @@ export default function MitsumoriPage() {
     try {
       const r = await postLive<{ doc: MDoc }>('/api/live/mitsumori', { action: 'save', id: doc.id || undefined, base, doc });
       setDoc(r.doc); setBase(r.doc.updatedAt || ''); setDirty(false);
-      setMsg({ tone: 'ok', text: `${r.doc.number || '見積書'} を保存しました` });
+      setMsg({ tone: 'ok', text: `${r.doc.number || '見積書'} を保存しました（格納の「見積書」タブにも並びます）` });
       void load();
     } catch (e) {
       setMsg({ tone: 'bad', text: (e as Error).message });
@@ -279,6 +286,13 @@ export default function MitsumoriPage() {
     document.title = [`${doc.to || '宛先未定'}${doc.honor}`, doc.subject, '見積書', doc.number].filter(Boolean).join('_').replace(/[\\/:*?"<>|]/g, '');
     setTimeout(() => { window.print(); document.title = t0; }, 60);
   };
+  useEffect(() => {
+    if (!autoPrint || !printEl) return;
+    setAutoPrint(false);
+    try { const u = new URL(location.href); u.searchParams.delete('print'); history.replaceState(history.state, '', u); } catch { /* 何もしない */ }
+    setTimeout(print, 300);   // 見本を描いてから
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPrint, printEl]);
 
   const shown = list.docs.filter((d) => !q.trim() || `${d.number}${d.to}${d.subject}`.replace(/\s/g, '').includes(q.replace(/\s/g, '')));
   const lock = !canEdit;

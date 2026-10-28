@@ -1,17 +1,19 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
-import { Download, ExternalLink, Pencil, Search, Trash2, Upload, X } from 'lucide-react';
+import { Download, ExternalLink, FileText, Pencil, Printer, Search, Trash2, Upload, X } from 'lucide-react';
 import { Button, SkeletonRows } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { postLive } from '@/lib/live/post';
 import { useLiveRoute } from '@/lib/live/use-live-route';
 import { KK_ACCEPT, KK_MAX_BYTES, KK_TYPES, extOf, type KkFile } from '@/lib/mitsumori-kakunou';
-import type { MDoc } from '@/lib/mitsumori';
+import { totals, type MDoc } from '@/lib/mitsumori';
 
 // 見積書の格納（10-28 shoya「請求書 勤怠表の格納の中に 見積書格納するタブもつくって」）。今のシステムに無いので ver2 で作った（lib/mitsumori-kakunou.ts）。
 //   ・上＝格納する（ファイル＋取引先・見積番号・月・メモ）。見積番号は 見積書作成で保存した番号から選ぶと 取引先も入る
 //   ・下＝格納した見積書の一覧（探す・月で絞る・開く・ダウンロード・直す・消す）。格納する・直す・消すは 経理管理の「直す」以上
+//   ・見積書作成で保存した見積書も そのまま一覧に並ぶ（10-28 shoya「見積書作成で保存したらそのまま格納タブにも入るように」）。
+//     実体は見積書作成の保存（/api/live/mitsumori）を読むだけ＝写しは作らない。PDF は見積書作成を開いて印刷（?id=…&print=1）、直す・消すは見積書作成で
 const API = '/api/live/mitsumori-kakunou';
 type Meta = { partner: string; number: string; ym: string; memo: string };
 const blank = (): Meta => ({ partner: '', number: '', ym: '', memo: '' });
@@ -40,7 +42,7 @@ export function MitsumoriStore() {
   const { can } = usePerms();
   const lock = !can('keiri', 'edit');
   const list = useLiveRoute<{ files: KkFile[] }>(API);
-  const made = useLiveRoute<{ docs: MDoc[] }>('/api/live/mitsumori', { pollMs: 0 });
+  const made = useLiveRoute<{ docs: MDoc[] }>('/api/live/mitsumori');
   const docs = useMemo(() => made.data?.docs || [], [made.data]);
   const files = useMemo(() => list.data?.files || [], [list.data]);
 
@@ -87,9 +89,15 @@ export function MitsumoriStore() {
     catch (e) { setMsg({ tone: 'bad', text: (e as Error).message }); }
   };
 
-  const months = useMemo(() => [...new Set(files.map((f) => f.ym).filter(Boolean))].sort().reverse(), [files]);
+  // 格納したファイルと 見積書作成で保存した見積書を 1つの一覧に（新しい順）
+  type Item = { kind: 'file'; f: KkFile; ym: string; at: string; hay: string } | { kind: 'made'; d: MDoc; ym: string; at: string; hay: string };
+  const items = useMemo<Item[]>(() => [
+    ...files.map((f): Item => ({ kind: 'file', f, ym: f.ym, at: f.uploadedAt, hay: `${f.name}${f.partner}${f.number}${f.memo}` })),
+    ...docs.map((d): Item => ({ kind: 'made', d, ym: (d.date || '').slice(0, 7), at: d.updatedAt || d.createdAt || '', hay: `見積書作成${d.to}${d.number}${d.subject}` })),
+  ].sort((a, b) => b.at.localeCompare(a.at)), [files, docs]);
+  const months = useMemo(() => [...new Set(items.map((x) => x.ym).filter(Boolean))].sort().reverse(), [items]);
   const norm = (s: string) => s.replace(/\s/g, '').toLowerCase();
-  const shown = files.filter((f) => (!ym || f.ym === ym) && (!q.trim() || norm(`${f.name}${f.partner}${f.number}${f.memo}`).includes(norm(q))));
+  const shown = items.filter((x) => (!ym || x.ym === ym) && (!q.trim() || norm(x.hay).includes(norm(q))));
 
   return (
     <main className="flex flex-col gap-4 px-6 pb-12 pt-[18px]">
@@ -134,7 +142,22 @@ export function MitsumoriStore() {
               <table className="w-full min-w-[900px] border-collapse text-body">
                 <thead><tr className="th-row text-left"><th className="px-4 py-2.5 font-semibold">ファイル</th><th className="px-2 py-2.5 font-semibold">取引先</th><th className="px-2 py-2.5 font-semibold">見積番号</th><th className="px-2 py-2.5 font-semibold">月</th><th className="px-2 py-2.5 font-semibold">メモ</th><th className="px-2 py-2.5 font-semibold">格納した人</th><th className="px-4 py-2.5" /></tr></thead>
                 <tbody>
-                  {shown.map((f) => edit?.id === f.id ? (
+                  {shown.map((x) => x.kind === 'made' ? (
+                    <tr key={'m' + x.d.id} className="row border-t border-line-soft">
+                      <td className="px-4 py-2"><a href={`/keiri/mitsumori?id=${x.d.id}`} className="inline-flex items-center gap-1.5 font-semibold hover:underline" title="見積書作成で開く"><FileText size={13} className="text-faint" />{x.d.subject || '見積書'}</a><span className="ml-2 rounded-full bg-sunken px-1.5 py-0.5 text-xs text-muted">見積書作成</span><span className="num ml-2 text-xs text-faint">{totals(x.d.lines).total.toLocaleString('ja-JP')}円</span></td>
+                      <td className="px-2 py-2">{x.d.to || <span className="text-faint">—</span>}</td>
+                      <td className="num px-2 py-2">{x.d.number}</td>
+                      <td className="num px-2 py-2">{ymJa(x.ym)}</td>
+                      <td className="px-2 py-2 text-sm text-muted">見積日 {x.d.date}</td>
+                      <td className="px-2 py-2 text-sm text-muted">{(x.d.updatedBy || x.d.createdBy || '').split('@')[0]}<span className="ml-1 text-xs text-faint">{x.at ? jst(x.at) : ''}</span></td>
+                      <td className="px-4 py-2 text-right">
+                        <span className="inline-flex gap-1">
+                          <a href={`/keiri/mitsumori?id=${x.d.id}&print=1`} className="btn-secondary btn-sm" title="PDF・印刷（見積書作成で開いて印刷）"><Printer size={13} /></a>
+                          <a href={`/keiri/mitsumori?id=${x.d.id}`} className="btn-secondary btn-sm" title="直す・消すは見積書作成で"><Pencil size={13} /></a>
+                        </span>
+                      </td>
+                    </tr>
+                  ) : ((f) => edit?.id === f.id ? (
                     <tr key={f.id} className="border-t border-line-soft bg-sunken">
                       <td className="px-4 py-2 align-top text-sm">{f.name}</td>
                       <td colSpan={5} className="px-2 py-2"><MetaFields v={edit.m} set={(m) => setEdit({ id: f.id, m })} docs={docs} /></td>
@@ -156,8 +179,8 @@ export function MitsumoriStore() {
                         </span>
                       </td>
                     </tr>
-                  ))}
-                  {!shown.length && <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-faint">{files.length ? '当てはまる見積書がありません' : 'まだ格納した見積書はありません。上の「ファイルを選ぶ」から格納すると、ここに並びます'}</td></tr>}
+                  ))(x.f))}
+                  {!shown.length && <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-faint">{items.length ? '当てはまる見積書がありません' : 'まだ格納した見積書はありません。上の「ファイルを選ぶ」から格納するか、見積書作成で保存すると、ここに並びます'}</td></tr>}
                 </tbody>
               </table>
             </div>
