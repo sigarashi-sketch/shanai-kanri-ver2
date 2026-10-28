@@ -27,14 +27,18 @@ export const taikiDays = (t: Taiki, today: string) => (t.kind === '待機中' ? 
 //   1行＝「1つの案件を1人に送った」。送った経路を via で持つ（あおい／グループ直接／手動配信）
 export type Via = 'あおい' | 'グループ直接' | '手動配信';
 export type Decision = 'OK' | 'NG' | 'その他' | '未判断';   // その他＝今の📮判断の「その他」
-export type Case = { no: string; name: string; place: string; price: string };
+export type Case = { no: string; name: string; place: string; price: string; body?: string };   // body＝案件の本文（配信ごとのカードで開く）
+/** 引用リプライの引用元（found=false は引用元が残っていない） */
+export type Quoted = { found?: boolean; text?: string; sender?: string };
 export type ProgressRow = {
   id: string; caseNo: string; person: string; personId: string; group: string;
   via: Via; sentAt: string; sender: string;
   reply: string; replyAt?: string; decision: Decision; slack?: boolean;
+  sentMs?: number; replyMs?: number;   // 送った・返信の時刻（配信ごとの「◯時間以内」「◯日経過」）
+  quoted?: Quoted;                     // 最初の返信が引用リプライなら、その引用元
 };
 /** グループのやりとり（前後を見る用）。who='staff' は内勤、'person' は要員、'aoi' はあおい */
-export type ChatMsg = { id: string; at: string; who: 'staff' | 'person' | 'aoi'; name: string; text: string };
+export type ChatMsg = { id: string; at: string; who: 'staff' | 'person' | 'aoi'; name: string; text: string; quoted?: Quoted };
 export type Candidate = {
   id: string; personId: string; person: string; group: string;
   msgId: string;                 // 案件らしいと拾った発言（前後の中で光らせる）

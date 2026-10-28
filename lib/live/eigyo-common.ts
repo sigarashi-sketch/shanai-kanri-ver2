@@ -80,7 +80,9 @@ export type ProgressData = {
   caseLabels?: Record<string, string>;
 };
 // ---- /api/proxy?action=getProgressReplies（返信。グループ＋1:1） ----
-export type ProgressReply = { ts: number; groupId: string; groupName: string; name: string; text: string };
+//   quoted＝引用リプライの引用元（今の API が付ける。found=false は引用元が残っていない・caseNo は引用元が案件の一斉送信のとき）
+export type ProgressQuoted = { found?: boolean; text?: string; sender?: string; caseNo?: string };
+export type ProgressReply = { ts: number; groupId: string; groupName: string; name: string; text: string; quoted?: ProgressQuoted };
 export const FWD_SEP = String.fromCharCode(31);
 
 /** 案件の見出し（今の画面と同じ：手で付けた名前・自動の名前 → 無ければ本文の1行目） */
