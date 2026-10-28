@@ -393,6 +393,11 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
                   className="min-h-8 rounded-lg border px-2.5 text-sm font-semibold disabled:opacity-40" style={now ? { background: 'var(--a)', color: 'var(--ao)', borderColor: 'var(--a)' } : { borderColor: 'var(--color-field)' }}>{t}</button>;
               })}
               {colByKey.get('dropout')?.cell(selP)}
+              {/* 10-28 shoya「（詳細の上に提案禁止が）なくね」：中身は今のシステムの営業停止（eigyo_teishi）。押すと付け外し */}
+              {(() => { const on = selP.v.eigyo_teishi === true; const pre = on && selP.r.beforeSales; return (
+                <button type="button" disabled={ro || isBusy(selP, 'eigyo_teishi')} aria-pressed={on} onClick={() => save(selP, { eigyo_teishi: !on })}
+                  title={roTitle ?? (pre ? '初回ヒアリング前のため営業開始前（済めば自動で外れます）。押すと手で外す' : on ? '提案禁止。押すと外す' : '押すと提案禁止にする（案件を出さない）')}
+                  className="chip whitespace-nowrap disabled:cursor-not-allowed" style={on ? SK_TONE.要確認 : { background: 'transparent', color: 'var(--color-faint)', boxShadow: 'inset 0 0 0 1px var(--color-field)' }}>{pre ? '提案禁止（営業開始前）' : '提案禁止'}</button>); })()}
             </div>
           </div>
           <div>
