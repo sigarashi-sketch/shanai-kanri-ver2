@@ -31,6 +31,7 @@ const ALLOW: Record<string, readonly string[]> = {
   'attendance-board': ['absence', ''],   // ''＝その日の出勤/欠勤/休み/不明（当日の出勤状況の「出勤の記録」が日ごとに読む・3D の出勤ボードと同じ口・10-27）
   admin: ['list', 'googleLinks'],
   'progress-stats': [''],
+  'progress-live': [''],   // 案件進捗の 依頼者（ikouRequesters＝だれの依頼で送った案件か）。今の progress.html が15秒ごとに読む口（Supabase を読むだけ・GAS は叩かない）・10-28
   'my-activity': ['today'],   // 上のバーの「今日の処理」（本人の操作の記録を数えるだけ・GET は SELECT だけ・10-26 base）
   chat: ['contacts', 'groups', 'thread', 'groupThread', 'infoContacts', 'infoThread', 'infoBroadcasts'],
   'ikou-requests': ['history', 'pending'],
