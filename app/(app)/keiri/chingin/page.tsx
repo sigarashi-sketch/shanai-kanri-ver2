@@ -12,6 +12,7 @@ import { hoursGap, toArari, wageParts, type ArariLive, type KintaiParts, type Li
 import { PersonName } from '@/components/Person';
 import { savedPdfUrl, stampedPdfUrl } from '@/lib/live/seikyu-store';
 import { ChinginPl } from './pl';
+import { openArariReport } from './report';
 import { useLiveRoute } from '@/lib/live/use-live-route';
 import { ConfirmWrite, type ConfirmSpec } from '@/components/ConfirmWrite';
 import type { MfKeihi } from '@/app/api/live/keihi-mf/route';
@@ -62,6 +63,7 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
   // 未経験の人だけ（今のプロパーリストに入っている人）。売上・原価・粗利の合計も絞った人で出す（計算そのものは今の答えのまま）
   const mk = useMikeiken();
   const canEdit = usePerms().can('keiri', 'edit');
+  const { toast } = useMotivation();
   // 交通費は 申請が来ている人をその額に（手で直した値がある人はそのまま・10-28）。粗利・粗利率はこの差だけ出し直す（法定福利は給与にだけ掛かる）
   const { kh, fares } = useAppliedFares(d.ym);
   const rows = mk.keep(toArari(d), 'name').map((r0) => {
@@ -102,6 +104,8 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
             {d.months.map((m) => <option key={m} value={m}>{ymJa(m)}</option>)}
           </select>
         )}
+        <button type="button" className="btn-secondary" disabled={!shown.length} title="この表（いまの絞り込み）と同じ金額で、赤字社員のまとめ・一覧つきのレポートを開きます。印刷の画面で「PDF に保存」"
+          onClick={() => { if (!openArariReport({ rows: shown, ym: d.ym, filter: [client !== 'すべて' ? `取引先 ${client}` : '', shozoku !== 'すべて' ? `所属 ${shozoku}` : '', gapOnly ? 'freee と現場の差がある人だけ' : ''].filter(Boolean).join('・') })) toast({ text: 'レポートの窓を開けませんでした', sub: 'このサイトのポップアップを許可してください' }); }}>PDFレポート</button>
         <Link href="/keiri/seikyu" className="btn-secondary">請求書へ</Link>
       </PageTitle>
       {tabs}
