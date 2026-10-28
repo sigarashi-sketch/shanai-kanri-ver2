@@ -67,7 +67,7 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
   const rows = mk.keep(toArari(d), 'name').map((r0) => {
     const welfare = fixedWelfare(!r0.salaryManual && r0.kintai?.base != null ? r0.kintai.base : r0.salary, d.rates?.welfare ?? WELFARE_RATE);
     const r = { ...r0, welfare, gross: r0.gross + r0.welfare - welfare, rate: r0.sales ? (r0.gross + r0.welfare - welfare) / r0.sales : 0 };
-    const f = r.fareManual ? undefined : fares.get(nk(r.name));
+    const f = r.fareManual || r.fareEki ? undefined : fares.get(nk(r.name));   // 駅から出した月（9月）は申請で上書きしない
     if (!f) return r;
     const fare = f.ike + f.mf;
     const gross = r.gross + r.fare - fare;
@@ -124,7 +124,7 @@ function LiveChingin({ d, ym, setYm, state, error, reload }: { d: ArariLive; ym:
           <div className="text-sm"><b>仮の値が残る {temp.length}人</b><div className="text-muted">給与・交通費の欄に本当の値を入れると片づきます</div></div>
         </div>
       </div>
-      {(fareN > 0 || kh.state === 'error') && <div className="text-xs text-faint">交通費は 申請が来ている {fareN}人をその額に（承認前・差し戻しも含む・取下げは除く・手で直した人はそのまま）{kh.state === 'error' && <span className="text-warn">・いけどんの申請が読めませんでした</span>}</div>}
+      {(fareN > 0 || kh.state === 'error') && <div className="text-xs text-faint">交通費は 申請が来ている {fareN}人をその額に（承認前・差し戻しも含む・取下げは除く・手で直した人と駅から出した人はそのまま）{kh.state === 'error' && <span className="text-warn">・いけどんの申請が読めませんでした</span>}</div>}
       <MfFareImport rows={rows} ym={d.ym} canEdit={canEdit} onDone={reload} />
       {d.unknown?.length > 0 && <div className="rounded-xl border px-4 py-2.5 text-sm" style={{ background: 'var(--tone-warn-bg)', color: 'var(--tone-warn-fg)', borderColor: 'var(--tone-warn-bar)' }}>誰の分か決まらない請求書が {d.unknown.length}件あります（粗利に入っていません）。今の請求書作成の「格納」で人を選んでください。</div>}
 
