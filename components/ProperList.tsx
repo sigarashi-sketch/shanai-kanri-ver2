@@ -7,7 +7,7 @@ import { Pill } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
 import { useMotivation } from '@/components/Motivation';
 import { ProperDetail } from '@/components/ProperDetail';
-import { SukishiFiles, sukishiFilesText } from '@/components/SukishiFiles';
+import { CopyBtn, SukishiFiles, SukishiLinks, sukishiFilesText } from '@/components/SukishiFiles';
 import { Dialog } from '@/components/Dialog';
 import { useIke } from '@/components/Live';
 import { ScoreBadge, ScoreNote, SCORE_HINT, SCORE_LABEL, useProperScores } from '@/components/ProperScore';
@@ -258,11 +258,17 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
       { key: 'sukishi', label: 'スキシ', group: 'スキシ', def: true, filter: 'select', opts: ['作成済み', '未作成', '要確認'],
         text: (p) => (sukishiDone?.has(p.r.row) ? '作成済み' : sukishiState(p.v)),
         cell: (p) => { const st = sukishiDone?.has(p.r.row) ? '作成済み' : sukishiState(p.v); return (
-          <button type="button" onClick={() => onSukishi(p.r.row)} title={st === '作成済み' ? '押すとスキシを見る' : '押すとスキシを作る'} className="chip whitespace-nowrap" style={SK_TONE[st]}>{st}</button>); } },
+          <span className="inline-flex items-center gap-1">
+            <button type="button" onClick={() => onSukishi(p.r.row)} title={st === '作成済み' ? '押すとスキシを見る（右にプレビュー）' : '押すとスキシを作る'} className="chip whitespace-nowrap" style={SK_TONE[st]}>{st}</button>
+            {/* 10-28 shoya：サマリのコピー・スキシ単体の URL（新しいタブ／コピー）を表から1回で */}
+            {s(p.v.summary).trim() && <CopyBtn text={s(p.v.summary)} what={`${p.r.name}のサマリ`} />}
+            <SukishiLinks url={s(p.v.sukishi)} name={p.r.name} compact />
+          </span>); } },
       // 今の proper.html の PDF 列と同じ（本名版／イニシャル版 × PDF／Excel の閲覧・DL と、スキシがあれば PDF出力・Excel出力）。スキシの隣にはじめから出す
       { key: 'pdf', label: 'PDF', group: 'スキシ', def: true, filter: 'text', hint: '本名版／イニシャル版の PDF・Excel を閲覧・DL／その場で出力', text: (p) => sukishiFilesText(p.r),
         cell: (p) => <SukishiFiles files={fileUrlsOf(p.r)} row={p.r.row} name={p.r.name} canMake={isUrl(s(p.v.sukishi))} live={live} onMade={reload} /> },
-      txt('summary', 'サマリ', 'スキシ', false, 200),
+      { ...txt('summary', 'サマリ', 'スキシ', false, 200),
+        cell: (p) => <span className="flex items-start gap-1"><span className="min-w-0 flex-1"><TextCell value={s(p.v.summary)} multiline disabled={ro} title={roTitle} busy={isBusy(p, 'summary')} label="サマリ" onCommit={(x) => save(p, { summary: x })} /></span>{s(p.v.summary).trim() && <CopyBtn text={s(p.v.summary)} what={`${p.r.name}のサマリ`} />}</span> },
       txt('zenshoku', '前職/経験/資格', 'スキシ', false, 200),
       txt('kibou_shokushu', '希望職種', '条件', true, 120),
       txt('shift', 'シフト', '条件', false, 90),
