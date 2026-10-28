@@ -1,10 +1,8 @@
-import { redirect } from 'next/navigation';
+'use client';
+import { Suspense } from 'react';
+import KyouikuAdmin from '@/components/sy/kyouiku/KyouikuAdmin';
 
-// bdsh（10-26 shoya「人事管理にbdshもいれて」「それゆけで押した時と同じ感じでbdsh開ければいいよ」）。
-//   中身はそれゆけ未経験の bdsh の内勤画面（受講データ・受講URLを渡す・解放・CCNA・キッティング）そのもの＝ver2 では作らない。
-//   押すとそれゆけの /kyouiku へ移る（それゆけの左メニューの「bdsh」と同じ行き先）。見られるか・ログインはそれゆけ側の決まりのまま
-//   枠（iframe）の中に出さないのは、別のサイトの中だとそれゆけのログインの cookie が送られず開けないため
-const SOREYUKE_BDSH = 'https://soreyuke.vercel.app/kyouiku';
-export default function BdshPage() {
-  redirect(SOREYUKE_BDSH);
-}
+// bdsh（教育コンテンツの内勤画面）。10-28 shoya「それゆけ開いちゃってる・ver2 で開けて欲しい」＝それゆけ /kyouiku を中身ごと移した。
+//   画面は components/sy/kyouiku（それゆけ components/kyouiku の管理画面の写し）、処理は app/api/sy/s/kyouiku・ccna・course（それゆけ app/api/s の写し・lib/sy）。
+//   受講ページ（https://b-dash-app.vercel.app/k/…）・共通の入口・LINE の bdsh ボタンは それゆけのまま
+export default function BdshPage() { return <Suspense><KyouikuAdmin /></Suspense>; }
