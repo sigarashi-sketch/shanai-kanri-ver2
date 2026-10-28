@@ -17,7 +17,7 @@ env:
   VERCEL_PROJECT: shanai-kanri-v2
   PROD_HOST: shanai-kanri-v2.vercel.app
   KEEP: mf/
-  SETTLE: '60'
+  SETTLE: '0'   # 2026-10-28 shoya「1分待ちもなしで」＝見つけたらすぐ出す（前は 60）
 
 jobs:
   # 落ち着き待ち: 同じブランチに続けて push したら 前の分の待ちを取り消す＝最後の1回だけ出す
