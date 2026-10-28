@@ -80,7 +80,7 @@ export const NAV: NavGroup[] = [
       { href: '/keiri/seikyu-zukuri', label: 'マスタ', built: true }, // 今の /seikyu.html をそのまま（app/ik・データは今のシステム）。10-28 shoya「請求書づくり→マスタ」
       { href: '/keiri/seikyu-make', label: '請求書作成', built: true },
       { href: '/keiri/mitsumori', label: '見積書作成', built: true }, // ver2 で作った（今のシステムに無い・見た目は請求書作成の雛形・10-27 shoya）
-      { href: '/keiri/kakunou', label: '請求書・勤務表の格納', built: true }, // 今の請求書作成の「格納」タブ（10-25）
+      { href: '/keiri/kakunou', label: '請求書・勤務表の格納', built: true }, // 今の請求書作成の「格納」タブ（10-25）＋見積書の格納タブ（ver2・10-28）
       { href: '/keiri/chingin', label: '想定賃金・粗利', built: true },
     ],
   },
