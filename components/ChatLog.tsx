@@ -79,7 +79,7 @@ export function ChatLog({ bubbles, className, children, resetKey, onReply }: { b
 const size = (n?: number) => (!n ? '' : n < 1024 ? `${n}B` : n < 1048576 ? `${Math.round(n / 1024)}KB` : `${Math.round(n / 104857.6) / 10}MB`);
 
 /** 引用リプライの引用元（見つからないものは そう書く） */
-function Quote({ q }: { q: ChatQuoted }) {
+export function Quote({ q }: { q: ChatQuoted }) {
   return (
     <div title="引用リプライ" className={`mb-1 border-l-[3px] border-current pl-2 text-xs leading-snug opacity-75 ${q.found ? '' : 'italic'}`}>
       <span className="block font-semibold">{q.found ? q.sender || (q.direction === 'out' ? '自社' : '相手') : '引用'}</span>
