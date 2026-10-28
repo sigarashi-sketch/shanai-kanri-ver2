@@ -105,8 +105,8 @@ $out"
 $(echo "$out" | tail -10)"
     return 1
   fi
-  # 中身が見えない環境変数（Vercel の Sensitive）はビルドのときだけ空になる。動くときは Vercel が入れるので、知らせるだけ
-  warn="$(grep -E '^[A-Z0-9_]+=""?$' .vercel/.env.production.local 2>/dev/null | cut -d= -f1 | tr '\n' ' ')"
+  # 中身が見えない環境変数（Vercel の Sensitive）はビルドのときだけ空になる。動くときは Vercel が入れるので、知らせるだけ（VERCEL_GIT_… など Vercel が自分で入れるものは数えない）
+  warn="$(grep -E '^[A-Z0-9_]+=""?$' .vercel/.env.production.local 2>/dev/null | cut -d= -f1 | grep -v '^VERCEL_' | tr '\n' ' ')"
   if ! out="$("${VC[@]}" build --prod --yes 2>&1)"; then
     report failed "$sha" "ビルド（next build）が落ちたので止めた。main も本番も前のまま。
 $(echo "$out" | tail -30)"
