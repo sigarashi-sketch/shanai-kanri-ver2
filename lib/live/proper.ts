@@ -20,7 +20,7 @@ export function liveProperRows(d: EngineerRows | null): LiveProper[] {
     out.push({
       id: r.row, name: r.name, station: c.eki || '—', status: st, sales: '—', want: c.kibou_shokushu || '—', price: c.gakumen || '—',
       recruiter: c.tantou || '—', gakumen: c.gakumen, sukishiUrl: /^https?:/.test(c.sukishi) ? c.sukishi : '', pdfUrl: r.pdfAnonUrl || r.pdfUrl || '',
-      summary: c.summary, flag: r.beforeSales ? '営業開始前' : on2(c.eigyo_teishi) ? '営業停止' : on2(c.sai_assign) ? '再アサイン' : '',
+      summary: c.summary, flag: r.beforeSales ? '営業開始前' : on2(c.eigyo_teishi) ? '提案禁止' : on2(c.sai_assign) ? '再アサイン' : '',
       sukishi: {
         state: c.sukishi ? '作成済み' : ini ? '未作成' : '要確認', initial: ini, age: age ? `${age}歳` : '—',
         skills: c.zenshoku.slice(0, 80) || '—', start: c.shoudaku_nyusha_bi || c.kadou || '—', history: [],

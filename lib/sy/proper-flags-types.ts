@@ -3,7 +3,7 @@
 //   サーバは lib/proper-flags.ts、画面は components/MemberProper.tsx
 export const PROPER_FLAGS = [
   ['poa', '営業止め'], ['jitai', '辞退'], ['sankaku_kettei', '参画決定'],
-  ['kadou_chu', '稼働中'], ['sai_assign', '再アサイン'], ['eigyo_teishi', '営業停止'],
+  ['kadou_chu', '稼働中'], ['sai_assign', '再アサイン'], ['eigyo_teishi', '提案禁止'],
 ] as const;
 export type ProperFlagKey = (typeof PROPER_FLAGS)[number][0];
 

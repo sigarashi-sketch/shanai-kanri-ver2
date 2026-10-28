@@ -22,7 +22,7 @@ import {
 //   ・行＝今の getEngineerRows（area=main）
 //   ・列：スコア（スキル／参画見込／辞退リスク／営業止め見込）・最終返信・フォーム回答・LINE・通勤エリア・PDF・dropout・
 //         今の全部の文字列とチェック列。どの列を出すか・並び（ドラッグ）はその人の端末に残す（localStorage）
-//   ・絞り込み：「営業中のみ」が最初（切り替えで 全員／営業止め／営業停止／辞退／参画決定／dropout／かな西／要確認）＋列ごとの絞り込み
+//   ・絞り込み：「営業中のみ」が最初（切り替えで 全員／営業止め／提案禁止／辞退／参画決定／dropout／かな西／要確認）＋列ごとの絞り込み
 //   ・書く：チェック・選択肢・文字は変えたらすぐ保存（/api/live/proper-save → 今の saveEngineerRow）。トーストの「取り消す」で前の値に戻す
 //     参画決定ON の連動（稼働中ON・営業止め/再アサインOFF・入社案内の予約）は今のシステムがやる → 保存のあと読み直す
 //   ・「稼働月を開いたときに今月へ直す」書き込みは入れない（今の画面だけの動き・10-25 指示）
@@ -39,7 +39,7 @@ type Col = {
 };
 
 const SCOPES = [
-  ['active', '営業中のみ'], ['all', '全員（営業止め・辞退・稼働中も）'], ['poa', '営業止め のみ'], ['teishi', '営業停止 のみ'], ['jitai', '辞退 のみ'],
+  ['active', '営業中のみ'], ['all', '全員（営業止め・辞退・稼働中も）'], ['poa', '営業止め のみ'], ['teishi', '提案禁止 のみ'], ['jitai', '辞退 のみ'],
   ['sankaku', '参画決定 のみ'], ['dropout', 'dropout（飛び） のみ'], ['kanawest', 'かな西 のみ'], ['review', '要確認 のみ'],
 ] as const;
 type Scope = (typeof SCOPES)[number][0];
@@ -50,7 +50,7 @@ const scopeTest: Record<Scope, (p: PRow) => boolean> = {
 
 const PREF_KEY = 'v2_proper_cols_v2';
 // はじめに出す列＝大事なものだけ（横スクロールなしで見える数）。ほかは列の設定で足すか、行を押して小窓で見る（10-25 shoya）
-const MAIN_COLS = new Set(['status', 'score:join', 'tantou', 'eki', 'lastReply', 'sukishi', 'pdf', 'shoudaku_nyusha_bi']);
+const MAIN_COLS = new Set(['status', 'score:join', 'tantou', 'eki', 'lastReply', 'sukishi', 'pdf', 'shoudaku_nyusha_bi', 'eigyo_teishi']);
 type Prefs = { order: string[]; hidden: string[]; shown: string[] };
 function loadPrefs(): Prefs | null { try { const s = localStorage.getItem(PREF_KEY); return s ? (JSON.parse(s) as Prefs) : null; } catch { return null; } }
 function savePrefs(p: Prefs) { try { localStorage.setItem(PREF_KEY, JSON.stringify(p)); } catch { /* 残せなくても画面は動く */ } }
@@ -293,7 +293,8 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
       chk('sankaku_kettei', '参画決定', true),
       chk('kadou_chu', '稼働中', true),
       chk('sai_assign', '再アサイン', false),
-      chk('eigyo_teishi', '営業停止', false),
+      // 10-28 shoya「営業停止→提案禁止」：中身は今のシステムの営業停止（eigyo_teishi）のまま・名前だけ変えて はじめから出す
+      chk('eigyo_teishi', '提案禁止', true),
       chk('kanagawa', '神奈川', false),
       chk('kansai', '関西', false),
       chk('needs_review', '要確認', false),
