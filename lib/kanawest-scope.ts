@@ -6,7 +6,7 @@ import { matchGroupName, normName, type EngineerRows, type ProgressData, type Pr
 
 // かな西エリア（10-26 shoya「神奈川西エリアは神奈川要員だけみれるように・ロール振られた人はね」「神奈川要員チェックの人」）。
 //   ・神奈川要員＝今のシステムのプロパーリストの「神奈川要員」チェックが付いている人（稼働中もふくむ＝行の kanagawa の印と同じ）
-//   ・絞るのは かな西エリアが付いた人のとき いつも（ほかの区分を持っていても・10-27）
+//   ・絞るのは かな西エリアだけの人（ほかの区分が全部「見ない」）のとき いつも（10-29 ほかの区分を持つ人は絞らない）
 //   ・ver2 から今のシステムを読む口は全部 lib/ike.ts の ikeFetch を通る。そこで ① 下の READS にある読み口だけ通し ② 中身を神奈川要員だけに絞る。
 //     READS に無い読み口・書き込みは全部断る（知らない形の中身は絞れないので出さない）
 //   ★今のシステムを読めない・名簿が読めないときは何も出さない（人を見せる側に倒さない）
@@ -14,7 +14,7 @@ import { matchGroupName, normName, type EngineerRows, type ProgressData, type Pr
 export type Scope = 'all' | 'kanagawa';
 type Raw = (path: string) => Promise<{ ok: boolean; status: number; data: unknown }>;
 
-/** いまの人が、この呼び出しで神奈川要員に絞られるか＝かな西エリアが付いていれば いつも（10-27 shoya「全部見れるようにしたけど神奈川要員だけにしてね」） */
+/** いまの人が、この呼び出しで神奈川要員に絞られるか＝かな西エリアだけの人なら いつも（lib/kubun.ts isKanawest） */
 export async function scopeOf(token: string, loadPerms: () => Promise<ReturnType<typeof effectivePerms> | null>): Promise<Scope> {
   const { v: k } = await cached(`${userKey(token)}|kperms`, 30_000, loadPerms);
   return k && isKanawest(k) ? 'kanagawa' : 'all';
