@@ -405,7 +405,7 @@ export function ProperList({ data, live, reload, onSukishi, sukishiDone }: {
               {PANE_KEYS.map((k) => { const c = colByKey.get(k); return c ? <label key={k} className="flex min-w-0 flex-col"><span className="text-xs text-muted">{c.label}</span><span className="min-w-0 [&>button.block]:truncate">{c.cell(selP)}</span></label> : null; })}
               {colByKey.get('memo') && <label className="col-span-full flex flex-col"><span className="text-xs text-muted">メモ</span>{colByKey.get('memo')!.cell(selP)}</label>}
             </div>
-            <ProperDetail key={selP.r.row} id={selP.r.row} embedded />
+            <ProperDetail key={selP.r.row} id={selP.r.row} embedded chatSend />
           </div>
         </aside>
       )}

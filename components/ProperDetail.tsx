@@ -8,6 +8,7 @@
 //   ・ライバーは「スキシ・サマリ」にライバーリストの値（メモ＝サマリ）、「送った案件」に案件を送る口（今の配信の送信と同じ・確認の窓のあと・10-26）
 //   ・それ以外の書き込み（スキシを作る・メモを直す 等）はここには置かない
 //   ・名前の小窓（embedded）では送れない（送る欄を出さない・10-25）。小窓が読んだ分（initial）を使い、プロパーリストを読み直さない
+//     要員リストの引き出し（embedded＋chatSend）からは送れる（10-29 shoya「要員リストからのチャット送れない」）
 //     読めなかったときも 404 にしない（後ろの画面まで「見つからない」にしない）。リンクは別タブで開く
 import { ChatSummary } from '@/components/ChatSummary';
 import { ChatLog, type ReplyTo } from '@/components/ChatLog';
@@ -40,7 +41,7 @@ type View = { id: string; name: string; status: string; facts: Fact[]; summary: 
 export type ProperInitial = { view: LivePersonView; everyone: string[]; can: PersonCan };
 
 /** 要員ページの中身。ページ（/eigyo/proper/[id]）と名前の小窓（embedded＝上のパンくずを出さない・送れない）で使う */
-export function ProperDetail({ id, liver = false, embedded = false, initial }: { id: string; liver?: boolean; embedded?: boolean; initial?: ProperInitial }) {
+export function ProperDetail({ id, liver = false, embedded = false, chatSend = !embedded, initial }: { id: string; liver?: boolean; embedded?: boolean; chatSend?: boolean; initial?: ProperInitial }) {
   const [tab, setTab] = useState<Tab>('希望条件');
   const [seen, setSeen] = useState<Tab[]>(['希望条件']);
 
@@ -93,7 +94,7 @@ export function ProperDetail({ id, liver = false, embedded = false, initial }: {
         <Link href="/eigyo/proper" className="text-muted hover:underline">{back}</Link><span className="text-faint">/</span><b>{p.name}</b>
       </div>}
       <section className="mo-fade-up border-b border-line bg-surface px-4 pt-5 sm:px-6">
-        <LiveBanner state={erState} error={er.error} onReload={er.reload} note={live ? (embedded ? `${p.source}の値です（見るだけ）` : `${p.source}の値です（読むだけ）。チャットだけは長押しで送れます`) : undefined} />
+        <LiveBanner state={erState} error={er.error} onReload={er.reload} note={live ? (embedded && !chatSend ? `${p.source}の値です（見るだけ）` : `${p.source}の値です（読むだけ）。チャットだけは長押しで送れます`) : undefined} />
         <div className="mt-2 flex flex-wrap items-start gap-5">
           <div aria-hidden className="flex size-[72px] shrink-0 items-center justify-center rounded-full text-2xl font-bold" style={{ background: 'var(--as)', color: 'var(--ad)', boxShadow: '0 0 0 3px var(--color-surface), 0 0 0 5px var(--al)' }}>{p.name[0]}</div>
           <div className="min-w-0 flex-1 sm:w-[210px] sm:flex-none">
@@ -122,7 +123,7 @@ export function ProperDetail({ id, liver = false, embedded = false, initial }: {
             {t === '面談メモ' && <section className="w-full rounded-xl border border-line bg-surface px-5 py-4 text-body"><PersonMemo name={p.name} live={live} id={p.id} initial={memoOf(p as LivePersonView)} /></section>}
             {t === 'スキシ・サマリ' && <Sukishi p={p} liver={liver} ext={ext} />}
             {t === '送った案件' && <SentCases name={p.name} live={live} liver={liver} embedded={embedded} />}
-            {t === 'チャット' && <Chat name={p.name} live={live} everyone={everyone} embedded={embedded} canSummary={can.summary} />}
+            {t === 'チャット' && <Chat name={p.name} live={live} everyone={everyone} embedded={!chatSend} canSummary={can.summary} />}
           </div>
         ))}
       </main>
