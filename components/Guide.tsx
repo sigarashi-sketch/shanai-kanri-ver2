@@ -9,6 +9,7 @@ import { usePerms } from './Perms';
 import { Z_MODAL } from '@/lib/layers';
 import { LEVELS, atLeast, type Level } from '@/lib/access';
 import { GUIDE } from '@/lib/guide';
+import { isKanawest } from '@/lib/kubun';
 import { NAV_HOME, type NavGroup, type NavItem } from '@/lib/nav';
 
 // 使い方ガイド（10-27 shoya「各ロールに割り振った画面の説明を最初に表示」「このボタン押すと〜がみれます・〜はこういう表示・機能」「使い方ガイドとしてあとで示せるように」）。
@@ -51,7 +52,7 @@ const closeRenraku = () => { document.querySelector<HTMLButtonElement>('aside[ar
 /** 実際の画面で案内する段（components/Tour.tsx）。その人が開ける画面だけ・メニューの並びのまま */
 function useTourSteps(groups: NavGroup[]): TourStep[] {
   const { me, kperms, pages, home, open } = usePerms();
-  const kw = kperms.kanawest !== 'none';
+  const kw = isKanawest(kperms);
   const levelOf = (gr: NavGroup, it: NavItem): { l: Level; note?: string } =>
     open(it.href) === 'kanawest' ? { l: 'view', note: '神奈川要員だけ' }
       : kperms[gr.module] !== 'none' ? { l: kperms[gr.module] }
@@ -122,12 +123,12 @@ function GuideDialog({ groups, onClose, onTour }: { groups: NavGroup[]; onClose:
           {sec === 'intro' ? (
             <>
               <button type="button" onClick={() => onTour('hello')} className="btn mb-4 bg-sumi text-white"><Play size={14} />実際の画面で案内をはじめる（最初から）</button>
-              <Intro home={home} homeItems={homeItems} groups={groups} kanawest={kperms.kanawest !== 'none'} />
+              <Intro home={home} homeItems={homeItems} groups={groups} kanawest={isKanawest(kperms)} />
             </>
           ) : g ? (
             <div className="flex flex-col gap-3">
               <h3 className="flex items-center gap-2 text-md font-bold"><i className="size-2.5 rounded-full" style={{ background: `var(--c-${g.module})` }} />{g.label}
-                <span className="text-sm font-normal text-muted">{kperms.kanawest !== 'none' ? '見るだけ（神奈川要員だけ）' : kperms[g.module] !== 'none' ? `「${levelText(kperms[g.module])}」の権限` : '一部の画面だけ「見る」'}</span>
+                <span className="text-sm font-normal text-muted">{isKanawest(kperms) ? '見るだけ（神奈川要員だけ）' : kperms[g.module] !== 'none' ? `「${levelText(kperms[g.module])}」の権限` : '一部の画面だけ「見る」'}</span>
                 <button type="button" onClick={() => onTour(`grp-${g.module}`)} className="ml-auto inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-sm font-semibold text-white" style={{ background: `var(--c-${g.module})`, color: `var(--o-${g.module})` }}><Play size={13} />この分類を実際の画面で案内</button>
               </h3>
               {g.items.map((it, n) => <ItemCard key={it.href} it={it} mod={g.module} n={n} {...levelOf(g, it)} onGo={onClose} onTour={() => onTour(it.href)} />)}

@@ -4,9 +4,9 @@
 //   ・ロール・組織・個別のどれも、この区分ごとに 見ない/見る/直す/承認 を付ける
 //   ・前に保存した値（10-26〜27 の今のいけどん寄りの区分 営業/案件/面談・入社/稼働中の人/勤怠/請求/分析/管理）は toKPerms で読み替える
 //   ・かな西エリア：要員の画面（KANAWEST_HREFS）を「神奈川要員チェックの人だけ」で開ける区分。
-//     ★10-27 shoya「かな西は全部見れるようにしたけど神奈川要員だけにしてね表示」：かな西エリアが付いた人は、ほかの区分を持っていても
-//       いつも神奈川要員だけ（lib/kanawest-scope.ts）。開けるのは 神奈川要員だけに絞れる画面（KANAWEST_HREFS）とホーム・設定だけ＝絞れない画面は出さない
-//       ほかの区分の段階は 絞れる画面を その区分で持っているかの印にだけ使う。全体管理者・管理者・全体を見る（kAll）には付けない
+//     かな西エリア「だけ」の人（ほかの区分が全部「見ない」）は いつも神奈川要員だけ（lib/kanawest-scope.ts）。開けるのは 神奈川要員だけに絞れる画面（KANAWEST_HREFS）とホーム・設定だけ
+//     ★10-29 shoya「営業管理 かな西しかみれない」「その神奈川限定だけ表示なしにして」：ほかの区分を1つでも持つ人は かな西エリアを見ない（絞らない・ふつうに区分どおり）
+//       （10-27 の「ほかの区分を持っていても いつも神奈川要員だけ」はやめた）。全体管理者・管理者・全体を見る（kAll）には付けない
 import { NAV } from './nav';
 import type { ModuleKey } from './theme';
 import type { Level } from './access';
@@ -15,7 +15,7 @@ export type KubunKey = ModuleKey | 'kanawest';
 /** mod＝札の色に使う分類（色だけ） */
 export const KUBUN: { key: KubunKey; label: string; mod: ModuleKey; hint: string }[] = [
   ...NAV.map((g) => ({ key: g.module as KubunKey, label: g.label, mod: g.module, hint: g.items.map((it) => it.label).join('・') })),
-  { key: 'kanawest', label: 'かな西エリア', mod: 'eigyo', hint: '付けると神奈川要員だけ（ほかの区分を持っていても）。開けるのは要員リスト・面談管理・案件進捗・チャットだけ' },
+  { key: 'kanawest', label: 'かな西エリア', mod: 'eigyo', hint: 'ほかの区分が全部「見ない」の人だけ効く＝神奈川要員だけ。開けるのは要員リスト・面談管理・案件進捗・チャットだけ（ほかの区分を持つ人には効かない）' },
 ];
 export const KUBUN_KEYS = KUBUN.map((k) => k.key);
 export type KPerms = Record<KubunKey, Level>;
@@ -60,8 +60,8 @@ export function pageAccess(kperms: KPerms, pathname: string, pages: readonly str
   if (pageGranted(pages, pathname)) return 'all';
   return null;
 }
-/** かな西エリアが付いた人（ほかの区分を持っていても）。この人が読めるのは神奈川要員の人のことだけ（lib/kanawest-scope.ts・10-27） */
-export const isKanawest = (k: KPerms) => k.kanawest !== 'none';
+/** かな西エリアだけの人（ほかの区分が全部「見ない」）。この人が読めるのは神奈川要員の人のことだけ（lib/kanawest-scope.ts・10-29 ほかの区分を持つ人は外した） */
+export const isKanawest = (k: KPerms) => k.kanawest !== 'none' && KUBUN_KEYS.every((x) => x === 'kanawest' || k[x] === 'none');
 
 const RANK: Record<Level, number> = { none: 0, view: 1, edit: 2, approve: 3 };
 const hi = (a: Level, b: Level): Level => (RANK[a] >= RANK[b] ? a : b);

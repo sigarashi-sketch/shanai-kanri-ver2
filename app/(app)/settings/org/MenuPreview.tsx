@@ -5,19 +5,19 @@ import { ChevronDown, Eye, Home, Lock, Plus, X } from 'lucide-react';
 import { MODULE_ICON } from '@/components/Shell';
 import { levelLabel } from '@/lib/org';
 import { NAV } from '@/lib/nav';
-import { KANAWEST_HREFS, type KPerms } from '@/lib/kubun';
+import { KANAWEST_HREFS, isKanawest, type KPerms } from '@/lib/kubun';
 
 // 右に出すメニューの見本（10-27 shoya「右側に表示されるメニュー 画像で示して欲しい」）。
 //   そのロール・部署/チームの人の左メニューに何が出るかを、左メニューと同じ形・同じ色で描く。
 //   区分が「見ない」の画面は薄く出し、押すと その画面だけ「見るだけ」で足せる（もう一度押すと外す・10-27「ところどころ横断して閲覧だけ」）。
 //   base＝部署で付いている「見るだけ」（チームのカードでは外せない）
-//   かな西エリアが付いていると、ほかの区分を持っていても 神奈川要員だけに絞れる画面（KANAWEST_HREFS）しか出ない（lib/kubun.ts pageAccess）
+//   かな西エリアだけ（ほかの区分が全部「見ない」）だと、神奈川要員だけに絞れる画面（KANAWEST_HREFS）しか出ない（lib/kubun.ts pageAccess・10-29 ほかの区分を持つ人には効かない）
 export function MenuPreview({ name, perms, pages, base = [], disabled, onPages }: {
   name: string; perms: KPerms; pages: string[]; base?: string[]; disabled?: boolean;
   onPages: (next: string[], text: string) => void;
 }) {
   const [opened, setOpened] = useState<string[]>([]);
-  const kw = perms.kanawest !== 'none';
+  const kw = isKanawest(perms);
   const isKw = (h: string) => (KANAWEST_HREFS as readonly string[]).includes(h);
   const has = (h: string) => pages.includes(h) || base.includes(h);
   const nView = kw ? 0 : NAV.reduce((n, g) => n + (perms[g.module] !== 'none' ? 0 : g.items.filter((it) => has(it.href)).length), 0);
