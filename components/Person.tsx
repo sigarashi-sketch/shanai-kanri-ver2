@@ -148,3 +148,45 @@ function Body({ c, res, live }: { c: PersonCandidate; res: PersonRes; live: bool
   if (c.proper) return <ProperDetail id={c.proper.id} embedded initial={{ view: c.proper, everyone: res.everyone, can: res.can }} />;
   return null;
 }
+
+/**
+ * 連絡のチャットの「要員の情報」タブ（10-30 shoya「チャット押したら右側に要員の情報・タブで切り替わるように」）。
+ *   名前の小窓（PersonHost）と同じ /api/live/person・同じ中身（社員ページ／いなければ要員ページ）を、窓ではなくその場に出す
+ */
+export function PersonPane({ name }: { name: string }) {
+  const [got, setGot] = useState<Got>({ name, live: false });
+  useEffect(() => {
+    let on = true;
+    setGot({ name, live: false });
+    loadPerson(name).then(({ status, j }) => {
+      if (!on) return;
+      setGot(status === 401 && j.error === 'not_logged_in' ? { name, live: false, error: LOGIN_AGAIN }
+        : status !== 200 || !j.ok ? { name, live: true, error: j.error || `読めませんでした（${status}）` }
+        : { name, live: true, res: j as PersonRes });
+    }, (er) => { if (on) setGot({ name, live: true, error: (er as Error).message }); });
+    return () => { on = false; };
+  }, [name]);
+  const res = got.res;
+  const cands = res?.candidates ?? [];
+  const many = cands.length > 1;
+  const c = cands.length === 1 ? cands[0] : cands.find((x) => x.key === got.pick) ?? null;
+  const page = c?.staff ? `/jinji/staff/${encodeURIComponent(c.staff.id)}` : c?.proper ? `/eigyo/proper/${encodeURIComponent(c.proper.id)}` : '';
+  return (
+    <div className="flex flex-col">
+      {(page || (many && c)) && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-line-soft px-4 py-1.5 text-sm">
+          {many && c && <button type="button" onClick={() => setGot({ ...got, pick: undefined })} className="inline-flex min-h-8 items-center gap-0.5 rounded-lg border border-field px-2 font-semibold text-muted"><ChevronLeft size={13} />選び直す</button>}
+          <span className="text-faint">{c?.staff ? '社員ページ' : c?.proper ? '要員ページ' : ''}</span>
+          <span className="ml-auto" />
+          {page && <a href={page} target="_blank" rel="noopener" title="別のタブでページを開く" className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-field px-2.5 font-semibold text-muted">ページで開く<ChevronRight size={12} /></a>}
+        </div>
+      )}
+      {!res && !got.error && <SkeletonRows rows={8} className="p-4" />}
+      {got.error && <div className="px-4 py-12 text-center text-body text-bad">{got.error}{got.error.includes('ログイン') && <a href="/api/ike-auth/start" className="ml-2 underline">もう一度ログイン</a>}</div>}
+      {res?.notMikeiken && <div className="px-4 py-12 text-center text-body text-faint">{name} さんは未経験の人ではないので出していません</div>}
+      {res && !res.notMikeiken && cands.length === 0 && <div className="px-4 py-12 text-center text-body text-faint">{name} さんは従業員名簿にも要員リストにもいません</div>}
+      {many && !c && <Chooser name={name} cands={cands} onPick={(k) => setGot({ ...got, pick: k })} />}
+      {c && res && <Body key={c.key} c={c} res={res} live={got.live} />}
+    </div>
+  );
+}

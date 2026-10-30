@@ -16,13 +16,13 @@ export type LiveContact = {
   line_user_id: string; display_name?: string | null; linked_name?: string | null; booking_name?: string | null;
   link_status?: string | null; is_blocked?: boolean | null; is_staff?: boolean | null;
   last_message_at?: string | null; last_message_preview?: string | null; unread_count?: number | null;
-  last_direction?: string | null; last_in_at?: string | null; ball_cleared_at?: string | null;
+  last_direction?: string | null; last_in_at?: string | null; ball_cleared_at?: string | null; ball_auto_cleared?: boolean | null;
   segment?: ChatSeg | null; segment_reason?: string | null;
 };
 export type LiveContactsRes = { contacts: LiveContact[]; segmentAvailable?: boolean; error?: string };
 export type LiveGroup = {
   groupId: string; name: string; lastAt: string | null; lastText?: string; lastDirection?: string; lastSender?: string;
-  lastInAt?: string | null; ball?: boolean; unread?: number; segment?: ChatSeg | null; segmentReason?: string | null;
+  lastInAt?: string | null; ball?: boolean; ballAuto?: boolean; unread?: number; segment?: ChatSeg | null; segmentReason?: string | null;
 };
 export type LiveGroupsRes = { groups: LiveGroup[]; segmentAvailable?: boolean; error?: string };
 
@@ -31,6 +31,8 @@ export type ChatRow = {
   ball: boolean; waitMs: number; unread: number; seg: ChatSeg; reason: string; blocked?: boolean;
   /** 1:1 だけ：営業リストの氏名に紐付いているか・紐付けた氏名（10-28 紐付けの窓が使う） */
   linked?: boolean; linkedName?: string;
+  /** 相手ボール（10-30）：最後が相手の発言で止まっている＝「対応済み」「要対応に戻す」を押せる。auto＝webhook が締めの一言で自動で対応済みにした */
+  lastIn?: boolean; auto?: boolean;
 };
 
 const ms = (v?: string | null) => { const t = v ? Date.parse(v) : 0; return Number.isFinite(t) ? t : 0; };
@@ -71,6 +73,7 @@ export function contactRows(d: LiveContactsRes | null, nowMs = Date.now()): Chat
       ball: ballOn(c), waitMs: ms(c.last_in_at), unread: Number(c.unread_count) || 0, seg: (c.segment || 'other') as ChatSeg,
       reason: linked ? reasonLabel(c.segment_reason, 'one', true) : '未紐付け', blocked: !!c.is_blocked,
       linked, linkedName: linked ? (c.linked_name || '').trim() : '',
+      lastIn: !c.is_blocked && !c.is_staff && (c.last_direction || '') === 'in', auto: !!c.ball_auto_cleared,
     };
   });
 }
@@ -80,7 +83,25 @@ export function groupRows(d: LiveGroupsRes | null, nowMs = Date.now()): ChatRow[
     id: g.groupId, kind: 'group', name: g.name, last: (g.lastSender && g.lastDirection === 'in' ? `${g.lastSender}：` : '') + (g.lastText || ''),
     at: shortAt(g.lastAt, nowMs), atMs: ms(g.lastAt), ball: !!g.ball, waitMs: ms(g.lastInAt), unread: Number(g.unread) || 0,
     seg: (g.segment || 'other') as ChatSeg, reason: reasonLabel(g.segmentReason, 'group', true),
+    lastIn: (g.lastDirection || '') === 'in', auto: !!g.ballAuto,
   }));
+}
+
+/** 相手の最後の受信から何日待たせているか（今の chat.html waitLabel と同じ：24時間未満は出さない） */
+export function waitLabel(waitMs: number, nowMs = Date.now()): string {
+  if (!waitMs) return '';
+  const d = Math.floor((nowMs - waitMs) / 86400e3);
+  return d >= 1 ? `${d}日待ち` : '';
+}
+
+/** 押した「対応済み／要対応に戻す」を、読み直しが追いつくまで一覧に効かせる（楽観更新・60秒で捨てる＝そのあいだに相手がまた送ってもすぐ戻る） */
+export type BallOverride = Map<string, { ball: boolean; at: number }>;
+export function applyBall(rows: ChatRow[], ov: BallOverride, nowMs = Date.now()): ChatRow[] {
+  if (!ov.size) return rows;
+  return rows.map((r) => {
+    const o = ov.get(r.kind + r.id);
+    return o && nowMs - o.at < 60_000 && o.ball !== r.ball ? { ...r, ball: o.ball, auto: false } : r;
+  });
 }
 
 /**
