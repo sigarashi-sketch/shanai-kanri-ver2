@@ -19,7 +19,7 @@ export const HORYU_PAGE_KEY: Record<string, string> = {
   '/horyu/arari': 'arari-sim',
   '/horyu/bikkura': 'bikkura-admin',
   '/horyu/kashitsuke': 'kashitsuke',
-  '/jinji/ippass': 'ippass', // 保留から人事へ移した（10-26）。人事のメニューもここで絞る＝未経験事業部の人と全体管理者だけ
+  '/jinji/ippass': 'ippass', // 保留から人事へ移した（10-26）。人事のメニューもここで絞る＝未経験事業部の人・人事管理が承認の人（10-30）・全体管理者
   '/horyu/page-access': 'page-access',
   '/horyu/ops-log': 'ops-log',
   '/horyu/access-log': 'access-log',

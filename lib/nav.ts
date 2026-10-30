@@ -18,7 +18,7 @@ export const NAV: NavGroup[] = [
       { href: '/jinji/jimu', label: '参画決定者の手続き', built: true },
       { href: '/jinji/sankyu', label: '産休・育休', built: true },
       { href: '/jinji/ocr', label: '身分証の読み取り', built: true },
-      { href: '/jinji/ippass', label: '媒体アイパス管理', built: true }, // 保留から人事へ（10-26 shoya）。開ける人は今のシステムの ippass と同じ（lib/horyu-access.ts）
+      { href: '/jinji/ippass', label: '媒体アイパス管理', built: true }, // 保留から人事へ（10-26 shoya）。開ける人は今のシステムの ippass と同じ＝未経験事業部・人事管理が承認（10-30）・全体管理者（lib/horyu-access.ts）
       { href: '/jinji/map', label: '案件・要員マップ', built: true }, // 営業の /eigyo/map と同じ画面（10-27 shoya「案件MAPは人事のメニューにも同じの」）
     ],
   },

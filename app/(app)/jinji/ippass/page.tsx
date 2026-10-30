@@ -5,7 +5,7 @@ import { Eye, EyeOff, Plus } from 'lucide-react';
 import { Card, HoryuFrame, Msg, btnCls, fmtAt, horyuPost, inputCls, tdCls, thCls, useHoryu } from '@/components/horyu/kit';
 
 // 媒体アイパス管理（10-25 保留で写す → 10-26 shoya「媒体アイパス管理て名前にして人事に」）。今の /ippass.html と同じ中身。
-//   ・開けるのは今のシステムが許した人だけ（requireIppass：未経験事業部の人と全体管理者）。それ以外は 403＝何も出さない
+//   ・開けるのは今のシステムが許した人だけ（requireIppass：未経験事業部の人・ver2 の組織表で人事管理が承認の人（10-30）・全体管理者）。それ以外は 403＝何も出さない
 //   ・一覧は名前だけ。中身（ID・パスワード等）は「見る」を押したときだけ今のシステムが復号して返す（操作ログに残る）
 //   ・ver2 は鍵を持たない・中身を控えない。開いた中身は30秒で隠す
 type Item = { id: string; category: string; title: string; updated_at: string; updated_by: string; deleted_at: string | null };
