@@ -1,14 +1,18 @@
 import { ViewerSwitch } from '@/components/Shell';
 import { canUseApp } from '@/lib/access';
 import { loadMembers } from '@/lib/members-store';
-import { getViewer } from '@/lib/viewer';
+import { loadMe } from '@/lib/members-store';
+import { LoginGate, gateError } from '@/components/LoginGate';
 import { SharedLive } from './SharedLive';
 import Watermark from '@/components/Watermark';
 import { LogoutButton } from '@/components/Logout';
 
-// 営業共有リスト。内勤以外の人が見られるのはここだけ。
+// 営業共有リスト。組織表で割り当てのある内勤のうち、未経験事業部でない人が見られるのはここだけ。
+//   退職・組織表に載っていない・ログインしていない人には何も出さない（10-30 shoya「割り当てがある内勤以外はもうなんにも表示させない」・読む口も lib/ike.ts ikeToken で止まる）
 export default async function SharedListPage() {
-  const me = await getViewer();
+  const got = await loadMe();
+  if (!got.ok) return <LoginGate error={gateError(got.reason, got.error)} />;
+  const me = got.me;
   const members = (await loadMembers()).map((m) => ({ id: m.id, name: m.name }));
   return (
     <div data-module="eigyo" className="min-h-screen">

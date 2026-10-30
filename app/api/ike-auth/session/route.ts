@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { refreshCookie, tokenCookie } from '@/lib/ike-session';
 import { isInnaiEmail, tokenEmail } from '@/lib/innai';
-import { orgGrants, parseOrg } from '@/lib/org';
+import { orgGrants, orgRetired, parseOrg } from '@/lib/org';
 import { tokenSub } from '@/lib/members-store';
 
 // ログインで受け取ったトークンを、今の社内システムに「この人は入れるか」を聞いてから覚える。
@@ -26,6 +26,8 @@ export async function POST(req: Request) {
     const sr = await fetch(`${ORIGIN}/api/assistant?action=v2-settings`, { headers: { Authorization: `Bearer ${t}`, Cookie: `sb_access=${t}` }, cache: 'no-store' }).catch(() => null);
     const sv = (await sr?.json().catch(() => null)) as { value?: { org?: unknown } } | null;
     const org = sv?.value?.org ? parseOrg(sv.value.org) : null;
+    // 退職（今のシステムの retired・組織表の「退職」）は入れない（10-30・lib/members-store.ts loadMe と同じ）
+    if (meRole === 'retired' || (org && orgRetired(org, org.people[tokenSub(t)]))) return NextResponse.json({ ok: false, error: '退職の扱いになっているので入れません' }, { status: 403 });
     if (!org || !orgGrants(org, org.people[tokenSub(t)])) return NextResponse.json({ ok: false, error: '組織表でロールが割り振られていないので入れません。全体管理者に組織表への追加を頼んでください' }, { status: 403 });
   }
   const res = NextResponse.json({ ok: true });
