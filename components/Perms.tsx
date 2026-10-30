@@ -30,7 +30,7 @@ export function PermsProvider({ me, kperms, pages = [], manageAccess, children }
   const admin = isAdminMember(me, manageAccess);
   const open = (href: string) => {
     if (preLaunchClosed(href, me.role === 'owner')) return null;
-    if ((href === '/horyu' || href.startsWith('/horyu/')) && !canSeeHoryu(me, href)) return null;
+    if ((href === '/horyu' || href.startsWith('/horyu/')) && !canSeeHoryu(me)) return null;
     if (href === '/settings' && !admin) return null;
     if ((href === '/jinzai/pon' || href.startsWith('/jinzai/pon/')) && (!inMikeikenUnit(me) || isKanawest(kperms))) return null;
     return pageAccess(kperms, href, pages);

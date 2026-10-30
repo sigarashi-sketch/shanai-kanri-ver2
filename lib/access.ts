@@ -63,14 +63,9 @@ export function effectivePerms(m: Member): KPerms {
 }
 /** 区分は見ないのまま「見る」で開ける画面（組織表で付いたもの） */
 export const effectivePages = (m: Member): string[] => (canUseApp(m) ? m.kpages ?? [] : []);
-// 保留（あとで決める）は shoya だけ（10-27 shoya「おれ以外保留は表示しないでね」）
-export const HORYU_EMAILS = ['s.igarashi@engineer-mikata.com'];
-// 保留の中で freee 請求書（再認可）だけ開ける人（10-30 shoya「freeeのとこだけでいい」）
-export const HORYU_FREEE_EMAILS = ['m.kato@engineer-mikata.com'];
-export const canSeeHoryu = (m: Member, href = '/horyu') => {
-  const e = m.email.toLowerCase();
-  return HORYU_EMAILS.includes(e) || (HORYU_FREEE_EMAILS.includes(e) && (href === '/horyu/freee' || href.startsWith('/horyu/freee/')));
-};
+// 保留（あとで決める）は shoya だけ（10-27 shoya「おれ以外保留は表示しないでね」）＋ m.kato（10-30 shoya「おれと同じ権限にしてほしい」）
+export const HORYU_EMAILS = ['s.igarashi@engineer-mikata.com', 'm.kato@engineer-mikata.com'];
+export const canSeeHoryu = (m: Member) => HORYU_EMAILS.includes(m.email.toLowerCase());
 /** 管理者＝権限管理ができる人か、ロールが全体管理者・管理者（組織表のロールか、今のシステムのロールから）。設定はこの人だけ（10-27 shoya「設定は管理者だけに表示」） */
 export const isAdminMember = (m: Member, manageAccess: boolean) =>
   manageAccess || m.role === 'owner' || m.role === 'manager' || m.orgRole === 'owner' || m.orgRole === 'manager';
