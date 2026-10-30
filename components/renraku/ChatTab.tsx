@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link2, Search } from 'lucide-react';
 import { useIke } from '../Live';
 import { needText } from '../Perms';
@@ -32,6 +32,14 @@ export function ChatTab({ live, canSend, contacts, info }: { live: boolean; canS
   const [open, setOpen] = useState<ChatRow | null>(null);
   const groups = useIke<LiveGroupsRes>(live && !info && axis === 'group' ? 'chat?action=groups' : null, { pollMs: 30000 });
   const mk = useMikeiken();
+  // 一覧のどこまで下げていたか（トークを開くと一覧は消えるので、戻ったときにその位置へ戻す・10-30）
+  const listTop = useRef(0);
+  const listEl = useRef<HTMLDivElement | null>(null);
+  const openRow = (x: ChatRow) => { listTop.current = listEl.current?.scrollTop ?? 0; setOpen(x); };
+  const listRef = (el: HTMLDivElement | null) => {
+    if (el && el !== listEl.current) el.scrollTop = listTop.current;
+    listEl.current = el;
+  };
 
   const segAvailable = info ? false : live ? (axis === 'one' ? contacts.data?.segmentAvailable !== false : groups.data?.segmentAvailable !== false) : false;
   const rows: ChatRow[] = useMemo(() => {
@@ -53,7 +61,7 @@ export function ChatTab({ live, canSend, contacts, info }: { live: boolean; canS
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-col gap-2 border-b border-line-soft px-4 py-3">
         <div className="flex items-center justify-between gap-2">
-          <Pills items={[['one', '1:1'], ['group', 'グループ']] as const} value={axis} onChange={(k) => { setAxis(k); setOpen(null); }} small />
+          <Pills items={[['one', '1:1'], ['group', 'グループ']] as const} value={axis} onChange={(k) => { setAxis(k); setOpen(null); listTop.current = 0; if (listEl.current) listEl.current.scrollTop = 0; }} small />
           <span className="flex items-center gap-3">
             {!info && axis === 'one' && <label className="flex items-center gap-1.5 text-sm text-muted" title="営業リストの氏名に紐付いていない 1:1（ブロック中は除く）。紐付けないと稼働中メニューや1:1の配信の対象になりません"><input type="checkbox" checked={unlinkedOnly} onChange={(e) => setUnlinkedOnly(e.target.checked)} />未紐付けのみ{unlinkedN > 0 && <span className="num rounded-full px-1.5 text-xs font-bold" style={{ background: 'var(--tone-caution-bg)', color: 'var(--tone-caution-fg)' }}>{unlinkedN}</span>}</label>}
             <label className="flex items-center gap-1.5 text-sm text-muted"><input type="checkbox" checked={ballOnly} onChange={(e) => setBallOnly(e.target.checked)} />要対応のみ</label>
@@ -66,7 +74,7 @@ export function ChatTab({ live, canSend, contacts, info }: { live: boolean; canS
           <Search size={15} /><input value={q} onChange={(e) => setQ(e.target.value)} aria-label="トークを検索" placeholder="名前・内容（タブをまたいで探します）" className="flex-1 bg-transparent text-body text-ink outline-none" />
         </label>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto">
         {loading && !rows.length && <p className="px-4 py-3 text-body text-muted">読み込み中…</p>}
         {err && <p className="px-4 py-3 text-body text-bad">{err}</p>}
         {info && axis === 'group' && <p className="px-4 py-3 text-sm text-muted">この公式アカウントにグループのトークはありません。</p>}
@@ -74,7 +82,7 @@ export function ChatTab({ live, canSend, contacts, info }: { live: boolean; canS
           <p className="px-4 py-6 text-center text-sm text-muted">{ballOnly ? '要対応のトークはありません。全部返せています' : unlinked ? '未紐付けの 1:1 はありません' : q ? '見つかりませんでした' : 'このタブのトークはありません'}</p>
         )}
         {shown.slice(0, 200).map((x, i) => (
-          <button key={x.kind + x.id} onClick={() => setOpen(x)} className="mo-fade-up flex w-full items-center gap-3 border-b border-line-soft px-4 py-2.5 text-left hover:bg-soft" style={{ ['--i' as string]: Math.min(i, 12) }}>
+          <button key={x.kind + x.id} onClick={() => openRow(x)} className="mo-fade-up flex w-full items-center gap-3 border-b border-line-soft px-4 py-2.5 text-left hover:bg-soft" style={{ ['--i' as string]: Math.min(i, 12) }}>
             <div aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-full text-body font-bold" style={{ background: 'var(--as)', color: 'var(--ad)' }}>{(x.name.replace(/\s/g, '') || '？').slice(0, 1)}</div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2 text-body font-semibold">
