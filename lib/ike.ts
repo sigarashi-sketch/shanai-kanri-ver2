@@ -11,9 +11,27 @@ export { IKE_TOKEN_COOKIE };
 export const IKE_ORIGIN = process.env.IKEIKE_ORIGIN || 'https://ikeike-app.vercel.app';
 
 // 要員（会社のメールでない人）のトークンは持っていても使わない＝ログインしていない扱い（lib/innai.ts）
-export async function ikeToken(): Promise<string> {
+//   ★これは「いまの人」を確かめるときだけ使う（lib/members-store.ts loadMe・raw の読み口）。データを読む口は下の ikeToken
+export async function ikeSessionToken(): Promise<string> {
   const t = (await cookies()).get(IKE_TOKEN_COOKIE)?.value || '';
   return t && isInnaiEmail(tokenEmail(t)) ? t : '';
+}
+
+/**
+ * データを読む・書く口のトークン。★組織表で割り当てのある内勤（loadMe が通る人）でなければ ''＝ログインしていない扱い。
+ *   10-30 shoya「割り当てがある内勤以外はもうなんにも表示させないようにして」＝退職・組織表に載っていない人は
+ *   営業共有リスト（/shared）も含め どの口からも何も読めない。画面ごと・口ごとの判定に頼らず ここ1か所で止める
+ *   判定は30秒ためる（確かめられなかったときはためずに断る＝人を見せる側に倒さない）
+ */
+export async function ikeToken(): Promise<string> {
+  const t = await ikeSessionToken();
+  if (!t) return '';
+  const { v } = await cached<boolean | null>(`${userKey(t)}|allowed`, 30_000, async () => {
+    const { loadMe } = await import('./members-store');
+    const m = await loadMe();
+    return m.ok ? true : m.reason === 'error' ? null : false;
+  }, { keep: (x) => x !== null });
+  return v ? t : '';
 }
 
 function rawFetch(t: string, path: string, init?: RequestInit, timeoutMs = 25000): Promise<Response> {
@@ -41,7 +59,8 @@ async function scopeNow(t: string) {
  *   raw＝絞らない（いまの人・共有の設定を読むときだけ。members-store が使う）
  */
 export async function ikeFetch(path: string, init?: RequestInit, timeoutMs = 25000, raw = false): Promise<Response> {
-  const t = await ikeToken();
+  const t = raw ? await ikeSessionToken() : await ikeToken();
+  if (!t) return new Response(JSON.stringify({ ok: false, success: false, error: 'not_logged_in' }), { status: 401, headers: { 'content-type': 'application/json' } });
   if (!raw && (await scopeNow(t)) === 'kanagawa') {
     const { kanawestRead } = await import('./kanawest-scope');
     const r = await kanawestRead(path, String(init?.method || 'GET').toUpperCase(), t, async (p) => {
@@ -68,7 +87,7 @@ export type IkeCached<T> = { ok: boolean; status: number; data: T; hit: boolean 
  *   ・かな西エリアで絞った答えは別の控え（キーに絞り方を入れる）。raw は絞らない
  */
 export async function ikeFetchCached<T = unknown>(path: string, ttlMs: number, opts?: { refresh?: boolean; timeoutMs?: number; keep?: (data: T) => boolean; raw?: boolean }): Promise<IkeCached<T>> {
-  const t = await ikeToken();
+  const t = opts?.raw ? await ikeSessionToken() : await ikeToken();
   const scope = opts?.raw ? 'raw' : await scopeNow(t);
   const { v, hit } = await cached<Omit<IkeCached<T>, 'hit'>>(`${userKey(t)}|ike|${scope}|${path}`, ttlMs, async () => {
     const r = await ikeFetch(path, undefined, opts?.timeoutMs, !!opts?.raw);

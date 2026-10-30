@@ -1,8 +1,8 @@
 import 'server-only';
 import { isListOnlyIkeRole, isRoleKey, roleFromIke, type Member } from './access';
 import { kAll, toKPerms } from './kubun';
-import { orgAssigned, orgGrants, orgManage, orgPages, orgPerms, parseOrg, roleOf, unitChain, type OrgState } from './org';
-import { ikeFetchCached, ikeToken } from './ike';
+import { orgAssigned, orgGrants, orgRetired, orgManage, orgPages, orgPerms, parseOrg, roleOf, unitChain, type OrgState } from './org';
+import { ikeFetchCached, ikeSessionToken } from './ike';
 import { cached } from './cache';
 import { ike, onIkeikeDb } from './sy/db';
 import { isInnaiEmail, tokenEmail } from './innai';
@@ -22,7 +22,7 @@ import { isInnaiEmail, tokenEmail } from './innai';
 type IkeMe = { authenticated?: boolean; email?: string; role?: string; listOnly?: boolean; ippass?: boolean; error?: string };
 type AdminRow = { email?: string; name?: string; role?: string; mikeiken?: boolean; inDomain?: boolean };
 
-export type MeLoad = { ok: true; me: Member; ikeRole: string } | { ok: false; reason: 'not_logged_in' | 'error' | 'no_role'; error?: string };
+export type MeLoad = { ok: true; me: Member; ikeRole: string } | { ok: false; reason: 'not_logged_in' | 'error' | 'no_role' | 'retired'; error?: string };
 
 const norm = (e: unknown) => String(e || '').trim().toLowerCase();
 
@@ -106,7 +106,7 @@ function withOrg(m: Member, userId: string, ikeRole: string, org: OrgState | nul
 
 /** いまの人（ログインした本人）。ログインしていない・切れたら not_logged_in */
 export async function loadMe(): Promise<MeLoad> {
-  const t = await ikeToken();
+  const t = await ikeSessionToken();
   if (!t) return { ok: false, reason: 'not_logged_in' };
   const email = norm(tokenEmail(t));
   try {
@@ -121,6 +121,8 @@ export async function loadMe(): Promise<MeLoad> {
     const ikeRole = String(r.data.role || '');
     // 入れるのは、組織表でロール（部署・チームの段階を含む）を割り振った内勤だけ（10-26 shoya）。super_admin は締め出さないため常に入れる。
     //   組織表を読めないときも入れない（開いて確かめられない人を入れない）
+    // 退職（今のシステムのロール retired か、組織表の「退職」の部署・チーム）は 何も見せない（10-30 shoya「割り当てがある内勤以外はもうなんにも表示させない」）
+    if (ikeRole !== 'super_admin' && (ikeRole === 'retired' || (org && orgRetired(org, org.people[tokenSub(t)])))) return { ok: false, reason: 'retired' };
     if (ikeRole !== 'super_admin' && !(org && orgGrants(org, org.people[tokenSub(t)]))) return { ok: false, reason: 'no_role' };
     // 未経験事業部か＝今のシステムの ippass（#未経験-クローズ の参加者・super_admin は常に true）。営業共有リストだけのロールは入れない
     //   ★組織表で「未経験事業部」（とその下のチーム）に入れた人は、今のシステムのロール（リスト閲覧など）や ippass に関係なく未経験事業部（10-27 承諾者管理の人たち）＝組織表が正
