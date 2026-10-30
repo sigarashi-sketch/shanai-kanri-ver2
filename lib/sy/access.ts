@@ -12,6 +12,7 @@ export const loadAccess = cache(async (): Promise<AccessSettings> => {
 });
 export function appRole(u: CurrentUser, a: AccessSettings): AppRole {
   if (u.id === 'dev') return 'super_admin';   // 手元の確認用ユーザー（本番では存在しない）
+  if (u.role === 'super_admin') return 'super_admin'; // 今のシステムの全体管理者（shoya・m.kato）は人財管理でも super admin（10-30 shoya「おれと同じ権限に」）
   return roleOf(u.email, a);
 }
 export async function myAccess(): Promise<{ u: CurrentUser; role: AppRole; access: AccessSettings } | null> {
