@@ -27,12 +27,26 @@ export function ChatLog({ bubbles, className, children, resetKey, onReply }: { b
     if (opened.current !== resetKey) { opened.current = resetKey; el.scrollTop = el.scrollHeight; nearBottom.current = true; return; }
     if (nearBottom.current) el.scrollTop = el.scrollHeight;
   }, [last, bubbles.length, resetKey]);
+  // タブを切り替えて隠れる（display:none）とブラウザが位置を忘れて、戻ると一番上（古い方）になる。
+  //   見えていたときの位置を覚えておき、また見えたら戻す（下の方を見ていたら最新へ・10-30）
   useEffect(() => {
     const el = box.current;
     if (!el) return;
-    const on = () => { nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120; };
+    let top = el.scrollTop;
+    let hidden = el.clientHeight === 0;
+    const on = () => {
+      if (el.clientHeight === 0) return;
+      top = el.scrollTop;
+      nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    };
+    const ro = new ResizeObserver(() => {
+      const now = el.clientHeight === 0;
+      if (hidden && !now) el.scrollTop = nearBottom.current ? el.scrollHeight : top;
+      hidden = now;
+    });
     el.addEventListener('scroll', on, { passive: true });
-    return () => el.removeEventListener('scroll', on);
+    ro.observe(el);
+    return () => { el.removeEventListener('scroll', on); ro.disconnect(); };
   }, []);
 
   let prevDay = '';
