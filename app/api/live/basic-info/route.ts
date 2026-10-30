@@ -6,7 +6,7 @@ import { FORBIDDEN, roleCan } from '@/lib/live/role';
 
 // 名前の小窓の「基本情報」タブ（10-25 shoya「名前クリックしたらチャットと基本情報の回答もだして」）。
 //   今の GET /api/basic-info?action=detail を読んで、小窓に出す分だけに削って返す
-//   ★生年月日・住所・既往歴（健康状況）も出す（10-27 shoya「既往歴と住所ちゃんとうつして・生年月日も」）。電話・メール・緊急連絡先は返さない
+//   ★生年月日・住所・既往歴（健康状況）も出す（10-27 shoya「既往歴と住所ちゃんとうつして・生年月日も」）。電話番号・メールアドレスも出す（10-30 shoya「要員リストの基本情報 電話番号とメールアドレスも示して」）。緊急連絡先は返さない
 //   ★名前は URL に出さない＝POST { name }（10-25）。未経験の人だけ（今のプロパーリストに入っている人）
 //   ★人事の情報なので、管理者と採用の担当だけ（lib/live/role.ts）。ほかのロールは 403
 type Detail = {
@@ -18,7 +18,7 @@ type Detail = {
   health?: { label: string; value: string }[]; healthError?: string;
 };
 const KEEP: [string, string][] = [
-  ['kana', 'よみがな'], ['gender', '性別'], ['birth', '生年月日'], ['age', '年齢'], ['address', '住所'], ['eki', '最寄駅'], ['gakureki', '最終学歴'], ['tools', '使えるツール'],
+  ['kana', 'よみがな'], ['gender', '性別'], ['birth', '生年月日'], ['age', '年齢'], ['address', '住所'], ['phone', '電話番号'], ['email', 'メールアドレス'], ['eki', '最寄駅'], ['gakureki', '最終学歴'], ['tools', '使えるツール'],
   ['shikaku', '資格'], ['tokui', '得意なこと'], ['shift', 'シフト勤務'], ['yakin', '夜勤'], ['shutcho', '出張'], ['timestamp', '回答日'],
 ];
 
