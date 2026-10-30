@@ -11,7 +11,7 @@ import { Note } from './parts';
 type InfoBroadcast = { id: string; text: string; all: boolean; label: string; target: number | null; sent: number | null; failed: number; by: string; at: string | null; error: boolean };
 type InfoBroadcastsRes = { broadcasts: InfoBroadcast[]; error?: string };
 
-export function InfoHaishin({ live, what }: { live: boolean; what: '手動配信' | '案内配信' }) {
+export function InfoHaishin({ live, what }: { live: boolean; what: '手動配信' | '案内配信' | '面談日程回収' }) {
   const r = useIke<InfoBroadcastsRes>(live ? 'chat?action=infoBroadcasts' : null);
   const rows = live ? r.data?.broadcasts ?? [] : [];
   const err = live ? r.data?.error || r.error : '';

@@ -11,6 +11,7 @@ import { ChatTab } from './renraku/ChatTab';
 import { CaseTab } from './renraku/CaseTab';
 import { ManualTab } from './renraku/ManualTab';
 import { AnnaiTab } from './renraku/AnnaiTab';
+import { NitteiTab } from './renraku/NitteiTab';
 import { useMikeiken } from './Mikeiken';
 import { InfoHaishin } from './renraku/InfoHaishin';
 
@@ -24,13 +25,14 @@ import { InfoHaishin } from './renraku/InfoHaishin';
 //   ・案件配信 … 営業リスト（営業共有リスト・手動配信）から送った案件だけ（送った人数・日時・OK/NG）
 //   ・手動配信 … 今の営業共有リストと同じ流れ（案件を貼る → 絞られる → 選ぶ → 本文 → 配信）。案件進捗に載る
 //   ・案内配信 … 件名・本文・選択肢（任意）・回答ボタン（任意）で送る／進み具合を見る
+//   ・日程回収 … 今週／来週の平日を選んで 面談可能日の回収を 営業中のグループ（または 1:1）へ一斉に送る（今の配信画面の「📅 面談日程回収」と同じ・10-30）
 //   ・送ると取り消せないので、送信は「長押しで送る」（Hold To Confirm 0.9秒）。人数が分かる送信は進み具合を出す
 //   ・手動配信・案内配信は窮屈なので「大きく開く」で広い表示にできる
 export type Account = 'インフォメーション' | 'あおい';
 export const accountFor = (m: ModuleKey | 'home'): Account => (m === 'jinji' || m === 'jinzai' ? 'インフォメーション' : 'あおい');
 
-type Tab = 'chat' | 'case' | 'manual' | 'annai';
-const TABS: [Tab, string][] = [['chat', 'チャット'], ['case', '案件配信'], ['manual', '手動配信'], ['annai', '案内配信']];
+type Tab = 'chat' | 'case' | 'manual' | 'annai' | 'nittei';
+const TABS: [Tab, string][] = [['chat', 'チャット'], ['case', '案件配信'], ['manual', '手動配信'], ['annai', '案内配信'], ['nittei', '日程回収']];
 
 // ---- 右上の「要対応」の数（10-25 作り直し・10-26 インフォメーションも） ----
 //   今の社内システムに軽い数えるだけの口は無い（今の左メニューの未読も chat?action=contacts の全員ぶんを読んでいる）。
@@ -134,6 +136,7 @@ function RenrakuPanel({ account, module, badge: bd, onClose }: { account: Accoun
         {tab === 'case' && <CaseTab live={live} info={info} onManual={() => setTab('manual')} />}
         {tab === 'manual' && (info ? <InfoHaishin live={live} what="手動配信" /> : <ManualTab live={live} canSend={canSend} info={info} wide={wide} />)}
         {tab === 'annai' && (info ? <InfoHaishin live={live} what="案内配信" /> : <AnnaiTab live={live} canSend={canSend} info={info} wide={wide} />)}
+        {tab === 'nittei' && (info ? <InfoHaishin live={live} what="面談日程回収" /> : <NitteiTab live={live} canSend={canSend} wide={wide} />)}
       </div>
     </aside>
   );
