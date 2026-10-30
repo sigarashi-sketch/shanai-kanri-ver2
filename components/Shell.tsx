@@ -22,6 +22,7 @@ import { useMePages } from './MePages';
 import { horyuVisible } from '@/lib/horyu-access';
 import { NIPPO_HREF, useNippoMust } from './NippoMust';
 import { LogoutButton, logout } from './Logout';
+import { ErrorWatch } from './ErrorWatch';
 
 export const MODULE_ICON: Record<ModuleKey, typeof Users> = { jinji: Users, roumu: Clock, eigyo: Briefcase, keiri: ReceiptText, jinzai: Sprout };
 
@@ -64,6 +65,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <YoyakuProvider>
       <AlertProvider>
       <div data-module={module} className="flex min-h-screen">
+        <ErrorWatch />
         <SideNav me={me} drawer={drawer} setDrawer={setDrawer} pathname={pathname} visible={visible} horyu={horyu} manageAccess={manageAccess} kanawestOf={(href) => canOpen(href) === 'kanawest'} canOpen={(href) => !!canOpen(href)} home={home} />
 
         <div data-tour="col" className="flex min-w-0 flex-1 flex-col">

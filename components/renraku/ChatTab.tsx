@@ -21,6 +21,7 @@ import { ChatLink } from './ChatLink';
 //   ・画像・PDF の添付と 返信（引用）は今と同じ（components/ChatComposer.tsx・10-27）。届いた画像はその場に出す（ChatLog）
 //   ・インフォメーション（10-26）：GET chat?action=infoContacts / infoThread を読むだけ。未経験の人だけ。振り分け（営業中/稼働中）は無い。
 //     送る欄は出すが押せない（このアカウントの送る鍵は それゆけ未経験 にしか無い）
+const SCROLL = new Map<string, number>(); // 一覧の位置（このタブを開いている間だけ覚える）
 const QUICK = ['確認します', 'ありがとうございます！', '承知しました', '少々お待ちください'];
 
 export function ChatTab({ live, canSend, contacts, info }: { live: boolean; canSend: boolean; contacts: ReturnType<typeof useIke<LiveContactsRes>>; info: boolean }) {
@@ -32,12 +33,13 @@ export function ChatTab({ live, canSend, contacts, info }: { live: boolean; canS
   const [open, setOpen] = useState<ChatRow | null>(null);
   const groups = useIke<LiveGroupsRes>(live && !info && axis === 'group' ? 'chat?action=groups' : null, { pollMs: 30000 });
   const mk = useMikeiken();
-  // 一覧のどこまで下げていたか（トークを開くと一覧は消えるので、戻ったときにその位置へ戻す・10-30）
-  const listTop = useRef(0);
+  // 一覧のどこまで下げていたか（トークを開くと一覧は消えるので、戻ったときにその位置へ戻す・10-30）。
+  //   窓を閉じて開き直す・配信のタブから戻るときも同じ位置に（同日 shoya「チャット下の方開いて戻ると上になる」が残っていた）＝SCROLL に アカウント×1:1/グループ で覚える
+  const pos = `${info ? 'info' : 'aoi'}:${axis}`;
   const listEl = useRef<HTMLDivElement | null>(null);
-  const openRow = (x: ChatRow) => { listTop.current = listEl.current?.scrollTop ?? 0; setOpen(x); };
+  const openRow = (x: ChatRow) => { SCROLL.set(pos, listEl.current?.scrollTop ?? 0); setOpen(x); };
   const listRef = (el: HTMLDivElement | null) => {
-    if (el && el !== listEl.current) el.scrollTop = listTop.current;
+    if (el && el !== listEl.current) el.scrollTop = SCROLL.get(pos) ?? 0;
     listEl.current = el;
   };
 
@@ -61,7 +63,7 @@ export function ChatTab({ live, canSend, contacts, info }: { live: boolean; canS
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-col gap-2 border-b border-line-soft px-4 py-3">
         <div className="flex items-center justify-between gap-2">
-          <Pills items={[['one', '1:1'], ['group', 'グループ']] as const} value={axis} onChange={(k) => { setAxis(k); setOpen(null); listTop.current = 0; if (listEl.current) listEl.current.scrollTop = 0; }} small />
+          <Pills items={[['one', '1:1'], ['group', 'グループ']] as const} value={axis} onChange={(k) => { setAxis(k); setOpen(null); SCROLL.set(`${info ? 'info' : 'aoi'}:${k}`, 0); if (listEl.current) listEl.current.scrollTop = 0; }} small />
           <span className="flex items-center gap-3">
             {!info && axis === 'one' && <label className="flex items-center gap-1.5 text-sm text-muted" title="営業リストの氏名に紐付いていない 1:1（ブロック中は除く）。紐付けないと稼働中メニューや1:1の配信の対象になりません"><input type="checkbox" checked={unlinkedOnly} onChange={(e) => setUnlinkedOnly(e.target.checked)} />未紐付けのみ{unlinkedN > 0 && <span className="num rounded-full px-1.5 text-xs font-bold" style={{ background: 'var(--tone-caution-bg)', color: 'var(--tone-caution-fg)' }}>{unlinkedN}</span>}</label>}
             <label className="flex items-center gap-1.5 text-sm text-muted"><input type="checkbox" checked={ballOnly} onChange={(e) => setBallOnly(e.target.checked)} />要対応のみ</label>
@@ -74,7 +76,7 @@ export function ChatTab({ live, canSend, contacts, info }: { live: boolean; canS
           <Search size={15} /><input value={q} onChange={(e) => setQ(e.target.value)} aria-label="トークを検索" placeholder="名前・内容（タブをまたいで探します）" className="flex-1 bg-transparent text-body text-ink outline-none" />
         </label>
       </div>
-      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto">
+      <div ref={listRef} onScroll={(e) => SCROLL.set(pos, e.currentTarget.scrollTop)} className="min-h-0 flex-1 overflow-y-auto">
         {loading && !rows.length && <p className="px-4 py-3 text-body text-muted">読み込み中…</p>}
         {err && <p className="px-4 py-3 text-body text-bad">{err}</p>}
         {info && axis === 'group' && <p className="px-4 py-3 text-sm text-muted">この公式アカウントにグループのトークはありません。</p>}
