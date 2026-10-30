@@ -12,13 +12,19 @@ import { isMikeiken } from '@/lib/live/mikeiken';
 //     kintai-alert-group {groupId} … 未打刻アラートの通知先の LINE グループを保存（action=setGroup・毎朝の自動もこの宛先）
 //     mnm-sync           … ミンナのミカタ → DB の同期を手で回す（GET /api/proxy?action=mnmSync・今のダッシュボードの「MNM同期」と同じ）
 //     freee-sync {months} … freee 請求書の取り込み（GET /api/freee-invoices?action=sync_all&months=1〜3・毎晩の自動と同じ関数）
+//     freee 接続（再認可）… 今の /freee-invoices.html の「freee接続（再認可）」タブと同じ口（10-30 shoya「ver2にも再認可タブ足して」）
+//       freee-reauth-status            … 事業所の一覧と認可の URL（GET /api/freee-invoices?action=reauth_status）
+//       freee-bootstrap {companyId, code} … 認可コードを保存して従業員を同期（GET /api/freee-kintai?action=bootstrap&sync=1）。トークンの保存は今のシステムがやる
+//       freee-ping {companyId} / freee-ping-all … 請求書の接続を確かめる（action=ping / ping_all・読むだけ）
+//       freee-sync-one {companyId}     … その事業所の直近3か月の請求書を取り込む（action=sync&months=3）
 //   読むだけ（だれでも・今のシステムが判定）:
 //     kintai-alert-dry   … 送らずに対象・未打刻・送る文を見る（action=dry）
 //     kintai-alert-groups … 通知先の候補と今の設定（action=groups・グループ名に人の名前が入るので super_admin だけ）
 //   ★決定日（だれでも・今のダッシュボードと同じ）:
 //     joined-date {name, decidedOn} … 参画決定日の手入力（POST /api/joined・空なら手入力を消す）。未経験の人だけ
 const bad = (error: string, status = 400) => NextResponse.json({ error }, { status });
-const SUPER = new Set(['kintai-alert-run', 'kintai-alert-group', 'kintai-alert-groups', 'mnm-sync', 'freee-sync']);
+const SUPER = new Set(['kintai-alert-run', 'kintai-alert-group', 'kintai-alert-groups', 'mnm-sync', 'freee-sync',
+  'freee-reauth-status', 'freee-bootstrap', 'freee-ping', 'freee-ping-all', 'freee-sync-one']);
 
 async function read(path: string, timeoutMs = 55000) {
   try {
@@ -55,6 +61,19 @@ export async function POST(req: Request) {
   if (kind === 'freee-sync') {
     const months = Math.max(1, Math.min(3, Math.trunc(Number(b.months) || 1)));
     return ikeWrite(req, `/api/freee-invoices?action=sync_all&months=${months}`, null, { method: 'GET', timeoutMs: 58000 });
+  }
+  if (kind.startsWith('freee-') && kind !== 'freee-sync') {
+    if (kind === 'freee-reauth-status') return read('/api/freee-invoices?action=reauth_status', 30000);
+    if (kind === 'freee-ping-all') return read('/api/freee-invoices?action=ping_all', 58000);
+    const cid = String(b.companyId || '').trim();
+    if (!/^\d{1,20}$/.test(cid)) return bad('事業所を選んでください');
+    if (kind === 'freee-ping') return read(`/api/freee-invoices?action=ping&company_id=${cid}`, 30000);
+    if (kind === 'freee-sync-one') return ikeWrite(req, `/api/freee-invoices?action=sync&company_id=${cid}&months=3`, null, { method: 'GET', timeoutMs: 58000 });
+    if (kind === 'freee-bootstrap') {
+      const code = String(b.code || '').trim();
+      if (!/^[A-Za-z0-9._~-]{10,300}$/.test(code)) return bad('認可コードの形が正しくありません（freee に出たコードをそのまま貼ってください）');
+      return ikeWrite(req, `/api/freee-kintai?action=bootstrap&sync=1&company_id=${cid}&code=${encodeURIComponent(code)}`, null, { method: 'GET', timeoutMs: 58000 });
+    }
   }
   if (kind === 'joined-date') {
     const name = String(b.name ?? '').trim().slice(0, 60);

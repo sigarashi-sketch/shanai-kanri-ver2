@@ -3,10 +3,12 @@
 import { Fragment, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { FreeeSyncButton } from '@/components/horyu/Ops';
+import { FreeeConnTab } from '@/components/horyu/FreeeConn';
 import { Card, HoryuFrame, Msg, Tabs, btnCls, horyuPost, inputCls, tdCls, thCls, useHoryu, yen } from '@/components/horyu/kit';
 
 // freee 請求書（保留・10-25）。今の /freee-invoices.html と同じ中身を読む（DB に取り込みずみの分だけ）。
-//   ・取り込み＝「freee から取り込む」（全体管理者だけ・確認の窓のあと・毎晩の自動と同じ関数 sync_all・/api/live/horyu/ops・10-26）。接続確認・再認可は今の画面のまま
+//   ・取り込み＝「freee から取り込む」（全体管理者だけ・確認の窓のあと・毎晩の自動と同じ関数 sync_all・/api/live/horyu/ops・10-26）
+//   ・freee接続（再認可）タブ＝今の画面の同じタブと同じ流れ（全体管理者だけ・components/horyu/FreeeConn.tsx・10-30）
 //   ・取引先→上位会社の紐づけだけここから直せる（今の map_upsert）。請求書づくり（seikyu）には触らない
 type Company = { company_id: string; parent: boolean };
 type Invoice = { company_id: string; invoice_id: number; invoice_number: string; subject: string; partner_label: string; joi: string; billing_date: string; payment_date: string; sending_status: string; deal_status: string; amount_including_tax: number; canceled: boolean };
@@ -18,7 +20,7 @@ const thisYm = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 7
 const shiftYm = (ym: string, n: number) => { const [y, m] = ym.split('-').map(Number); const d = new Date(Date.UTC(y, m - 1 + n, 1)); return d.toISOString().slice(0, 7); };
 
 
-type TabKey = 'summary' | 'list' | 'partners';
+type TabKey = 'summary' | 'list' | 'partners' | 'conn';
 
 export default function FreeeInvoicesPage() {
   const [ym, setYm] = useState(thisYm);
@@ -47,10 +49,11 @@ export default function FreeeInvoicesPage() {
         </label>
         <span className="num ml-auto text-body">合計（税込）<b className="ml-1 text-md">{yen(total)}</b></span>
       </div>
-      <Tabs<TabKey> value={tab} onChange={setTab} tabs={[{ key: 'summary', label: '上位会社ごと' }, { key: 'list', label: '請求書の一覧' }, { key: 'partners', label: '取引先の紐づけ' }]} />
+      <Tabs<TabKey> value={tab} onChange={setTab} tabs={[{ key: 'summary', label: '上位会社ごと' }, { key: 'list', label: '請求書の一覧' }, { key: 'partners', label: '取引先の紐づけ' }, { key: 'conn', label: 'freee接続（再認可）' }]} />
       {tab === 'summary' && <SummaryTab groups={groups} cLabel={cLabel} />}
       {tab === 'list' && <ListTab live={live} invoices={live ? list.data?.invoices ?? [] : []} loading={live && list.state === 'loading'} cLabel={cLabel} />}
       {tab === 'partners' && <PartnersTab live={live} company={company} cLabel={cLabel} />}
+      {tab === 'conn' && <FreeeConnTab />}
     </HoryuFrame>
   );
 }
