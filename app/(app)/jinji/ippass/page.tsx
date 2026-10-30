@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Eye, EyeOff, Plus } from 'lucide-react';
 import { Card, HoryuFrame, Msg, btnCls, fmtAt, horyuPost, inputCls, tdCls, thCls, useHoryu } from '@/components/horyu/kit';
 
@@ -20,6 +20,7 @@ export default function IppassPage() {
   const [shown, setShown] = useState<{ id: string; s: Secret } | null>(null);
   const [edit, setEdit] = useState<{ id: string; f: Record<string, string> } | null>(null);
   const [msg, setMsg] = useState<{ text: string; bad?: boolean }>({ text: '' });
+  const [saved, setSaved] = useState(''); // 直した行に「直しました」を出す（上のお知らせは見えないことがある）
   useEffect(() => { if (!shown) return; const t = setTimeout(() => setShown(null), 30000); return () => clearTimeout(t); }, [shown]);
 
   const post = async (body: Record<string, unknown>, done: string) => {
@@ -40,7 +41,7 @@ export default function IppassPage() {
     const body = edit.id === 'new' ? { action: 'add', ...f } : { action: 'update', id: edit.id, ...f };
     if (!String(edit.f.title ?? 'x').trim()) { setMsg({ text: '名前を入れてください', bad: true }); return; }
     const d = await post(body, edit.id === 'new' ? `${edit.f.title} を足しました` : '直しました');
-    if (d) { setEdit(null); setShown(null); void r.reload(); }
+    if (d) { setSaved(edit.id); setEdit(null); setShown(null); void r.reload(); }
   };
 
   return (
@@ -48,19 +49,7 @@ export default function IppassPage() {
       actions={<button onClick={() => setEdit({ id: 'new', f: { category: '', title: '' } })} className="btn-primary"><Plus size={15} />足す</button>}>
       {r.data && r.data.keyReady === false && <Msg text="今のシステムに暗号化の鍵が設定されていないので、足す・直すはできません" bad />}
       <Msg text={msg.text} bad={msg.bad} />
-      {edit && (
-        <Card title={edit.id === 'new' ? '足す' : '直す'} note={edit.id === 'new' ? undefined : '空のままの欄は変えません'}>
-          <div className="flex flex-wrap items-end gap-2 px-4 pb-4 text-sm text-muted">
-            <label className="flex flex-col gap-1">分類<input value={edit.f.category ?? ''} onChange={(e) => setEdit({ ...edit, f: { ...edit.f, category: e.target.value } })} className={`${inputCls} w-[120px]`} /></label>
-            <label className="flex flex-col gap-1">名前<input value={edit.f.title ?? ''} onChange={(e) => setEdit({ ...edit, f: { ...edit.f, title: e.target.value } })} className={`${inputCls} w-[180px]`} /></label>
-            {FIELDS.map(([k, label]) => (
-              <label key={k} className="flex flex-col gap-1">{label}<input type={k === 'password' ? 'password' : 'text'} autoComplete="off" value={edit.f[k] ?? ''} onChange={(e) => setEdit({ ...edit, f: { ...edit.f, [k]: e.target.value } })} className={`${inputCls} w-[160px]`} /></label>
-            ))}
-            <button className="btn-primary" onClick={saveEdit}>保存</button>
-            <button className={btnCls} onClick={() => setEdit(null)}>やめる</button>
-          </div>
-        </Card>
-      )}
+      {edit?.id === 'new' && <Card title="足す"><EditForm edit={edit} setEdit={setEdit} onSave={saveEdit} /></Card>}
       <div className="flex items-center gap-2 text-sm"><label className="flex items-center gap-1.5"><input type="checkbox" checked={deleted} onChange={(e) => setDeleted(e.target.checked)} />削除の印がついたものを見る</label></div>
       <Card>
         <div className="overflow-x-auto">
@@ -68,7 +57,8 @@ export default function IppassPage() {
             <thead><tr className="th-row"><th className={thCls}>分類</th><th className={thCls}>名前</th><th className={thCls}>中身</th><th className={thCls}>更新</th><th className={thCls} /></tr></thead>
             <tbody>
               {rows.map((it) => (
-                <tr key={it.id} className="border-t border-line-soft align-top">
+                <Fragment key={it.id}>
+                <tr className="border-t border-line-soft align-top">
                   <td className={tdCls}>{it.category || '—'}</td>
                   <td className={`${tdCls} font-semibold`}>{it.title}</td>
                   <td className={tdCls}>
@@ -78,16 +68,24 @@ export default function IppassPage() {
                       </dl>
                     ) : <span className="text-faint">（隠しています）</span>}
                   </td>
-                  <td className={`${tdCls} text-sm text-muted`}>{fmtAt(it.updated_at)}<div>{it.updated_by.split('@')[0]}</div></td>
+                  <td className={`${tdCls} text-sm text-muted`}>{fmtAt(it.updated_at)}<div>{it.updated_by.split('@')[0]}</div>{saved === it.id && <span className="chip mt-1" style={{ background: 'var(--tone-ok-bg)', color: 'var(--tone-ok-fg)' }}>直しました</span>}</td>
                   <td className={`${tdCls} whitespace-nowrap`}>
                     {!it.deleted_at && <>
                       <button className={btnCls} onClick={() => reveal(it)}>{shown?.id === it.id ? <><EyeOff size={13} className="mr-1 inline" />隠す</> : <><Eye size={13} className="mr-1 inline" />見る</>}</button>
-                      <button className={`${btnCls} ml-1`} onClick={() => setEdit({ id: it.id, f: { category: it.category, title: it.title } })}>直す</button>
+                      <button className={`${btnCls} ml-1`} onClick={() => { setMsg({ text: '' }); setEdit({ id: it.id, f: { category: it.category, title: it.title } }); }}>直す</button>
                       <button className={`${btnCls} ml-1`} onClick={() => { if (window.confirm(`${it.title} に削除の印をつけます（あとで戻せます）`)) void post({ action: 'delete', id: it.id }, `${it.title} に削除の印をつけました`).then(() => r.reload()); }}>削除</button>
                     </>}
                     {it.deleted_at && <button className={btnCls} onClick={() => void post({ action: 'restore', id: it.id }, `${it.title} を戻しました`).then(() => r.reload())}>戻す</button>}
                   </td>
                 </tr>
+                {edit?.id === it.id && (
+                  <tr className="bg-soft"><td colSpan={5} className="pt-3">
+                    <div className="px-4 text-sm font-bold">{it.category ? `${it.category}・` : ''}{it.title} を直す<span className="ml-2 font-normal text-muted">空のままの欄は変えません</span></div>
+                    {msg.bad && <div className="px-4 pt-2"><Msg text={msg.text} bad /></div>}
+                    <EditForm edit={edit} setEdit={setEdit} onSave={saveEdit} />
+                  </td></tr>
+                )}
+                </Fragment>
               ))}
               {r.state !== 'loading' && !rows.length && <tr><td colSpan={5} className="px-4 py-8 text-center text-muted">ありません</td></tr>}
             </tbody>
@@ -95,6 +93,21 @@ export default function IppassPage() {
         </div>
       </Card>
     </HoryuFrame>
+  );
+}
+
+// 足す（表の上）・直す（押した行の真下＝10-30 shoya「直すおしても動かなくね」＝188件あると表の上の欄が見えなかった）で同じ欄
+function EditForm({ edit, setEdit, onSave }: { edit: { id: string; f: Record<string, string> }; setEdit: (e: { id: string; f: Record<string, string> } | null) => void; onSave: () => void }) {
+  return (
+    <div className="flex flex-wrap items-end gap-2 px-4 pb-4 pt-2 text-sm text-muted">
+      <label className="flex flex-col gap-1">分類<input value={edit.f.category ?? ''} onChange={(e) => setEdit({ ...edit, f: { ...edit.f, category: e.target.value } })} className={`${inputCls} w-[120px]`} /></label>
+      <label className="flex flex-col gap-1">名前<input value={edit.f.title ?? ''} onChange={(e) => setEdit({ ...edit, f: { ...edit.f, title: e.target.value } })} className={`${inputCls} w-[180px]`} /></label>
+      {FIELDS.map(([k, label]) => (
+        <label key={k} className="flex flex-col gap-1">{label}<input type={k === 'password' ? 'password' : 'text'} autoComplete="off" value={edit.f[k] ?? ''} onChange={(e) => setEdit({ ...edit, f: { ...edit.f, [k]: e.target.value } })} className={`${inputCls} w-[160px]`} /></label>
+      ))}
+      <button className="btn-primary" onClick={onSave}>保存</button>
+      <button className={btnCls} onClick={() => setEdit(null)}>やめる</button>
+    </div>
   );
 }
 
