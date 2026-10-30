@@ -51,7 +51,7 @@ export function useLiveFetch<T>(url: string | null, opts?: { pollMs?: number }) 
 }
 
 // 書き込みが通ったら読み直す。自分の設定・添付の上げ・見た記録のような 中身の変わらない書き込みでは読み直さない
-const QUIET_WRITE = /my-prefs|prefs|upload|chat-upload|\/view|log|ike-auth|roster-prefs/;
+const QUIET_WRITE = /client-error|my-prefs|prefs|upload|chat-upload|\/view|log|ike-auth|roster-prefs/;
 // POST でも読むだけの口（手動配信・案内配信の宛先確認・案内の一覧＝app/api/live/haishin の READS）
 const READ_BY_POST = /"op"\s*:\s*"(dry|poll-list|poll-detail)"/;
 let writesWatched = false;
