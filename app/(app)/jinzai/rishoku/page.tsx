@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CalendarPlus, Check, CircleAlert } from 'lucide-react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, CalendarPlus, Check, ChevronDown, ChevronRight, CircleAlert, X } from 'lucide-react';
 import { MENDAN_WHEN, type RiskPerson } from '@/lib/types/jinji';
 import { PageTitle } from '@/components/ui';
 import { needText, usePerms } from '@/components/Perms';
@@ -13,12 +13,14 @@ import { normName, type LiveStaffList } from '@/lib/live/staff';
 import { useMikeiken } from '@/components/Mikeiken';
 import { useLiveWrite, WriteError } from '@/components/jinji/useLiveWrite';
 import { PersonName } from '@/components/Person';
-import { pctText, rateFromIke, type IkeRishoku, type LiveRate } from '@/lib/live/rishoku';
+import { pctText, rateFromIke, rateText, type IkeDim, type IkeRishoku, type LiveRate } from '@/lib/live/rishoku';
 
 // 離職リスク・離職率（人事管理）。
 //   ・リスクは点数にせず「材料」を並べる：残業の増え方・未打刻・欠勤・面談メモの気になる言葉・待機の長さ・入社からの月数
 //   ・材料が2つ以上重なる人＝「早めに面談」。次の一手は面談を入れる（担当と時期を選ぶだけ）
 //   ・離職率タブ：入社月ごとの 3/6/12か月の定着（初回入場から在籍通算・未経験の社員だけ・2026-02 以降の入場）
+//     月の行を押すと その月だけの詳細（退職の理由・区分ごとの離職率）が開く（10-30 shoya「月ごとに詳細みれなくなった」＝
+//     それゆけ /rishoku の「月ごと」と同じ・今の /api/rishoku?month=YYYY-MM を読むだけ。人数と率だけで氏名は出ない）
 //   年齢・性別・健康の申告は材料に使わない（差が出ても選別に使わない）
 //   ★本物（10-26）：今のシステムの /api/jinji-v2?action=rishoku の材料（欠勤＝欠勤管理・待機＝名簿・残業のめやす＝freee 勤怠の月の合計・
 //     メモの言葉＝対応歴と面談メモの決まった言葉だけ・入場からの月数＝稼働管理情報一覧）。未打刻は材料にしていない。
@@ -142,6 +144,13 @@ function RiskTab({ st, lv: L }: { st: RiskState; lv: LiveRisk }) {
 
 // 本物の離職率（今の社内システムの数え方のまま）。月ごとの行は「その月に入社した人が今日も在籍しているか」と「その月の離職率」
 function LiveRateTab({ r }: { r: LiveRate }) {
+  const [open, setOpen] = useState<string | null>(null);
+  useEffect(() => { const m = new URLSearchParams(window.location.search).get('month'); if (m && /^\d{4}-\d{2}$/.test(m)) setOpen(m); }, []);
+  const pick = (ym: string) => {
+    const next = open === ym ? null : ym;
+    setOpen(next);
+    window.history.replaceState(null, '', next ? `?tab=rate&month=${next}` : '?tab=rate');
+  };
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-3">
@@ -158,9 +167,9 @@ function LiveRateTab({ r }: { r: LiveRate }) {
         <table className="w-full min-w-[760px] border-collapse text-body">
           <thead><tr className="th-row text-left"><th className="px-4 py-2.5 font-semibold">月</th><th className="px-2 py-2.5 font-semibold">月初の在籍</th><th className="px-2 py-2.5 font-semibold">入社</th><th className="px-2 py-2.5 font-semibold">退職</th><th className="px-2 py-2.5 font-semibold">その月の離職率</th><th className="px-2 py-2.5 font-semibold">その月の入社で今日も在籍</th></tr></thead>
           <tbody>
-            {r.rows.map((x, i) => (
-              <tr key={x.ym} className="row border-t border-line-soft">
-                <td className="num px-4 py-2.5 font-semibold">{x.ym.replace('-', '年')}月</td>
+            {r.rows.map((x, i) => (<Fragment key={x.ym}>
+              <tr onClick={() => pick(x.ym)} aria-expanded={open === x.ym} title="押すとこの月の詳細" className={`row cursor-pointer border-t border-line-soft ${open === x.ym ? 'bg-soft' : ''}`}>
+                <td className="num whitespace-nowrap px-4 py-2.5 font-semibold">{open === x.ym ? <ChevronDown size={14} className="mr-1 inline text-muted" /> : <ChevronRight size={14} className="mr-1 inline text-faint" />}{x.ym.replace('-', '年')}月</td>
                 <td className="num px-2 py-2.5">{x.start}人</td>
                 <td className="num px-2 py-2.5">{x.joined}人</td>
                 <td className="num px-2 py-2.5">{x.left}人</td>
@@ -174,12 +183,71 @@ function LiveRateTab({ r }: { r: LiveRate }) {
                   )}
                 </td>
               </tr>
-            ))}
+              {open === x.ym && <tr className="border-t border-line-soft"><td colSpan={6} className="bg-soft px-4 py-3"><MonthDetail ym={x.ym} onClose={() => pick(x.ym)} /></td></tr>}
+            </Fragment>))}
           </tbody>
         </table>
       </div>
       {r.notes.length > 0 && <ul className="flex flex-col gap-0.5 text-xs text-faint">{r.notes.map((n) => <li key={n}>・{n}</li>)}</ul>}
-      <p className="text-xs leading-relaxed text-faint">数え方は今の社内システムと同じです：未経験で入った社員だけ・入場する前に辞めた人は数えない・その月の離職率＝その月の退職 ÷（月初の在籍＋その月の入社）。入社3/6/12か月ごとの定着の表は、今の社内システムにまだ無いので出していません。</p>
+      <p className="text-xs leading-relaxed text-faint">月の行を押すと、その月の詳細（退職の理由・区分ごとの離職率）が開きます。数え方は今の社内システムと同じです：未経験で入った社員だけ・入場する前に辞めた人は数えない・その月の離職率＝その月の退職 ÷（月初の在籍＋その月の入社）。入社3/6/12か月ごとの定着の表は、今の社内システムにまだ無いので出していません。</p>
+    </div>
+  );
+}
+
+// その月だけの詳細（今の /api/rishoku?month=YYYY-MM）。人数5人未満の区分は薄く（ぶれが大きい・今の rishoku.html と同じ）
+function MonthDetail({ ym, onClose }: { ym: string; onClose: () => void }) {
+  const d = useIke<IkeRishoku>(`rishoku?month=${ym}`);
+  const j = d.data;
+  if (d.state === 'error' || (j && !j.ok)) return <LiveBanner state="error" error={`この月の詳細を読めませんでした（${d.error || j?.error || ''}）`} onReload={d.reload} />;
+  if (!j || !j.kpi) return <div className="text-sm text-muted">{ym.replace('-', '年')}月の詳細を読んでいます…</div>;
+  const k = j.kpi;
+  const reasons = j.reasons || [];
+  const maxR = Math.max(1, ...reasons.map((x) => x.n));
+  const dims = j.dims || [];
+  return (
+    <div className="mo-fade-in flex flex-col gap-3">
+      <div className="flex items-center gap-2"><b className="text-body">{ym.replace('-', '年')}月の詳細</b><span className="text-xs text-faint">{j.window.from} 〜 {j.window.to}・対象 {j.population.people}人</span><button onClick={onClose} aria-label="閉じる" className="ml-auto rounded p-1 text-muted hover:bg-sunken"><X size={14} /></button></div>
+      <div className="flex flex-wrap gap-2">
+        {([['退職', `${k.left}人`, `在籍 ${k.exposure}人月`], ['月あたり離職率', rateText(k.rate), '退職 ÷ 在籍人月'], ['この月の入社で1か月以内に辞めた', pctText(k.early1), `${k.early1.left}人 / ${k.early1.n}人`], ['この月の入社で3か月以内に辞めた', pctText(k.early3), `${k.early3.left}人 / ${k.early3.n}人`], ['この月の入社で今日までに辞めた', pctText(k.cohort), `${k.cohort.left}人 / ${k.cohort.n}人`]] as const).map(([l, v, sub]) => (
+          <div key={l} className="rounded-lg border border-line bg-surface px-3 py-2"><div className="text-xs text-muted">{l}</div><div className="num text-lg font-bold">{v}</div><div className="num text-xs text-faint">{sub}</div></div>
+        ))}
+      </div>
+      <div className="rounded-lg border border-line bg-surface px-3 py-2">
+        <div className="mb-1.5 text-sm font-semibold">退職の理由</div>
+        {reasons.length === 0 ? <div className="text-sm text-faint">この月の退職はありません</div> : (
+          <div className="grid grid-cols-[120px_1fr] items-center gap-x-2.5 gap-y-1 text-sm">
+            {reasons.map((x, i) => (<Fragment key={x.label}><span className="text-muted">{x.label}</span><div className="flex items-center gap-2"><div className="h-2.5 overflow-hidden rounded-full bg-sunken" style={{ width: '60%' }}><div className="mo-bar h-full rounded-full" style={{ width: `${(x.n / maxR) * 100}%`, background: 'var(--tone-bad-bar)', ['--i' as string]: i }} /></div><span className="num">{x.n}人</span></div></Fragment>))}
+          </div>
+        )}
+      </div>
+      {(['data', 'action'] as const).map((g) => {
+        const ds = dims.filter((x) => x.group === g && x.rows.length);
+        if (!ds.length) return null;
+        return (
+          <div key={g} className="flex flex-col gap-1.5">
+            <div className="text-sm font-semibold">{g === 'data' ? '区分ごとの離職率' : '施策ごとの離職率'}<span className="ml-2 text-xs font-normal text-faint">{g === 'data' ? '月あたり離職率＝退職 ÷ 在籍人月。5人未満の区分は薄く表示（ぶれが大きい）' : '受けた人／受けていない人の比較。早く辞めた人は施策を受ける前に辞めていることが多いので、差がそのまま効果とは限らない'}</span></div>
+            <div className="grid gap-2 lg:grid-cols-2">{ds.map((x) => <DimCard key={x.key} d={x} />)}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+function DimCard({ d }: { d: IkeDim }) {
+  return (
+    <div className="overflow-x-auto rounded-lg border border-line bg-surface">
+      <div className="px-3 pt-2 text-sm font-semibold">{d.label}{d.unknownShare >= 0.3 && <span className="ml-2 text-xs font-normal text-warn">不明が{Math.round(d.unknownShare * 100)}%</span>}</div>
+      {d.note && <div className="px-3 text-xs text-faint">{d.note}</div>}
+      <table className="mt-1 w-full border-collapse text-sm">
+        <thead><tr className="text-left text-xs text-muted"><th className="px-3 py-1 font-semibold">区分</th><th className="px-2 py-1 font-semibold">人数</th><th className="px-2 py-1 font-semibold">退職</th><th className="px-2 py-1 font-semibold">月あたり</th><th className="px-2 py-1 font-semibold">今日までに</th></tr></thead>
+        <tbody>
+          {d.rows.map((r) => (
+            <tr key={r.label} className={`border-t border-line-soft ${r.people < 5 ? 'opacity-50' : ''}`}>
+              <td className="px-3 py-1">{r.label}</td><td className="num px-2 py-1">{r.people}</td><td className="num px-2 py-1">{r.left}</td><td className="num px-2 py-1">{rateText(r.rate)}</td><td className="num px-2 py-1">{pctText(r.cohort)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

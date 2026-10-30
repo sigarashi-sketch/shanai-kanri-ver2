@@ -10,7 +10,12 @@ export type IkeRishoku = {
   population: { people: number; retired: number; active: number };
   kpi: { left: number; exposure: number; rate: number | null; early1: IkeRateCell; early3: IkeRateCell; early6: IkeRateCell; cohort: IkeRateCell; netGain: number };
   trend: IkeTrendRow[];
+  // 区分ごと（?month=YYYY-MM でその月だけ。人数と率だけ・氏名は返さない）
+  reasons?: { label: string; n: number }[];
+  dims?: IkeDim[];
 };
+export type IkeDimRow = { label: string; people: number; left: number; exposure: number; rate: number | null; early1: IkeRateCell; early3: IkeRateCell; early6: IkeRateCell; cohort: IkeRateCell };
+export type IkeDim = { key: string; label: string; group: 'data' | 'action'; note: string; rows: IkeDimRow[]; unknownShare: number };
 
 export type LiveRateRow = { ym: string; start: number; joined: number; left: number; monthRate: number | null; stay: number; stayPct: number | null };
 export type LiveRate = {
@@ -37,4 +42,6 @@ export function rateFromIke(j: IkeRishoku | null): LiveRate | null {
     }),
   };
 }
+/** 月あたり離職率など 0〜1 の率を「12.3%」に */
+export const rateText = (r: number | null) => (r == null ? '—' : `${Math.round(r * 1000) / 10}%`);
 export const pctText = (c: IkeRateCell) => (c.rate == null ? '—' : `${Math.round(c.rate * 1000) / 10}%`);
